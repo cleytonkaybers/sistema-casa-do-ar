@@ -120,16 +120,48 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
     onSave(formData);
   };
 
-  // Função para buscar dados de localização a partir de um link do Google Maps ou endereço
+  // Função para buscar dados de localização a partir de um link do Google Maps, coordenadas ou endereço
   const handleSearchLocation = async () => {
     const input = formData.endereco?.trim();
     if (!input) {
-      toast.error('Digite um endereço ou cole um link do Google Maps');
+      toast.error('Digite um endereço, coordenadas ou cole um link do Google Maps');
       return;
     }
 
     setLoadingLocation(true);
     try {
+      // Verifica se são coordenadas (formato: -10.123, -59.456)
+      const coordRegex = /^-?\d+\.?\d*,\s*-?\d+\.?\d*$/;
+      if (coordRegex.test(input)) {
+        const [lat, lng] = input.split(',').map(c => parseFloat(c.trim()));
+        
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt: `Busque o endereço completo para estas coordenadas: latitude ${lat}, longitude ${lng}. 
+                   Retorne o endereço completo, bairro, cidade e estado no Brasil.`,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              endereco_completo: { type: "string", description: "Endereço completo formatado (rua, número, complemento)" },
+              bairro: { type: "string", description: "Bairro ou distrito" },
+              cidade: { type: "string", description: "Nome da cidade" },
+              estado: { type: "string", description: "Sigla do estado (ex: SP, MT)" }
+            }
+          }
+        });
+
+        setFormData(prev => ({
+          ...prev,
+          endereco: result.endereco_completo || prev.endereco,
+          bairro: result.bairro || prev.bairro,
+          cidade: result.cidade ? `${result.cidade}${result.estado ? ` - ${result.estado}` : ''}` : prev.cidade,
+          latitude: lat,
+          longitude: lng
+        }));
+        toast.success('Coordenadas salvas e endereço preenchido!');
+        return;
+      }
+
       // Verifica se é um link do Google Maps
       const isGoogleMapsLink = input.includes('google.com/maps') || input.includes('maps.app.goo.gl') || input.includes('goo.gl/maps');
       
@@ -306,7 +338,7 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
                   id="endereco"
                   value={formData.endereco}
                   onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
-                  placeholder="Cole o link do Maps ou digite o endereço"
+                  placeholder="Link do Maps, coordenadas ou endereço"
                   className="h-11 pl-10"
                 />
               </div>
@@ -342,7 +374,7 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
               ) : null}
             </div>
             <p className="text-xs text-gray-500">
-              Cole um link do Google Maps (ex: https://maps.app.goo.gl/...) e clique em buscar para preencher automaticamente
+              Cole um link do Google Maps, coordenadas (ex: -10.173, -59.446) ou digite o endereço e clique em buscar
             </p>
           </div>
 
