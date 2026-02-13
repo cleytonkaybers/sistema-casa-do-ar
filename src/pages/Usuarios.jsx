@@ -316,14 +316,6 @@ export default function UsuariosPage() {
          </DialogHeader>
          <div className="space-y-4 mt-4">
            <div className="space-y-2">
-             <Label>Nome Completo</Label>
-             <Input
-               placeholder="João Silva"
-               value={inviteFullName}
-               onChange={(e) => setInviteFullName(e.target.value)}
-             />
-           </div>
-           <div className="space-y-2">
              <Label>Email</Label>
              <Input
                type="email"
@@ -361,10 +353,10 @@ export default function UsuariosPage() {
              </Button>
              <Button 
                onClick={handleInvite} 
-               disabled={inviteUserMutation.isPending}
+               disabled={createUserMutation.isPending}
                className="bg-gradient-to-r from-blue-500 to-cyan-500"
              >
-               {inviteUserMutation.isPending ? (
+               {createUserMutation.isPending ? (
                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando...</>
                ) : (
                  'Criar Usuário'
