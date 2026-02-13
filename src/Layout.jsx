@@ -78,15 +78,18 @@ export default function Layout({ children }) {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between p-6 border-b border-purple-700/50">
-            <div className="flex items-center gap-3">
+            <Link to={isAdmin ? createPageUrl('Configuracoes') : '#'} className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
               <div className="w-12 h-12 bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-2xl shadow-purple-500/50">
-                <Snowflake className="w-7 h-7 text-white" />
+                {(() => {
+                  const Icon = require('lucide-react')[companySettings.company_icon];
+                  return Icon ? <Icon className="w-7 h-7 text-white" /> : <Settings className="w-7 h-7 text-white" />;
+                })()}
               </div>
               <div>
-                <h1 className="font-bold text-white text-lg leading-tight">Casa do Ar</h1>
+                <h1 className="font-bold text-white text-lg leading-tight">{companySettings.company_name}</h1>
                 <p className="text-xs text-purple-300/80">Climatização</p>
               </div>
-            </div>
+            </Link>
             <button 
               onClick={() => setSidebarOpen(false)}
               className="lg:hidden p-2 rounded-lg hover:bg-purple-700/30 transition-colors"
