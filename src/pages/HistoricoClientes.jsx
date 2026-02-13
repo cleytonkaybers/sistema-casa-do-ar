@@ -5,13 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, Calendar, User, DollarSign, CheckCircle2, Clock, Download, FileText } from 'lucide-react';
+import { Search, Calendar, User, DollarSign, CheckCircle2, Clock, Download, FileText, Eye, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { gerarPDFCliente, gerarPDFTodos } from '@/components/utils/HistoricoDownload';
 
 export default function HistoricoClientes() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [clienteSelecionado, setClienteSelecionado] = useState(null);
 
   const { data: servicos = [] } = useQuery({
     queryKey: ['servicos'],
@@ -102,6 +103,84 @@ export default function HistoricoClientes() {
 
   return (
     <div className="space-y-6">
+      {/* Modal de Detalhes */}
+      {clienteSelecionado && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <CardHeader className="bg-gradient-to-r from-slate-800 to-slate-900 text-white sticky top-0 flex items-center justify-between">
+              <div>
+                <CardTitle className="text-2xl">Detalhes de Manutenção - {clienteSelecionado}</CardTitle>
+              </div>
+              <Button
+                onClick={() => setClienteSelecionado(null)}
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </CardHeader>
+
+            <CardContent className="p-6">
+              <div className="space-y-6">
+                {clientesAgrupados[clienteSelecionado]?.map((item, index) => (
+                  <div key={item.id} className="border-l-4 border-blue-500 pl-4 pb-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-lg text-gray-800">{item.descricao}</h4>
+                        <Badge className={`${statusCores[item.status]} border text-xs mt-2`}>
+                          {item.status}
+                        </Badge>
+                      </div>
+                      {item.valor && (
+                        <span className="font-bold text-lg text-green-600">
+                          R$ {item.valor.toLocaleString('pt-BR')}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-500 font-medium">Data do Serviço</p>
+                        <p className="text-gray-800 mt-1">{format(new Date(item.data), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 font-medium">Tipo</p>
+                        <p className="text-gray-800 mt-1">{item.tipo}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 font-medium">Criado por</p>
+                        <p className="text-gray-800 mt-1">{servicos.find(s => s.id === item.id?.replace('s-', ''))?.created_by || atendimentos.find(a => a.id === item.id?.replace('a-', ''))?.created_by || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 font-medium">Data de Criação</p>
+                        <p className="text-gray-800 mt-1">
+                          {item.id?.startsWith('s-') 
+                            ? format(new Date(servicos.find(s => s.id === item.id?.replace('s-', ''))?.created_date), 'dd/MM/yyyy HH:mm', { locale: ptBR })
+                            : format(new Date(atendimentos.find(a => a.id === item.id?.replace('a-', ''))?.created_date), 'dd/MM/yyyy HH:mm', { locale: ptBR })
+                          }
+                        </p>
+                      </div>
+                      {item.data_atualizacao && (
+                        <>
+                          <div>
+                            <p className="text-gray-500 font-medium">Alterado por</p>
+                            <p className="text-gray-800 mt-1">{item.usuario || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500 font-medium">Data de Alteração</p>
+                            <p className="text-gray-800 mt-1">{format(new Date(item.data_atualizacao), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR })}</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-800">📋 Histórico de Clientes</h1>
@@ -189,6 +268,14 @@ export default function HistoricoClientes() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge className="bg-cyan-500 text-white border-0">{itens.length}</Badge>
+                    <Button
+                      onClick={() => setClienteSelecionado(cliente)}
+                      size="sm"
+                      className="bg-blue-600 hover:bg-blue-700 gap-1"
+                    >
+                      <Eye className="w-4 h-4" />
+                      Detalhes
+                    </Button>
                     <Button
                       onClick={() => gerarPDFCliente(cliente, 
                         servicos.filter(s => s.cliente_nome === cliente),
