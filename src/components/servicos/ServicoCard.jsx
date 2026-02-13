@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Phone, MapPin, Calendar, Pencil, Trash2, MessageCircle, Navigation, Clock, DollarSign, Share2 } from 'lucide-react';
+import { Phone, MapPin, Calendar, Pencil, Trash2, MessageCircle, Navigation, Clock, DollarSign, Share2, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function ServicoCard({ servico, onEdit, onDelete }) {
@@ -95,6 +95,13 @@ export default function ServicoCard({ servico, onEdit, onDelete }) {
               <span className="hidden sm:inline">WhatsApp</span>
             </a>
           </div>
+
+          {servico.cpf && (
+            <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
+              <CreditCard className="w-4 h-4 text-gray-400" />
+              <span>CPF: {servico.cpf}</span>
+            </div>
+          )}
 
           {servico.endereco && (
             <div className="flex items-start gap-2 text-gray-600">
