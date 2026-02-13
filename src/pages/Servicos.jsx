@@ -117,10 +117,20 @@ export default function ServicosPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos os Tipos</SelectItem>
-            <SelectItem value="Diário">Diário</SelectItem>
-            <SelectItem value="Semanal">Semanal</SelectItem>
-            <SelectItem value="Quinzenal">Quinzenal</SelectItem>
-            <SelectItem value="Mensal">Mensal</SelectItem>
+            <SelectItem value="Limpeza de 9k">Limpeza de 9k</SelectItem>
+            <SelectItem value="Limpeza de 12k">Limpeza de 12k</SelectItem>
+            <SelectItem value="Limpeza de 18k">Limpeza de 18k</SelectItem>
+            <SelectItem value="Limpeza de 22 a 24k">Limpeza de 22 a 24k</SelectItem>
+            <SelectItem value="Limpeza de 24k">Limpeza de 24k</SelectItem>
+            <SelectItem value="Limpeza de 30 a 32k">Limpeza de 30 a 32k</SelectItem>
+            <SelectItem value="Limpeza piso e teto">Limpeza piso e teto</SelectItem>
+            <SelectItem value="Instalação de 9k">Instalação de 9k</SelectItem>
+            <SelectItem value="Instalação de 12k">Instalação de 12k</SelectItem>
+            <SelectItem value="Instalação de 18k">Instalação de 18k</SelectItem>
+            <SelectItem value="Instalação de 22 a 24k">Instalação de 22 a 24k</SelectItem>
+            <SelectItem value="Instalação de 24k">Instalação de 24k</SelectItem>
+            <SelectItem value="Instalação de 30 a 32k">Instalação de 30 a 32k</SelectItem>
+            <SelectItem value="Instalação piso e teto">Instalação piso e teto</SelectItem>
           </SelectContent>
         </Select>
       </div>

@@ -50,11 +50,14 @@ export default function ServicoCard({ servico, onEdit, onDelete }) {
   };
 
   const mapsLink = getGoogleMapsLink();
-  const tipoColors = {
-    'Diário': 'bg-purple-100 text-purple-700 border-purple-200',
-    'Semanal': 'bg-blue-100 text-blue-700 border-blue-200',
-    'Quinzenal': 'bg-green-100 text-green-700 border-green-200',
-    'Mensal': 'bg-orange-100 text-orange-700 border-orange-200'
+  const getTipoColor = (tipo) => {
+    if (tipo?.startsWith('Limpeza')) {
+      return 'bg-blue-100 text-blue-700 border-blue-200';
+    }
+    if (tipo?.startsWith('Instalação')) {
+      return 'bg-green-100 text-green-700 border-green-200';
+    }
+    return 'bg-gray-100 text-gray-700 border-gray-200';
   };
 
   return (
@@ -72,7 +75,7 @@ export default function ServicoCard({ servico, onEdit, onDelete }) {
             </Button>
             <div className="flex-1">
               <h3 className="font-semibold text-lg">{servico.cliente_nome}</h3>
-              <Badge className={`${tipoColors[servico.tipo_servico]} mt-1`}>
+              <Badge className={`${getTipoColor(servico.tipo_servico)} mt-1`}>
                 {servico.tipo_servico}
               </Badge>
             </div>
