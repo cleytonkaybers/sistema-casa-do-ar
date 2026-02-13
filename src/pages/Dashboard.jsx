@@ -291,8 +291,8 @@ export default function Dashboard() {
                             <Snowflake className={`w-5 h-5 ${isOverdue ? 'text-red-600' : 'text-amber-600'}`} />
                           </div>
                           <div>
-                            <p className="font-medium text-white">{cliente.nome}</p>
-                            <p className="text-xs text-gray-400">{cliente.tipo_equipamento || 'Não especificado'}</p>
+                            <p className="font-medium text-black">{cliente.nome}</p>
+                            <p className="text-xs text-gray-600">{cliente.tipo_equipamento || 'Não especificado'}</p>
                           </div>
                         </div>
                         <div className={`text-right ${isOverdue ? 'text-red-400' : 'text-orange-400'}`}>
