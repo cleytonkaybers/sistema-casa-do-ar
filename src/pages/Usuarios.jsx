@@ -119,39 +119,53 @@ export default function UsuariosPage() {
     onError: () => toast.error('Erro ao deletar usuário')
   });
 
+  const inviteUserMutation = useMutation({
+    mutationFn: async ({ email, fullName, perfil }) => {
+      await base44.users.inviteUser(email, 'user');
+      
+      // Aguarda o usuário ser criado
+      let newUser = null;
+      for (let i = 0; i < 10; i++) {
+        const allUsers = await base44.entities.User.list();
+        newUser = allUsers.find(u => u.email === email);
+        if (newUser) break;
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      if (newUser) {
+        const perfil_config = perfisPreDefinidos[perfil];
+        await base44.entities.User.update(newUser.id, {
+          full_name: fullName,
+          perfil: perfil,
+          permissoes: perfil_config.permissoes
+        });
+      }
+      
+      return newUser;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+      toast.success('Usuário criado com sucesso!');
+      setShowInviteModal(false);
+      setInviteEmail('');
+      setInviteFullName('');
+      setInvitePassword('');
+      setInvitePerfil('atendente');
+    },
+    onError: () => toast.error('Erro ao criar usuário')
+  });
+
   const handleInvite = async () => {
     if (!inviteEmail || !inviteFullName || !invitePassword) {
       toast.error('Preencha todos os campos');
       return;
     }
 
-    try {
-      const perfil = perfisPreDefinidos[invitePerfil];
-      await base44.users.inviteUser(inviteEmail, 'user');
-      
-      setTimeout(async () => {
-        const allUsers = await base44.entities.User.list();
-        const newUser = allUsers.find(u => u.email === inviteEmail);
-        
-        if (newUser) {
-          await base44.entities.User.update(newUser.id, {
-            full_name: inviteFullName,
-            perfil: invitePerfil,
-            permissoes: perfil.permissoes
-          });
-          queryClient.invalidateQueries({ queryKey: ['usuarios'] });
-        }
-        
-        toast.success('Usuário criado com sucesso!');
-        setShowInviteModal(false);
-        setInviteEmail('');
-        setInviteFullName('');
-        setInvitePassword('');
-        setInvitePerfil('atendente');
-      }, 1000);
-    } catch (error) {
-      toast.error('Erro ao criar usuário');
-    }
+    inviteUserMutation.mutate({
+      email: inviteEmail,
+      fullName: inviteFullName,
+      perfil: invitePerfil
+    });
   };
 
   const handleEditPermissions = (user) => {
