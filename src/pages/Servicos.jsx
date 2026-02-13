@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import ServicoForm from '../components/servicos/ServicoForm';
 import ServicoCard from '../components/servicos/ServicoCard';
 import ReagendarModal from '../components/servicos/ReagendarModal';
+import CompartilharModal from '../components/servicos/CompartilharModal';
 import { toast } from 'sonner';
 import { format, parseISO, startOfMonth, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -23,6 +24,8 @@ export default function ServicosPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showReagendarModal, setShowReagendarModal] = useState(false);
   const [servicoParaReagendar, setServicoParaReagendar] = useState(null);
+  const [showCompartilharModal, setShowCompartilharModal] = useState(false);
+  const [servicoConcluido, setServicoConcluido] = useState(null);
 
   const queryClient = useQueryClient();
 
@@ -130,6 +133,15 @@ export default function ServicosPage() {
         id: servico.id, 
         data: { ...servico, status: novoStatus } 
       });
+    } else if (novoStatus === 'concluido') {
+      // Atualizar status e abrir modal de compartilhamento
+      updateMutation.mutate({ 
+        id: servico.id, 
+        data: { ...servico, status: novoStatus } 
+      });
+      setServicoConcluido(servico);
+      setShowCompartilharModal(true);
+      toast.success('Serviço concluído! 🎉');
     } else {
       updateMutation.mutate({ 
         id: servico.id, 
@@ -386,6 +398,15 @@ export default function ServicosPage() {
         onSave={handleReagendar}
         servico={servicoParaReagendar}
         isLoading={updateMutation.isPending}
+      />
+
+      <CompartilharModal
+        open={showCompartilharModal}
+        onClose={() => {
+          setShowCompartilharModal(false);
+          setServicoConcluido(null);
+        }}
+        servico={servicoConcluido}
       />
     </div>
   );
