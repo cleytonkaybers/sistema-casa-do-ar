@@ -22,8 +22,12 @@ import {
   Edit,
   Trash2,
   Clock,
-  Calendar
+  Calendar,
+  Eye,
+  Star
 } from 'lucide-react';
+import { createPageUrl } from '@/utils';
+import { useNavigate } from 'react-router-dom';
 
 export default function ClientesTable({ 
   clientes, 
@@ -32,6 +36,7 @@ export default function ClientesTable({
   onViewHistory,
   isAdmin 
 }) {
+  const navigate = useNavigate();
   const formatPhone = (phone) => {
     if (!phone) return '-';
     return phone.replace(/(\d{2})(\d{4,5})(\d{4})/, '($1) $2-$3');
@@ -64,6 +69,7 @@ export default function ClientesTable({
               <TableHead className="h-12 text-gray-700 font-bold">Endereço</TableHead>
               <TableHead className="h-12 text-gray-700 font-bold">Última Manutenção</TableHead>
               <TableHead className="h-12 text-gray-700 font-bold">Próxima Manutenção</TableHead>
+              <TableHead className="h-12 text-gray-700 font-bold">Segmentação</TableHead>
               <TableHead className="h-12 text-gray-700 font-bold">Status</TableHead>
               <TableHead className="h-12 text-right text-gray-700 font-bold">Ações</TableHead>
             </TableRow>
@@ -109,14 +115,26 @@ export default function ClientesTable({
                   </div>
                 </TableCell>
                 <TableCell className="py-4">
-                  <Badge className={getStatusColor(cliente)}>
-                    {!cliente.proxima_manutencao ? 'Sem agendamento' : 
-                     new Date(cliente.proxima_manutencao) < new Date() ? 'Atrasada' :
-                     new Date(cliente.proxima_manutencao) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) ? 'Próxima semana' :
-                     'No prazo'}
-                  </Badge>
-                </TableCell>
-                <TableCell className="py-4">
+                   <div className="flex items-center gap-1">
+                     {cliente.segmentacao === 'VIP' && <Star className="w-4 h-4 fill-amber-400 text-amber-400" />}
+                     <Badge className={
+                       cliente.segmentacao === 'VIP' ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                       cliente.segmentacao === 'Potencial' ? 'bg-green-100 text-green-800 border-green-300' :
+                       'bg-blue-100 text-blue-800 border-blue-300'
+                     }>
+                       {cliente.segmentacao || 'Regular'}
+                     </Badge>
+                   </div>
+                 </TableCell>
+                 <TableCell className="py-4">
+                   <Badge className={getStatusColor(cliente)}>
+                     {!cliente.proxima_manutencao ? 'Sem agendamento' : 
+                      new Date(cliente.proxima_manutencao) < new Date() ? 'Atrasada' :
+                      new Date(cliente.proxima_manutencao) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) ? 'Próxima semana' :
+                      'No prazo'}
+                   </Badge>
+                 </TableCell>
+                 <TableCell className="py-4">
                   <div className="flex justify-end">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -129,6 +147,13 @@ export default function ClientesTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem 
+                          onClick={() => navigate(`${createPageUrl('ClienteDetalhes')}?id=${cliente.id}`)}
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
+                          <Eye className="w-4 h-4 text-purple-600" />
+                          <span className="text-purple-600">Ver Detalhes</span>
+                        </DropdownMenuItem>
                         <DropdownMenuItem 
                           onClick={() => onViewHistory?.(cliente)}
                           className="flex items-center gap-2 cursor-pointer"
