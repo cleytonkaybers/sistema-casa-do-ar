@@ -9,7 +9,8 @@ import {
   X,
   Snowflake,
   Settings,
-  LogOut
+  LogOut,
+  Database
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
