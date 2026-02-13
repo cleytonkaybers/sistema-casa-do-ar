@@ -24,6 +24,11 @@ export default function HistoricoClientes() {
     queryFn: () => base44.entities.Atendimento.list('-data_atendimento'),
   });
 
+  const { data: alteracoes = [] } = useQuery({
+    queryKey: ['alteracoes'],
+    queryFn: () => base44.entities.AlteracaoStatus.list('-data_alteracao'),
+  });
+
   // Combinar histórico
   const historico = [
     ...servicos.map(s => ({
@@ -123,59 +128,73 @@ export default function HistoricoClientes() {
 
             <CardContent className="p-6">
               <div className="space-y-6">
-                {clientesAgrupados[clienteSelecionado]?.map((item, index) => (
-                  <div key={item.id} className="border-l-4 border-blue-500 pl-4 pb-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h4 className="font-bold text-lg text-gray-800">{item.descricao}</h4>
-                        <Badge className={`${statusCores[item.status]} border text-xs mt-2`}>
-                          {item.status}
-                        </Badge>
-                      </div>
-                      {item.valor && (
-                        <span className="font-bold text-lg text-green-600">
-                          R$ {item.valor.toLocaleString('pt-BR')}
-                        </span>
-                      )}
-                    </div>
+                {clientesAgrupados[clienteSelecionado]?.map((item, index) => {
+                  const historico = item.id?.startsWith('s-')
+                    ? alteracoes.filter(a => a.servico_id === item.id?.replace('s-', '') && a.tipo_registro === 'servico')
+                    : alteracoes.filter(a => a.atendimento_id === item.id?.replace('a-', '') && a.tipo_registro === 'atendimento');
 
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-500 font-medium">Data do Serviço</p>
-                        <p className="text-gray-800 mt-1">{format(new Date(item.data), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                  return (
+                    <div key={item.id} className="border-l-4 border-blue-500 pl-4 pb-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h4 className="font-bold text-lg text-gray-800">{item.descricao}</h4>
+                          <Badge className={`${statusCores[item.status]} border text-xs mt-2`}>
+                            {item.status}
+                          </Badge>
+                        </div>
+                        {item.valor && (
+                          <span className="font-bold text-lg text-green-600">
+                            R$ {item.valor.toLocaleString('pt-BR')}
+                          </span>
+                        )}
                       </div>
-                      <div>
-                        <p className="text-gray-500 font-medium">Tipo</p>
-                        <p className="text-gray-800 mt-1">{item.tipo}</p>
+
+                      <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                        <div>
+                          <p className="text-gray-500 font-medium">Data do Serviço</p>
+                          <p className="text-gray-800 mt-1">{format(new Date(item.data), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 font-medium">Tipo</p>
+                          <p className="text-gray-800 mt-1">{item.tipo}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 font-medium">Criado por</p>
+                          <p className="text-gray-800 mt-1">{servicos.find(s => s.id === item.id?.replace('s-', ''))?.created_by || atendimentos.find(a => a.id === item.id?.replace('a-', ''))?.created_by || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 font-medium">Data de Criação</p>
+                          <p className="text-gray-800 mt-1">
+                            {item.id?.startsWith('s-') 
+                              ? format(new Date(servicos.find(s => s.id === item.id?.replace('s-', ''))?.created_date), 'dd/MM/yyyy HH:mm', { locale: ptBR })
+                              : format(new Date(atendimentos.find(a => a.id === item.id?.replace('a-', ''))?.created_date), 'dd/MM/yyyy HH:mm', { locale: ptBR })
+                            }
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-gray-500 font-medium">Criado por</p>
-                        <p className="text-gray-800 mt-1">{servicos.find(s => s.id === item.id?.replace('s-', ''))?.created_by || atendimentos.find(a => a.id === item.id?.replace('a-', ''))?.created_by || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500 font-medium">Data de Criação</p>
-                        <p className="text-gray-800 mt-1">
-                          {item.id?.startsWith('s-') 
-                            ? format(new Date(servicos.find(s => s.id === item.id?.replace('s-', ''))?.created_date), 'dd/MM/yyyy HH:mm', { locale: ptBR })
-                            : format(new Date(atendimentos.find(a => a.id === item.id?.replace('a-', ''))?.created_date), 'dd/MM/yyyy HH:mm', { locale: ptBR })
-                          }
-                        </p>
-                      </div>
-                      {item.data_atualizacao && (
-                        <>
-                          <div>
-                            <p className="text-gray-500 font-medium">Alterado por</p>
-                            <p className="text-gray-800 mt-1">{item.usuario || 'N/A'}</p>
+
+                      {/* Timeline de Alterações de Status */}
+                      {historico.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <p className="text-gray-500 font-medium text-sm mb-3">Histórico de Status</p>
+                          <div className="space-y-2">
+                            {historico.sort((a, b) => new Date(a.data_alteracao) - new Date(b.data_alteracao)).map((alt, idx) => (
+                              <div key={idx} className="bg-gray-50 rounded p-3 text-sm flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                  <span className="text-gray-600">
+                                    <strong>{alt.status_novo}</strong> às {format(new Date(alt.data_alteracao), 'HH:mm', { locale: ptBR })} por <strong>{alt.usuario}</strong>
+                                  </span>
+                                </div>
+                                <span className="text-gray-400 text-xs">{format(new Date(alt.data_alteracao), 'dd/MM/yyyy', { locale: ptBR })}</span>
+                              </div>
+                            ))}
                           </div>
-                          <div>
-                            <p className="text-gray-500 font-medium">Data de Alteração</p>
-                            <p className="text-gray-800 mt-1">{format(new Date(item.data_atualizacao), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR })}</p>
-                          </div>
-                        </>
+                        </div>
                       )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
