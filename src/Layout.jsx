@@ -53,7 +53,7 @@ export default function Layout({ children }) {
         )}
 
         {/* Sidebar */}
-      <aside className={`
+        <aside className={`
         fixed top-0 left-0 z-50 h-full w-72 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out
         lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
@@ -145,6 +145,7 @@ export default function Layout({ children }) {
         <main className="p-4 lg:p-8">
           {children}
         </main>
+        </div>
       </div>
     </ErrorBoundary>
   );
