@@ -112,7 +112,8 @@ export default function ServicosPage() {
       data: { 
         ...servicoParaReagendar, 
         data_programada: novaData,
-        dia_semana: diaSemana
+        dia_semana: diaSemana,
+        status: 'pausado'
       } 
     });
     
