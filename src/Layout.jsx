@@ -9,11 +9,13 @@ import {
   X,
   Snowflake,
   LogOut,
-  Database
+  Database,
+  MessageCircle
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import ChatWidget from '@/components/ChatWidget/ChatWidget';
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -33,6 +35,7 @@ export default function Layout({ children }) {
     { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
     { name: 'Preventivas Futuras', href: createPageUrl('PreventivasFuturas'), icon: ClipboardList },
     { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList },
+    { name: 'Suporte', href: createPageUrl('Suporte'), icon: MessageCircle },
     { name: 'Backup e Restaurar', href: createPageUrl('BackupRestaurer'), icon: Database },
     ...(isAdmin ? [{ name: 'Usuários', href: createPageUrl('Usuarios'), icon: Users }] : []),
   ];
@@ -118,6 +121,8 @@ export default function Layout({ children }) {
 
       {/* Main content */}
       <div className="lg:pl-72">
+        <ChatWidget />
+        
         {/* Top bar */}
         <header className="sticky top-0 z-30 bg-gradient-to-r from-slate-900/95 via-purple-900/95 to-slate-900/95 backdrop-blur-lg border-b border-purple-700/30">
           <div className="flex items-center justify-between px-4 lg:px-8 py-4">
