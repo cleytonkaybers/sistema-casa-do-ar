@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Phone, MapPin, Calendar, Pencil, Trash2, MessageCircle, Navigation, Clock, DollarSign, Share2, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function ServicoCard({ servico, onEdit, onDelete }) {
+export default function ServicoCard({ servico, onEdit, onDelete, compact = false }) {
   const formatPhone = (phone) => {
     if (!phone) return '';
     const cleaned = phone.replace(/\D/g, '');
@@ -62,6 +62,90 @@ export default function ServicoCard({ servico, onEdit, onDelete }) {
     }
     return 'bg-gray-100 text-gray-700 border-gray-200';
   };
+
+  if (compact) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <h4 className="font-semibold text-gray-800 truncate">{servico.cliente_nome}</h4>
+            <p className="text-xs text-gray-500 truncate">{servico.tipo_servico}</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleShare}
+            className="h-8 w-8 text-gray-400 hover:text-blue-600 flex-shrink-0"
+          >
+            <Share2 className="w-4 h-4" />
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <Phone className="w-3.5 h-3.5 text-gray-400" />
+            <span className="text-xs">{formatPhone(servico.telefone)}</span>
+          </div>
+          
+          {servico.horario && (
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Clock className="w-3.5 h-3.5 text-gray-400" />
+              <span className="text-xs">{servico.horario}</span>
+            </div>
+          )}
+
+          {servico.valor > 0 && (
+            <div className="flex items-center gap-2 text-sm text-green-700 font-semibold">
+              <DollarSign className="w-3.5 h-3.5" />
+              <span className="text-xs">R$ {servico.valor.toFixed(2)}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2 pt-2 border-t border-gray-100">
+          <a
+            href={getWhatsAppLink(servico.telefone)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-md transition-colors"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            <span>WhatsApp</span>
+          </a>
+          {mapsLink && (
+            <a
+              href={mapsLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center px-2 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded-md transition-colors"
+            >
+              <Navigation className="w-3.5 h-3.5" />
+            </a>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onEdit(servico)}
+            className="flex-1 h-8 text-xs text-gray-600 hover:text-blue-600 hover:border-blue-300"
+          >
+            <Pencil className="w-3 h-3 mr-1" />
+            Editar
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onDelete(servico)}
+            className="h-8 w-8 p-0 text-gray-600 hover:text-red-600 hover:border-red-300"
+          >
+            <Trash2 className="w-3 h-3" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Card className="group bg-white hover:shadow-xl transition-all duration-300 border-0 shadow-md">
