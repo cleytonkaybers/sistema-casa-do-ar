@@ -121,15 +121,17 @@ export default function UsuariosPage() {
   const createUserMutation = useMutation({
     mutationFn: async ({ username, senha, perfil }) => {
       const perfil_config = perfisPreDefinidos[perfil];
-      
+
       // Cria usuário com username e senha
       const newUser = await base44.entities.User.create({
         full_name: username,
+        email: username,
         username: username,
+        role: 'user',
         perfil: perfil,
         permissoes: perfil_config.permissoes
       });
-      
+
       return newUser;
     },
     onSuccess: () => {
