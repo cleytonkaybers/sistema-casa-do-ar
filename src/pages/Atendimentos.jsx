@@ -212,11 +212,18 @@ export default function Atendimentos() {
   }, [atendimentosComServicos, searchTerm, filterStatus, filterTipo]);
 
   // Handlers
-  const handleSave = (data) => {
+  const handleSave = async (data) => {
+    const currentUser = await base44.auth.me();
+    const dataWithUser = {
+      ...data,
+      usuario_atualizacao_status: currentUser?.email,
+      data_atualizacao_status: new Date().toISOString()
+    };
+
     if (editingAtendimento) {
-      updateMutation.mutate({ id: editingAtendimento.id, data });
+      updateMutation.mutate({ id: editingAtendimento.id, data: dataWithUser });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(dataWithUser);
     }
   };
 
