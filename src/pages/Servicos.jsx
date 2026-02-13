@@ -131,6 +131,10 @@ export default function ServicosPage() {
             <SelectItem value="Instalação de 24k">Instalação de 24k</SelectItem>
             <SelectItem value="Instalação de 30 a 32k">Instalação de 30 a 32k</SelectItem>
             <SelectItem value="Instalação piso e teto">Instalação piso e teto</SelectItem>
+            <SelectItem value="Troca de capacitor">Troca de capacitor</SelectItem>
+            <SelectItem value="Carga de gás">Carga de gás</SelectItem>
+            <SelectItem value="Recarga de gás">Recarga de gás</SelectItem>
+            <SelectItem value="Ver defeito">Ver defeito</SelectItem>
           </SelectContent>
         </Select>
       </div>

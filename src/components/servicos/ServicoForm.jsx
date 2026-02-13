@@ -359,17 +359,29 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading 
                   <SelectItem value="Instalação de 24k">Instalação de 24k</SelectItem>
                   <SelectItem value="Instalação de 30 a 32k">Instalação de 30 a 32k</SelectItem>
                   <SelectItem value="Instalação piso e teto">Instalação piso e teto</SelectItem>
+                  <SelectItem value="Troca de capacitor">Troca de capacitor</SelectItem>
+                  <SelectItem value="Carga de gás">Carga de gás</SelectItem>
+                  <SelectItem value="Recarga de gás">Recarga de gás</SelectItem>
+                  <SelectItem value="Ver defeito">Ver defeito</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="dia_semana">Dia da Semana</Label>
-              <Input
-                id="dia_semana"
-                value={formData.dia_semana}
-                onChange={(e) => setFormData({ ...formData, dia_semana: e.target.value })}
-                placeholder="Ex: Segunda-feira"
-              />
+              <Label>Dia da Semana</Label>
+              <Select value={formData.dia_semana} onValueChange={(value) => setFormData({ ...formData, dia_semana: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o dia" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Segunda-feira">Segunda-feira</SelectItem>
+                  <SelectItem value="Terça-feira">Terça-feira</SelectItem>
+                  <SelectItem value="Quarta-feira">Quarta-feira</SelectItem>
+                  <SelectItem value="Quinta-feira">Quinta-feira</SelectItem>
+                  <SelectItem value="Sexta-feira">Sexta-feira</SelectItem>
+                  <SelectItem value="Sábado">Sábado</SelectItem>
+                  <SelectItem value="Domingo">Domingo</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
