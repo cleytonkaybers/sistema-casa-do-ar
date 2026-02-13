@@ -258,6 +258,17 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
       return;
     }
     
+    // Validar que a data não seja anterior à data atual
+    const dataAtual = new Date();
+    dataAtual.setHours(0, 0, 0, 0);
+    const dataProgramada = new Date(formData.data_programada);
+    dataProgramada.setHours(0, 0, 0, 0);
+    
+    if (dataProgramada < dataAtual) {
+      toast.error('Não é permitido criar serviços com datas anteriores!');
+      return;
+    }
+    
     // Calcular dia da semana automaticamente a partir da data programada
     const data = parseISO(formData.data_programada);
     const diaSemanaFormatado = format(data, 'EEEE', { locale: ptBR });
@@ -407,6 +418,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
               type="date"
               value={formData.data_programada}
               onChange={(e) => setFormData({ ...formData, data_programada: e.target.value })}
+              min={format(new Date(), 'yyyy-MM-dd')}
               className="w-full"
               required
             />

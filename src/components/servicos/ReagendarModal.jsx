@@ -13,6 +13,17 @@ export default function ReagendarModal({ open, onClose, onSave, servico, isLoadi
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!novaData) return;
+    
+    // Validar que a data não seja anterior à data atual
+    const dataAtual = new Date();
+    dataAtual.setHours(0, 0, 0, 0);
+    const novaDataObj = new Date(novaData);
+    novaDataObj.setHours(0, 0, 0, 0);
+    
+    if (novaDataObj < dataAtual) {
+      return; // O input já previne datas anteriores, mas adiciona validação extra
+    }
+    
     onSave(novaData);
     setNovaData('');
   };
