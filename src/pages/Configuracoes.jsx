@@ -40,7 +40,9 @@ export default function ConfiguracoesPage() {
   const [formData, setFormData] = useState({
     company_name: '',
     company_icon: 'Snowflake',
+    company_logo_url: '',
   });
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (settings) {
