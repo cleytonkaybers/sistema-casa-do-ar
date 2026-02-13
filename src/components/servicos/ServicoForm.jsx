@@ -252,13 +252,16 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Calcular dia da semana automaticamente a partir da data programada
-    let diaSemana = '';
-    if (formData.data_programada) {
-      const data = parseISO(formData.data_programada);
-      const diaSemanaFormatado = format(data, 'EEEE', { locale: ptBR });
-      diaSemana = diaSemanaFormatado.charAt(0).toUpperCase() + diaSemanaFormatado.slice(1);
+    // Validar data programada obrigatória
+    if (!formData.data_programada) {
+      toast.error('Data programada é obrigatória!');
+      return;
     }
+    
+    // Calcular dia da semana automaticamente a partir da data programada
+    const data = parseISO(formData.data_programada);
+    const diaSemanaFormatado = format(data, 'EEEE', { locale: ptBR });
+    const diaSemana = diaSemanaFormatado.charAt(0).toUpperCase() + diaSemanaFormatado.slice(1);
     
     const dataToSave = {
       ...formData,
