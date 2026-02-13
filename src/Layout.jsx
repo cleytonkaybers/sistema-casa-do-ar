@@ -24,6 +24,7 @@ export default function Layout({ children }) {
     { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
     { name: 'Preventivas Futuras', href: createPageUrl('PreventivasFuturas'), icon: ClipboardList },
     { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList },
+    { name: 'Backup e Restaurar', href: createPageUrl('BackupRestaurer'), icon: Database },
   ];
 
   const isActive = (href) => {

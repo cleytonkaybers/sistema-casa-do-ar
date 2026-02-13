@@ -52,6 +52,7 @@ import Clientes from './pages/Clientes';
 import Dashboard from './pages/Dashboard';
 import Servicos from './pages/Servicos';
 import PreventivasFuturas from './pages/PreventivasFuturas';
+import BackupRestaurer from './pages/BackupRestaurer';
 import __Layout from './Layout.jsx';
 
 
@@ -61,6 +62,7 @@ export const PAGES = {
     "Dashboard": Dashboard,
     "Servicos": Servicos,
     "PreventivasFuturas": PreventivasFuturas,
+    "BackupRestaurer": BackupRestaurer,
 }
 
 export const pagesConfig = {
