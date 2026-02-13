@@ -19,8 +19,8 @@ import {
   X
 } from 'lucide-react';
 
-import ClienteCard from '@/components/clientes/ClienteCard';
 import ClienteForm from '@/components/clientes/ClienteForm';
+import ClientesTable from '@/components/clientes/ClientesTable';
 import DeleteConfirmDialog from '@/components/clientes/DeleteConfirmDialog';
 import HistoricoModal from '@/components/atendimentos/HistoricoModal';
 import AtendimentoForm from '@/components/atendimentos/AtendimentoForm';
@@ -209,17 +209,13 @@ export default function Clientes() {
           actionLabel="Cadastrar Cliente"
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
-          {filteredClientes.map(cliente => (
-            <ClienteCard
-              key={cliente.id}
-              cliente={cliente}
-              onEdit={(isAdmin || hasPermission('clientes_editar')) ? handleEdit : undefined}
-              onDelete={(isAdmin || hasPermission('clientes_deletar')) ? handleDelete : undefined}
-              onViewHistory={handleViewHistory}
-            />
-          ))}
-        </div>
+        <ClientesTable
+          clientes={filteredClientes}
+          onEdit={(isAdmin || hasPermission('clientes_editar')) ? handleEdit : undefined}
+          onDelete={(isAdmin || hasPermission('clientes_deletar')) ? handleDelete : undefined}
+          onViewHistory={handleViewHistory}
+          isAdmin={isAdmin}
+        />
       )}
 
       {/* Modais */}
