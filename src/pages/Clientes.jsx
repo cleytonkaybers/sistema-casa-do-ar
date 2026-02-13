@@ -31,8 +31,6 @@ export default function Clientes() {
   
   // Estados
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterCity, setFilterCity] = useState('all');
-  const [filterBairro, setFilterBairro] = useState('all');
   
   // Modais
   const [formOpen, setFormOpen] = useState(false);
@@ -97,33 +95,15 @@ export default function Clientes() {
     onError: () => toast.error('Erro ao registrar atendimento'),
   });
 
-  // Filtros
-  const cidades = useMemo(() => {
-    const cidadesSet = new Set(clientes.map(c => c.cidade).filter(Boolean));
-    return Array.from(cidadesSet).sort();
-  }, [clientes]);
-
-  const bairros = useMemo(() => {
-    let filtered = clientes;
-    if (filterCity !== 'all') {
-      filtered = clientes.filter(c => c.cidade === filterCity);
-    }
-    const bairrosSet = new Set(filtered.map(c => c.bairro).filter(Boolean));
-    return Array.from(bairrosSet).sort();
-  }, [clientes, filterCity]);
-
   const filteredClientes = useMemo(() => {
     return clientes.filter(cliente => {
       const matchesSearch = 
         cliente.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         cliente.telefone?.replace(/\D/g, '').includes(searchTerm.replace(/\D/g, ''));
       
-      const matchesCity = filterCity === 'all' || cliente.cidade === filterCity;
-      const matchesBairro = filterBairro === 'all' || cliente.bairro === filterBairro;
-      
-      return matchesSearch && matchesCity && matchesBairro;
+      return matchesSearch;
     });
-  }, [clientes, searchTerm, filterCity, filterBairro]);
+  }, [clientes, searchTerm]);
 
   // Handlers
   const handleSave = (data) => {
@@ -159,11 +139,9 @@ export default function Clientes() {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setFilterCity('all');
-    setFilterBairro('all');
   };
 
-  const hasActiveFilters = searchTerm || filterCity !== 'all' || filterBairro !== 'all';
+  const hasActiveFilters = searchTerm !== '';
 
   return (
     <div className="space-y-6">
@@ -200,45 +178,14 @@ export default function Clientes() {
           )}
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Busca */}
-          <div className="sm:col-span-2 lg:col-span-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <Input
-                placeholder="Buscar por nome ou telefone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-11 bg-gray-50 border-gray-200 focus:bg-white"
-              />
-            </div>
-          </div>
-
-          {/* Filtro Cidade */}
-          <Select value={filterCity} onValueChange={(value) => { setFilterCity(value); setFilterBairro('all'); }}>
-            <SelectTrigger className="h-11 bg-gray-50 border-gray-200">
-              <SelectValue placeholder="Cidade" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as cidades</SelectItem>
-              {cidades.map(cidade => (
-                <SelectItem key={cidade} value={cidade}>{cidade}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Filtro Bairro */}
-          <Select value={filterBairro} onValueChange={setFilterBairro}>
-            <SelectTrigger className="h-11 bg-gray-50 border-gray-200">
-              <SelectValue placeholder="Bairro" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os bairros</SelectItem>
-              {bairros.map(bairro => (
-                <SelectItem key={bairro} value={bairro}>{bairro}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Input
+            placeholder="Buscar por nome ou telefone..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 h-11 bg-gray-50 border-gray-200 focus:bg-white"
+          />
         </div>
       </div>
 
