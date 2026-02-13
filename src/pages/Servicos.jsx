@@ -94,12 +94,39 @@ export default function ServicosPage() {
     'Domingo'
   ];
 
+  // Função para ordenar serviços por data e horário
+  const ordenarServicos = (servicos) => {
+    return [...servicos].sort((a, b) => {
+      // Primeiro por data programada
+      if (a.data_programada && b.data_programada) {
+        const dateCompare = new Date(a.data_programada) - new Date(b.data_programada);
+        if (dateCompare !== 0) return dateCompare;
+      } else if (a.data_programada) {
+        return -1;
+      } else if (b.data_programada) {
+        return 1;
+      }
+      
+      // Depois por horário
+      if (a.horario && b.horario) {
+        return a.horario.localeCompare(b.horario);
+      } else if (a.horario) {
+        return -1;
+      } else if (b.horario) {
+        return 1;
+      }
+      
+      return 0;
+    });
+  };
+
   const servicosPorDia = diasDaSemana.reduce((acc, dia) => {
-    acc[dia] = filteredServicos.filter(s => s.dia_semana === dia);
+    const servicosDoDia = filteredServicos.filter(s => s.dia_semana === dia);
+    acc[dia] = ordenarServicos(servicosDoDia);
     return acc;
   }, {});
 
-  const servicosSemDia = filteredServicos.filter(s => !s.dia_semana);
+  const servicosSemDia = ordenarServicos(filteredServicos.filter(s => !s.dia_semana));
 
   const diaColors = {
     'Segunda-feira': 'from-blue-500 to-blue-600',

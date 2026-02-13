@@ -21,6 +21,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
     longitude: null,
     tipo_servico: 'Limpeza de 9k',
     dia_semana: '',
+    data_programada: '',
     horario: '',
     descricao: '',
     valor: '',
@@ -38,6 +39,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         longitude: servico.longitude || null,
         tipo_servico: servico.tipo_servico || 'Semanal',
         dia_semana: servico.dia_semana || '',
+        data_programada: servico.data_programada || '',
         horario: servico.horario || '',
         descricao: servico.descricao || '',
         valor: servico.valor || '',
@@ -53,6 +55,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         longitude: prefilledData.longitude || null,
         tipo_servico: 'Limpeza de 9k',
         dia_semana: '',
+        data_programada: '',
         horario: '',
         descricao: '',
         valor: '',
@@ -68,6 +71,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         longitude: null,
         tipo_servico: 'Limpeza de 9k',
         dia_semana: '',
+        data_programada: '',
         horario: '',
         descricao: '',
         valor: '',
@@ -398,6 +402,19 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                 </SelectContent>
               </Select>
             </div>
+            
+            {formData.dia_semana && (
+              <div className="space-y-2">
+                <Label htmlFor="data_programada">Data Programada</Label>
+                <Input
+                  id="data_programada"
+                  type="date"
+                  value={formData.data_programada}
+                  onChange={(e) => setFormData({ ...formData, data_programada: e.target.value })}
+                  className="w-full"
+                />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
