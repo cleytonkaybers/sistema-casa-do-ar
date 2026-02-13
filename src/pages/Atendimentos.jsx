@@ -74,6 +74,11 @@ export default function Atendimentos() {
     queryFn: () => base44.entities.Cliente.list(),
   });
 
+  const { data: servicos = [] } = useQuery({
+    queryKey: ['servicos'],
+    queryFn: () => base44.entities.Servico.list(),
+  });
+
   // Mutations
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Atendimento.create(data),
@@ -286,128 +291,177 @@ export default function Atendimentos() {
                   <TableHead>Cliente</TableHead>
                   <TableHead>Data</TableHead>
                   <TableHead>Tipo de Serviço</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Status Atendimento</TableHead>
+                  <TableHead>Status Serviço</TableHead>
                   <TableHead>Valor</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAtendimentos.map((atendimento) => (
-                  <TableRow key={atendimento.id} className="hover:bg-gray-50">
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center text-white text-sm font-medium">
-                          {atendimento.cliente_nome?.charAt(0).toUpperCase() || '?'}
+                {filteredAtendimentos.map((atendimento) => {
+                  const servicoRelacionado = servicos.find(s => 
+                    s.cliente_nome === atendimento.cliente_nome && 
+                    s.tipo_servico?.toLowerCase().includes(atendimento.tipo_servico?.toLowerCase().split(' ')[0] || '')
+                  );
+                  
+                  const statusServicoColors = {
+                    'aberto': 'bg-gray-100 text-gray-700 border-gray-200',
+                    'andamento': 'bg-blue-100 text-blue-700 border-blue-200',
+                    'concluido': 'bg-green-100 text-green-700 border-green-200',
+                    'pausado': 'bg-yellow-100 text-yellow-700 border-yellow-200'
+                  };
+                  
+                  return (
+                    <TableRow key={atendimento.id} className="hover:bg-gray-50">
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center text-white text-sm font-medium">
+                            {atendimento.cliente_nome?.charAt(0).toUpperCase() || '?'}
+                          </div>
+                          <span className="font-medium">{atendimento.cliente_nome || 'Cliente não identificado'}</span>
                         </div>
-                        <span className="font-medium">{atendimento.cliente_nome || 'Cliente não identificado'}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5 text-gray-600">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        {format(new Date(atendimento.data_atendimento), "dd/MM/yyyy", { locale: ptBR })}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <Wrench className="w-4 h-4 text-gray-400" />
-                        {atendimento.tipo_servico}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={`${statusColors[atendimento.status]} border`}>
-                        {atendimento.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-medium text-green-600">
-                        {formatCurrency(atendimento.valor)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(atendimento)}
-                          className="text-gray-500 hover:text-blue-600"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(atendimento)}
-                          className="text-gray-500 hover:text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5 text-gray-600">
+                          <Calendar className="w-4 h-4 text-gray-400" />
+                          {format(new Date(atendimento.data_atendimento), "dd/MM/yyyy", { locale: ptBR })}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <Wrench className="w-4 h-4 text-gray-400" />
+                          {atendimento.tipo_servico}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={`${statusColors[atendimento.status]} border`}>
+                          {atendimento.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {servicoRelacionado ? (
+                          <Badge className={`${statusServicoColors[servicoRelacionado.status || 'aberto']} border`}>
+                            {servicoRelacionado.status === 'aberto' ? 'Aberto' : 
+                             servicoRelacionado.status === 'andamento' ? 'Em Andamento' :
+                             servicoRelacionado.status === 'pausado' ? 'Pausado' : 'Concluído'}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-gray-400">Sem serviço</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-medium text-green-600">
+                          {formatCurrency(atendimento.valor)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(atendimento)}
+                            className="text-gray-500 hover:text-blue-600"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(atendimento)}
+                            className="text-gray-500 hover:text-red-600"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </Card>
 
           {/* Mobile Cards */}
           <div className="lg:hidden space-y-4">
-            {filteredAtendimentos.map((atendimento) => (
-              <Card key={atendimento.id} className="bg-white border-0 shadow-md">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center text-white font-medium">
-                        {atendimento.cliente_nome?.charAt(0).toUpperCase() || '?'}
+            {filteredAtendimentos.map((atendimento) => {
+              const servicoRelacionado = servicos.find(s => 
+                s.cliente_nome === atendimento.cliente_nome && 
+                s.tipo_servico?.toLowerCase().includes(atendimento.tipo_servico?.toLowerCase().split(' ')[0] || '')
+              );
+              
+              const statusServicoColors = {
+                'aberto': 'bg-gray-100 text-gray-700 border-gray-200',
+                'andamento': 'bg-blue-100 text-blue-700 border-blue-200',
+                'concluido': 'bg-green-100 text-green-700 border-green-200',
+                'pausado': 'bg-yellow-100 text-yellow-700 border-yellow-200'
+              };
+              
+              return (
+                <Card key={atendimento.id} className="bg-white border-0 shadow-md">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center text-white font-medium">
+                          {atendimento.cliente_nome?.charAt(0).toUpperCase() || '?'}
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-800">{atendimento.cliente_nome || 'Cliente não identificado'}</p>
+                          <p className="text-sm text-gray-500">{atendimento.tipo_servico}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-800">{atendimento.cliente_nome || 'Cliente não identificado'}</p>
-                        <p className="text-sm text-gray-500">{atendimento.tipo_servico}</p>
+                      <div className="flex flex-col gap-1">
+                        <Badge className={`${statusColors[atendimento.status]} border text-xs`}>
+                          {atendimento.status}
+                        </Badge>
+                        {servicoRelacionado && (
+                          <Badge className={`${statusServicoColors[servicoRelacionado.status || 'aberto']} border text-xs`}>
+                            {servicoRelacionado.status === 'aberto' ? 'Aberto' : 
+                             servicoRelacionado.status === 'andamento' ? 'Em Andamento' :
+                             servicoRelacionado.status === 'pausado' ? 'Pausado' : 'Concluído'}
+                          </Badge>
+                        )}
                       </div>
                     </div>
-                    <Badge className={`${statusColors[atendimento.status]} border`}>
-                      {atendimento.status}
-                    </Badge>
-                  </div>
 
-                  <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
-                    <div className="flex items-center gap-1.5">
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                      {format(new Date(atendimento.data_atendimento), "dd/MM/yyyy", { locale: ptBR })}
+                    <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="w-4 h-4 text-gray-400" />
+                        {format(new Date(atendimento.data_atendimento), "dd/MM/yyyy", { locale: ptBR })}
+                      </div>
+                      <span className="font-medium text-green-600">
+                        {formatCurrency(atendimento.valor)}
+                      </span>
                     </div>
-                    <span className="font-medium text-green-600">
-                      {formatCurrency(atendimento.valor)}
-                    </span>
-                  </div>
 
-                  {atendimento.descricao && (
-                    <p className="text-sm text-gray-500 bg-gray-50 p-2 rounded-lg mb-3 line-clamp-2">
-                      {atendimento.descricao}
-                    </p>
-                  )}
+                    {atendimento.descricao && (
+                      <p className="text-sm text-gray-500 bg-gray-50 p-2 rounded-lg mb-3 line-clamp-2">
+                        {atendimento.descricao}
+                      </p>
+                    )}
 
-                  <div className="flex items-center gap-2 pt-3 border-t">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(atendimento)}
-                      className="flex-1"
-                    >
-                      <Pencil className="w-4 h-4 mr-1.5" />
-                      Editar
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDelete(atendimento)}
-                      className="text-red-600 hover:text-red-700 hover:border-red-300"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    <div className="flex items-center gap-2 pt-3 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(atendimento)}
+                        className="flex-1"
+                      >
+                        <Pencil className="w-4 h-4 mr-1.5" />
+                        Editar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(atendimento)}
+                        className="text-red-600 hover:text-red-700 hover:border-red-300"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </>
       )}
