@@ -15,10 +15,12 @@ import {
   Snowflake,
   Clock,
   CheckCircle2,
-  Plus
+  Plus,
+  Zap
 } from 'lucide-react';
 import { format, differenceInDays, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import ServiceTypeManager from '../components/servicos/ServiceTypeManager';
 
 const formatPhone = (phone) => {
   if (!phone) return '';
@@ -30,6 +32,8 @@ const formatPhone = (phone) => {
 };
 
 export default function Dashboard() {
+  const [showTypeManager, setShowTypeManager] = React.useState(false);
+
   const { data: clientes = [], isLoading: loadingClientes } = useQuery({
     queryKey: ['clientes'],
     queryFn: () => base44.entities.Cliente.list('-created_date'),
@@ -134,13 +138,20 @@ export default function Dashboard() {
             Visão geral - {format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
            <Link to={createPageUrl('Servicos')}>
              <Button className="bg-gradient-to-r from-pink-500 via-purple-500 to-violet-600 hover:from-pink-600 hover:via-purple-600 hover:to-violet-700 shadow-xl shadow-purple-500/50">
                <Plus className="w-4 h-4 mr-2" />
                Novo Serviço
              </Button>
            </Link>
+           <Button 
+             onClick={() => setShowTypeManager(true)}
+             className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-xl shadow-orange-500/50"
+           >
+             <Zap className="w-4 h-4 mr-2" />
+             Novo Tipo
+           </Button>
            <Link to={createPageUrl('Clientes')}>
              <Button className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 hover:from-cyan-600 hover:via-blue-600 hover:to-purple-700 shadow-xl shadow-blue-500/50">
                <Users className="w-4 h-4 mr-2" />
@@ -366,8 +377,13 @@ export default function Dashboard() {
               </div>
             )}
           </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
+          </Card>
+          </div>
+
+          <ServiceTypeManager 
+          isOpen={showTypeManager} 
+          onClose={() => setShowTypeManager(false)}
+          />
+          </div>
+          );
+          }
