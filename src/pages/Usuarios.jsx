@@ -141,6 +141,10 @@ export default function UsuariosPage() {
   };
 
   const handleEditPermissions = (user) => {
+    if (!isAdmin) {
+      toast.error('Apenas administradores podem editar permissões');
+      return;
+    }
     setEditingUser({
       ...user,
       permissoes: user.permissoes || perfisPreDefinidos.atendente.permissoes
@@ -202,8 +206,8 @@ export default function UsuariosPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Gerenciar Usuários</h1>
-          <p className="text-gray-500 mt-1">Configure permissões e convide novos membros</p>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">Gerenciar Usuários</h1>
+           <p className="text-gray-400 mt-1">Apenas administradores podem editar permissões</p>
         </div>
         <Button
           onClick={() => setShowInviteModal(true)}
@@ -240,7 +244,8 @@ export default function UsuariosPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleEditPermissions(usuario)}
-                    className="w-full"
+                    disabled={!isAdmin}
+                    className="w-full disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Shield className="w-4 h-4 mr-2" />
                     Editar Permissões
