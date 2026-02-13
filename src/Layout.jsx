@@ -22,6 +22,7 @@ export default function Layout({ children }) {
     { name: 'Dashboard', href: createPageUrl('Dashboard'), icon: LayoutDashboard },
     { name: 'Clientes', href: createPageUrl('Clientes'), icon: Users },
     { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
+    { name: 'Preventivas Futuras', href: createPageUrl('PreventivasFuturas'), icon: ClipboardList },
     { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList },
   ];
 
