@@ -211,6 +211,7 @@ export default function RelatóriosPage() {
                       <th className="text-left py-3 px-2">Tipo</th>
                       <th className="text-left py-3 px-2">Data</th>
                       <th className="text-left py-3 px-2">Status</th>
+                      <th className="text-left py-3 px-2">Usuário</th>
                       <th className="text-right py-3 px-2">Valor</th>
                     </tr>
                   </thead>
@@ -229,6 +230,7 @@ export default function RelatóriosPage() {
                             {s.status}
                           </span>
                         </td>
+                        <td className="py-2 px-2 text-xs text-gray-400">{s.usuario_atualizacao_status || '-'}</td>
                         <td className="py-2 px-2 text-right font-semibold">R$ {s.valor?.toLocaleString('pt-BR') || '0'}</td>
                       </tr>
                     ))}
