@@ -1,0 +1,309 @@
+import React, { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Loader2, MapPin, Search, ExternalLink } from 'lucide-react';
+import { toast } from 'sonner';
+import { base44 } from '@/api/base44Client';
+
+export default function ServicoForm({ open, onClose, onSave, servico, isLoading }) {
+  const [loadingLocation, setLoadingLocation] = useState(false);
+  const [formData, setFormData] = useState({
+    cliente_nome: '',
+    telefone: '',
+    endereco: '',
+    latitude: null,
+    longitude: null,
+    tipo_servico: 'Semanal',
+    dia_semana: '',
+    horario: '',
+    descricao: '',
+    valor: '',
+    ativo: true
+  });
+
+  useEffect(() => {
+    if (servico) {
+      setFormData({
+        cliente_nome: servico.cliente_nome || '',
+        telefone: servico.telefone || '',
+        endereco: servico.endereco || '',
+        latitude: servico.latitude || null,
+        longitude: servico.longitude || null,
+        tipo_servico: servico.tipo_servico || 'Semanal',
+        dia_semana: servico.dia_semana || '',
+        horario: servico.horario || '',
+        descricao: servico.descricao || '',
+        valor: servico.valor || '',
+        ativo: servico.ativo !== false
+      });
+    } else {
+      setFormData({
+        cliente_nome: '',
+        telefone: '',
+        endereco: '',
+        latitude: null,
+        longitude: null,
+        tipo_servico: 'Semanal',
+        dia_semana: '',
+        horario: '',
+        descricao: '',
+        valor: '',
+        ativo: true
+      });
+    }
+  }, [servico, open]);
+
+  const formatPhoneInput = (value) => {
+    const cleaned = value.replace(/\D/g, '');
+    let formatted = cleaned;
+    if (cleaned.length > 0) {
+      if (cleaned.length <= 2) {
+        formatted = `+${cleaned}`;
+      } else if (cleaned.length <= 4) {
+        formatted = `+${cleaned.slice(0, 2)} ${cleaned.slice(2)}`;
+      } else if (cleaned.length <= 9) {
+        formatted = `+${cleaned.slice(0, 2)} ${cleaned.slice(2, 4)} ${cleaned.slice(4)}`;
+      } else {
+        formatted = `+${cleaned.slice(0, 2)} ${cleaned.slice(2, 4)} ${cleaned.slice(4, 9)}-${cleaned.slice(9, 13)}`;
+      }
+    }
+    return formatted;
+  };
+
+  const handlePhoneChange = (e) => {
+    const formatted = formatPhoneInput(e.target.value);
+    setFormData({ ...formData, telefone: formatted });
+  };
+
+  const handleSearchLocation = async () => {
+    const input = formData.endereco?.trim();
+    if (!input) {
+      toast.error('Digite um endereço, coordenadas ou cole um link do Google Maps');
+      return;
+    }
+
+    setLoadingLocation(true);
+    try {
+      const coordRegex = /^-?\d+\.?\d*,\s*-?\d+\.?\d*$/;
+      if (coordRegex.test(input)) {
+        const [lat, lng] = input.split(',').map(c => parseFloat(c.trim()));
+        if (lat < -34 || lat > 5 || lng < -74 || lng > -34) {
+          toast.error('Coordenadas fora do Brasil. Verifique os valores.');
+          setLoadingLocation(false);
+          return;
+        }
+        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+        toast.success(`Coordenadas salvas: ${lat}, ${lng}`);
+        setLoadingLocation(false);
+        return;
+      }
+
+      const isGoogleMapsLink = input.includes('google.com/maps') || input.includes('maps.app.goo.gl') || input.includes('goo.gl/maps') || input.includes('maps.google.com');
+      
+      if (isGoogleMapsLink) {
+        const coordMatch = input.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+        if (coordMatch) {
+          const lat = parseFloat(coordMatch[1]);
+          const lng = parseFloat(coordMatch[2]);
+          if (lat >= -34 && lat <= 5 && lng >= -74 && lng <= -34) {
+            setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+            toast.success(`Localização vinculada: ${lat}, ${lng}`);
+            setLoadingLocation(false);
+            return;
+          }
+        }
+        
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt: `Acesse este link do Google Maps e extraia as coordenadas EXATAS: "${input}"`,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              latitude: { type: "number" },
+              longitude: { type: "number" }
+            },
+            required: ["latitude", "longitude"]
+          }
+        });
+
+        if (result?.latitude && result?.longitude) {
+          setFormData(prev => ({ ...prev, latitude: result.latitude, longitude: result.longitude }));
+          toast.success(`Localização vinculada: ${result.latitude}, ${result.longitude}`);
+        }
+      } else {
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt: `Encontre as coordenadas para: "${input}" no Brasil`,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              latitude: { type: "number" },
+              longitude: { type: "number" }
+            },
+            required: ["latitude", "longitude"]
+          }
+        });
+
+        if (result?.latitude && result?.longitude) {
+          setFormData(prev => ({ ...prev, latitude: result.latitude, longitude: result.longitude }));
+          toast.success(`Coordenadas encontradas: ${result.latitude}, ${result.longitude}`);
+        }
+      }
+    } catch (error) {
+      toast.error('Erro ao buscar localização');
+    } finally {
+      setLoadingLocation(false);
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const dataToSave = {
+      ...formData,
+      valor: formData.valor ? parseFloat(formData.valor) : 0
+    };
+    onSave(dataToSave);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{servico ? 'Editar Serviço' : 'Novo Serviço'}</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="cliente_nome">Nome do Cliente *</Label>
+              <Input
+                id="cliente_nome"
+                value={formData.cliente_nome}
+                onChange={(e) => setFormData({ ...formData, cliente_nome: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="telefone">Telefone *</Label>
+              <Input
+                id="telefone"
+                value={formData.telefone}
+                onChange={handlePhoneChange}
+                required
+                maxLength={18}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="endereco">Endereço / Link Google Maps</Label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  id="endereco"
+                  value={formData.endereco}
+                  onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
+                  className="pl-10"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSearchLocation}
+                disabled={loadingLocation || !formData.endereco}
+              >
+                {loadingLocation ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              </Button>
+              {(formData.latitude && formData.longitude) || formData.endereco ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const url = formData.latitude && formData.longitude
+                      ? `https://www.google.com/maps?q=${formData.latitude},${formData.longitude}`
+                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formData.endereco)}`;
+                    window.open(url, '_blank');
+                  }}
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </Button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Tipo de Serviço *</Label>
+              <Select value={formData.tipo_servico} onValueChange={(value) => setFormData({ ...formData, tipo_servico: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Diário">Diário</SelectItem>
+                  <SelectItem value="Semanal">Semanal</SelectItem>
+                  <SelectItem value="Quinzenal">Quinzenal</SelectItem>
+                  <SelectItem value="Mensal">Mensal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="dia_semana">Dia da Semana</Label>
+              <Input
+                id="dia_semana"
+                value={formData.dia_semana}
+                onChange={(e) => setFormData({ ...formData, dia_semana: e.target.value })}
+                placeholder="Ex: Segunda-feira"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="horario">Horário</Label>
+              <Input
+                id="horario"
+                type="time"
+                value={formData.horario}
+                onChange={(e) => setFormData({ ...formData, horario: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="valor">Valor (R$)</Label>
+              <Input
+                id="valor"
+                type="number"
+                step="0.01"
+                value={formData.valor}
+                onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="descricao">Descrição</Label>
+            <Textarea
+              id="descricao"
+              value={formData.descricao}
+              onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+              rows={3}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isLoading} className="bg-gradient-to-r from-blue-500 to-cyan-500">
+              {isLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : servico ? 'Salvar' : 'Cadastrar'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

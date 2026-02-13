@@ -21,6 +21,7 @@ export default function Layout({ children }) {
   const navigation = [
     { name: 'Dashboard', href: createPageUrl('Dashboard'), icon: LayoutDashboard },
     { name: 'Clientes', href: createPageUrl('Clientes'), icon: Users },
+    { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
     { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList },
   ];
 
