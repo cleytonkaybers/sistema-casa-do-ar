@@ -20,7 +20,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, Loader2, MapPin, Contact, Smartphone, Search } from 'lucide-react';
+import { CalendarIcon, Loader2, MapPin, Contact, Smartphone, Search, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
@@ -316,6 +316,7 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
                 onClick={handleSearchLocation}
                 disabled={loadingLocation || !formData.endereco}
                 className="h-11 px-4 border-blue-300 text-blue-600 hover:bg-blue-50"
+                title="Buscar localização"
               >
                 {loadingLocation ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -323,6 +324,22 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
                   <Search className="w-4 h-4" />
                 )}
               </Button>
+              {(formData.latitude && formData.longitude) || formData.endereco ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const mapsUrl = formData.latitude && formData.longitude
+                      ? `https://www.google.com/maps?q=${formData.latitude},${formData.longitude}`
+                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([formData.endereco, formData.bairro, formData.cidade].filter(Boolean).join(', '))}`;
+                    window.open(mapsUrl, '_blank');
+                  }}
+                  className="h-11 px-4 border-green-300 text-green-600 hover:bg-green-50"
+                  title="Abrir no Google Maps"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </Button>
+              ) : null}
             </div>
             <p className="text-xs text-gray-500">
               Cole um link do Google Maps (ex: https://maps.app.goo.gl/...) e clique em buscar para preencher automaticamente
