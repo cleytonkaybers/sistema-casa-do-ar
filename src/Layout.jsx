@@ -10,7 +10,8 @@ import {
   Snowflake,
   LogOut,
   Database,
-  MessageCircle
+  MessageCircle,
+  BarChart3
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,7 @@ export default function Layout({ children }) {
     { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
     { name: 'Preventivas Futuras', href: createPageUrl('PreventivasFuturas'), icon: ClipboardList },
     { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList },
+    { name: 'Relatórios', href: createPageUrl('Relatorios'), icon: BarChart3 },
     { name: 'Suporte', href: createPageUrl('Suporte'), icon: MessageCircle },
     { name: 'Backup e Restaurar', href: createPageUrl('BackupRestaurer'), icon: Database },
     ...(isAdmin ? [{ name: 'Usuários', href: createPageUrl('Usuarios'), icon: Users }] : []),
