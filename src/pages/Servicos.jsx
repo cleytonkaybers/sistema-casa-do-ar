@@ -78,6 +78,14 @@ export default function ServicosPage() {
     }
   };
 
+  const handleStatusChange = (servico, novoStatus) => {
+    updateMutation.mutate({ 
+      id: servico.id, 
+      data: { ...servico, status: novoStatus } 
+    });
+    toast.success(`Status alterado para ${novoStatus}`);
+  };
+
   const filteredServicos = servicos.filter(s => {
     const matchSearch = s.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                        s.telefone?.includes(searchTerm);
@@ -240,6 +248,7 @@ export default function ServicosPage() {
                               servico={servico}
                               onEdit={handleEdit}
                               onDelete={handleDelete}
+                              onStatusChange={handleStatusChange}
                               compact
                             />
                           </div>
@@ -271,6 +280,7 @@ export default function ServicosPage() {
                     servico={servico}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
+                    onStatusChange={handleStatusChange}
                   />
                 ))}
               </div>

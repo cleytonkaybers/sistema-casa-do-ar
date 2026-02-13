@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Phone, MapPin, Calendar, Pencil, Trash2, MessageCircle, Navigation, Clock, DollarSign, Share2, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function ServicoCard({ servico, onEdit, onDelete, compact = false }) {
+export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange, compact = false }) {
   const formatPhone = (phone) => {
     if (!phone) return '';
     const cleaned = phone.replace(/\D/g, '');
