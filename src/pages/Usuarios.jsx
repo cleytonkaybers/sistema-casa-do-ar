@@ -358,8 +358,16 @@ export default function UsuariosPage() {
              <Button variant="outline" onClick={() => setShowInviteModal(false)}>
                Cancelar
              </Button>
-             <Button onClick={handleInvite} className="bg-gradient-to-r from-blue-500 to-cyan-500">
-               Criar Usuário
+             <Button 
+               onClick={handleInvite} 
+               disabled={inviteUserMutation.isPending}
+               className="bg-gradient-to-r from-blue-500 to-cyan-500"
+             >
+               {inviteUserMutation.isPending ? (
+                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando...</>
+               ) : (
+                 'Criar Usuário'
+               )}
              </Button>
            </div>
          </div>
