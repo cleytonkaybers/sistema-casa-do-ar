@@ -14,7 +14,8 @@ import {
   ArrowRight,
   Snowflake,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  Plus
 } from 'lucide-react';
 import { format, differenceInDays, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -77,34 +78,71 @@ export default function Dashboard() {
 
   const atendimentosConcluidos = atendimentos.filter(a => a.status === 'Concluído').length;
 
-  const StatCard = ({ title, value, icon: Icon, color, subtitle }) => (
-    <Card className="bg-white border-0 shadow-lg hover:shadow-xl transition-shadow">
+  const StatCard = ({ title, value, icon: Icon, color, subtitle, onClick, href }) => {
+    const content = (
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-medium text-gray-500">{title}</p>
             <p className="text-3xl font-bold mt-2 text-gray-800">{value}</p>
             {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
           </div>
-          <div className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center`}>
+          <div className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center shadow-lg`}>
             <Icon className="w-6 h-6 text-white" />
           </div>
         </div>
+        {(onClick || href) && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <div className="flex items-center text-sm font-medium text-blue-600">
+              Ver detalhes <ArrowRight className="w-4 h-4 ml-1" />
+            </div>
+          </div>
+        )}
       </CardContent>
-    </Card>
-  );
+    );
+
+    if (href) {
+      return (
+        <Link to={href}>
+          <Card className="bg-white border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:scale-105 group">
+            {content}
+          </Card>
+        </Link>
+      );
+    }
+
+    return (
+      <Card 
+        className={`bg-white border-0 shadow-lg hover:shadow-2xl transition-all duration-300 ${onClick ? 'cursor-pointer hover:scale-105 group' : ''}`}
+        onClick={onClick}
+      >
+        {content}
+      </Card>
+    );
+  };
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Dashboard</h1>
-          <p className="text-gray-500 mt-1">Visão geral do sistema</p>
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+            Dashboard
+          </h1>
+          <p className="text-gray-500 mt-1 flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            Visão geral - {format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+          </p>
         </div>
         <div className="flex items-center gap-3">
+          <Link to={createPageUrl('Servicos')}>
+            <Button className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 shadow-lg">
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Serviço
+            </Button>
+          </Link>
           <Link to={createPageUrl('Clientes')}>
-            <Button className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600">
+            <Button className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 shadow-lg">
               <Users className="w-4 h-4 mr-2" />
               Ver Clientes
             </Button>
@@ -120,6 +158,7 @@ export default function Dashboard() {
           icon={Users}
           color="bg-gradient-to-br from-blue-500 to-blue-600"
           subtitle={`${clientesAtivos} ativos`}
+          href={createPageUrl('Clientes')}
         />
         <StatCard
           title="Atendimentos do Mês"
@@ -127,6 +166,7 @@ export default function Dashboard() {
           icon={ClipboardList}
           color="bg-gradient-to-br from-cyan-500 to-cyan-600"
           subtitle={format(new Date(), "MMMM 'de' yyyy", { locale: ptBR })}
+          href={createPageUrl('Atendimentos')}
         />
         <StatCard
           title="Manutenções Pendentes"
@@ -134,6 +174,7 @@ export default function Dashboard() {
           icon={AlertTriangle}
           color={manutencoesPendentes.length > 0 ? "bg-gradient-to-br from-amber-500 to-amber-600" : "bg-gradient-to-br from-green-500 to-green-600"}
           subtitle="Próximos 30 dias"
+          href={createPageUrl('PreventivasFuturas')}
         />
         <StatCard
           title="Serviços Concluídos"
@@ -141,6 +182,7 @@ export default function Dashboard() {
           icon={CheckCircle2}
           color="bg-gradient-to-br from-green-500 to-green-600"
           subtitle="Total histórico"
+          href={createPageUrl('Atendimentos')}
         />
       </div>
 
@@ -173,32 +215,35 @@ export default function Dashboard() {
             <div className="space-y-3">
               {manutencoesVencidas.slice(0, 5).map((cliente) => {
                 const daysOverdue = Math.abs(differenceInDays(new Date(cliente.proxima_manutencao), new Date()));
-                
+
                 return (
-                  <div
-                    key={cliente.id}
-                    className="flex items-center justify-between p-4 rounded-lg bg-white/95 hover:bg-white transition-colors"
+                  <Link 
+                    key={cliente.id} 
+                    to={createPageUrl('PreventivasFuturas')}
+                    className="block"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                        <Snowflake className="w-6 h-6 text-red-600" />
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-white/95 hover:bg-white hover:shadow-md transition-all cursor-pointer group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <Snowflake className="w-6 h-6 text-red-600" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-800 group-hover:text-red-600 transition-colors">{cliente.nome}</p>
+                          <p className="text-sm text-gray-600">
+                            {cliente.telefone && formatPhone(cliente.telefone)}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold text-gray-800">{cliente.nome}</p>
-                        <p className="text-sm text-gray-600">
-                          {cliente.telefone && formatPhone(cliente.telefone)}
+                      <div className="text-right">
+                        <p className="text-base font-bold text-red-600">
+                          {daysOverdue} {daysOverdue === 1 ? 'dia' : 'dias'} atrasado
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Desde {format(new Date(cliente.proxima_manutencao), "dd/MM/yyyy")}
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-base font-bold text-red-600">
-                        {daysOverdue} {daysOverdue === 1 ? 'dia' : 'dias'} atrasado
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Desde {format(new Date(cliente.proxima_manutencao), "dd/MM/yyyy")}
-                      </p>
-                    </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
@@ -231,32 +276,35 @@ export default function Dashboard() {
                   const isOverdue = daysUntil < 0;
                   
                   return (
-                    <div
+                    <Link 
                       key={cliente.id}
-                      className={`flex items-center justify-between p-3 rounded-lg ${
-                        isOverdue ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'
-                      }`}
+                      to={createPageUrl('PreventivasFuturas')}
+                      className="block"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          isOverdue ? 'bg-red-100' : 'bg-amber-100'
-                        }`}>
-                          <Snowflake className={`w-5 h-5 ${isOverdue ? 'text-red-600' : 'text-amber-600'}`} />
+                      <div className={`flex items-center justify-between p-3 rounded-lg cursor-pointer hover:shadow-md transition-all group ${
+                        isOverdue ? 'bg-red-50 border border-red-100 hover:bg-red-100' : 'bg-amber-50 border border-amber-100 hover:bg-amber-100'
+                      }`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform ${
+                            isOverdue ? 'bg-red-100' : 'bg-amber-100'
+                          }`}>
+                            <Snowflake className={`w-5 h-5 ${isOverdue ? 'text-red-600' : 'text-amber-600'}`} />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-800">{cliente.nome}</p>
+                            <p className="text-xs text-gray-500">{cliente.tipo_equipamento || 'Não especificado'}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-800">{cliente.nome}</p>
-                          <p className="text-xs text-gray-500">{cliente.tipo_equipamento || 'Não especificado'}</p>
+                        <div className={`text-right ${isOverdue ? 'text-red-600' : 'text-amber-600'}`}>
+                          <p className="text-sm font-medium">
+                            {isOverdue ? `${Math.abs(daysUntil)} dias atrasado` : `em ${daysUntil} dias`}
+                          </p>
+                          <p className="text-xs">
+                            {format(new Date(cliente.proxima_manutencao), "dd/MM/yyyy")}
+                          </p>
                         </div>
                       </div>
-                      <div className={`text-right ${isOverdue ? 'text-red-600' : 'text-amber-600'}`}>
-                        <p className="text-sm font-medium">
-                          {isOverdue ? `${Math.abs(daysUntil)} dias atrasado` : `em ${daysUntil} dias`}
-                        </p>
-                        <p className="text-xs">
-                          {format(new Date(cliente.proxima_manutencao), "dd/MM/yyyy")}
-                        </p>
-                      </div>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
@@ -292,25 +340,28 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3">
                 {clientes.slice(0, 5).map((cliente) => (
-                  <div
+                  <Link 
                     key={cliente.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                    to={createPageUrl('Clientes')}
+                    className="block"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center text-white font-semibold">
-                        {cliente.nome?.charAt(0).toUpperCase()}
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 hover:shadow-md transition-all cursor-pointer group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center text-white font-semibold group-hover:scale-110 transition-transform shadow-md">
+                          {cliente.nome?.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-800 group-hover:text-blue-600 transition-colors">{cliente.nome}</p>
+                          <p className="text-xs text-gray-500">{cliente.cidade || 'Sem cidade'}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-800">{cliente.nome}</p>
-                        <p className="text-xs text-gray-500">{cliente.cidade || 'Sem cidade'}</p>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500">
+                          {format(new Date(cliente.created_date), "dd/MM/yyyy")}
+                        </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500">
-                        {format(new Date(cliente.created_date), "dd/MM/yyyy")}
-                      </p>
-                    </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
