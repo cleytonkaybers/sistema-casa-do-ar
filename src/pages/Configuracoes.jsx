@@ -150,7 +150,64 @@ export default function ConfiguracoesPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="company_icon">Ícone</Label>
+            <Label>Logo da Empresa</Label>
+            <div className="border-2 border-dashed border-gray-200 rounded-lg p-4">
+              {formData.company_logo_url ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                    <img src={formData.company_logo_url} alt="Logo" className="h-12 w-12 object-contain" />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleDownloadLogo}
+                        className="text-xs"
+                      >
+                        <Download className="w-3 h-3 mr-1" />
+                        Baixar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setFormData({ ...formData, company_logo_url: '' })}
+                        className="text-xs text-red-600 hover:text-red-700"
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                  <label className="text-xs text-gray-500 cursor-pointer hover:text-gray-600">
+                    Alterar imagem
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      disabled={uploading}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              ) : (
+                <label className="cursor-pointer block">
+                  <div className="flex flex-col items-center py-4">
+                    <Upload className="w-6 h-6 text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-600">Clique para fazer upload da logo</p>
+                    <p className="text-xs text-gray-500 mt-1">PNG, JPG, SVG até 5MB</p>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    disabled={uploading}
+                    className="hidden"
+                  />
+                </label>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="company_icon">Ícone Padrão</Label>
             <Select value={formData.company_icon} onValueChange={(value) => setFormData({ ...formData, company_icon: value })}>
               <SelectTrigger className="h-11">
                 <SelectValue />
@@ -161,7 +218,7 @@ export default function ConfiguracoesPage() {
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-gray-500 mt-2">Selecione um ícone para representar sua empresa</p>
+            <p className="text-xs text-gray-500 mt-2">Usado como fallback se nenhuma logo for carregada</p>
           </div>
 
           <Button
