@@ -118,8 +118,42 @@ export default function Atendimentos() {
     return Array.from(tiposSet).sort();
   }, [atendimentos]);
 
+  // Combinar atendimentos com serviços que não têm atendimento
+  const atendimentosComServicos = useMemo(() => {
+    const atendimentosMap = new Map();
+    
+    // Adicionar atendimentos existentes
+    atendimentos.forEach(atendimento => {
+      const key = atendimento.cliente_nome?.trim().toLowerCase();
+      if (key) atendimentosMap.set(key, atendimento);
+    });
+    
+    // Adicionar serviços que não têm atendimento
+    servicos.forEach(servico => {
+      const key = servico.cliente_nome?.trim().toLowerCase();
+      if (key && !atendimentosMap.has(key) && servico.ativo) {
+        // Criar atendimento virtual a partir do serviço
+        atendimentosMap.set(key, {
+          id: `servico-${servico.id}`,
+          cliente_nome: servico.cliente_nome,
+          data_atendimento: servico.data_programada,
+          tipo_servico: servico.tipo_servico,
+          descricao: servico.descricao,
+          valor: servico.valor,
+          status: servico.status === 'aberto' ? 'Aberto' :
+                  servico.status === 'andamento' ? 'Em Andamento' :
+                  servico.status === 'pausado' ? 'Pausado' : 'Concluído',
+          _isFromServico: true,
+          _servicoId: servico.id
+        });
+      }
+    });
+    
+    return Array.from(atendimentosMap.values());
+  }, [atendimentos, servicos]);
+
   const filteredAtendimentos = useMemo(() => {
-    return atendimentos.filter(atendimento => {
+    return atendimentosComServicos.filter(atendimento => {
       const matchesSearch = 
         atendimento.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         atendimento.descricao?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -129,7 +163,7 @@ export default function Atendimentos() {
       
       return matchesSearch && matchesStatus && matchesTipo;
     });
-  }, [atendimentos, searchTerm, filterStatus, filterTipo]);
+  }, [atendimentosComServicos, searchTerm, filterStatus, filterTipo]);
 
   // Handlers
   const handleSave = (data) => {
@@ -180,7 +214,7 @@ export default function Atendimentos() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Atendimentos</h1>
-          <p className="text-gray-500 mt-1">{atendimentos.length} atendimentos registrados</p>
+          <p className="text-gray-500 mt-1">{atendimentosComServicos.length} registros ({atendimentos.length} atendimentos + {atendimentosComServicos.length - atendimentos.length} serviços)</p>
         </div>
         <Button 
           onClick={handleNewAtendimento}
