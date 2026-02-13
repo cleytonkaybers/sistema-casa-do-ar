@@ -8,12 +8,12 @@ import {
   Menu, 
   X,
   Snowflake,
-  Settings,
   LogOut,
   Database
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -42,16 +42,17 @@ export default function Layout({ children }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sky-50 via-blue-50 to-cyan-50">
-      {/* Mobile sidebar backdrop */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-gray-900/50 z-40 lg:hidden backdrop-blur-sm"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gradient-to-br from-sky-50 via-blue-50 to-cyan-50">
+        {/* Mobile sidebar backdrop */}
+        {sidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-gray-900/50 z-40 lg:hidden backdrop-blur-sm"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
 
-      {/* Sidebar */}
+        {/* Sidebar */}
       <aside className={`
         fixed top-0 left-0 z-50 h-full w-72 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out
         lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -145,6 +146,6 @@ export default function Layout({ children }) {
           {children}
         </main>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 }
