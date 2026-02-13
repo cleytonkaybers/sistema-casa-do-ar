@@ -12,10 +12,12 @@ import {
   Navigation,
   Snowflake,
   Clock,
-  ClipboardList
+  ClipboardList,
+  Share2
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 export default function ClienteCard({ cliente, onEdit, onDelete, onViewHistory }) {
   const formatPhone = (phone) => {
@@ -45,6 +47,28 @@ export default function ClienteCard({ cliente, onEdit, onDelete, onViewHistory }
     return null;
   };
 
+  const handleShare = async () => {
+    const mapsLink = getGoogleMapsLink();
+    const shareText = `📋 *${cliente.nome}*\n\n📞 Telefone: ${formatPhone(cliente.telefone)}\n\n📍 Localização: ${cliente.endereco || 'Não informado'}\n${mapsLink ? `🗺️ ${mapsLink}\n` : ''}\n${cliente.observacoes ? `📝 Observações: ${cliente.observacoes}` : ''}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Cliente: ${cliente.nome}`,
+          text: shareText
+        });
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          navigator.clipboard.writeText(shareText);
+          toast.success('Informações copiadas!');
+        }
+      }
+    } else {
+      navigator.clipboard.writeText(shareText);
+      toast.success('Informações copiadas!');
+    }
+  };
+
   const getMaintenanceStatus = () => {
     if (!cliente.proxima_manutencao) return null;
     const daysUntil = differenceInDays(new Date(cliente.proxima_manutencao), new Date());
@@ -66,7 +90,16 @@ export default function ClienteCard({ cliente, onEdit, onDelete, onViewHistory }
       <CardContent className="p-0">
         {/* Header com gradiente */}
         <div className="bg-gradient-to-r from-blue-500 to-cyan-500 p-4 text-white">
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleShare}
+              className="text-white hover:bg-white/20 flex-shrink-0"
+              title="Compartilhar informações"
+            >
+              <Share2 className="w-5 h-5" />
+            </Button>
             <div className="flex-1">
               <h3 className="font-semibold text-lg">{cliente.nome}</h3>
             </div>
