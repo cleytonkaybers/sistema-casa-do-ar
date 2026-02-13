@@ -299,9 +299,9 @@ export default function Atendimentos() {
               </TableHeader>
               <TableBody>
                 {filteredAtendimentos.map((atendimento) => {
+                  // Busca serviço pelo nome do cliente e telefone (mais confiável)
                   const servicoRelacionado = servicos.find(s => 
-                    s.cliente_nome === atendimento.cliente_nome && 
-                    s.tipo_servico?.toLowerCase().includes(atendimento.tipo_servico?.toLowerCase().split(' ')[0] || '')
+                    s.cliente_nome?.trim().toLowerCase() === atendimento.cliente_nome?.trim().toLowerCase()
                   );
                   
                   const statusServicoColors = {
@@ -384,9 +384,9 @@ export default function Atendimentos() {
           {/* Mobile Cards */}
           <div className="lg:hidden space-y-4">
             {filteredAtendimentos.map((atendimento) => {
+              // Busca serviço pelo nome do cliente (mais confiável)
               const servicoRelacionado = servicos.find(s => 
-                s.cliente_nome === atendimento.cliente_nome && 
-                s.tipo_servico?.toLowerCase().includes(atendimento.tipo_servico?.toLowerCase().split(' ')[0] || '')
+                s.cliente_nome?.trim().toLowerCase() === atendimento.cliente_nome?.trim().toLowerCase()
               );
               
               const statusServicoColors = {
