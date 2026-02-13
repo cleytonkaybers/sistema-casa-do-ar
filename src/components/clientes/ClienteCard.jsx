@@ -39,15 +39,8 @@ export default function ClienteCard({ cliente, onEdit, onDelete, onViewHistory }
     if (cliente.latitude && cliente.longitude) {
       return `https://www.google.com/maps?q=${cliente.latitude},${cliente.longitude}`;
     }
-    // Monta endereço completo incluindo bairro e cidade para melhor precisão
-    const addressParts = [
-      cliente.endereco,
-      cliente.bairro,
-      cliente.cidade
-    ].filter(Boolean);
-    
-    if (addressParts.length > 0) {
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressParts.join(', '))}`;
+    if (cliente.endereco) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cliente.endereco)}`;
     }
     return null;
   };
@@ -76,23 +69,7 @@ export default function ClienteCard({ cliente, onEdit, onDelete, onViewHistory }
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <h3 className="font-semibold text-lg">{cliente.nome}</h3>
-              {cliente.tipo_equipamento && (
-                <div className="flex items-center gap-1.5 mt-1 text-blue-100">
-                  <Snowflake className="w-3.5 h-3.5" />
-                  <span className="text-sm">{cliente.tipo_equipamento}</span>
-                </div>
-              )}
             </div>
-            <Badge 
-              variant="secondary" 
-              className={`
-                ${cliente.status === 'Ativo' ? 'bg-white/20 text-white' : ''}
-                ${cliente.status === 'Inativo' ? 'bg-gray-500/50 text-white' : ''}
-                ${cliente.status === 'Pendente' ? 'bg-amber-400/50 text-white' : ''}
-              `}
-            >
-              {cliente.status || 'Ativo'}
-            </Badge>
           </div>
         </div>
 
@@ -133,15 +110,6 @@ export default function ClienteCard({ cliente, onEdit, onDelete, onViewHistory }
                   <Navigation className="w-4 h-4" />
                 </a>
               )}
-            </div>
-          )}
-
-          {/* Cidade e Bairro */}
-          {(cliente.cidade || cliente.bairro) && (
-            <div className="text-sm text-gray-500">
-              {cliente.bairro && <span>{cliente.bairro}</span>}
-              {cliente.bairro && cliente.cidade && <span> • </span>}
-              {cliente.cidade && <span>{cliente.cidade}</span>}
             </div>
           )}
 

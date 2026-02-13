@@ -25,9 +25,6 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 
-const TIPOS_EQUIPAMENTO = ['Split', 'Inverter', 'Janela', 'Cassete', 'Piso-Teto', 'Multi-Split', 'Outro'];
-const STATUS_OPTIONS = ['Ativo', 'Inativo', 'Pendente'];
-
 export default function ClienteForm({ open, onClose, onSave, cliente, isLoading }) {
   const [loadingContacts, setLoadingContacts] = useState(false);
   const [loadingLocation, setLoadingLocation] = useState(false);
@@ -35,15 +32,11 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
     nome: '',
     telefone: '',
     endereco: '',
-    cidade: '',
-    bairro: '',
     latitude: null,
     longitude: null,
     observacoes: '',
-    tipo_equipamento: '',
     ultima_manutencao: '',
-    proxima_manutencao: '',
-    status: 'Ativo'
+    proxima_manutencao: ''
   });
 
   useEffect(() => {
@@ -52,30 +45,22 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
         nome: cliente.nome || '',
         telefone: cliente.telefone || '',
         endereco: cliente.endereco || '',
-        cidade: cliente.cidade || '',
-        bairro: cliente.bairro || '',
         latitude: cliente.latitude || null,
         longitude: cliente.longitude || null,
         observacoes: cliente.observacoes || '',
-        tipo_equipamento: cliente.tipo_equipamento || '',
         ultima_manutencao: cliente.ultima_manutencao || '',
-        proxima_manutencao: cliente.proxima_manutencao || '',
-        status: cliente.status || 'Ativo'
+        proxima_manutencao: cliente.proxima_manutencao || ''
       });
     } else {
       setFormData({
         nome: '',
         telefone: '',
         endereco: '',
-        cidade: '',
-        bairro: '',
         latitude: null,
         longitude: null,
         observacoes: '',
-        tipo_equipamento: '',
         ultima_manutencao: '',
-        proxima_manutencao: '',
-        status: 'Ativo'
+        proxima_manutencao: ''
       });
     }
   }, [cliente, open]);
@@ -154,8 +139,6 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
         setFormData(prev => ({
           ...prev,
           endereco: result?.endereco_completo || `Coordenadas: ${lat}, ${lng}`,
-          bairro: result?.bairro || prev.bairro,
-          cidade: result?.cidade ? `${result.cidade}${result.estado ? ` - ${result.estado}` : ''}` : prev.cidade,
           latitude: lat,
           longitude: lng
         }));
@@ -196,8 +179,6 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
           setFormData(prev => ({
             ...prev,
             endereco: result.endereco_completo || prev.endereco,
-            bairro: result.bairro || prev.bairro,
-            cidade: result.cidade ? `${result.cidade}${result.estado ? ` - ${result.estado}` : ''}` : prev.cidade,
             latitude: result.latitude || prev.latitude,
             longitude: result.longitude || prev.longitude
           }));
@@ -236,8 +217,6 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
           setFormData(prev => ({
             ...prev,
             endereco: result.endereco_completo || prev.endereco,
-            bairro: result.bairro || prev.bairro,
-            cidade: result.cidade ? `${result.cidade}${result.estado ? ` - ${result.estado}` : ''}` : prev.cidade,
             latitude: result.latitude || prev.latitude,
             longitude: result.longitude || prev.longitude
           }));
@@ -409,7 +388,7 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
                   onClick={() => {
                     const mapsUrl = formData.latitude && formData.longitude
                       ? `https://www.google.com/maps?q=${formData.latitude},${formData.longitude}`
-                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([formData.endereco, formData.bairro, formData.cidade].filter(Boolean).join(', '))}`;
+                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formData.endereco)}`;
                     window.open(mapsUrl, '_blank');
                   }}
                   className="h-11 px-4 border-green-300 text-green-600 hover:bg-green-50"
@@ -422,66 +401,6 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
             <p className="text-xs text-gray-500">
               Cole um link do Google Maps, coordenadas (ex: -10.173, -59.446) ou digite o endereço e clique em buscar
             </p>
-          </div>
-
-          {/* Cidade e Bairro */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="cidade">Cidade</Label>
-              <Input
-                id="cidade"
-                value={formData.cidade}
-                onChange={(e) => setFormData({ ...formData, cidade: e.target.value })}
-                placeholder="Cidade"
-                className="h-11"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bairro">Bairro</Label>
-              <Input
-                id="bairro"
-                value={formData.bairro}
-                onChange={(e) => setFormData({ ...formData, bairro: e.target.value })}
-                placeholder="Bairro"
-                className="h-11"
-              />
-            </div>
-          </div>
-
-          {/* Tipo Equipamento e Status */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Tipo de Equipamento</Label>
-              <Select
-                value={formData.tipo_equipamento}
-                onValueChange={(value) => setFormData({ ...formData, tipo_equipamento: value })}
-              >
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Selecione o tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {TIPOS_EQUIPAMENTO.map((tipo) => (
-                    <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData({ ...formData, status: value })}
-              >
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Selecione o status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((status) => (
-                    <SelectItem key={status} value={status}>{status}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           {/* Datas de Manutenção */}
