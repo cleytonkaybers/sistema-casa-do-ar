@@ -304,6 +304,14 @@ export default function Atendimentos() {
                     s.cliente_nome?.trim().toLowerCase() === atendimento.cliente_nome?.trim().toLowerCase()
                   );
                   
+                  // Mapear status do serviço para status do atendimento
+                  const statusAtendimentoSincronizado = servicoRelacionado?.status 
+                    ? (servicoRelacionado.status === 'aberto' ? 'Agendado' :
+                       servicoRelacionado.status === 'andamento' ? 'Em Andamento' :
+                       servicoRelacionado.status === 'concluido' ? 'Concluído' :
+                       servicoRelacionado.status === 'pausado' ? 'Em Andamento' : atendimento.status)
+                    : atendimento.status;
+                  
                   const statusServicoColors = {
                     'aberto': 'bg-gray-100 text-gray-700 border-gray-200',
                     'andamento': 'bg-blue-100 text-blue-700 border-blue-200',
@@ -334,8 +342,8 @@ export default function Atendimentos() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className={`${statusColors[atendimento.status]} border`}>
-                          {atendimento.status}
+                        <Badge className={`${statusColors[statusAtendimentoSincronizado]} border`}>
+                          {statusAtendimentoSincronizado}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -389,6 +397,14 @@ export default function Atendimentos() {
                 s.cliente_nome?.trim().toLowerCase() === atendimento.cliente_nome?.trim().toLowerCase()
               );
               
+              // Mapear status do serviço para status do atendimento
+              const statusAtendimentoSincronizado = servicoRelacionado?.status 
+                ? (servicoRelacionado.status === 'aberto' ? 'Agendado' :
+                   servicoRelacionado.status === 'andamento' ? 'Em Andamento' :
+                   servicoRelacionado.status === 'concluido' ? 'Concluído' :
+                   servicoRelacionado.status === 'pausado' ? 'Em Andamento' : atendimento.status)
+                : atendimento.status;
+              
               const statusServicoColors = {
                 'aberto': 'bg-gray-100 text-gray-700 border-gray-200',
                 'andamento': 'bg-blue-100 text-blue-700 border-blue-200',
@@ -410,8 +426,8 @@ export default function Atendimentos() {
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
-                        <Badge className={`${statusColors[atendimento.status]} border text-xs`}>
-                          {atendimento.status}
+                        <Badge className={`${statusColors[statusAtendimentoSincronizado]} border text-xs`}>
+                          {statusAtendimentoSincronizado}
                         </Badge>
                         {servicoRelacionado && (
                           <Badge className={`${statusServicoColors[servicoRelacionado.status || 'aberto']} border text-xs`}>
