@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, UserPlus, Users, Shield, Mail } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Loader2, UserPlus, Users, Shield, Mail, Trash2, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePermissions } from '../components/auth/PermissionGuard';
 
@@ -80,7 +81,9 @@ export default function UsuariosPage() {
   const { isAdmin, loading: authLoading } = usePermissions();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [userToDelete, setUserToDelete] = useState(null);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteFullName, setInviteFullName] = useState('');
   const [invitePerfil, setInvitePerfil] = useState('atendente');
@@ -103,6 +106,17 @@ export default function UsuariosPage() {
       setEditingUser(null);
     },
     onError: () => toast.error('Erro ao atualizar permissões')
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: (userId) => base44.entities.User.delete(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+      toast.success('Usuário deletado com sucesso!');
+      setShowDeleteConfirm(false);
+      setUserToDelete(null);
+    },
+    onError: () => toast.error('Erro ao deletar usuário')
   });
 
   const handleInvite = async () => {
@@ -184,6 +198,17 @@ export default function UsuariosPage() {
     });
   };
 
+  const handleDeleteClick = (user) => {
+    setUserToDelete(user);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    if (userToDelete) {
+      deleteUserMutation.mutate(userToDelete.id);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -204,19 +229,19 @@ export default function UsuariosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">Gerenciar Usuários</h1>
-           <p className="text-gray-400 mt-1">Apenas administradores podem editar permissões</p>
-        </div>
-        <Button
-          onClick={() => setShowInviteModal(true)}
-          className="bg-gradient-to-r from-blue-500 to-cyan-500"
-        >
-          <UserPlus className="w-5 h-5 mr-2" />
-          Novo Usuário
-        </Button>
-      </div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+         <div>
+           <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">Gerenciar Usuários</h1>
+            <p className="text-gray-400 mt-1">Total de usuários ativos: <span className="text-cyan-400 font-bold">{usuarios.length}</span></p>
+         </div>
+         <Button
+           onClick={() => setShowInviteModal(true)}
+           className="bg-gradient-to-r from-blue-500 to-cyan-500"
+         >
+           <UserPlus className="w-5 h-5 mr-2" />
+           Novo Usuário
+         </Button>
+       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-12">
@@ -239,18 +264,29 @@ export default function UsuariosPage() {
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEditPermissions(usuario)}
-                    disabled={!isAdmin}
-                    className="w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Shield className="w-4 h-4 mr-2" />
-                    Editar Permissões
-                  </Button>
-                </CardContent>
+                 <CardContent>
+                   <div className="flex gap-2">
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       onClick={() => handleEditPermissions(usuario)}
+                       disabled={!isAdmin}
+                       className="flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                     >
+                       <Edit className="w-4 h-4 mr-2" />
+                       Editar
+                     </Button>
+                     <Button
+                       variant="destructive"
+                       size="sm"
+                       onClick={() => handleDeleteClick(usuario)}
+                       disabled={!isAdmin}
+                       className="disabled:opacity-50 disabled:cursor-not-allowed"
+                     >
+                       <Trash2 className="w-4 h-4" />
+                     </Button>
+                   </div>
+                 </CardContent>
               </Card>
             );
           })}
@@ -443,8 +479,34 @@ export default function UsuariosPage() {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
+          </DialogContent>
+          </Dialog>
+
+          {/* Modal de Confirmação de Exclusão */}
+          <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deletar Usuário</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja deletar <strong>{userToDelete?.full_name || userToDelete?.email}</strong>? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex justify-end gap-3">
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleteUserMutation.isPending}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {deleteUserMutation.isPending ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Deletando...</>
+              ) : (
+                'Deletar'
+              )}
+            </AlertDialogAction>
+          </div>
+          </AlertDialogContent>
+          </AlertDialog>
+          </div>
+          );
+          }
