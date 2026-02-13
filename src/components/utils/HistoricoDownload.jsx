@@ -1,27 +1,86 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+const desenharTabela = (doc, colunas, linhas, startY) => {
+  const margemEsq = 15;
+  const margemDir = 15;
+  const larguraPagina = doc.internal.pageSize.getWidth();
+  const larguraDisponivel = larguraPagina - margemEsq - margemDir;
+  const larguraColuna = larguraDisponivel / colunas.length;
+  const alturaLinha = 8;
+
+  let y = startY;
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // Cabeçalho da tabela
+  doc.setFontSize(8);
+  doc.setFont(undefined, 'bold');
+  doc.setFillColor(30, 58, 138);
+  doc.setTextColor(255, 255, 255);
+
+  colunas.forEach((col, i) => {
+    doc.rect(margemEsq + (i * larguraColuna), y, larguraColuna, alturaLinha, 'F');
+    doc.text(col, margemEsq + (i * larguraColuna) + 2, y + 5);
+  });
+
+  y += alturaLinha;
+  doc.setFont(undefined, 'normal');
+  doc.setTextColor(0, 0, 0);
+
+  // Linhas da tabela
+  linhas.forEach((linha, rowIndex) => {
+    if (y > pageHeight - 20) {
+      doc.addPage();
+      y = 15;
+      // Redesenhar cabeçalho
+      doc.setFont(undefined, 'bold');
+      doc.setFillColor(30, 58, 138);
+      doc.setTextColor(255, 255, 255);
+      colunas.forEach((col, i) => {
+        doc.rect(margemEsq + (i * larguraColuna), y, larguraColuna, alturaLinha, 'F');
+        doc.text(col, margemEsq + (i * larguraColuna) + 2, y + 5);
+      });
+      y += alturaLinha;
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(0, 0, 0);
+    }
+
+    if (rowIndex % 2 === 0) {
+      doc.setFillColor(240, 245, 255);
+    } else {
+      doc.setFillColor(255, 255, 255);
+    }
+
+    linha.forEach((celula, i) => {
+      doc.rect(margemEsq + (i * larguraColuna), y, larguraColuna, alturaLinha, 'FD');
+      doc.text(celula, margemEsq + (i * larguraColuna) + 2, y + 5);
+    });
+
+    y += alturaLinha;
+  });
+
+  return y;
+};
+
 export const gerarPDFCliente = (cliente, servicos, atendimentos) => {
   const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  
+
   // Cabeçalho
   doc.setFontSize(20);
   doc.setTextColor(30, 58, 138);
-  doc.text('Casa do Ar Climatização', 20, 20);
-  
+  doc.text('Casa do Ar Climatização', 15, 15);
+
   doc.setFontSize(14);
   doc.setTextColor(0, 0, 0);
-  doc.text(`Histórico de Serviços - ${cliente}`, 20, 35);
-  
-  // Informações do cliente
+  doc.text(`Histórico de Serviços - ${cliente}`, 15, 30);
+
+  // Informações do relatório
   doc.setFontSize(10);
-  doc.text(`Data do Relatório: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`, 20, 50);
-  
-  // Combinar e ordenar
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Data do Relatório: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`, 15, 42);
+
+  // Combinar e ordenar histórico
   const historico = [
     ...servicos.map(s => ({
       tipo: 'Serviço',
@@ -29,8 +88,7 @@ export const gerarPDFCliente = (cliente, servicos, atendimentos) => {
       data: s.data_programada,
       status: s.status,
       valor: s.valor || 0,
-      usuario: s.usuario_atualizacao_status || 'N/A',
-      data_atualizacao: s.data_atualizacao_status
+      usuario: s.usuario_atualizacao_status || 'N/A'
     })),
     ...atendimentos.map(a => ({
       tipo: 'Atendimento',
@@ -38,8 +96,7 @@ export const gerarPDFCliente = (cliente, servicos, atendimentos) => {
       data: a.data_atendimento,
       status: a.status,
       valor: a.valor || 0,
-      usuario: a.usuario_atualizacao_status || 'N/A',
-      data_atualizacao: a.data_atualizacao_status
+      usuario: a.usuario_atualizacao_status || 'N/A'
     }))
   ].sort((a, b) => new Date(b.data) - new Date(a.data));
 
@@ -48,82 +105,54 @@ export const gerarPDFCliente = (cliente, servicos, atendimentos) => {
   // Resumo
   doc.setFontSize(11);
   doc.setTextColor(100, 100, 100);
-  doc.text(`Total de Serviços: ${historico.length}`, 20, 65);
-  doc.text(`Valor Total Investido: R$ ${totalValor.toLocaleString('pt-BR')}`, 20, 75);
+  doc.text(`Total de Serviços: ${historico.length}`, 15, 54);
+  doc.text(`Valor Total Investido: R$ ${totalValor.toLocaleString('pt-BR')}`, 15, 62);
 
-  // Tabela
-  const tableData = historico.map(item => [
-    format(new Date(item.data), 'dd/MM/yyyy', { locale: ptBR }),
-    item.descricao,
+  // Preparar dados da tabela
+  const colunas = ['Data', 'Serviço', 'Tipo', 'Status', 'Técnico', 'Valor'];
+  const linhas = historico.map(item => [
+    format(new Date(item.data), 'dd/MM', { locale: ptBR }),
+    item.descricao.substring(0, 20),
     item.tipo,
     item.status,
-    item.usuario,
+    item.usuario.substring(0, 15),
     `R$ ${item.valor.toLocaleString('pt-BR')}`
   ]);
 
-  doc.autoTable({
-    head: [['Data', 'Serviço', 'Tipo', 'Status', 'Técnico', 'Valor']],
-    body: tableData,
-    startY: 85,
-    margin: { left: 20, right: 20 },
-    headStyles: {
-      fillColor: [30, 58, 138],
-      textColor: [255, 255, 255],
-      fontSize: 9,
-      fontStyle: 'bold'
-    },
-    bodyStyles: {
-      fontSize: 8,
-      textColor: [0, 0, 0]
-    },
-    alternateRowStyles: {
-      fillColor: [240, 245, 255]
-    },
-    columnStyles: {
-      0: { cellWidth: 25 },
-      1: { cellWidth: 50 },
-      2: { cellWidth: 25 },
-      3: { cellWidth: 25 },
-      4: { cellWidth: 30 },
-      5: { cellWidth: 25 }
-    }
-  });
+  desenharTabela(doc, colunas, linhas, 75);
 
   // Rodapé
-  const finalY = doc.lastAutoTable.finalY + 15;
   doc.setFontSize(9);
   doc.setTextColor(150, 150, 150);
-  doc.text('Este documento serve como garantia e registro de todos os serviços prestados.', 20, finalY);
-  doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR })}`, 20, finalY + 6);
+  const pageHeight = doc.internal.pageSize.getHeight();
+  doc.text('Este documento serve como garantia e registro de todos os serviços prestados.', 15, pageHeight - 10);
 
-  // Salvar
   doc.save(`Historico_${cliente.replace(/\s+/g, '_')}_${format(new Date(), 'dd-MM-yyyy')}.pdf`);
 };
 
 export const gerarPDFTodos = (clientesAgrupados) => {
   const doc = new jsPDF();
-  
+
   // Cabeçalho
   doc.setFontSize(20);
   doc.setTextColor(30, 58, 138);
-  doc.text('Casa do Ar Climatização', 20, 20);
-  
+  doc.text('Casa do Ar Climatização', 15, 15);
+
   doc.setFontSize(14);
   doc.setTextColor(0, 0, 0);
-  doc.text('Histórico Completo de Clientes', 20, 35);
-  
+  doc.text('Histórico Completo de Clientes', 15, 30);
+
   doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
-  doc.text(`Data do Relatório: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`, 20, 50);
+  doc.text(`Data do Relatório: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`, 15, 42);
 
-  let yPosition = 60;
+  let yPosition = 55;
   const pageHeight = doc.internal.pageSize.getHeight();
 
   Object.entries(clientesAgrupados).forEach(([cliente, itens]) => {
-    // Nova página se necessário
-    if (yPosition > pageHeight - 40) {
+    if (yPosition > pageHeight - 60) {
       doc.addPage();
-      yPosition = 20;
+      yPosition = 15;
     }
 
     const totalCliente = itens.reduce((sum, item) => sum + (item.valor || 0), 0);
@@ -131,63 +160,28 @@ export const gerarPDFTodos = (clientesAgrupados) => {
     // Título do cliente
     doc.setFontSize(12);
     doc.setTextColor(30, 58, 138);
-    doc.text(`${cliente}`, 20, yPosition);
+    doc.text(`${cliente}`, 15, yPosition);
     yPosition += 7;
 
-    // Resumo
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
-    doc.text(`Serviços: ${itens.length} | Total Gasto: R$ ${totalCliente.toLocaleString('pt-BR')}`, 20, yPosition);
-    yPosition += 10;
+    doc.text(`Serviços: ${itens.length} | Total: R$ ${totalCliente.toLocaleString('pt-BR')}`, 15, yPosition);
+    yPosition += 8;
 
-    // Tabela
-    const tableData = itens.map(item => [
-      format(new Date(item.data), 'dd/MM/yyyy', { locale: ptBR }),
-      item.descricao,
+    // Tabela com dados do cliente
+    const colunas = ['Data', 'Serviço', 'Tipo', 'Status', 'Técnico', 'Valor'];
+    const linhas = itens.map(item => [
+      format(new Date(item.data), 'dd/MM', { locale: ptBR }),
+      item.descricao.substring(0, 18),
       item.tipo,
       item.status,
-      item.usuario || 'N/A',
+      (item.usuario || 'N/A').substring(0, 12),
       `R$ ${(item.valor || 0).toLocaleString('pt-BR')}`
     ]);
 
-    doc.autoTable({
-      head: [['Data', 'Serviço', 'Tipo', 'Status', 'Técnico', 'Valor']],
-      body: tableData,
-      startY: yPosition,
-      margin: { left: 20, right: 20 },
-      headStyles: {
-        fillColor: [30, 58, 138],
-        textColor: [255, 255, 255],
-        fontSize: 8,
-        fontStyle: 'bold'
-      },
-      bodyStyles: {
-        fontSize: 7,
-        textColor: [0, 0, 0]
-      },
-      alternateRowStyles: {
-        fillColor: [240, 245, 255]
-      },
-      columnStyles: {
-        0: { cellWidth: 22 },
-        1: { cellWidth: 40 },
-        2: { cellWidth: 20 },
-        3: { cellWidth: 20 },
-        4: { cellWidth: 25 },
-        5: { cellWidth: 20 }
-      },
-      didDrawPage: (data) => {
-        yPosition = data.cursor.y + 10;
-      }
-    });
-
-    yPosition = doc.lastAutoTable.finalY + 15;
+    yPosition = desenharTabela(doc, colunas, linhas, yPosition);
+    yPosition += 10;
   });
-
-  // Rodapé final
-  doc.setFontSize(9);
-  doc.setTextColor(150, 150, 150);
-  doc.text('Relatório completo de clientes e serviços prestados.', 20, pageHeight - 15);
 
   doc.save(`Historico_Completo_${format(new Date(), 'dd-MM-yyyy')}.pdf`);
 };
