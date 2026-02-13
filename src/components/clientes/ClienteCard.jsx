@@ -11,7 +11,8 @@ import {
   MessageCircle,
   Navigation,
   Snowflake,
-  Clock
+  Clock,
+  ClipboardList
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -193,6 +194,3 @@ export default function ClienteCard({ cliente, onEdit, onDelete, onViewHistory }
     </Card>
   );
 }
-
-// Importar o ícone que estava faltando
-import { ClipboardList } from 'lucide-react';
