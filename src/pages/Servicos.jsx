@@ -32,12 +32,49 @@ export default function ServicosPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Servico.create(data),
+    mutationFn: async (data) => {
+      // Criar o serviço
+      const servico = await base44.entities.Servico.create(data);
+      
+      // Verificar se já existe cliente com esse telefone
+      const clientes = await base44.entities.Cliente.filter({ telefone: data.telefone });
+      
+      if (clientes.length === 0) {
+        // Criar cliente automaticamente
+        const proximaManutencao = new Date(data.data_programada);
+        proximaManutencao.setMonth(proximaManutencao.getMonth() + 6);
+        
+        await base44.entities.Cliente.create({
+          nome: data.cliente_nome,
+          telefone: data.telefone,
+          endereco: data.endereco || '',
+          latitude: data.latitude || null,
+          longitude: data.longitude || null,
+          ultima_manutencao: data.data_programada,
+          proxima_manutencao: proximaManutencao.toISOString().split('T')[0]
+        });
+        
+        toast.success('Cliente cadastrado automaticamente!');
+      } else {
+        // Atualizar data da próxima manutenção do cliente existente
+        const cliente = clientes[0];
+        const proximaManutencao = new Date(data.data_programada);
+        proximaManutencao.setMonth(proximaManutencao.getMonth() + 6);
+        
+        await base44.entities.Cliente.update(cliente.id, {
+          ultima_manutencao: data.data_programada,
+          proxima_manutencao: proximaManutencao.toISOString().split('T')[0]
+        });
+      }
+      
+      return servico;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['servicos'] });
+      queryClient.invalidateQueries({ queryKey: ['clientes'] });
       setShowForm(false);
       setEditingServico(null);
-      toast.success('Serviço cadastrado com sucesso!');
+      toast.success('Serviço cadastrado e preventiva agendada!');
     },
     onError: () => toast.error('Erro ao cadastrar serviço'),
   });
