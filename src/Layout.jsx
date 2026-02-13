@@ -43,7 +43,7 @@ export default function Layout({ children }) {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-gradient-to-br from-sky-50 via-blue-50 to-cyan-50">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
         {/* Mobile sidebar backdrop */}
         {sidebarOpen && (
           <div 
@@ -54,26 +54,26 @@ export default function Layout({ children }) {
 
         {/* Sidebar */}
         <aside className={`
-        fixed top-0 left-0 z-50 h-full w-72 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out
+        fixed top-0 left-0 z-50 h-full w-72 bg-gradient-to-b from-slate-950 via-purple-950 to-slate-950 shadow-2xl transform transition-transform duration-300 ease-in-out
         lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div className="flex items-center justify-between p-6 border-b border-purple-700/50">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
+              <div className="w-12 h-12 bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-2xl shadow-purple-500/50">
                 <Snowflake className="w-7 h-7 text-white" />
               </div>
               <div>
-                <h1 className="font-bold text-gray-800 text-lg leading-tight">Casa do Ar</h1>
-                <p className="text-xs text-gray-500">Climatização</p>
+                <h1 className="font-bold text-white text-lg leading-tight">Casa do Ar</h1>
+                <p className="text-xs text-purple-300/80">Climatização</p>
               </div>
             </div>
             <button 
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="lg:hidden p-2 rounded-lg hover:bg-purple-700/30 transition-colors"
             >
-              <X className="w-5 h-5 text-gray-500" />
+              <X className="w-5 h-5 text-purple-300" />
             </button>
           </div>
 
@@ -90,12 +90,12 @@ export default function Layout({ children }) {
                   className={`
                     flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
                     ${active 
-                      ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/30' 
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                      ? 'bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white shadow-xl shadow-purple-500/50' 
+                      : 'text-purple-200/70 hover:bg-purple-700/40 hover:text-purple-100'
                     }
                   `}
                 >
-                  <Icon className={`w-5 h-5 ${active ? 'text-white' : 'text-gray-400'}`} />
+                  <Icon className={`w-5 h-5 ${active ? 'text-white' : 'text-purple-300/60'}`} />
                   <span className="font-medium">{item.name}</span>
                 </Link>
               );
@@ -103,15 +103,15 @@ export default function Layout({ children }) {
           </nav>
 
           {/* Footer */}
-          <div className="p-4 border-t border-gray-100">
-            <Button
-              variant="ghost"
-              onClick={() => base44.auth.logout()}
-              className="w-full justify-start text-gray-600 hover:text-red-600 hover:bg-red-50"
-            >
-              <LogOut className="w-5 h-5 mr-3" />
-              Sair
-            </Button>
+          <div className="p-4 border-t border-purple-700/50">
+           <Button
+             variant="ghost"
+             onClick={() => base44.auth.logout()}
+             className="w-full justify-start text-purple-200/80 hover:text-red-400 hover:bg-red-500/20"
+           >
+             <LogOut className="w-5 h-5 mr-3" />
+             Sair
+           </Button>
           </div>
         </div>
       </aside>
@@ -119,23 +119,23 @@ export default function Layout({ children }) {
       {/* Main content */}
       <div className="lg:pl-72">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-gray-100">
+        <header className="sticky top-0 z-30 bg-gradient-to-r from-slate-900/95 via-purple-900/95 to-slate-900/95 backdrop-blur-lg border-b border-purple-700/30">
           <div className="flex items-center justify-between px-4 lg:px-8 py-4">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="lg:hidden p-2 rounded-lg hover:bg-purple-700/30 transition-colors"
             >
-              <Menu className="w-6 h-6 text-gray-600" />
+              <Menu className="w-6 h-6 text-purple-300" />
             </button>
-            
+
             <div className="flex-1 lg:hidden text-center">
-              <h1 className="font-bold text-gray-800">Casa do Ar</h1>
+              <h1 className="font-bold text-white">Casa do Ar</h1>
             </div>
 
             <div className="flex items-center gap-3">
               <div className="hidden sm:block text-right">
-                <p className="text-sm font-medium text-gray-700">Sistema de Clientes</p>
-                <p className="text-xs text-gray-500">Casa do Ar Climatização</p>
+                <p className="text-sm font-medium text-purple-200">Sistema de Clientes</p>
+                <p className="text-xs text-purple-300/60">Casa do Ar Climatização</p>
               </div>
             </div>
           </div>
