@@ -162,6 +162,7 @@ export default function Layout({ children }) {
                 <p className="text-sm font-medium text-purple-200">Sistema de Clientes</p>
                 <p className="text-xs text-purple-300/60">Casa do Ar Climatização</p>
               </div>
+              <NotificationCenter />
             </div>
           </div>
         </header>
