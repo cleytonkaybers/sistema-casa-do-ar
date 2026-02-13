@@ -4,9 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, Calendar, User, DollarSign, CheckCircle2, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Search, Calendar, User, DollarSign, CheckCircle2, Clock, Download, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { gerarPDFCliente, gerarPDFTodos } from '@/components/utils/HistoricoDownload';
 
 export default function HistoricoClientes() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -143,15 +145,24 @@ export default function HistoricoClientes() {
         </Card>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <Input
-          placeholder="Buscar por cliente ou serviço..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 h-11 bg-white border-gray-200"
-        />
+      {/* Search e Botão Download */}
+      <div className="flex gap-4 flex-col sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Input
+            placeholder="Buscar por cliente ou serviço..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 h-11 bg-white border-gray-200"
+          />
+        </div>
+        <Button
+          onClick={() => gerarPDFTodos(clientesAgrupados)}
+          className="bg-green-600 hover:bg-green-700 whitespace-nowrap gap-2"
+        >
+          <FileText className="w-4 h-4" />
+          Baixar Todos
+        </Button>
       </div>
 
       {/* Cliente Cards */}
@@ -167,16 +178,29 @@ export default function HistoricoClientes() {
             <Card key={cliente} className="bg-white border-0 shadow-lg hover:shadow-xl transition-shadow overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-slate-800 to-slate-900 text-white">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-1">
                     <div className="w-12 h-12 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-lg">
                       {cliente?.charAt(0).toUpperCase()}
                     </div>
                     <div>
                       <CardTitle className="text-lg">{cliente}</CardTitle>
-                      <p className="text-sm text-slate-300 mt-1">{itens.length} serviço(s) registrado(s)</p>
+                      <p className="text-sm text-slate-300 mt-1">{itens.length} serviço(s) registrado(s) | Total: R$ {itens.reduce((sum, item) => sum + (item.valor || 0), 0).toLocaleString('pt-BR')}</p>
                     </div>
                   </div>
-                  <Badge className="bg-cyan-500 text-white border-0">{itens.length}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-cyan-500 text-white border-0">{itens.length}</Badge>
+                    <Button
+                      onClick={() => gerarPDFCliente(cliente, 
+                        servicos.filter(s => s.cliente_nome === cliente),
+                        atendimentos.filter(a => a.cliente_nome === cliente)
+                      )}
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 gap-1"
+                    >
+                      <Download className="w-4 h-4" />
+                      PDF
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
 
