@@ -88,7 +88,10 @@ export const gerarPDFCliente = (cliente, servicos, atendimentos) => {
       data: s.data_programada,
       status: s.status,
       valor: s.valor || 0,
-      usuario: s.usuario_atualizacao_status || 'N/A'
+      criado_por: s.created_by || 'N/A',
+      data_criacao: s.created_date || 'N/A',
+      usuario_alteracao: s.usuario_atualizacao_status || 'N/A',
+      data_alteracao: s.data_atualizacao_status || 'N/A'
     })),
     ...atendimentos.map(a => ({
       tipo: 'Atendimento',
@@ -96,7 +99,10 @@ export const gerarPDFCliente = (cliente, servicos, atendimentos) => {
       data: a.data_atendimento,
       status: a.status,
       valor: a.valor || 0,
-      usuario: a.usuario_atualizacao_status || 'N/A'
+      criado_por: a.created_by || 'N/A',
+      data_criacao: a.created_date || 'N/A',
+      usuario_alteracao: a.usuario_atualizacao_status || 'N/A',
+      data_alteracao: a.data_atualizacao_status || 'N/A'
     }))
   ].sort((a, b) => new Date(b.data) - new Date(a.data));
 
@@ -109,13 +115,15 @@ export const gerarPDFCliente = (cliente, servicos, atendimentos) => {
   doc.text(`Valor Total Investido: R$ ${totalValor.toLocaleString('pt-BR')}`, 15, 62);
 
   // Preparar dados da tabela
-  const colunas = ['Data', 'Serviço', 'Tipo', 'Status', 'Técnico', 'Valor'];
+  const colunas = ['Data', 'Serviço', 'Criado por', 'Alterado por', 'Data/Hora Alteração', 'Valor'];
   const linhas = historico.map(item => [
     format(new Date(item.data), 'dd/MM', { locale: ptBR }),
-    item.descricao.substring(0, 20),
-    item.tipo,
-    item.status,
-    item.usuario.substring(0, 15),
+    item.descricao.substring(0, 15),
+    item.criado_por.substring(0, 12),
+    item.usuario_alteracao.substring(0, 12),
+    item.data_alteracao && item.data_alteracao !== 'N/A' 
+      ? format(new Date(item.data_alteracao), 'dd/MM HH:mm', { locale: ptBR })
+      : 'N/A',
     `R$ ${item.valor.toLocaleString('pt-BR')}`
   ]);
 
@@ -169,13 +177,15 @@ export const gerarPDFTodos = (clientesAgrupados) => {
     yPosition += 8;
 
     // Tabela com dados do cliente
-    const colunas = ['Data', 'Serviço', 'Tipo', 'Status', 'Técnico', 'Valor'];
+    const colunas = ['Data', 'Serviço', 'Criado por', 'Alterado por', 'Data/Hora Alteração', 'Valor'];
     const linhas = itens.map(item => [
       format(new Date(item.data), 'dd/MM', { locale: ptBR }),
-      item.descricao.substring(0, 18),
-      item.tipo,
-      item.status,
-      (item.usuario || 'N/A').substring(0, 12),
+      item.descricao.substring(0, 12),
+      (item.criado_por || 'N/A').substring(0, 10),
+      (item.usuario_alteracao || 'N/A').substring(0, 10),
+      item.data_alteracao && item.data_alteracao !== 'N/A'
+        ? format(new Date(item.data_alteracao), 'dd/MM HH:mm', { locale: ptBR })
+        : 'N/A',
       `R$ ${(item.valor || 0).toLocaleString('pt-BR')}`
     ]);
 
