@@ -120,10 +120,19 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
       if (coordRegex.test(input)) {
         const [lat, lng] = input.split(',').map(c => parseFloat(c.trim()));
         
+        // Validação básica para Brasil (lat: -34 a 5, lng: -74 a -34)
+        if (lat < -34 || lat > 5 || lng < -74 || lng > -34) {
+          toast.error('Coordenadas fora do Brasil. Verifique os valores.');
+          setLoadingLocation(false);
+          return;
+        }
+        
         const result = await base44.integrations.Core.InvokeLLM({
-          prompt: `Faça uma busca reversa de geocodificação para as coordenadas: ${lat}, ${lng}
-                   Encontre e retorne EXATAMENTE o endereço completo, bairro, cidade e estado desta localização no Brasil.
-                   Use Google Maps ou outro serviço de mapas para obter as informações mais precisas.`,
+          prompt: `Faça uma busca reversa de geocodificação EXATA para estas coordenadas no Brasil: ${lat}, ${lng}
+                   
+                   Acesse o Google Maps nesta URL: https://www.google.com/maps?q=${lat},${lng}
+                   
+                   Retorne o endereço EXATO que aparece no Google Maps para essas coordenadas.`,
           add_context_from_internet: true,
           response_json_schema: {
             type: "object",
@@ -142,7 +151,7 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
           latitude: lat,
           longitude: lng
         }));
-        toast.success('Coordenadas salvas e endereço encontrado!');
+        toast.success(`Coordenadas salvas: ${lat}, ${lng}`);
         return;
       }
 
@@ -151,83 +160,96 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
       
       if (isGoogleMapsLink) {
         const result = await base44.integrations.Core.InvokeLLM({
-          prompt: `IMPORTANTE: Acesse este link do Google Maps: "${input}"
+          prompt: `TAREFA: Extrair coordenadas precisas deste link do Google Maps: "${input}"
                    
-                   Sua tarefa é extrair as coordenadas EXATAS (latitude e longitude) que aparecem na URL ou no Google Maps.
+                   INSTRUÇÕES:
+                   1. Se a URL contém "@" seguido de coordenadas (ex: @-10.123,-59.456), extraia esses valores EXATOS
+                   2. Se não, acesse o link e copie as coordenadas que o Google Maps mostra
+                   3. Verifique se as coordenadas são do BRASIL (latitude entre -34 e 5, longitude entre -74 e -34)
                    
-                   Procure por:
-                   1. Coordenadas na URL (formato @-10.1234567,-59.1234567 ou similar)
-                   2. Se não estiver na URL, acesse o link e veja as coordenadas mostradas no Maps
+                   ATENÇÃO: 
+                   - Aripuanã-MT fica em aproximadamente: latitude -10.17, longitude -59.45
+                   - São Paulo-SP fica em aproximadamente: latitude -23.55, longitude -46.63
+                   - NÃO CONFUNDA as coordenadas!
                    
-                   Retorne também o endereço completo, bairro, cidade e estado conforme aparecem no Google Maps.
-                   
-                   CRÍTICO: As coordenadas de latitude e longitude devem ser números decimais precisos (com 7 casas decimais quando possível).
-                   Exemplo: latitude: -10.1730157, longitude: -59.4463892`,
+                   Retorne o endereço completo e as coordenadas EXATAS do local no link.`,
           add_context_from_internet: true,
           response_json_schema: {
             type: "object",
             properties: {
               endereco_completo: { type: "string", description: "Endereço completo formatado" },
-              bairro: { type: "string", description: "Nome do bairro ou distrito" },
               cidade: { type: "string", description: "Nome da cidade" },
               estado: { type: "string", description: "Sigla do estado (ex: MT, SP)" },
               latitude: { type: "number", description: "Latitude exata em formato decimal" },
               longitude: { type: "number", description: "Longitude exata em formato decimal" }
             },
-            required: ["latitude", "longitude"]
+            required: ["latitude", "longitude", "cidade", "estado"]
           }
         });
 
         if (result && result.latitude && result.longitude) {
+          // Validação para Brasil
+          if (result.latitude < -34 || result.latitude > 5 || result.longitude < -74 || result.longitude > -34) {
+            toast.error('Coordenadas inválidas para Brasil. Verifique o link.');
+            setLoadingLocation(false);
+            return;
+          }
+          
           setFormData(prev => ({
             ...prev,
-            endereco: result.endereco_completo || prev.endereco,
+            endereco: result.endereco_completo || `${result.cidade} - ${result.estado}`,
             latitude: result.latitude,
             longitude: result.longitude
           }));
-          toast.success(`Localização salva: ${result.latitude}, ${result.longitude}`);
+          toast.success(`${result.cidade}-${result.estado}: ${result.latitude}, ${result.longitude}`);
         } else {
           toast.error('Não foi possível extrair as coordenadas do link');
         }
       } else {
         // É um endereço texto - busca geocodificação
         const result = await base44.integrations.Core.InvokeLLM({
-          prompt: `Encontre as coordenadas geográficas EXATAS para este endereço no Brasil: "${input}"
+          prompt: `Busque no Google Maps e encontre as coordenadas EXATAS para este endereço no Brasil: "${input}"
                    
-                   Use Google Maps para buscar o endereço e extrair:
-                   - Coordenadas precisas (latitude e longitude com até 7 casas decimais)
-                   - Endereço completo formatado corretamente
-                   - Bairro
-                   - Cidade
-                   - Estado (sigla)
+                   PROCESSO:
+                   1. Acesse Google Maps e busque pelo endereço
+                   2. Copie as coordenadas EXATAS que o Google Maps mostra
+                   3. Verifique que as coordenadas estão no Brasil (lat: -34 a 5, lng: -74 a -34)
                    
-                   CRÍTICO: As coordenadas devem ser números decimais precisos no formato brasileiro.
-                   Exemplo: latitude: -10.1730157, longitude: -59.4463892
+                   RETORNE:
+                   - Coordenadas precisas (com até 7 casas decimais)
+                   - Endereço completo formatado
+                   - Cidade e Estado
                    
-                   Retorne apenas dados verificados no Google Maps.`,
+                   CRÍTICO: Não invente coordenadas, use apenas as que o Google Maps mostrar.`,
           add_context_from_internet: true,
           response_json_schema: {
             type: "object",
             properties: {
               endereco_completo: { type: "string", description: "Endereço completo formatado" },
-              bairro: { type: "string", description: "Nome do bairro" },
               cidade: { type: "string", description: "Nome da cidade" },
               estado: { type: "string", description: "Sigla do estado" },
               latitude: { type: "number", description: "Latitude em formato decimal preciso" },
               longitude: { type: "number", description: "Longitude em formato decimal preciso" }
             },
-            required: ["latitude", "longitude"]
+            required: ["latitude", "longitude", "cidade", "estado"]
           }
         });
 
         if (result && result.latitude && result.longitude) {
+          // Validação para Brasil
+          if (result.latitude < -34 || result.latitude > 5 || result.longitude < -74 || result.longitude > -34) {
+            toast.error('Coordenadas fora do Brasil. Verifique o endereço.');
+            setLoadingLocation(false);
+            return;
+          }
+          
           setFormData(prev => ({
             ...prev,
             endereco: result.endereco_completo || prev.endereco,
             latitude: result.latitude,
             longitude: result.longitude
           }));
-          toast.success(`Localização encontrada: ${result.latitude}, ${result.longitude}`);
+          toast.success(`${result.cidade}-${result.estado}: ${result.latitude}, ${result.longitude}`);
         } else {
           toast.error('Não foi possível encontrar as coordenadas do endereço');
         }
