@@ -59,7 +59,9 @@ export default function Layout({ children }) {
     { name: 'Preferências de Notificação', href: createPageUrl('PreferencesNotificacao'), icon: Bell },
   ];
 
-  const navigation = isTecnico ? baseNavigation : [...baseNavigation, ...adminNavigation];
+  const navigation = isTecnico 
+    ? [...baseNavigation, ...allUsersNavigation] 
+    : [...baseNavigation, ...adminNavigation, ...allUsersNavigation];
 
   const isActive = (href) => {
     return location.pathname === new URL(href, window.location.origin).pathname;
