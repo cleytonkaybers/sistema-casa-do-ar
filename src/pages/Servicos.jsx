@@ -8,6 +8,7 @@ import { Plus, Search, Loader2, Calendar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import ServicoForm from '../components/servicos/ServicoForm';
 import ServicoCard from '../components/servicos/ServicoCard';
+import ReagendarModal from '../components/servicos/ReagendarModal';
 import { toast } from 'sonner';
 import { format, parseISO, startOfMonth, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -18,6 +19,8 @@ export default function ServicosPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [tipoFilter, setTipoFilter] = useState('todos');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showReagendarModal, setShowReagendarModal] = useState(false);
+  const [servicoParaReagendar, setServicoParaReagendar] = useState(null);
 
   const queryClient = useQueryClient();
 
@@ -79,11 +82,43 @@ export default function ServicosPage() {
   };
 
   const handleStatusChange = (servico, novoStatus) => {
+    if (novoStatus === 'pausado') {
+      // Abrir modal de reagendamento obrigatório
+      setServicoParaReagendar(servico);
+      setShowReagendarModal(true);
+      // Atualizar o status para pausado
+      updateMutation.mutate({ 
+        id: servico.id, 
+        data: { ...servico, status: novoStatus } 
+      });
+    } else {
+      updateMutation.mutate({ 
+        id: servico.id, 
+        data: { ...servico, status: novoStatus } 
+      });
+      toast.success(`Status alterado para ${novoStatus}`);
+    }
+  };
+
+  const handleReagendar = (novaData) => {
+    if (!servicoParaReagendar) return;
+    
+    const dataObj = parseISO(novaData);
+    const diaSemanaFormatado = format(dataObj, 'EEEE', { locale: ptBR });
+    const diaSemana = diaSemanaFormatado.charAt(0).toUpperCase() + diaSemanaFormatado.slice(1);
+    
     updateMutation.mutate({ 
-      id: servico.id, 
-      data: { ...servico, status: novoStatus } 
+      id: servicoParaReagendar.id, 
+      data: { 
+        ...servicoParaReagendar, 
+        data_programada: novaData,
+        dia_semana: diaSemana
+      } 
     });
-    toast.success(`Status alterado para ${novoStatus}`);
+    
+    setShowReagendarModal(false);
+    setServicoParaReagendar(null);
+    toast.success('Serviço reagendado com sucesso!');
   };
 
   const filteredServicos = servicos.filter(s => {
@@ -298,6 +333,17 @@ export default function ServicosPage() {
         onSave={handleSave}
         servico={editingServico}
         isLoading={createMutation.isPending || updateMutation.isPending}
+      />
+
+      <ReagendarModal
+        open={showReagendarModal}
+        onClose={() => {
+          setShowReagendarModal(false);
+          setServicoParaReagendar(null);
+        }}
+        onSave={handleReagendar}
+        servico={servicoParaReagendar}
+        isLoading={updateMutation.isPending}
       />
     </div>
   );
