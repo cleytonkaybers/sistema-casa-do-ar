@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Facebook, Instagram, Twitter, Link2, Check, Share2 } from 'lucide-react';
+import { MessageCircle, Facebook, Instagram, Twitter, Link2, Check, Share2, Send } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function CompartilharModal({ open, onClose, servico }) {
@@ -28,6 +28,10 @@ export default function CompartilharModal({ open, onClose, servico }) {
   const handleInstagram = () => {
     toast.info('Copie a mensagem e cole no Instagram Stories!');
     handleCopiar();
+  };
+
+  const handleTelegram = () => {
+    window.open(`https://t.me/share/url?text=${linkCompartilhamento}`, '_blank');
   };
 
   const handleCopiar = async () => {
@@ -74,19 +78,27 @@ export default function CompartilharModal({ open, onClose, servico }) {
           </div>
 
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-3">Compartilhar em:</p>
+            <p className="text-sm font-semibold text-gray-800 mb-3">Compartilhar em:</p>
             <div className="grid grid-cols-2 gap-3">
               <Button
                 onClick={handleWhatsApp}
-                className="bg-green-500 hover:bg-green-600 text-white h-12"
+                className="bg-green-500 hover:bg-green-600 text-white h-14 shadow-lg hover:shadow-xl transition-all"
               >
                 <MessageCircle className="w-5 h-5 mr-2" />
                 WhatsApp
               </Button>
 
               <Button
+                onClick={handleTelegram}
+                className="bg-sky-400 hover:bg-sky-500 text-white h-14 shadow-lg hover:shadow-xl transition-all"
+              >
+                <Send className="w-5 h-5 mr-2" />
+                Telegram
+              </Button>
+
+              <Button
                 onClick={handleFacebook}
-                className="bg-blue-600 hover:bg-blue-700 text-white h-12"
+                className="bg-blue-600 hover:bg-blue-700 text-white h-14 shadow-lg hover:shadow-xl transition-all"
               >
                 <Facebook className="w-5 h-5 mr-2" />
                 Facebook
@@ -94,32 +106,33 @@ export default function CompartilharModal({ open, onClose, servico }) {
 
               <Button
                 onClick={handleTwitter}
-                className="bg-sky-500 hover:bg-sky-600 text-white h-12"
+                className="bg-black hover:bg-gray-800 text-white h-14 shadow-lg hover:shadow-xl transition-all"
               >
                 <Twitter className="w-5 h-5 mr-2" />
-                Twitter
+                X (Twitter)
               </Button>
 
               <Button
                 onClick={handleInstagram}
-                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white h-12"
+                className="bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 hover:from-purple-600 hover:via-pink-600 hover:to-orange-500 text-white h-14 shadow-lg hover:shadow-xl transition-all col-span-2"
               >
                 <Instagram className="w-5 h-5 mr-2" />
-                Instagram
+                Instagram (copiar texto)
               </Button>
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 pt-2 border-t">
+            <p className="text-xs font-semibold text-gray-700 mb-2">Outras opções:</p>
             <Button
               onClick={handleCopiar}
               variant="outline"
-              className="w-full h-12 border-2"
+              className="w-full h-12 border-2 hover:bg-gray-50 transition-all"
             >
               {copied ? (
                 <>
                   <Check className="w-5 h-5 mr-2 text-green-600" />
-                  Copiado!
+                  <span className="text-green-600 font-semibold">Texto Copiado!</span>
                 </>
               ) : (
                 <>
