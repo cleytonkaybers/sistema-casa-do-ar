@@ -294,6 +294,14 @@ export default function ServicosPage() {
             <SelectItem value="Troca de capacitor">Troca de capacitor</SelectItem>
             <SelectItem value="Carga de gás">Carga de gás</SelectItem>
             <SelectItem value="Recarga de gás">Recarga de gás</SelectItem>
+            <SelectItem value="Carga de gás completa">Carga de gás completa</SelectItem>
+            <SelectItem value="Reposição de gás">Reposição de gás</SelectItem>
+            <SelectItem value="Serviço de solda">Serviço de solda</SelectItem>
+            <SelectItem value="Troca de relé da placa">Troca de relé da placa</SelectItem>
+            <SelectItem value="Troca de sensor">Troca de sensor</SelectItem>
+            <SelectItem value="Troca de chave contadora">Troca de chave contadora</SelectItem>
+            <SelectItem value="Conserto de placa eletrônica">Conserto de placa eletrônica</SelectItem>
+            <SelectItem value="Retirada de ar condicionado">Retirada de ar condicionado</SelectItem>
             <SelectItem value="Ver defeito">Ver defeito</SelectItem>
           </SelectContent>
         </Select>
