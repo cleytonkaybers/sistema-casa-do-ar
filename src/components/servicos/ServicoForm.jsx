@@ -463,25 +463,27 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="horario">Horário</Label>
-              <Input
-                id="horario"
-                type="time"
-                value={formData.horario}
-                onChange={(e) => setFormData({ ...formData, horario: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="valor">Valor (R$)</Label>
-              <Input
-                id="valor"
-                type="number"
-                step="0.01"
-                value={formData.valor}
-                onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
-              />
-            </div>
+           <div className="space-y-2">
+             <Label htmlFor="horario">Horário</Label>
+             <Input
+               id="horario"
+               type="text"
+               placeholder="Ex: 08:00, 14:30"
+               value={formData.horario}
+               onChange={(e) => setFormData({ ...formData, horario: e.target.value })}
+               className="text-lg"
+             />
+           </div>
+           <div className="space-y-2">
+             <Label htmlFor="valor">Valor (R$)</Label>
+             <Input
+               id="valor"
+               type="number"
+               step="0.01"
+               value={formData.valor}
+               onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
+             />
+           </div>
           </div>
 
           <div className="space-y-2">
