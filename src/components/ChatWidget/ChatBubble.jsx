@@ -49,7 +49,8 @@ export default function ChatBubble({ isOpen, onToggle }) {
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isDragging, position]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDragging]);
 
   return (
     <button

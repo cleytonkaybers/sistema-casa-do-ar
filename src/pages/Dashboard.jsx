@@ -30,22 +30,16 @@ const formatPhone = (phone) => {
 };
 
 export default function Dashboard() {
-  const { data: clientes = [], isLoading: loadingClientes } = useQuery({
+  const { data: clientes = [], isLoading } = useQuery({
     queryKey: ['clientes'],
     queryFn: () => base44.entities.Cliente.list('-created_date'),
   });
 
-  const { data: atendimentos = [], isLoading: loadingAtendimentos } = useQuery({
+  const { data: atendimentos = [] } = useQuery({
     queryKey: ['atendimentos'],
     queryFn: () => base44.entities.Atendimento.list('-created_date'),
+    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
   });
-
-  const { data: servicos = [], isLoading: loadingServicos } = useQuery({
-    queryKey: ['servicos'],
-    queryFn: () => base44.entities.Servico.list('-created_date'),
-  });
-
-  const isLoading = loadingClientes || loadingAtendimentos || loadingServicos;
 
   // Estatísticas
   const totalClientes = clientes.length;

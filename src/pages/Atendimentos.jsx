@@ -81,32 +81,9 @@ export default function Atendimentos() {
 
   // Mutations
   const createMutation = useMutation({
-    mutationFn: async (data) => {
-      const atendimento = await base44.entities.Atendimento.create(data);
-      
-      // Criar notificação para todos os usuários
-      const usuarios = await base44.entities.User.list();
-      for (const usuario of usuarios) {
-        const prefs = await base44.entities.PreferenciaNotificacao.filter({ usuario_email: usuario.email });
-        const devNotificar = prefs.length === 0 || prefs[0].atendimento_criado;
-        
-        if (devNotificar) {
-          await base44.entities.Notificacao.create({
-            usuario_email: usuario.email,
-            tipo: 'atendimento_criado',
-            titulo: 'Novo Atendimento',
-            mensagem: `Novo atendimento registrado para ${data.cliente_nome}`,
-            cliente_nome: data.cliente_nome,
-            atendimento_id: atendimento.id
-          });
-        }
-      }
-      
-      return atendimento;
-    },
+    mutationFn: (data) => base44.entities.Atendimento.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
-      queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
       setFormOpen(false);
       toast.success('Atendimento registrado com sucesso!');
     },
@@ -114,32 +91,9 @@ export default function Atendimentos() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }) => {
-      const atendimento = await base44.entities.Atendimento.update(id, data);
-      
-      // Criar notificação para todos os usuários
-      const usuarios = await base44.entities.User.list();
-      for (const usuario of usuarios) {
-        const prefs = await base44.entities.PreferenciaNotificacao.filter({ usuario_email: usuario.email });
-        const devNotificar = prefs.length === 0 || prefs[0].atendimento_atualizado;
-        
-        if (devNotificar) {
-          await base44.entities.Notificacao.create({
-            usuario_email: usuario.email,
-            tipo: 'atendimento_atualizado',
-            titulo: 'Atendimento Atualizado',
-            mensagem: `Atendimento de ${data.cliente_nome} foi atualizado`,
-            cliente_nome: data.cliente_nome,
-            atendimento_id: id
-          });
-        }
-      }
-      
-      return atendimento;
-    },
+    mutationFn: ({ id, data }) => base44.entities.Atendimento.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
-      queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
       setFormOpen(false);
       setEditingAtendimento(null);
       toast.success('Atendimento atualizado com sucesso!');
@@ -164,39 +118,8 @@ export default function Atendimentos() {
     return Array.from(tiposSet).sort();
   }, [atendimentos]);
 
-  // Combinar atendimentos com serviços que não têm atendimento
-  const atendimentosComServicos = useMemo(() => {
-    const atendimentosMap = new Map();
-    
-    // Adicionar atendimentos existentes
-    atendimentos.forEach(atendimento => {
-      const key = atendimento.cliente_nome?.trim().toLowerCase();
-      if (key) atendimentosMap.set(key, atendimento);
-    });
-    
-    // Adicionar serviços que não têm atendimento
-    servicos.forEach(servico => {
-      const key = servico.cliente_nome?.trim().toLowerCase();
-      if (key && !atendimentosMap.has(key) && servico.ativo) {
-        // Criar atendimento virtual a partir do serviço
-        atendimentosMap.set(key, {
-          id: `servico-${servico.id}`,
-          cliente_nome: servico.cliente_nome,
-          data_atendimento: servico.data_programada,
-          tipo_servico: servico.tipo_servico,
-          descricao: servico.descricao,
-          valor: servico.valor,
-          status: servico.status === 'aberto' ? 'Aberto' :
-                  servico.status === 'andamento' ? 'Em Andamento' :
-                  servico.status === 'pausado' ? 'Pausado' : 'Concluído',
-          _isFromServico: true,
-          _servicoId: servico.id
-        });
-      }
-    });
-    
-    return Array.from(atendimentosMap.values());
-  }, [atendimentos, servicos]);
+  // Usar apenas atendimentos reais
+  const atendimentosComServicos = atendimentos;
 
   const filteredAtendimentos = useMemo(() => {
     return atendimentosComServicos.filter(atendimento => {
@@ -267,7 +190,7 @@ export default function Atendimentos() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Atendimentos</h1>
-          <p className="text-gray-500 mt-1">{atendimentosComServicos.length} registros ({atendimentos.length} atendimentos + {atendimentosComServicos.length - atendimentos.length} serviços)</p>
+          <p className="text-gray-500 mt-1">{atendimentos.length} atendimentos registrados</p>
         </div>
         <Button 
           onClick={handleNewAtendimento}
