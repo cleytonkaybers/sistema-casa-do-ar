@@ -300,21 +300,21 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
     setLoadingContacts(true);
     
     try {
-      // Verifica se a API de Contatos está disponível
-      if (!('contacts' in navigator)) {
-        toast.error('Importação de contatos não disponível. Use Chrome ou Edge em um dispositivo móvel Android.');
+      // Verifica se está rodando em contexto seguro (HTTPS)
+      if (!window.isSecureContext) {
+        toast.error('A importação de contatos requer conexão segura (HTTPS)');
         setLoadingContacts(false);
         return;
       }
 
-      // Verifica permissões antes de tentar acessar
-      const supported = await navigator.contacts.getProperties();
-      if (!supported || supported.length === 0) {
-        toast.error('Seu dispositivo não suporta a API de Contatos.');
+      // Verifica se a API está disponível
+      if (!navigator.contacts || typeof navigator.contacts.select !== 'function') {
+        toast.error('Importação não suportada. Use Chrome/Edge Android atualizado.');
         setLoadingContacts(false);
         return;
       }
 
+      // Solicita acesso aos contatos
       const props = ['name', 'tel', 'address'];
       const opts = { multiple: false };
       
@@ -330,9 +330,13 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
         // Formata o telefone
         if (telefone) {
           telefone = telefone.replace(/\D/g, '');
-          // Remove o código do país se existir
+          // Remove o código do país se existir (55 Brasil)
           if (telefone.startsWith('55') && telefone.length > 11) {
             telefone = telefone.slice(2);
+          }
+          // Adiciona +55 formatado
+          if (telefone.length === 11 || telefone.length === 10) {
+            telefone = '55' + telefone;
           }
           telefone = formatPhoneInput(telefone);
         }
@@ -356,24 +360,23 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
           endereco: endereco || prev.endereco
         }));
         
-        toast.success('Contato importado com sucesso!');
+        toast.success(`Contato ${nome} importado!`);
       } else {
-        toast.info('Nenhum contato foi selecionado');
+        toast.info('Seleção cancelada');
       }
     } catch (error) {
-      console.error('Erro ao importar contato:', error);
+      console.error('Erro importação:', error);
       
-      // Mensagens de erro mais específicas
-      if (error.name === 'SecurityError') {
-        toast.error('Permissão negada. Permita o acesso aos contatos.');
+      if (error.name === 'NotAllowedError' || error.name === 'SecurityError') {
+        toast.error('Permissão negada pelo sistema');
       } else if (error.name === 'NotSupportedError') {
-        toast.error('Esta funcionalidade requer Chrome ou Edge em Android.');
+        toast.error('Use Chrome ou Edge em Android');
       } else if (error.name === 'InvalidStateError') {
-        toast.error('Use HTTPS para importar contatos.');
+        toast.error('Requer conexão HTTPS');
       } else if (error.name === 'AbortError') {
-        toast.info('Importação cancelada');
+        // Usuário cancelou, não mostrar erro
       } else {
-        toast.error('Erro ao acessar contatos. Verifique as permissões do navegador.');
+        toast.error('Erro ao importar. Atualize o navegador.');
       }
     } finally {
       setLoadingContacts(false);
