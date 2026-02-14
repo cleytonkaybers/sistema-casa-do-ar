@@ -147,7 +147,7 @@ export default function ServicosPage() {
         id: servico.id, 
         data: updateData
       });
-      setServicoConcluido(servico);
+      setServicoConcluido({ ...servico, isConclusao: true });
       setShowCompartilharModal(true);
       toast.success('Serviço concluído! 🎉');
     } else {
@@ -347,7 +347,7 @@ export default function ServicosPage() {
                               onDelete={(isAdmin || hasPermission('servicos_deletar')) ? handleDelete : undefined}
                               onStatusChange={(isAdmin || hasPermission('servicos_editar')) ? handleStatusChange : undefined}
                               onShare={(servico) => {
-                                setServicoConcluido(servico);
+                                setServicoConcluido({ ...servico, isConclusao: false });
                                 setShowCompartilharModal(true);
                               }}
                               compact
@@ -383,7 +383,7 @@ export default function ServicosPage() {
                     onDelete={(isAdmin || hasPermission('servicos_deletar')) ? handleDelete : undefined}
                     onStatusChange={(isAdmin || hasPermission('servicos_editar')) ? handleStatusChange : undefined}
                     onShare={(servico) => {
-                      setServicoConcluido(servico);
+                      setServicoConcluido({ ...servico, isConclusao: false });
                       setShowCompartilharModal(true);
                     }}
                   />
@@ -423,6 +423,7 @@ export default function ServicosPage() {
           setServicoConcluido(null);
         }}
         servico={servicoConcluido}
+        isConclusao={servicoConcluido?.isConclusao}
       />
     </div>
   );

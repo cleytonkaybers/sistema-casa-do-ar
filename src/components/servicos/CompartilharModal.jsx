@@ -4,12 +4,37 @@ import { Button } from '@/components/ui/button';
 import { MessageCircle, Facebook, Instagram, Twitter, Link2, Check, Share2, Send } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function CompartilharModal({ open, onClose, servico }) {
+export default function CompartilharModal({ open, onClose, servico, isConclusao = false }) {
   const [copied, setCopied] = useState(false);
 
   if (!servico) return null;
 
-  const mensagem = `✅ Serviço Concluído!\n\n👤 Cliente: ${servico.cliente_nome}\n🔧 Serviço: ${servico.tipo_servico}\n📅 Data: ${new Date(servico.data_programada).toLocaleDateString('pt-BR')}\n${servico.valor ? `💰 Valor: R$ ${servico.valor.toFixed(2)}` : ''}\n\n🏢 Casa do Ar Climatização`;
+  const getStatusEmoji = (status) => {
+    switch(status) {
+      case 'concluido': return '✅';
+      case 'andamento': return '🔄';
+      case 'pausado': return '⏸️';
+      default: return '📋';
+    }
+  };
+
+  const getStatusTexto = (status) => {
+    switch(status) {
+      case 'concluido': return 'Concluído';
+      case 'andamento': return 'Em Andamento';
+      case 'pausado': return 'Pausado';
+      default: return 'Aberto';
+    }
+  };
+
+  const statusEmoji = getStatusEmoji(servico.status);
+  const statusTexto = getStatusTexto(servico.status);
+
+  const titulo = isConclusao ? '✅ Serviço Concluído!' : `${statusEmoji} Serviço - ${statusTexto}`;
+
+  const mensagem = isConclusao 
+    ? `✅ Serviço Concluído!\n\n👤 Cliente: ${servico.cliente_nome}\n🔧 Serviço: ${servico.tipo_servico}\n📅 Data: ${new Date(servico.data_programada).toLocaleDateString('pt-BR')}\n${servico.valor ? `💰 Valor: R$ ${servico.valor.toFixed(2)}` : ''}\n\n🏢 Casa do Ar Climatização`
+    : `${statusEmoji} ${statusTexto}\n\n👤 Cliente: ${servico.cliente_nome}\n🔧 Serviço: ${servico.tipo_servico}\n📅 Data: ${servico.data_programada ? new Date(servico.data_programada).toLocaleDateString('pt-BR') : 'A definir'}\n${servico.horario ? `🕐 Horário: ${servico.horario}` : ''}${servico.horario ? '\n' : ''}${servico.endereco ? `📍 Endereço: ${servico.endereco}\n` : ''}${servico.telefone ? `📞 Telefone: ${servico.telefone}\n` : ''}${servico.valor ? `💰 Valor: R$ ${servico.valor.toFixed(2)}\n` : ''}${servico.descricao ? `📝 Obs: ${servico.descricao}\n` : ''}\n🏢 Casa do Ar Climatização`;
 
   const linkCompartilhamento = encodeURIComponent(mensagem);
 
@@ -67,8 +92,8 @@ export default function CompartilharModal({ open, onClose, servico }) {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
-            <Share2 className="w-6 h-6 text-green-600" />
-            Serviço Concluído! 🎉
+            <Share2 className="w-6 h-6 text-blue-600" />
+            {isConclusao ? 'Serviço Concluído! 🎉' : 'Compartilhar Serviço'}
           </DialogTitle>
         </DialogHeader>
 
