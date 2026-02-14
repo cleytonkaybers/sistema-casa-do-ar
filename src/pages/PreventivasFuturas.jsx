@@ -138,21 +138,8 @@ export default function PreventivasFuturasPage() {
     })
     .filter(c => c.proximaManutencao && c.status);
 
-  // Preparar dados de serviços (excluir os que estão em andamento)
-  const servicosAtivos = servicos
-    .filter(s => s.ativo !== false && s.status !== 'andamento')
-    .map(servico => ({
-      ...servico,
-      tipo: 'servico',
-      status: { 
-        label: 'Serviço Ativo', 
-        color: 'bg-green-100 text-green-700 border-green-300',
-        priority: 3
-      }
-    }));
-
-  // Combinar e filtrar
-  const todosItens = [...clientesComManutencao, ...servicosAtivos]
+  // Combinar e filtrar (apenas clientes)
+  const todosItens = [...clientesComManutencao]
     .filter(item => {
       const matchNome = item.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                        item.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase());
