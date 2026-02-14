@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2, MapPin, Search, ExternalLink, Contact, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
+import TimePickerClock from '@/components/ui/time-picker-clock';
 import { base44 } from '@/api/base44Client';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -465,13 +466,9 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
            <div className="space-y-2">
              <Label htmlFor="horario">Horário</Label>
-             <Input
-               id="horario"
-               type="text"
-               placeholder="Ex: 08:00, 14:30"
+             <TimePickerClock
                value={formData.horario}
-               onChange={(e) => setFormData({ ...formData, horario: e.target.value })}
-               className="text-lg"
+               onChange={(time) => setFormData({ ...formData, horario: time })}
              />
            </div>
            <div className="space-y-2">
