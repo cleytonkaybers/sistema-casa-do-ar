@@ -418,31 +418,33 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Limpeza de 9k">Limpeza de 9k</SelectItem>
-                      <SelectItem value="Limpeza de 12k">Limpeza de 12k</SelectItem>
-                      <SelectItem value="Limpeza de 18k">Limpeza de 18k</SelectItem>
-                      <SelectItem value="Limpeza de 22 a 24k">Limpeza de 22 a 24k</SelectItem>
-                      <SelectItem value="Limpeza de 24k">Limpeza de 24k</SelectItem>
-                      <SelectItem value="Limpeza de 30 a 32k">Limpeza de 30 a 32k</SelectItem>
-                      <SelectItem value="Limpeza piso e teto">Limpeza piso e teto</SelectItem>
-                      <SelectItem value="Instalação de 9k">Instalação de 9k</SelectItem>
-                      <SelectItem value="Instalação de 12k">Instalação de 12k</SelectItem>
-                      <SelectItem value="Instalação de 18k">Instalação de 18k</SelectItem>
-                      <SelectItem value="Instalação de 22 a 24k">Instalação de 22 a 24k</SelectItem>
-                      <SelectItem value="Instalação de 24k">Instalação de 24k</SelectItem>
-                      <SelectItem value="Instalação de 30 a 32k">Instalação de 30 a 32k</SelectItem>
-                      <SelectItem value="Instalação piso e teto">Instalação piso e teto</SelectItem>
-                      <SelectItem value="Troca de capacitor">Troca de capacitor</SelectItem>
-                      <SelectItem value="Recarga de gás">Recarga de gás</SelectItem>
-                      <SelectItem value="Carga de gás completa">Carga de gás completa</SelectItem>
-                      <SelectItem value="Serviço de solda">Serviço de solda</SelectItem>
-                      <SelectItem value="Troca de relé da placa">Troca de relé da placa</SelectItem>
-                      <SelectItem value="Troca de sensor">Troca de sensor</SelectItem>
-                      <SelectItem value="Troca de chave contadora">Troca de chave contadora</SelectItem>
-                      <SelectItem value="Conserto de placa eletrônica">Conserto de placa eletrônica</SelectItem>
-                      <SelectItem value="Retirada de ar condicionado">Retirada de ar condicionado</SelectItem>
-                      <SelectItem value="Serviço de passar tubulação de infra">Serviço de passar tubulação de infra</SelectItem>
-                      <SelectItem value="Ver defeito">Ver defeito</SelectItem>
+                       <SelectItem value="Limpeza de 9k">Limpeza de 9k</SelectItem>
+                       <SelectItem value="Limpeza de 12k">Limpeza de 12k</SelectItem>
+                       <SelectItem value="Limpeza de 18k">Limpeza de 18k</SelectItem>
+                       <SelectItem value="Limpeza de 22 a 24k">Limpeza de 22 a 24k</SelectItem>
+                       <SelectItem value="Limpeza de 24k">Limpeza de 24k</SelectItem>
+                       <SelectItem value="Limpeza de 30 a 32k">Limpeza de 30 a 32k</SelectItem>
+                       <SelectItem value="Limpeza piso e teto">Limpeza piso e teto</SelectItem>
+                       <SelectItem value="Instalação de 9k">Instalação de 9k</SelectItem>
+                       <SelectItem value="Instalação de 12k">Instalação de 12k</SelectItem>
+                       <SelectItem value="Instalação de 18k">Instalação de 18k</SelectItem>
+                       <SelectItem value="Instalação de 22 a 24k">Instalação de 22 a 24k</SelectItem>
+                       <SelectItem value="Instalação de 24k">Instalação de 24k</SelectItem>
+                       <SelectItem value="Instalação de 30 a 32k">Instalação de 30 a 32k</SelectItem>
+                       <SelectItem value="Instalação piso e teto">Instalação piso e teto</SelectItem>
+                       <SelectItem value="Troca de capacitor">Troca de capacitor</SelectItem>
+                       <SelectItem value="Recarga de gás">Recarga de gás</SelectItem>
+                       <SelectItem value="Carga de gás completa">Carga de gás completa</SelectItem>
+                       <SelectItem value="Serviço de solda">Serviço de solda</SelectItem>
+                       <SelectItem value="Troca de relé da placa">Troca de relé da placa</SelectItem>
+                       <SelectItem value="Troca de sensor">Troca de sensor</SelectItem>
+                       <SelectItem value="Troca de chave contadora">Troca de chave contadora</SelectItem>
+                       <SelectItem value="Conserto de placa eletrônica">Conserto de placa eletrônica</SelectItem>
+                       <SelectItem value="Retirada de ar condicionado">Retirada de ar condicionado</SelectItem>
+                       <SelectItem value="Serviço de passar tubulação de infra">Serviço de passar tubulação de infra</SelectItem>
+                       <SelectItem value="Ver defeito">Ver defeito</SelectItem>
+                       <SelectItem value="Troca de local">Troca de local</SelectItem>
+                       <SelectItem value="Outro tipo de serviço">Outro tipo de serviço</SelectItem>
                     </SelectContent>
                   </Select>
                   {formData.tipos_servico.length > 1 && (

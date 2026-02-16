@@ -378,6 +378,8 @@ export default function ServicosPage() {
             <SelectItem value="Retirada de ar condicionado">Retirada de ar condicionado</SelectItem>
             <SelectItem value="Serviço de passar tubulação de infra">Serviço de passar tubulação de infra</SelectItem>
             <SelectItem value="Ver defeito">Ver defeito</SelectItem>
+            <SelectItem value="Troca de local">Troca de local</SelectItem>
+            <SelectItem value="Outro tipo de serviço">Outro tipo de serviço</SelectItem>
           </SelectContent>
         </Select>
       </div>
