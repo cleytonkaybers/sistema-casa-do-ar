@@ -114,28 +114,11 @@ export default function UsuariosPage() {
       // Usa o sistema de convite do Base44
       await base44.users.inviteUser(email, role);
       
-      // Aguarda um pouco para o usuário ser criado
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Busca o usuário criado
-      const users = await base44.entities.User.filter({ email });
-      
-      if (users && users.length > 0) {
-        const newUser = users[0];
-        
-        // Atualiza com perfil e permissões
-        const perfil_config = perfisPreDefinidos[perfil];
-        await base44.entities.User.update(newUser.id, {
-          perfil: perfil,
-          permissoes: perfil_config.permissoes
-        });
-      }
-      
-      return { email };
+      return { email, perfil };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
-      toast.success('Convite enviado! O usuário receberá um email para configurar a senha.');
+      toast.success(`Convite enviado para ${data.email}! Após o usuário aceitar, você poderá definir o perfil ${perfisPreDefinidos[data.perfil].label}.`);
       setShowInviteModal(false);
       setUserEmail('');
       setInvitePerfil('atendente');
