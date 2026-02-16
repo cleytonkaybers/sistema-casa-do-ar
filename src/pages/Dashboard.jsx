@@ -41,7 +41,6 @@ export default function Dashboard() {
   const { data: atendimentos = [] } = useQuery({
     queryKey: ['atendimentos'],
     queryFn: () => base44.entities.Atendimento.list('-created_date'),
-    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
   });
 
   const { data: servicos = [] } = useQuery({
