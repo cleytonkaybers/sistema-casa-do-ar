@@ -425,13 +425,14 @@ export default function UsuariosPage() {
                 <div className="space-y-2">
                   <Label>Empresa</Label>
                   <Select 
-                    value={editingUser.empresa_id || ''} 
-                    onValueChange={(value) => setEditingUser({...editingUser, empresa_id: value})}
+                    value={editingUser.empresa_id || 'sem-empresa'} 
+                    onValueChange={(value) => setEditingUser({...editingUser, empresa_id: value === 'sem-empresa' ? null : value})}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma empresa" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="sem-empresa">Sem Empresa</SelectItem>
                       {empresas.map(emp => (
                         <SelectItem key={emp.id} value={emp.id}>{emp.nome}</SelectItem>
                       ))}
