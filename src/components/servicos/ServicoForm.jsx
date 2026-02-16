@@ -270,28 +270,14 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
     }
     
     // Validar que a data não seja no passado
-    const agora = new Date();
-    const dataProgramada = new Date(formData.data_programada);
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
     
-    // Se tem horário definido, validar com horário completo
-    if (formData.horario) {
-      const [horas, minutos] = formData.horario.split(':').map(Number);
-      dataProgramada.setHours(horas, minutos, 0, 0);
-      
-      if (dataProgramada < agora) {
-        toast.error('Não é permitido criar serviços no passado!');
-        return;
-      }
-    } else {
-      // Se não tem horário, apenas aceita datas de hoje em diante
-      dataProgramada.setHours(0, 0, 0, 0);
-      const hojeAoMeio = new Date(agora);
-      hojeAoMeio.setHours(0, 0, 0, 0);
-      
-      if (dataProgramada < hojeAoMeio) {
-        toast.error('Data não pode ser no passado!');
-        return;
-      }
+    const dataProgramada = new Date(formData.data_programada + 'T00:00:00');
+    
+    if (dataProgramada < hoje) {
+      toast.error('Data não pode ser no passado!');
+      return;
     }
     
     // Calcular dia da semana automaticamente a partir da data programada
