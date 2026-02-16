@@ -62,6 +62,10 @@ export default function HistoricoClientes() {
     }))
   ];
 
+  if (!isAdmin) {
+    return <NoPermission />;
+  }
+
   // Agrupar por cliente
   const clientesAgrupados = useMemo(() => {
     const grupos = {};
