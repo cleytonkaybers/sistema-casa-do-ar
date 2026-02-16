@@ -32,7 +32,7 @@ import { useEmpresa } from '@/components/auth/EmpresaGuard';
 export default function Clientes() {
   const queryClient = useQueryClient();
   const { hasPermission, isAdmin } = usePermissions();
-  const { filterByEmpresa } = useEmpresa();
+  const { filterByEmpresa, currentEmpresa } = useEmpresa();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [formOpen, setFormOpen] = useState(false);
@@ -112,7 +112,11 @@ export default function Clientes() {
     if (editingCliente) {
       updateMutation.mutate({ id: editingCliente.id, data });
     } else {
-      createMutation.mutate(data);
+      const clienteData = { ...data };
+      if (currentEmpresa?.id) {
+        clienteData.empresa_id = currentEmpresa.id;
+      }
+      createMutation.mutate(clienteData);
     }
   };
 
