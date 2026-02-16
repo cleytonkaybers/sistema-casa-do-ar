@@ -148,7 +148,12 @@ export default function PreventivasFuturasPage() {
       const matchTelefone = item.telefone?.includes(searchTerm);
       return matchNome || matchTelefone;
     })
-    .sort((a, b) => (a.status?.priority || 99) - (b.status?.priority || 99));
+    .sort((a, b) => {
+      // Ordenar por dias restantes em ordem crescente (menos dias primeiro)
+      const daysA = a.status?.days ?? 999;
+      const daysB = b.status?.days ?? 999;
+      return daysA - daysB;
+    });
 
   const isLoading = loadingClientes || loadingServicos;
 
