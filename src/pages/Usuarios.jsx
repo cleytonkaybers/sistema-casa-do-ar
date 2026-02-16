@@ -198,7 +198,9 @@ export default function UsuariosPage() {
       id: editingUser.id,
       data: {
         perfil: editingUser.perfil,
-        permissoes: editingUser.permissoes
+        permissoes: editingUser.permissoes,
+        empresa_id: editingUser.empresa_id,
+        tipo_usuario: editingUser.tipo_usuario
       }
     });
   };
