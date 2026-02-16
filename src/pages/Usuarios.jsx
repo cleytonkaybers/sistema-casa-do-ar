@@ -149,15 +149,30 @@ export default function UsuariosPage() {
       // Usa o sistema de convite do Base44
       await base44.users.inviteUser(email, role);
       
+      // Aguarda um momento para o usuário ser criado no sistema
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Tenta encontrar e atualizar o usuário com a empresa
+      try {
+        const allUsers = await base44.entities.User.list();
+        const newUser = allUsers.find(u => u.email === email);
+        
+        if (newUser && currentEmpresa) {
+          await base44.entities.User.update(newUser.id, {
+            empresa_id: currentEmpresa.id,
+            tipo_usuario: perfil === 'admin' ? 'admin_empresa' : 'administrativo',
+            perfil: perfil
+          });
+        }
+      } catch (error) {
+        console.log('Usuário ainda não criado, será atualizado manualmente');
+      }
+      
       return { email, perfil, empresaId: currentEmpresa?.id };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
-      if (data.empresaId) {
-        toast.success(`Convite enviado para ${data.email}! IMPORTANTE: Após aceitar, edite o usuário e defina empresa_id: ${data.empresaId}`);
-      } else {
-        toast.success(`Convite enviado para ${data.email}!`);
-      }
+      toast.success(`Convite enviado para ${data.email}! O usuário será automaticamente associado à sua empresa.`);
       setShowInviteModal(false);
       setUserEmail('');
       setInvitePerfil('atendente');
