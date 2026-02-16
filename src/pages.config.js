@@ -53,6 +53,7 @@ import ClienteDetalhes from './pages/ClienteDetalhes';
 import Clientes from './pages/Clientes';
 import Configuracoes from './pages/Configuracoes';
 import Dashboard from './pages/Dashboard';
+import GerenciarEmpresas from './pages/GerenciarEmpresas';
 import HistoricoClientes from './pages/HistoricoClientes';
 import PreferencesNotificacao from './pages/PreferencesNotificacao';
 import PreventivasFuturas from './pages/PreventivasFuturas';
@@ -61,7 +62,6 @@ import RelatoriosAutomaticos from './pages/RelatoriosAutomaticos';
 import Servicos from './pages/Servicos';
 import Suporte from './pages/Suporte';
 import Usuarios from './pages/Usuarios';
-import GerenciarEmpresas from './pages/GerenciarEmpresas';
 import __Layout from './Layout.jsx';
 
 
@@ -72,6 +72,7 @@ export const PAGES = {
     "Clientes": Clientes,
     "Configuracoes": Configuracoes,
     "Dashboard": Dashboard,
+    "GerenciarEmpresas": GerenciarEmpresas,
     "HistoricoClientes": HistoricoClientes,
     "PreferencesNotificacao": PreferencesNotificacao,
     "PreventivasFuturas": PreventivasFuturas,
@@ -80,7 +81,6 @@ export const PAGES = {
     "Servicos": Servicos,
     "Suporte": Suporte,
     "Usuarios": Usuarios,
-    "GerenciarEmpresas": GerenciarEmpresas,
 }
 
 export const pagesConfig = {

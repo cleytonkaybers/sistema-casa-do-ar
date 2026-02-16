@@ -27,10 +27,12 @@ import AtendimentoForm from '@/components/atendimentos/AtendimentoForm';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
 import { usePermissions } from '@/components/auth/PermissionGuard';
+import { useEmpresa } from '@/components/auth/EmpresaGuard';
 
 export default function Clientes() {
   const queryClient = useQueryClient();
   const { hasPermission, isAdmin } = usePermissions();
+  const { filterByEmpresa } = useEmpresa();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [formOpen, setFormOpen] = useState(false);
@@ -43,7 +45,10 @@ export default function Clientes() {
 
   const { data: clientes = [], isLoading } = useQuery({
     queryKey: ['clientes'],
-    queryFn: () => base44.entities.Cliente.list('-created_date'),
+    queryFn: async () => {
+      const allClientes = await base44.entities.Cliente.list('-created_date');
+      return filterByEmpresa(allClientes);
+    },
   });
 
   const { data: atendimentos = [] } = useQuery({
