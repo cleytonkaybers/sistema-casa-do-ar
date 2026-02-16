@@ -91,7 +91,7 @@ export default function Layout({ children }) {
   ];
 
   const navigation = isTecnico 
-    ? [...baseNavigation, ...preventivasNavigation, ...allUsersNavigation] 
+    ? [...baseNavigation, ...preventivasNavigation] 
     : [...baseNavigation, ...preventivasNavigation, ...adminNavigation, ...allUsersNavigation];
 
   const isActive = (href) => {
