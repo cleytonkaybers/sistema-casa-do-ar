@@ -20,10 +20,6 @@ export default function RelatóriosPage() {
   const [filteredStartDate, setFilteredStartDate] = useState(startOfMonth(today));
   const [filteredEndDate, setFilteredEndDate] = useState(endOfMonth(today));
 
-  if (!isAdmin) {
-    return <NoPermission />;
-  }
-
   // Buscar dados
   const { data: servicos = [], isLoading: servLoading } = useQuery({
     queryKey: ['servicos'],
@@ -113,6 +109,10 @@ export default function RelatóriosPage() {
     clients: clientes,
     attendances: filteredData.atendimentosFiltrados
   };
+
+  if (!isAdmin) {
+    return <NoPermission />;
+  }
 
   return (
     <div className="space-y-6">
