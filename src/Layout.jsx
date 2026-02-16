@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import ChatWidget from '@/components/ChatWidget/ChatWidget';
 import NotificationCenter from '@/components/NotificationCenter';
+import UserMenu from '@/components/UserMenu';
 import { EmpresaProvider, useEmpresa } from '@/components/auth/EmpresaGuard';
 import SubscriptionBlocker from '@/components/saas/SubscriptionBlocker';
 
