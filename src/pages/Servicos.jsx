@@ -185,6 +185,22 @@ export default function ServicosPage() {
     const matchSearch = s.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                        s.telefone?.includes(searchTerm);
     const matchTipo = tipoFilter === 'todos' || s.tipo_servico === tipoFilter;
+    
+    // Filtrar serviços: mostrar apenas últimos 2 dias (passado) + todos futuros
+    if (s.data_programada) {
+      const dataServico = new Date(s.data_programada);
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+      dataServico.setHours(0, 0, 0, 0);
+      
+      const diffDias = Math.floor((dataServico - hoje) / (1000 * 60 * 60 * 24));
+      
+      // Se for passado, mostrar apenas últimos 2 dias
+      if (diffDias < 0 && diffDias < -2) {
+        return false;
+      }
+    }
+    
     return matchSearch && matchTipo;
   });
 
