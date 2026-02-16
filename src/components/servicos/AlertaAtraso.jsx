@@ -1,10 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, X, Clock, Calendar, User, Phone } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { AlertTriangle, X, Clock, Calendar, User, Phone, ChevronDown, CheckCircle2, Play } from 'lucide-react';
 import { format, differenceInHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -12,6 +18,7 @@ import { toast } from 'sonner';
 export default function AlertaAtraso() {
   const [dismissed, setDismissed] = useState(false);
   const [notificacaoEnviada, setNotificacaoEnviada] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: servicos = [] } = useQuery({
     queryKey: ['servicos'],
@@ -21,6 +28,36 @@ export default function AlertaAtraso() {
   const { data: usuarios = [] } = useQuery({
     queryKey: ['users'],
     queryFn: () => base44.entities.User.list(),
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ servico, novoStatus }) => {
+      const currentUser = await base44.auth.me();
+      const statusAnterior = servico.status || 'aberto';
+      
+      // Atualizar serviço
+      await base44.entities.Servico.update(servico.id, {
+        ...servico,
+        status: novoStatus,
+        usuario_atualizacao_status: currentUser?.email,
+        data_atualizacao_status: new Date().toISOString()
+      });
+      
+      // Registrar alteração de status
+      await base44.entities.AlteracaoStatus.create({
+        servico_id: servico.id,
+        status_anterior: statusAnterior,
+        status_novo: novoStatus,
+        usuario: currentUser?.email,
+        data_alteracao: new Date().toISOString(),
+        tipo_registro: 'servico'
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['servicos'] });
+      toast.success('Status do serviço atualizado!');
+    },
+    onError: () => toast.error('Erro ao atualizar status'),
   });
 
   // Verificar serviços em atraso (mais de 24h da data programada e status não concluído)
@@ -156,6 +193,29 @@ export default function AlertaAtraso() {
                     <span className="font-medium">Serviço:</span> {servico.tipo_servico}
                   </p>
                 </div>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="flex items-center gap-1 shrink-0"
+                    >
+                      Alterar Status
+                      <ChevronDown className="w-3 h-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ servico, novoStatus: 'andamento' })}>
+                      <Play className="w-4 h-4 mr-2 text-blue-600" />
+                      Em Andamento
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ servico, novoStatus: 'concluido' })}>
+                      <CheckCircle2 className="w-4 h-4 mr-2 text-green-600" />
+                      Concluir
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           );
