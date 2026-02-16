@@ -100,13 +100,15 @@ export default function UsuariosPage() {
     queryKey: ['usuarios', currentEmpresa?.id, isSuperAdmin()],
     queryFn: async () => {
       if (isSuperAdmin()) {
-        return await base44.asServiceRole.entities.User.list();
+        return await base44.asServiceRole.entities.User.list(100);
       }
-      const allUsers = await base44.entities.User.list();
-      return allUsers.filter(u => {
+      const allUsers = await base44.entities.User.list(100);
+      const filtered = allUsers.filter(u => {
         const userData = u.data || {};
         return userData.empresa_id === currentEmpresa?.id;
       });
+      console.log('Todos os usuários:', allUsers.length, 'Filtrados:', filtered.length);
+      return filtered;
     },
     enabled: !authLoading
   });
