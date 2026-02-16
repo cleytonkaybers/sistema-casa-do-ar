@@ -253,7 +253,17 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Validar data programada obrigatória
+    // Validar campos obrigatórios
+    if (!formData.cliente_nome?.trim()) {
+      toast.error('Nome do cliente é obrigatório!');
+      return;
+    }
+    
+    if (!formData.telefone?.trim()) {
+      toast.error('Telefone é obrigatório!');
+      return;
+    }
+    
     if (!formData.data_programada) {
       toast.error('Data programada é obrigatória!');
       return;
@@ -296,6 +306,8 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
       valor: formData.valor ? parseFloat(formData.valor) : 0
     };
     delete dataToSave.tipos_servico;
+    
+    console.log('Salvando serviço:', dataToSave);
     onSave(dataToSave);
   };
 
