@@ -259,10 +259,8 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
       return;
     }
     
-    // Validar que a data/hora não seja anterior a 2 horas atrás
+    // Validar que a data não seja no passado (não bloqueando 2 horas atrás para futuras)
     const agora = new Date();
-    const duasHorasAtras = new Date(agora.getTime() - 2 * 60 * 60 * 1000);
-    
     const dataProgramada = new Date(formData.data_programada);
     
     // Se tem horário definido, validar com horário completo
@@ -270,18 +268,19 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
       const [horas, minutos] = formData.horario.split(':').map(Number);
       dataProgramada.setHours(horas, minutos, 0, 0);
       
-      if (dataProgramada < duasHorasAtras) {
-        toast.error('Não é permitido criar serviços com mais de 2 horas de atraso!');
+      // Bloquear apenas se a hora estiver no passado
+      if (dataProgramada < agora) {
+        toast.error('Não é permitido criar serviços no passado!');
         return;
       }
     } else {
-      // Se não tem horário, validar apenas a data
+      // Se não tem horário, apenas validar se a data é de hoje ou no futuro
       dataProgramada.setHours(0, 0, 0, 0);
-      const dataLimite = new Date(duasHorasAtras);
-      dataLimite.setHours(0, 0, 0, 0);
+      const hojeAoMeio = new Date(agora);
+      hojeAoMeio.setHours(0, 0, 0, 0);
       
-      if (dataProgramada < dataLimite) {
-        toast.error('Não é permitido criar serviços com mais de 2 horas de atraso!');
+      if (dataProgramada < hojeAoMeio) {
+        toast.error('Não é permitido criar serviços em datas passadas!');
         return;
       }
     }
