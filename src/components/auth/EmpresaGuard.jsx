@@ -41,7 +41,7 @@ export function EmpresaProvider({ children }) {
 
   const filterByEmpresa = (items) => {
     if (isSuperAdmin()) return items;
-    return items.filter(item => item.empresa_id === currentUser?.empresa_id);
+    return items.filter(item => !item.empresa_id || item.empresa_id === currentUser?.empresa_id);
   };
 
   const value = {
