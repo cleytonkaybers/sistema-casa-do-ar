@@ -19,7 +19,8 @@ import {
   Wrench,
   Thermometer,
   Cloud,
-  Droplets
+  Droplets,
+  RotateCw
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -212,6 +213,13 @@ function LayoutContent({ children }) {
                 <p className="text-sm font-medium text-purple-200">Sistema de Clientes</p>
                 <p className="text-xs text-purple-300/60">Casa do Ar Climatização</p>
               </div>
+              <button
+                onClick={() => window.location.reload()}
+                className="p-2 rounded-lg hover:bg-purple-700/30 transition-colors text-purple-300 hover:text-purple-100"
+                title="Atualizar página"
+              >
+                <RotateCw className="w-5 h-5" />
+              </button>
               <NotificationCenter />
             </div>
           </div>
