@@ -11,7 +11,6 @@ import {
   ClipboardList, 
   Calendar,
   AlertTriangle,
-  TrendingUp,
   ArrowRight,
   Snowflake,
   Clock,
@@ -19,7 +18,7 @@ import {
   Plus,
   Filter
 } from 'lucide-react';
-import { format, differenceInDays, startOfMonth, endOfMonth, isWithinInterval, startOfDay, endOfDay, startOfWeek, endOfWeek, isToday } from 'date-fns';
+import { format, differenceInDays, startOfMonth, endOfMonth, isWithinInterval, startOfWeek, endOfWeek, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const formatPhone = (phone) => {
