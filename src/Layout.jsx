@@ -57,7 +57,6 @@ function LayoutContent({ children }) {
 
   React.useEffect(() => {
     base44.auth.me().then(user => setUser(user)).catch(() => setUser(null));
-    
     base44.entities.CompanySettings.list().then(result => {
       if (result.length > 0) {
         setCompanySettings(result[0]);
@@ -179,14 +178,14 @@ function LayoutContent({ children }) {
 
           {/* Footer */}
           <div className="p-4 border-t border-purple-700/50">
-           <Button
-             variant="ghost"
-             onClick={() => base44.auth.logout()}
-             className="w-full justify-start text-purple-200/80 hover:text-red-400 hover:bg-red-500/20"
-           >
-             <LogOut className="w-5 h-5 mr-3" />
-             Sair
-           </Button>
+            <Button
+              variant="ghost"
+              onClick={() => base44.auth.logout()}
+              className="w-full justify-start text-purple-200/80 hover:text-red-400 hover:bg-red-500/20"
+            >
+              <LogOut className="w-5 h-5 mr-3" />
+              Sair
+            </Button>
           </div>
         </div>
       </aside>
@@ -194,7 +193,6 @@ function LayoutContent({ children }) {
       {/* Main content */}
       <div className="lg:pl-72">
         <ChatWidget />
-        
         {/* Top bar */}
         <header className="sticky top-0 z-30 bg-gradient-to-r from-slate-900/95 via-purple-900/95 to-slate-900/95 backdrop-blur-lg border-b border-purple-700/30">
           <div className="flex items-center justify-between px-4 lg:px-8 py-4">

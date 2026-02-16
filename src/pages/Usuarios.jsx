@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, UserPlus, Users, Shield, Mail, Edit, Trash2 } from 'lucide-react';
+import { Loader2, Users, Shield, Mail, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePermissions } from '../components/auth/PermissionGuard';
 import { useEmpresa } from '../components/auth/EmpresaGuard';
@@ -138,8 +138,6 @@ export default function UsuariosPage() {
     },
     onError: () => toast.error('Erro ao excluir usuário')
   });
-
-
 
   const inviteUserMutation = useMutation({
     mutationFn: async ({ email, perfil }) => {
@@ -287,18 +285,18 @@ export default function UsuariosPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-         <div>
-           <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">Gerenciar Usuários</h1>
-            <p className="text-gray-400 mt-1">Total de usuários ativos: <span className="text-cyan-400 font-bold">{usuarios.length}</span></p>
-         </div>
-         <Button
-           onClick={() => setShowInviteModal(true)}
-           className="bg-gradient-to-r from-blue-500 to-cyan-500"
-         >
-           <Mail className="w-5 h-5 mr-2" />
-           Convidar Usuário
-         </Button>
-       </div>
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">Gerenciar Usuários</h1>
+          <p className="text-gray-400 mt-1">Total de usuários ativos: <span className="text-cyan-400 font-bold">{usuarios.length}</span></p>
+        </div>
+        <Button
+          onClick={() => setShowInviteModal(true)}
+          className="bg-gradient-to-r from-blue-500 to-cyan-500"
+        >
+          <Mail className="w-5 h-5 mr-2" />
+          Convidar Usuário
+        </Button>
+      </div>
 
       {isLoading ? (
         <div className="flex justify-center py-12">
@@ -374,56 +372,56 @@ export default function UsuariosPage() {
 
       {/* Modal de Convite */}
       <Dialog open={showInviteModal} onOpenChange={setShowInviteModal}>
-       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Convidar Novo Usuário</DialogTitle>
-        </DialogHeader>
-         <div className="space-y-4 mt-4">
-           <div className="space-y-2">
-             <Label>E-mail</Label>
-             <Input
-               type="email"
-               placeholder="usuario@email.com"
-               value={userEmail}
-               onChange={(e) => setUserEmail(e.target.value)}
-             />
-             <p className="text-xs text-gray-500">O usuário receberá um email para configurar sua senha</p>
-           </div>
-           <div className="space-y-2">
-             <Label>Perfil</Label>
-             <Select value={invitePerfil} onValueChange={setInvitePerfil}>
-               <SelectTrigger>
-                 <SelectValue />
-               </SelectTrigger>
-               <SelectContent>
-                 <SelectItem value="atendente">Atendente</SelectItem>
-                 <SelectItem value="tecnico">Técnico</SelectItem>
-                 <SelectItem value="gerente">Gerente</SelectItem>
-                 <SelectItem value="admin">Administrador</SelectItem>
-               </SelectContent>
-             </Select>
-           </div>
-           <div className="flex justify-end gap-3 pt-4">
-             <Button variant="outline" onClick={() => setShowInviteModal(false)}>
-               Cancelar
-             </Button>
-             <Button 
-               onClick={handleInvite} 
-               disabled={inviteUserMutation.isPending}
-               className="bg-gradient-to-r from-blue-500 to-cyan-500"
-             >
-               {inviteUserMutation.isPending ? (
-                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enviando...</>
-               ) : (
-                 <>
-                   <Mail className="w-4 h-4 mr-2" />
-                   Enviar Convite
-                 </>
-               )}
-             </Button>
-           </div>
-         </div>
-       </DialogContent>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Convidar Novo Usuário</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label>E-mail</Label>
+              <Input
+                type="email"
+                placeholder="usuario@email.com"
+                value={userEmail}
+                onChange={(e) => setUserEmail(e.target.value)}
+              />
+              <p className="text-xs text-gray-500">O usuário receberá um email para configurar sua senha</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Perfil</Label>
+              <Select value={invitePerfil} onValueChange={setInvitePerfil}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="atendente">Atendente</SelectItem>
+                  <SelectItem value="tecnico">Técnico</SelectItem>
+                  <SelectItem value="gerente">Gerente</SelectItem>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="outline" onClick={() => setShowInviteModal(false)}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleInvite} 
+                disabled={inviteUserMutation.isPending}
+                className="bg-gradient-to-r from-blue-500 to-cyan-500"
+              >
+                {inviteUserMutation.isPending ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enviando...</>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4 mr-2" />
+                    Enviar Convite
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
       </Dialog>
 
       {/* Modal de Edição de Permissões */}
