@@ -127,15 +127,27 @@ export default function ServicosPage() {
   };
 
   const handleStatusChange = async (servico, novoStatus) => {
+    const currentUser = await base44.auth.me();
+    const statusAnterior = servico.status || 'aberto';
+    
     if (novoStatus === 'pausado') {
       // Abrir modal de reagendamento obrigatório
-      const currentUser = await base44.auth.me();
       const updateData = {
         ...servico,
         status: novoStatus,
         usuario_atualizacao_status: currentUser?.email,
         data_atualizacao_status: new Date().toISOString()
       };
+      
+      // Registrar alteração de status
+      await base44.entities.AlteracaoStatus.create({
+        servico_id: servico.id,
+        status_anterior: statusAnterior,
+        status_novo: novoStatus,
+        usuario: currentUser?.email,
+        data_alteracao: new Date().toISOString(),
+        tipo_registro: 'servico'
+      });
       
       setServicoParaReagendar(servico);
       setShowReagendarModal(true);
@@ -149,13 +161,22 @@ export default function ServicosPage() {
       setServicoParaConcluir(servico);
       setShowConclusaoModal(true);
     } else {
-      const currentUser = await base44.auth.me();
       const updateData = {
         ...servico,
         status: novoStatus,
         usuario_atualizacao_status: currentUser?.email,
         data_atualizacao_status: new Date().toISOString()
       };
+      
+      // Registrar alteração de status
+      await base44.entities.AlteracaoStatus.create({
+        servico_id: servico.id,
+        status_anterior: statusAnterior,
+        status_novo: novoStatus,
+        usuario: currentUser?.email,
+        data_alteracao: new Date().toISOString(),
+        tipo_registro: 'servico'
+      });
       
       updateMutation.mutate({ 
         id: servico.id, 
@@ -169,6 +190,8 @@ export default function ServicosPage() {
     if (!servicoParaConcluir) return;
     
     const currentUser = await base44.auth.me();
+    const statusAnterior = servicoParaConcluir.status || 'aberto';
+    
     const updateData = {
       ...servicoParaConcluir,
       status: 'concluido',
@@ -177,16 +200,41 @@ export default function ServicosPage() {
       data_atualizacao_status: new Date().toISOString()
     };
 
+    // Registrar alteração de status
+    await base44.entities.AlteracaoStatus.create({
+      servico_id: servicoParaConcluir.id,
+      status_anterior: statusAnterior,
+      status_novo: 'concluido',
+      usuario: currentUser?.email,
+      data_alteracao: new Date().toISOString(),
+      tipo_registro: 'servico'
+    });
+
     updateMutation.mutate({ 
       id: servicoParaConcluir.id, 
       data: updateData
     }, {
-      onSuccess: () => {
+      onSuccess: async () => {
+        // Criar atendimento a partir do serviço concluído
+        await base44.entities.Atendimento.create({
+          cliente_nome: servicoParaConcluir.cliente_nome,
+          data_atendimento: servicoParaConcluir.data_programada,
+          tipo_servico: servicoParaConcluir.tipo_servico,
+          descricao: servicoParaConcluir.descricao || '',
+          valor: servicoParaConcluir.valor || 0,
+          status: 'Concluído',
+          observacoes: observacoes || '',
+          usuario_atualizacao_status: currentUser?.email,
+          data_atualizacao_status: new Date().toISOString()
+        });
+
+        queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
+        
         setShowConclusaoModal(false);
         setServicoConcluido({ ...servicoParaConcluir, observacoes_conclusao: observacoes, isConclusao: true });
         setShowCompartilharModal(true);
         setServicoParaConcluir(null);
-        toast.success('Serviço concluído! 🎉');
+        toast.success('Serviço concluído e registrado em Atendimentos! 🎉');
       }
     });
   };

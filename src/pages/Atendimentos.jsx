@@ -35,11 +35,13 @@ import {
   Pencil,
   Trash2,
   X,
-  User
+  User,
+  History
 } from 'lucide-react';
 
 import AtendimentoForm from '@/components/atendimentos/AtendimentoForm';
 import DeleteConfirmDialog from '@/components/clientes/DeleteConfirmDialog';
+import HistoricoStatusModal from '@/components/atendimentos/HistoricoStatusModal';
 
 const statusColors = {
   'Aberto': 'bg-gray-100 text-gray-700 border-gray-200',
@@ -62,6 +64,8 @@ export default function Atendimentos() {
   const [selectedCliente, setSelectedCliente] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingAtendimento, setDeletingAtendimento] = useState(null);
+  const [historicoOpen, setHistoricoOpen] = useState(false);
+  const [selectedServicoId, setSelectedServicoId] = useState(null);
 
   // Queries
   const { data: atendimentos = [], isLoading } = useQuery({
@@ -182,6 +186,21 @@ export default function Atendimentos() {
       style: 'currency',
       currency: 'BRL'
     }).format(value);
+  };
+
+  const handleVerHistorico = (atendimento) => {
+    // Buscar serviço relacionado ao atendimento
+    const servicoRelacionado = servicos.find(s => 
+      s.cliente_nome?.trim().toLowerCase() === atendimento.cliente_nome?.trim().toLowerCase() &&
+      s.status === 'concluido'
+    );
+    
+    if (servicoRelacionado) {
+      setSelectedServicoId(servicoRelacionado.id);
+      setHistoricoOpen(true);
+    } else {
+      toast.info('Nenhum histórico de status disponível para este atendimento');
+    }
   };
 
   return (
@@ -374,6 +393,17 @@ export default function Atendimentos() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
+                          {atendimento.status === 'Concluído' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleVerHistorico(atendimento)}
+                              className="text-gray-500 hover:text-purple-600"
+                              title="Ver Histórico"
+                            >
+                              <History className="w-4 h-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
@@ -466,6 +496,17 @@ export default function Atendimentos() {
                     )}
 
                     <div className="flex items-center gap-2 pt-3 border-t">
+                      {atendimento.status === 'Concluído' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleVerHistorico(atendimento)}
+                          className="flex-1"
+                        >
+                          <History className="w-4 h-4 mr-1.5" />
+                          Histórico
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
@@ -508,6 +549,12 @@ export default function Atendimentos() {
         onConfirm={() => deleteMutation.mutate(deletingAtendimento?.id)}
         clienteName={`atendimento de ${deletingAtendimento?.cliente_nome}`}
         isLoading={deleteMutation.isPending}
+      />
+
+      <HistoricoStatusModal
+        open={historicoOpen}
+        onClose={() => { setHistoricoOpen(false); setSelectedServicoId(null); }}
+        servicoId={selectedServicoId}
       />
     </div>
   );
