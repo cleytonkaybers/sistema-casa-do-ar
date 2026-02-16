@@ -103,7 +103,10 @@ export default function UsuariosPage() {
         return await base44.asServiceRole.entities.User.list();
       }
       const allUsers = await base44.entities.User.list();
-      return allUsers.filter(u => u.empresa_id === currentEmpresa?.id);
+      return allUsers.filter(u => {
+        const userData = u.data || {};
+        return userData.empresa_id === currentEmpresa?.id;
+      });
     },
     enabled: !authLoading
   });
