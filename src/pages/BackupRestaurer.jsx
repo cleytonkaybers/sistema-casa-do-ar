@@ -13,10 +13,6 @@ import { usePermissions } from '../components/auth/PermissionGuard';
 
 export default function BackupRestaurerPage() {
   const { isAdmin } = usePermissions();
-
-  if (!isAdmin) {
-    return <NoPermission />;
-  }
   const [importFile, setImportFile] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -131,6 +127,10 @@ export default function BackupRestaurerPage() {
   };
 
   const totalRegistros = clientes.length + servicos.length + atendimentos.length;
+
+  if (!isAdmin) {
+    return <NoPermission />;
+  }
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
