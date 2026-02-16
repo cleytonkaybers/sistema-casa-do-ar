@@ -169,10 +169,10 @@ export default function Atendimentos() {
 
     // Ordenar por prioridade de status
     const statusPrioridade = {
-      'Reagendado': 1,
-      'Aberto': 2,
-      'Em Andamento': 3,
-      'Agendado': 4,
+      'Agendado': 1,
+      'Reagendado': 2,
+      'Aberto': 3,
+      'Em Andamento': 4,
       'Concluído': 5
     };
 
