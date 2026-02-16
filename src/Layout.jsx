@@ -28,6 +28,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import ChatWidget from '@/components/ChatWidget/ChatWidget';
 import NotificationCenter from '@/components/NotificationCenter';
 import { EmpresaProvider, useEmpresa } from '@/components/auth/EmpresaGuard';
+import SubscriptionBlocker from '@/components/saas/SubscriptionBlocker';
 
 // Icon mapping for company icons
 const ICON_MAP = {
@@ -237,8 +238,10 @@ function LayoutContent({ children }) {
 
 export default function Layout({ children }) {
   return (
-    <EmpresaProvider>
-      <LayoutContent>{children}</LayoutContent>
-    </EmpresaProvider>
+    <SubscriptionBlocker>
+      <EmpresaProvider>
+        <LayoutContent>{children}</LayoutContent>
+      </EmpresaProvider>
+    </SubscriptionBlocker>
   );
 }
