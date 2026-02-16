@@ -82,10 +82,8 @@ export default function UsuariosPage() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [userId, setUserId] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [invitePerfil, setInvitePerfil] = useState('atendente');
-  const [invitePassword, setInvitePassword] = useState('');
 
   const queryClient = useQueryClient();
 
@@ -108,44 +106,53 @@ export default function UsuariosPage() {
 
 
 
-  const createUserMutation = useMutation({
-    mutationFn: async ({ userId, email, senha, perfil }) => {
-      const perfil_config = perfisPreDefinidos[perfil];
-
-      // Cria usuário com ID, email e senha
-      const newUser = await base44.entities.User.create({
-        full_name: userId,
-        email: email,
-        username: userId,
-        role: 'user',
-        perfil: perfil,
-        permissoes: perfil_config.permissoes
-      });
-
-      return newUser;
+  const inviteUserMutation = useMutation({
+    mutationFn: async ({ email, perfil }) => {
+      // Converte perfil para role do sistema
+      const role = perfil === 'admin' ? 'admin' : 'user';
+      
+      // Usa o sistema de convite do Base44
+      await base44.users.inviteUser(email, role);
+      
+      // Aguarda um pouco para o usuário ser criado
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Busca o usuário criado
+      const users = await base44.entities.User.filter({ email });
+      
+      if (users && users.length > 0) {
+        const newUser = users[0];
+        
+        // Atualiza com perfil e permissões
+        const perfil_config = perfisPreDefinidos[perfil];
+        await base44.entities.User.update(newUser.id, {
+          perfil: perfil,
+          permissoes: perfil_config.permissoes
+        });
+      }
+      
+      return { email };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
-      toast.success('Usuário criado com sucesso!');
+      toast.success('Convite enviado! O usuário receberá um email para configurar a senha.');
       setShowInviteModal(false);
-      setUserId('');
       setUserEmail('');
-      setInvitePassword('');
       setInvitePerfil('atendente');
     },
-    onError: () => toast.error('Erro ao criar usuário')
+    onError: (error) => {
+      toast.error('Erro ao enviar convite: ' + (error.message || 'Tente novamente'));
+    }
   });
 
   const handleInvite = async () => {
-    if (!userId || !userEmail || !invitePassword) {
-      toast.error('Preencha ID, e-mail e senha');
+    if (!userEmail) {
+      toast.error('Preencha o e-mail');
       return;
     }
 
-    createUserMutation.mutate({
-      userId: userId,
+    inviteUserMutation.mutate({
       email: userEmail,
-      senha: invitePassword,
       perfil: invitePerfil
     });
   };
@@ -225,8 +232,8 @@ export default function UsuariosPage() {
            onClick={() => setShowInviteModal(true)}
            className="bg-gradient-to-r from-blue-500 to-cyan-500"
          >
-           <UserPlus className="w-5 h-5 mr-2" />
-           Novo Usuário
+           <Mail className="w-5 h-5 mr-2" />
+           Convidar Usuário
          </Button>
        </div>
 
@@ -272,18 +279,10 @@ export default function UsuariosPage() {
       {/* Modal de Convite */}
       <Dialog open={showInviteModal} onOpenChange={setShowInviteModal}>
        <DialogContent>
-         <DialogHeader>
-           <DialogTitle>Criar Novo Usuário</DialogTitle>
-         </DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Convidar Novo Usuário</DialogTitle>
+        </DialogHeader>
          <div className="space-y-4 mt-4">
-           <div className="space-y-2">
-             <Label>ID/Usuário</Label>
-             <Input
-               placeholder="usuario123"
-               value={userId}
-               onChange={(e) => setUserId(e.target.value)}
-             />
-           </div>
            <div className="space-y-2">
              <Label>E-mail</Label>
              <Input
@@ -292,15 +291,7 @@ export default function UsuariosPage() {
                value={userEmail}
                onChange={(e) => setUserEmail(e.target.value)}
              />
-           </div>
-           <div className="space-y-2">
-             <Label>Senha</Label>
-             <Input
-               type="password"
-               placeholder="••••••••"
-               value={invitePassword}
-               onChange={(e) => setInvitePassword(e.target.value)}
-             />
+             <p className="text-xs text-gray-500">O usuário receberá um email para configurar sua senha</p>
            </div>
            <div className="space-y-2">
              <Label>Perfil</Label>
@@ -322,13 +313,16 @@ export default function UsuariosPage() {
              </Button>
              <Button 
                onClick={handleInvite} 
-               disabled={createUserMutation.isPending}
+               disabled={inviteUserMutation.isPending}
                className="bg-gradient-to-r from-blue-500 to-cyan-500"
              >
-               {createUserMutation.isPending ? (
-                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando...</>
+               {inviteUserMutation.isPending ? (
+                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enviando...</>
                ) : (
-                 'Criar Usuário'
+                 <>
+                   <Mail className="w-4 h-4 mr-2" />
+                   Enviar Convite
+                 </>
                )}
              </Button>
            </div>
