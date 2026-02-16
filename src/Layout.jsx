@@ -73,8 +73,11 @@ export default function Layout({ children }) {
     { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList },
   ];
 
-  const adminNavigation = [
+  const preventivasNavigation = [
     { name: 'Preventivas Futuras', href: createPageUrl('PreventivasFuturas'), icon: ClipboardList },
+  ];
+
+  const adminNavigation = [
     { name: 'Relatórios', href: createPageUrl('Relatorios'), icon: BarChart3 },
     { name: 'Backup e Restaurar', href: createPageUrl('BackupRestaurer'), icon: Database },
     { name: 'Usuários', href: createPageUrl('Usuarios'), icon: Users },
@@ -88,8 +91,8 @@ export default function Layout({ children }) {
   ];
 
   const navigation = isTecnico 
-    ? [...baseNavigation, ...allUsersNavigation] 
-    : [...baseNavigation, ...adminNavigation, ...allUsersNavigation];
+    ? [...baseNavigation, ...preventivasNavigation, ...allUsersNavigation] 
+    : [...baseNavigation, ...preventivasNavigation, ...adminNavigation, ...allUsersNavigation];
 
   const isActive = (href) => {
     return location.pathname === new URL(href, window.location.origin).pathname;
