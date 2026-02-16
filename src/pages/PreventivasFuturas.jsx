@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Phone, MapPin, Calendar, MessageCircle, Navigation, Search, Loader2, Clock, Wrench, Share2, Eye, Plus } from 'lucide-react';
+import { Phone, MapPin, Calendar, MessageCircle, Navigation, Search, Loader2, Clock, Wrench, Share2, Eye, Plus, Trash2 } from 'lucide-react';
 import { 
   Table,
   TableBody,
@@ -190,6 +190,21 @@ export default function PreventivasFuturasPage() {
       toast.success('Data de manutenção atualizada!');
     },
   });
+
+  const deleteClienteMutation = useMutation({
+    mutationFn: (id) => base44.entities.Cliente.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clientes'] });
+      toast.success('Cliente excluído com sucesso!');
+    },
+    onError: () => toast.error('Erro ao excluir cliente'),
+  });
+
+  const handleDelete = async (item) => {
+    if (confirm(`Excluir ${item.nome}?`)) {
+      await deleteClienteMutation.mutateAsync(item.id);
+    }
+  };
 
   const handleViewDetails = (item) => {
     setSelectedItem(item);
@@ -393,6 +408,17 @@ export default function PreventivasFuturasPage() {
                           >
                             <Share2 className="w-4 h-4" />
                           </Button>
+                          {isCliente && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(item)}
+                              className="text-gray-600 hover:text-red-600"
+                              title="Excluir"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
                           <a
                             href={getWhatsAppLink(item.telefone)}
                             target="_blank"
