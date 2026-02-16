@@ -100,8 +100,8 @@ export default function UsuariosPage() {
     queryKey: ['usuarios'],
     queryFn: async () => {
       const users = await base44.asServiceRole.entities.User.list();
-      console.log('Usuários obtidos:', users);
-      return users;
+      console.log('Usuários obtidos:', users, 'Tipo:', Array.isArray(users), 'Length:', users?.length);
+      return Array.isArray(users) ? users : [];
     },
     enabled: !authLoading
   });
