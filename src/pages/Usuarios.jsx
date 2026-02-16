@@ -298,7 +298,8 @@ export default function UsuariosPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {usuarios.map(usuario => {
-            const perfilInfo = perfisPreDefinidos[usuario.perfil || 'atendente'];
+            const userData = usuario.data || {};
+            const perfilInfo = perfisPreDefinidos[userData.perfil || 'atendente'];
             return (
               <Card key={usuario.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
@@ -306,12 +307,12 @@ export default function UsuariosPage() {
                     <div>
                       <CardTitle className="text-lg">{usuario.full_name || usuario.email}</CardTitle>
                       <p className="text-sm text-gray-500 mt-1">{usuario.email}</p>
-                      {!usuario.empresa_id && (
+                      {!userData.empresa_id && (
                         <Badge className="bg-yellow-500 text-white mt-2">Sem Empresa</Badge>
                       )}
-                      {usuario.empresa_id && (
+                      {userData.empresa_id && (
                         <p className="text-xs text-blue-600 mt-1">
-                          {empresas.find(e => e.id === usuario.empresa_id)?.nome || 'Empresa não encontrada'}
+                          {empresas.find(e => e.id === userData.empresa_id)?.nome || 'Empresa não encontrada'}
                         </p>
                       )}
                     </div>
@@ -319,9 +320,9 @@ export default function UsuariosPage() {
                       <Badge className={`${perfilInfo.color} text-white`}>
                         {perfilInfo.label}
                       </Badge>
-                      {usuario.tipo_usuario && (
+                      {userData.tipo_usuario && (
                         <Badge className="bg-purple-100 text-purple-700 text-xs">
-                          {usuario.tipo_usuario}
+                          {userData.tipo_usuario}
                         </Badge>
                       )}
                     </div>
