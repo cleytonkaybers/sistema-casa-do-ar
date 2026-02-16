@@ -49,52 +49,52 @@
  */
 import Atendimentos from './pages/Atendimentos';
 import BackupRestaurer from './pages/BackupRestaurer';
+import CadastroSaaS from './pages/CadastroSaaS';
 import ClienteDetalhes from './pages/ClienteDetalhes';
 import Clientes from './pages/Clientes';
+import ClientesSaaS from './pages/ClientesSaaS';
 import Configuracoes from './pages/Configuracoes';
 import Dashboard from './pages/Dashboard';
+import DashboardSaaS from './pages/DashboardSaaS';
 import GerenciarEmpresas from './pages/GerenciarEmpresas';
 import HistoricoClientes from './pages/HistoricoClientes';
 import MigrarDados from './pages/MigrarDados';
+import OrdensServicoSaaS from './pages/OrdensServicoSaaS';
 import PreferencesNotificacao from './pages/PreferencesNotificacao';
 import PreventivasFuturas from './pages/PreventivasFuturas';
 import Relatorios from './pages/Relatorios';
 import RelatoriosAutomaticos from './pages/RelatoriosAutomaticos';
+import RenovacaoPlano from './pages/RenovacaoPlano';
+import SaaSLanding from './pages/SaaSLanding';
 import Servicos from './pages/Servicos';
 import Suporte from './pages/Suporte';
 import Usuarios from './pages/Usuarios';
-import SaaSLanding from './pages/SaaSLanding';
-import CadastroSaaS from './pages/CadastroSaaS';
-import DashboardSaaS from './pages/DashboardSaaS';
-import ClientesSaaS from './pages/ClientesSaaS';
-import OrdensServicoSaaS from './pages/OrdensServicoSaaS';
-import RenovacaoPlano from './pages/RenovacaoPlano';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
     "Atendimentos": Atendimentos,
     "BackupRestaurer": BackupRestaurer,
+    "CadastroSaaS": CadastroSaaS,
     "ClienteDetalhes": ClienteDetalhes,
     "Clientes": Clientes,
+    "ClientesSaaS": ClientesSaaS,
     "Configuracoes": Configuracoes,
     "Dashboard": Dashboard,
+    "DashboardSaaS": DashboardSaaS,
     "GerenciarEmpresas": GerenciarEmpresas,
     "HistoricoClientes": HistoricoClientes,
     "MigrarDados": MigrarDados,
+    "OrdensServicoSaaS": OrdensServicoSaaS,
     "PreferencesNotificacao": PreferencesNotificacao,
     "PreventivasFuturas": PreventivasFuturas,
     "Relatorios": Relatorios,
     "RelatoriosAutomaticos": RelatoriosAutomaticos,
+    "RenovacaoPlano": RenovacaoPlano,
+    "SaaSLanding": SaaSLanding,
     "Servicos": Servicos,
     "Suporte": Suporte,
     "Usuarios": Usuarios,
-    "SaaSLanding": SaaSLanding,
-    "CadastroSaaS": CadastroSaaS,
-    "DashboardSaaS": DashboardSaaS,
-    "ClientesSaaS": ClientesSaaS,
-    "OrdensServicoSaaS": OrdensServicoSaaS,
-    "RenovacaoPlano": RenovacaoPlano,
 }
 
 export const pagesConfig = {

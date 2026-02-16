@@ -101,11 +101,16 @@ export default function ServicosPage() {
     onError: () => toast.error('Erro ao excluir serviço'),
   });
 
-  const handleSave = (data) => {
-    if (editingServico) {
-      updateMutation.mutate({ id: editingServico.id, data });
-    } else {
-      createMutation.mutate(data);
+  const handleSave = async (data) => {
+    try {
+      if (editingServico) {
+        await updateMutation.mutateAsync({ id: editingServico.id, data });
+      } else {
+        await createMutation.mutateAsync(data);
+      }
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+      toast.error('Erro ao salvar serviço: ' + (error.message || 'Tente novamente'));
     }
   };
 
