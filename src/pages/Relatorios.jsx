@@ -9,8 +9,15 @@ import DateRangeSelector from '../components/reporting/DateRangeSelector';
 import ServiceTrendsChart from '../components/reporting/ServiceTrendsChart';
 import ClientDemographicsChart from '../components/reporting/ClientDemographicsChart';
 import ExportButtons from '../components/reporting/ExportButtons';
+import NoPermission from '../components/NoPermission';
+import { usePermissions } from '../components/auth/PermissionGuard';
 
 export default function RelatóriosPage() {
+  const { isAdmin } = usePermissions();
+
+  if (!isAdmin) {
+    return <NoPermission />;
+  }
   const today = new Date();
   const [startDate, setStartDate] = useState(startOfMonth(today));
   const [endDate, setEndDate] = useState(endOfMonth(today));

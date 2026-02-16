@@ -9,8 +9,15 @@ import { Search, Calendar, User, DollarSign, CheckCircle2, Clock, Download, File
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { gerarPDFCliente, gerarPDFTodos } from '@/components/utils/HistoricoDownload';
+import NoPermission from '../components/NoPermission';
+import { usePermissions } from '../components/auth/PermissionGuard';
 
 export default function HistoricoClientes() {
+  const { isAdmin } = usePermissions();
+
+  if (!isAdmin) {
+    return <NoPermission />;
+  }
   const [searchTerm, setSearchTerm] = useState('');
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
 

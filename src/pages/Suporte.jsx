@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { usePermissions } from '../components/auth/PermissionGuard';
+import NoPermission from '../components/NoPermission';
 
 const statusColors = {
   open: 'bg-blue-100 text-blue-800',
@@ -103,11 +104,7 @@ export default function SuportePage() {
   };
 
   if (!isAdmin) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-gray-400">Apenas administradores podem acessar esta página.</p>
-      </div>
-    );
+    return <NoPermission />;
   }
 
   return (

@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Loader2, Settings, Upload, Download, X } from 'lucide-react';
 import { toast } from 'sonner';
+import NoPermission from '../components/NoPermission';
+import { usePermissions } from '../components/auth/PermissionGuard';
 
 const LUCIDE_ICONS = [
   'Snowflake', 'Settings', 'Home', 'Briefcase', 'Zap', 'Star', 'Heart',
@@ -16,6 +18,7 @@ const LUCIDE_ICONS = [
 ];
 
 export default function ConfiguracoesPage() {
+  const { isAdmin } = usePermissions();
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const queryClient = useQueryClient();
@@ -114,12 +117,8 @@ export default function ConfiguracoesPage() {
     );
   }
 
-  if (currentUser?.role !== 'admin') {
-    return (
-      <div className="text-center py-12 bg-white rounded-xl border-2 border-dashed border-gray-200">
-        <p className="text-gray-500">Acesso restrito a administradores</p>
-      </div>
-    );
+  if (!isAdmin) {
+    return <NoPermission />;
   }
 
   return (

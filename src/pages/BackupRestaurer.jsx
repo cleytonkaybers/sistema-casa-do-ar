@@ -8,8 +8,15 @@ import { Label } from '@/components/ui/label';
 import { Download, Upload, Database, Loader2, CheckCircle, AlertCircle, FileJson } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import NoPermission from '../components/NoPermission';
+import { usePermissions } from '../components/auth/PermissionGuard';
 
 export default function BackupRestaurerPage() {
+  const { isAdmin } = usePermissions();
+
+  if (!isAdmin) {
+    return <NoPermission />;
+  }
   const [importFile, setImportFile] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
