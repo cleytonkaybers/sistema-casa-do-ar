@@ -79,6 +79,7 @@ const perfisPreDefinidos = {
 
 export default function UsuariosPage() {
   const { isAdmin, loading: authLoading } = usePermissions();
+  const [currentUser, setCurrentUser] = useState(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -86,6 +87,10 @@ export default function UsuariosPage() {
   const [invitePerfil, setInvitePerfil] = useState('atendente');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+
+  useEffect(() => {
+    base44.auth.me().then(user => setCurrentUser(user)).catch(() => {});
+  }, []);
 
   const queryClient = useQueryClient();
 
@@ -198,6 +203,10 @@ export default function UsuariosPage() {
   };
 
   const handleDeleteUser = (user) => {
+    if (currentUser?.email === user.email) {
+      toast.error('Você não pode excluir sua própria conta');
+      return;
+    }
     setUserToDelete(user);
     setDeleteDialogOpen(true);
   };
@@ -279,8 +288,9 @@ export default function UsuariosPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleDeleteUser(usuario)}
-                      disabled={!isAdmin}
+                      disabled={!isAdmin || currentUser?.email === usuario.email}
                       className="text-red-600 hover:text-red-700 hover:border-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={currentUser?.email === usuario.email ? 'Você não pode excluir sua própria conta' : 'Excluir usuário'}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
