@@ -36,12 +36,14 @@ import {
   Trash2,
   X,
   User,
-  History
+  History,
+  Info
 } from 'lucide-react';
 
 import AtendimentoForm from '@/components/atendimentos/AtendimentoForm';
 import DeleteConfirmDialog from '@/components/clientes/DeleteConfirmDialog';
 import HistoricoStatusModal from '@/components/atendimentos/HistoricoStatusModal';
+import DetalhesModal from '@/components/atendimentos/DetalhesModal';
 
 const statusColors = {
   'Aberto': 'bg-gray-100 text-gray-700 border-gray-200',
@@ -67,6 +69,8 @@ export default function Atendimentos() {
   const [deletingAtendimento, setDeletingAtendimento] = useState(null);
   const [historicoOpen, setHistoricoOpen] = useState(false);
   const [selectedServicoId, setSelectedServicoId] = useState(null);
+  const [detalhesOpen, setDetalhesOpen] = useState(false);
+  const [selectedAtendimento, setSelectedAtendimento] = useState(null);
 
   // Queries
   const { data: atendimentos = [], isLoading } = useQuery({
@@ -239,6 +243,11 @@ export default function Atendimentos() {
       style: 'currency',
       currency: 'BRL'
     }).format(value);
+  };
+
+  const handleVerDetalhes = (atendimento) => {
+    setSelectedAtendimento(atendimento);
+    setDetalhesOpen(true);
   };
 
   const handleVerHistorico = (atendimento) => {
@@ -427,6 +436,15 @@ export default function Atendimentos() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleVerDetalhes(atendimento)}
+                            className="text-gray-500 hover:text-blue-600"
+                            title="Ver Detalhes"
+                          >
+                            <Info className="w-4 h-4" />
+                          </Button>
                           {atendimento.origem === 'servico' && (
                             <Button
                               variant="ghost"
@@ -510,6 +528,15 @@ export default function Atendimentos() {
                     )}
 
                     <div className="flex items-center gap-2 pt-3 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleVerDetalhes(atendimento)}
+                        className="flex-1"
+                      >
+                        <Info className="w-4 h-4 mr-1.5" />
+                        Ver Detalhes
+                      </Button>
                       {atendimento.origem === 'servico' && (
                         <Button
                           variant="outline"
@@ -573,6 +600,12 @@ export default function Atendimentos() {
         open={historicoOpen}
         onClose={() => { setHistoricoOpen(false); setSelectedServicoId(null); }}
         servicoId={selectedServicoId}
+      />
+
+      <DetalhesModal
+        open={detalhesOpen}
+        onClose={() => { setDetalhesOpen(false); setSelectedAtendimento(null); }}
+        atendimento={selectedAtendimento}
       />
     </div>
   );
