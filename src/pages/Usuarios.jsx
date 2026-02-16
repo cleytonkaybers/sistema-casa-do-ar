@@ -100,11 +100,16 @@ export default function UsuariosPage() {
     queryKey: ['usuarios', currentEmpresa?.id],
     queryFn: async () => {
       const allUsers = await base44.entities.User.list();
-      // Super admin vê todos, admin da empresa vê apenas da sua empresa
       if (isSuperAdmin()) return allUsers;
       return allUsers.filter(u => u.empresa_id === currentEmpresa?.id);
     },
-    enabled: !authLoading && (isSuperAdmin() || !!currentEmpresa)
+    enabled: !authLoading
+  });
+
+  const { data: empresas = [] } = useQuery({
+    queryKey: ['empresas'],
+    queryFn: () => base44.entities.Empresa.list(),
+    enabled: isSuperAdmin() || isAdminEmpresa()
   });
 
   const updateUserMutation = useMutation({
@@ -282,10 +287,25 @@ export default function UsuariosPage() {
                     <div>
                       <CardTitle className="text-lg">{usuario.full_name || usuario.email}</CardTitle>
                       <p className="text-sm text-gray-500 mt-1">{usuario.email}</p>
+                      {!usuario.empresa_id && (
+                        <Badge className="bg-yellow-500 text-white mt-2">Sem Empresa</Badge>
+                      )}
+                      {usuario.empresa_id && (
+                        <p className="text-xs text-blue-600 mt-1">
+                          {empresas.find(e => e.id === usuario.empresa_id)?.nome || 'Empresa não encontrada'}
+                        </p>
+                      )}
                     </div>
-                    <Badge className={`${perfilInfo.color} text-white`}>
-                      {perfilInfo.label}
-                    </Badge>
+                    <div className="flex flex-col gap-1 items-end">
+                      <Badge className={`${perfilInfo.color} text-white`}>
+                        {perfilInfo.label}
+                      </Badge>
+                      {usuario.tipo_usuario && (
+                        <Badge className="bg-purple-100 text-purple-700 text-xs">
+                          {usuario.tipo_usuario}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -381,6 +401,44 @@ export default function UsuariosPage() {
           
           {editingUser && (
             <div className="space-y-6 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Tipo de Usuário</Label>
+                  <Select 
+                    value={editingUser.tipo_usuario || 'administrativo'} 
+                    onValueChange={(value) => setEditingUser({...editingUser, tipo_usuario: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {isSuperAdmin() && <SelectItem value="super_admin">Super Admin</SelectItem>}
+                      <SelectItem value="admin_empresa">Admin da Empresa</SelectItem>
+                      <SelectItem value="tecnico">Técnico</SelectItem>
+                      <SelectItem value="administrativo">Administrativo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Empresa</Label>
+                  <Select 
+                    value={editingUser.empresa_id || ''} 
+                    onValueChange={(value) => setEditingUser({...editingUser, empresa_id: value})}
+                    disabled={!isSuperAdmin()}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma empresa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {empresas.map(emp => (
+                        <SelectItem key={emp.id} value={emp.id}>{emp.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label>Perfil Pré-Definido</Label>
                 <Select value={editingUser.perfil || 'atendente'} onValueChange={handlePerfilChange}>
