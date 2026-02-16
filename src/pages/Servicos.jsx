@@ -285,20 +285,25 @@ export default function ServicosPage() {
     return acc;
   }, {});
 
-  // Ordenar serviços dentro de cada dia por horário (mais cedo no topo)
+  // Ordenar serviços dentro de cada dia por data programada (mais próximo no topo)
   Object.keys(servicosPorDia).forEach(dia => {
     servicosPorDia[dia].sort((a, b) => {
-      // Serviços com horário primeiro, sem horário depois
+      // Ordenar por data programada (mais próximo = menos dias = topo)
+      const dateA = new Date(a.data_programada);
+      const dateB = new Date(b.data_programada);
+      
+      if (dateA < dateB) return -1;
+      if (dateA > dateB) return 1;
+      
+      // Se datas iguais, ordenar por horário
       if (a.horario && !b.horario) return -1;
       if (!a.horario && b.horario) return 1;
       
-      // Se ambos têm horário, ordenar por horário
       if (a.horario && b.horario) {
         return a.horario.localeCompare(b.horario);
       }
       
-      // Se nenhum tem horário, ordenar por data
-      return new Date(a.data_programada) - new Date(b.data_programada);
+      return 0;
     });
   });
 
