@@ -113,6 +113,10 @@ export default function HistoricoClientes() {
   const totalServiços = historico.length;
   const totalValor = historico.reduce((sum, item) => sum + (item.valor || 0), 0);
 
+  if (!isAdmin) {
+    return <NoPermission />;
+  }
+
   return (
     <div className="space-y-6">
       {/* Modal de Detalhes */}
