@@ -79,8 +79,8 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
         return { label: 'Concluído', color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle };
       case 'andamento':
         return { label: 'Em Andamento', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Play };
-      case 'pausado':
-        return { label: 'Pausado', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', icon: Pause };
+      case 'agendado':
+        return { label: 'Agendado', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', icon: Calendar };
       case 'reagendado':
         return { label: 'Reagendado', color: 'bg-orange-100 text-orange-700 border-orange-200', icon: CalendarClock };
       default:
@@ -173,9 +173,9 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
                 <Play className="w-3 h-3 mr-2" />
                 Em Andamento
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onStatusChange(servico, 'pausado')}>
-                <Pause className="w-3 h-3 mr-2" />
-                Pausado
+              <DropdownMenuItem onClick={() => onStatusChange(servico, 'agendado')}>
+                <Calendar className="w-3 h-3 mr-2" />
+                Agendar
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onStatusChange(servico, 'concluido')}>
                 <CheckCircle className="w-3 h-3 mr-2" />
@@ -324,9 +324,9 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
                   <Play className="w-4 h-4 mr-2" />
                   Em Andamento
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onStatusChange(servico, 'pausado')}>
-                  <Pause className="w-4 h-4 mr-2" />
-                  Pausado
+                <DropdownMenuItem onClick={() => onStatusChange(servico, 'agendado')}>
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Agendar
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onStatusChange(servico, 'concluido')}>
                   <CheckCircle className="w-4 h-4 mr-2" />
