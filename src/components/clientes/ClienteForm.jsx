@@ -32,6 +32,7 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [formData, setFormData] = useState({
     nome: '',
+    cpf: '',
     telefone: '',
     endereco: '',
     latitude: null,
@@ -46,6 +47,7 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
     if (cliente) {
       setFormData({
         nome: cliente.nome || '',
+        cpf: cliente.cpf || '',
         telefone: cliente.telefone || '',
         endereco: cliente.endereco || '',
         latitude: cliente.latitude || null,
@@ -58,6 +60,7 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
     } else {
       setFormData({
         nome: '',
+        cpf: '',
         telefone: '',
         endereco: '',
         latitude: null,
@@ -89,9 +92,33 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
     return formatted;
   };
 
+  const formatCPFInput = (value) => {
+    const cleaned = value.replace(/\D/g, '');
+    let formatted = cleaned;
+    
+    // Formato: 000.000.000-00
+    if (cleaned.length > 0) {
+      if (cleaned.length <= 3) {
+        formatted = cleaned;
+      } else if (cleaned.length <= 6) {
+        formatted = `${cleaned.slice(0, 3)}.${cleaned.slice(3)}`;
+      } else if (cleaned.length <= 9) {
+        formatted = `${cleaned.slice(0, 3)}.${cleaned.slice(3, 6)}.${cleaned.slice(6)}`;
+      } else {
+        formatted = `${cleaned.slice(0, 3)}.${cleaned.slice(3, 6)}.${cleaned.slice(6, 9)}-${cleaned.slice(9, 11)}`;
+      }
+    }
+    return formatted;
+  };
+
   const handlePhoneChange = (e) => {
     const formatted = formatPhoneInput(e.target.value);
     setFormData({ ...formData, telefone: formatted });
+  };
+
+  const handleCPFChange = (e) => {
+    const formatted = formatCPFInput(e.target.value);
+    setFormData({ ...formData, cpf: formatted });
   };
 
   const handleUltimaManutencaoChange = (date) => {
@@ -426,8 +453,8 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
             </div>
           )}
 
-          {/* Nome e Telefone */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Nome, CPF e Telefone */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="nome">Nome Completo *</Label>
               <Input
@@ -437,6 +464,17 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
                 placeholder="Nome do cliente"
                 required
                 className="h-11"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cpf">CPF</Label>
+              <Input
+                id="cpf"
+                value={formData.cpf}
+                onChange={handleCPFChange}
+                placeholder="000.000.000-00"
+                className="h-11"
+                maxLength={14}
               />
             </div>
             <div className="space-y-2">
