@@ -202,7 +202,14 @@ export default function ServicosPage() {
           data_atualizacao_status: new Date().toISOString()
         });
 
+        // Remover notificações de atraso relacionadas a este serviço
+        const notifRelacionadas = await base44.entities.Notificacao.filter({ atendimento_id: servicoParaConcluir.id });
+        for (const notif of notifRelacionadas) {
+          await base44.entities.Notificacao.delete(notif.id);
+        }
+
         queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
+        queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
         
         setShowConclusaoModal(false);
         setServicoConcluido({ ...servicoParaConcluir, observacoes_conclusao: observacoes, isConclusao: true });
