@@ -251,9 +251,26 @@ export default function ServicosPage() {
     toast.success(`Serviço ${novoStatus} com sucesso! 📅`);
   };
 
+  const today = startOfDay(new Date());
+
   const filteredServicos = servicos.filter(s => {
+    // Serviços concluídos nunca aparecem na agenda
     if (s.status === 'concluido') return false;
-    
+
+    // Serviços abertos ou em andamento ficam SEMPRE na agenda, independente da data
+    if (s.status === 'aberto' || s.status === 'andamento') {
+      const matchSearch = s.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         s.telefone?.includes(searchTerm);
+      const matchTipo = tipoFilter === 'todos' || s.tipo_servico === tipoFilter;
+      return matchSearch && matchTipo;
+    }
+
+    // Serviços agendados/reagendados: mostrar apenas os de hoje em diante
+    if (s.data_programada) {
+      const dataServico = startOfDay(parseISO(s.data_programada));
+      if (isBefore(dataServico, today)) return false;
+    }
+
     const matchSearch = s.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                        s.telefone?.includes(searchTerm);
     const matchTipo = tipoFilter === 'todos' || s.tipo_servico === tipoFilter;
