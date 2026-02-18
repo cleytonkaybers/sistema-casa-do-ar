@@ -188,6 +188,21 @@ export default function ServicosPage() {
           data_atualizacao_status: new Date().toISOString()
         });
 
+        // Gerar preventiva futura: atualiza última manutenção e define próxima 6 meses à frente
+        const dataConc = servicoParaConcluir.data_programada || new Date().toISOString().split('T')[0];
+        const proxima = new Date(dataConc);
+        proxima.setMonth(proxima.getMonth() + 6);
+        const proximaStr = proxima.toISOString().split('T')[0];
+
+        const clientesMatch = await base44.entities.Cliente.filter({ telefone: servicoParaConcluir.telefone });
+        if (clientesMatch.length > 0) {
+          await base44.entities.Cliente.update(clientesMatch[0].id, {
+            ultima_manutencao: dataConc,
+            proxima_manutencao: proximaStr
+          });
+          queryClient.invalidateQueries({ queryKey: ['clientes'] });
+        }
+
         // Remover notificações de atraso relacionadas a este serviço
         const notifRelacionadas = await base44.entities.Notificacao.filter({ atendimento_id: servicoParaConcluir.id });
         for (const notif of notifRelacionadas) {
@@ -201,7 +216,7 @@ export default function ServicosPage() {
         setServicoConcluido({ ...servicoParaConcluir, observacoes_conclusao: observacoes, isConclusao: true });
         setShowCompartilharModal(true);
         setServicoParaConcluir(null);
-        toast.success('Serviço concluído e registrado em Atendimentos! 🎉');
+        toast.success('Serviço concluído! Preventiva gerada para 6 meses. 🎉');
       }
     });
   };
