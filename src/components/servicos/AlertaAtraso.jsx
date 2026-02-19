@@ -60,15 +60,15 @@ export default function AlertaAtraso() {
     onError: () => toast.error('Erro ao atualizar status'),
   });
 
-  // Verificar serviços em atraso: status não concluído e mais de 48h após a data de CRIAÇÃO do serviço
+  // Verificar serviços em atraso (mais de 24h da data programada, status não concluído e não em andamento/aberto sem data futura)
   const servicosAtrasados = servicos.filter(s => {
-    if (s.status === 'concluido') return false;
+    if (s.status === 'concluido' || !s.data_programada) return false;
     
-    const dataCriacao = new Date(s.created_date);
+    const dataPrograma = new Date(s.data_programada);
     const agora = new Date();
-    const horasDesideCriacao = differenceInHours(agora, dataCriacao);
+    const horasAtraso = differenceInHours(agora, dataPrograma);
     
-    return horasDesideCriacao >= 48;
+    return horasAtraso >= 24;
   });
 
   // Enviar notificações para técnicos
@@ -79,8 +79,8 @@ export default function AlertaAtraso() {
       const tecnicos = usuarios.filter(u => u.role === 'tecnico' || u.role === 'admin');
       
       for (const servico of servicosAtrasados) {
-        const dataCriacao = new Date(servico.created_date);
-        const horasAtraso = differenceInHours(new Date(), dataCriacao);
+        const dataPrograma = new Date(servico.data_programada);
+        const horasAtraso = differenceInHours(new Date(), dataPrograma);
         const diasAtraso = Math.floor(horasAtraso / 24);
         
         for (const tecnico of tecnicos) {
@@ -97,7 +97,7 @@ export default function AlertaAtraso() {
               usuario_email: tecnico.email,
               tipo: 'atendimento_atualizado',
               titulo: `⚠️ Serviço em Atraso - ${diasAtraso} dia(s)`,
-              mensagem: `O serviço de ${servico.tipo_servico} para ${servico.cliente_nome} foi criado há ${diasAtraso} dia(s) e ainda não foi concluído.`,
+              mensagem: `O serviço de ${servico.tipo_servico} para ${servico.cliente_nome} está atrasado há ${diasAtraso} dia(s). Data prevista: ${format(dataPrograma, "dd/MM/yyyy", { locale: ptBR })}`,
               atendimento_id: servico.id,
               cliente_nome: servico.cliente_nome,
               lida: false
@@ -133,8 +133,8 @@ export default function AlertaAtraso() {
               </CardTitle>
               <p className="text-red-700 text-sm mt-1">
                 {servicosAtrasados.length === 1 
-                  ? 'Um serviço criado há mais de 48 horas ainda não foi concluído'
-                  : `${servicosAtrasados.length} serviços criados há mais de 48 horas ainda não foram concluídos`
+                  ? 'Um serviço está com mais de 24 horas de atraso'
+                  : `${servicosAtrasados.length} serviços estão com mais de 24 horas de atraso`
                 }
               </p>
             </div>
@@ -151,8 +151,8 @@ export default function AlertaAtraso() {
       </CardHeader>
       <CardContent className="space-y-3">
         {servicosAtrasados.slice(0, 5).map(servico => {
-          const dataCriacao = new Date(servico.created_date);
-          const horasAtraso = differenceInHours(new Date(), dataCriacao);
+          const dataPrograma = new Date(servico.data_programada);
+          const horasAtraso = differenceInHours(new Date(), dataPrograma);
           const diasAtraso = Math.floor(horasAtraso / 24);
           
           return (
@@ -172,9 +172,9 @@ export default function AlertaAtraso() {
                   
                   <div className="flex flex-wrap gap-3 text-sm text-gray-600">
                     <div className="flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5" />
-                        Criado em: {format(dataCriacao, "dd/MM/yyyy", { locale: ptBR })}
-                      </div>
+                      <Calendar className="w-3.5 h-3.5" />
+                      Previsto: {format(dataPrograma, "dd/MM/yyyy", { locale: ptBR })}
+                    </div>
                     {servico.horario && (
                       <div className="flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5" />
