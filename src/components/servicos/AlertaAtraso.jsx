@@ -151,8 +151,8 @@ export default function AlertaAtraso() {
       </CardHeader>
       <CardContent className="space-y-3">
         {servicosAtrasados.slice(0, 5).map(servico => {
-          const dataPrograma = new Date(servico.data_programada);
-          const horasAtraso = differenceInHours(new Date(), dataPrograma);
+          const dataCriacao = new Date(servico.created_date);
+          const horasAtraso = differenceInHours(new Date(), dataCriacao);
           const diasAtraso = Math.floor(horasAtraso / 24);
           
           return (
