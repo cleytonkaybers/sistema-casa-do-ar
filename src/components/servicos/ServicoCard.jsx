@@ -157,48 +157,54 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
         </div>
 
         <div className="flex items-center gap-1.5">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline" className="flex-1 h-8 text-xs">
-                <StatusIcon className="w-3 h-3 mr-1" />
-                Status
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={() => onStatusChange(servico, 'aberto')}>
-                <Clock className="w-3 h-3 mr-2" />
-                Aberto
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onStatusChange(servico, 'andamento')}>
-                <Play className="w-3 h-3 mr-2" />
-                Em Andamento
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onStatusChange(servico, 'agendado')}>
-                <Calendar className="w-3 h-3 mr-2" />
-                Agendar
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onStatusChange(servico, 'concluido')}>
-                <CheckCircle className="w-3 h-3 mr-2" />
-                Concluído
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onEdit(servico)}
-            className="h-8 w-8 p-0 text-gray-600 hover:text-blue-600 hover:border-blue-300"
-          >
-            <Pencil className="w-3 h-3" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onDelete(servico)}
-            className="h-8 w-8 p-0 text-gray-600 hover:text-red-600 hover:border-red-300"
-          >
-            <Trash2 className="w-3 h-3" />
-          </Button>
+          {onStatusChange && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="flex-1 h-8 text-xs">
+                  <StatusIcon className="w-3 h-3 mr-1" />
+                  Status
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={() => onStatusChange(servico, 'aberto')}>
+                  <Clock className="w-3 h-3 mr-2" />
+                  Aberto
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onStatusChange(servico, 'andamento')}>
+                  <Play className="w-3 h-3 mr-2" />
+                  Em Andamento
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onStatusChange(servico, 'agendado')}>
+                  <Calendar className="w-3 h-3 mr-2" />
+                  Agendar
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onStatusChange(servico, 'concluido')}>
+                  <CheckCircle className="w-3 h-3 mr-2" />
+                  Concluído
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {onEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onEdit(servico)}
+              className="h-8 w-8 p-0 text-gray-600 hover:text-blue-600 hover:border-blue-300"
+            >
+              <Pencil className="w-3 h-3" />
+            </Button>
+          )}
+          {onDelete && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onDelete(servico)}
+              className="h-8 w-8 p-0 text-gray-600 hover:text-red-600 hover:border-red-300"
+            >
+              <Trash2 className="w-3 h-3" />
+            </Button>
+          )}
         </div>
       </div>
     );
