@@ -32,9 +32,45 @@ export default function CompartilharModal({ open, onClose, servico, isConclusao 
 
   const titulo = isConclusao ? '✅ Serviço Concluído!' : `${statusEmoji} Serviço - ${statusTexto}`;
 
+  const formatPhone = (phone) => {
+    if (!phone) return '';
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length === 11) return `(${cleaned.slice(0,2)}) ${cleaned.slice(2,7)}-${cleaned.slice(7)}`;
+    if (cleaned.length === 10) return `(${cleaned.slice(0,2)}) ${cleaned.slice(2,6)}-${cleaned.slice(6)}`;
+    return phone;
+  };
+
   const mensagem = isConclusao 
-    ? `✅ Serviço Concluído!\n\n👤 Cliente: ${servico.cliente_nome}\n🔧 Serviço: ${servico.tipo_servico}\n📅 Data: ${new Date(servico.data_programada).toLocaleDateString('pt-BR')}\n${servico.valor ? `💰 Valor: R$ ${servico.valor.toFixed(2)}\n` : ''}${servico.observacoes_conclusao ? `\n📝 Observações: ${servico.observacoes_conclusao}\n` : ''}\n🏢 Casa do Ar Climatização`
-    : `${statusEmoji} ${statusTexto}\n\n👤 Cliente: ${servico.cliente_nome}\n🔧 Serviço: ${servico.tipo_servico}\n📅 Data: ${servico.data_programada ? new Date(servico.data_programada).toLocaleDateString('pt-BR') : 'A definir'}\n${servico.horario ? `🕐 Horário: ${servico.horario}` : ''}${servico.horario ? '\n' : ''}${servico.endereco ? `📍 Endereço: ${servico.endereco}\n` : ''}${servico.telefone ? `📞 Telefone: ${servico.telefone}\n` : ''}${servico.valor ? `💰 Valor: R$ ${servico.valor.toFixed(2)}\n` : ''}${servico.descricao ? `📝 Obs: ${servico.descricao}\n` : ''}${servico.observacoes_conclusao ? `📋 Observações da conclusão: ${servico.observacoes_conclusao}\n` : ''}\n🏢 Casa do Ar Climatização`;
+    ? [
+        `✅ *Serviço Concluído!*`,
+        ``,
+        `👤 *Cliente:* ${servico.cliente_nome}`,
+        servico.telefone ? `📞 *Telefone:* ${formatPhone(servico.telefone)}` : null,
+        `🔧 *Tipo de Serviço:* ${servico.tipo_servico}`,
+        servico.data_programada ? `📅 *Data:* ${new Date(servico.data_programada).toLocaleDateString('pt-BR')}` : null,
+        servico.horario ? `🕐 *Horário:* ${servico.horario}` : null,
+        servico.endereco ? `📍 *Endereço:* ${servico.endereco}` : null,
+        servico.valor ? `💰 *Valor:* R$ ${servico.valor.toFixed(2)}` : null,
+        servico.descricao ? `📝 *Descrição:* ${servico.descricao}` : null,
+        servico.observacoes_conclusao ? `📋 *Observações:* ${servico.observacoes_conclusao}` : null,
+        ``,
+        `🏢 Casa do Ar Climatização`,
+      ].filter(l => l !== null).join('\n')
+    : [
+        `${statusEmoji} *${statusTexto}*`,
+        ``,
+        `👤 *Cliente:* ${servico.cliente_nome}`,
+        servico.telefone ? `📞 *Telefone:* ${formatPhone(servico.telefone)}` : null,
+        `🔧 *Tipo de Serviço:* ${servico.tipo_servico}`,
+        servico.data_programada ? `📅 *Data:* ${new Date(servico.data_programada).toLocaleDateString('pt-BR')}` : null,
+        servico.horario ? `🕐 *Horário:* ${servico.horario}` : null,
+        servico.endereco ? `📍 *Endereço:* ${servico.endereco}` : null,
+        servico.valor ? `💰 *Valor:* R$ ${servico.valor.toFixed(2)}` : null,
+        servico.descricao ? `📝 *Descrição:* ${servico.descricao}` : null,
+        servico.observacoes_conclusao ? `📋 *Observações:* ${servico.observacoes_conclusao}` : null,
+        ``,
+        `🏢 Casa do Ar Climatização`,
+      ].filter(l => l !== null).join('\n');
 
   const linkCompartilhamento = encodeURIComponent(mensagem);
 
