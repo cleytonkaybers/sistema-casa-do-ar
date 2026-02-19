@@ -17,6 +17,29 @@ export default function HistoricoClientes() {
   const { isAdmin } = usePermissions();
   const [searchTerm, setSearchTerm] = useState('');
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: async (item) => {
+      if (item.id?.startsWith('s-')) {
+        await base44.entities.Servico.delete(item.id.replace('s-', ''));
+      } else {
+        await base44.entities.Atendimento.delete(item.id.replace('a-', ''));
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['servicos'] });
+      queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
+      toast.success('Registro excluído com sucesso!');
+    },
+    onError: () => toast.error('Erro ao excluir registro'),
+  });
+
+  const handleDelete = (item) => {
+    if (confirm(`Excluir "${item.descricao}" de ${item.cliente}?`)) {
+      deleteMutation.mutate(item);
+    }
+  };
 
   const { data: servicos = [] } = useQuery({
     queryKey: ['servicos'],
