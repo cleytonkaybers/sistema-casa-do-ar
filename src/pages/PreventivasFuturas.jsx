@@ -58,7 +58,10 @@ export default function PreventivasFuturasPage() {
 
   const getWhatsAppLink = (phone) => {
     const cleaned = phone?.replace(/\D/g, '') || '';
-    return `https://wa.me/55${cleaned}`;
+    const mensagem = encodeURIComponent(
+      `Olá! 👋\nEstá na hora da manutenção do seu ar-condicionado. A limpeza preventiva melhora o rendimento, reduz o consumo de energia e aumenta a vida útil do equipamento.\nAgende sua manutenção e evite problemas futuros!`
+    );
+    return `https://wa.me/55${cleaned}?text=${mensagem}`;
   };
 
   const getGoogleMapsLink = (item) => {
