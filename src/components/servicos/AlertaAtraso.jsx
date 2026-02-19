@@ -79,8 +79,8 @@ export default function AlertaAtraso() {
       const tecnicos = usuarios.filter(u => u.role === 'tecnico' || u.role === 'admin');
       
       for (const servico of servicosAtrasados) {
-        const dataPrograma = new Date(servico.data_programada);
-        const horasAtraso = differenceInHours(new Date(), dataPrograma);
+        const dataCriacao = new Date(servico.created_date);
+        const horasAtraso = differenceInHours(new Date(), dataCriacao);
         const diasAtraso = Math.floor(horasAtraso / 24);
         
         for (const tecnico of tecnicos) {
