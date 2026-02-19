@@ -97,7 +97,7 @@ export default function AlertaAtraso() {
               usuario_email: tecnico.email,
               tipo: 'atendimento_atualizado',
               titulo: `⚠️ Serviço em Atraso - ${diasAtraso} dia(s)`,
-              mensagem: `O serviço de ${servico.tipo_servico} para ${servico.cliente_nome} está atrasado há ${diasAtraso} dia(s). Data prevista: ${format(dataPrograma, "dd/MM/yyyy", { locale: ptBR })}`,
+              mensagem: `O serviço de ${servico.tipo_servico} para ${servico.cliente_nome} foi criado há ${diasAtraso} dia(s) e ainda não foi concluído.`,
               atendimento_id: servico.id,
               cliente_nome: servico.cliente_nome,
               lida: false
