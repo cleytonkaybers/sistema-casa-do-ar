@@ -60,15 +60,15 @@ export default function AlertaAtraso() {
     onError: () => toast.error('Erro ao atualizar status'),
   });
 
-  // Verificar serviços em atraso (mais de 24h da data programada, status não concluído e não em andamento/aberto sem data futura)
+  // Verificar serviços em atraso: status não concluído e mais de 48h após a data de CRIAÇÃO do serviço
   const servicosAtrasados = servicos.filter(s => {
-    if (s.status === 'concluido' || !s.data_programada) return false;
+    if (s.status === 'concluido') return false;
     
-    const dataPrograma = new Date(s.data_programada);
+    const dataCriacao = new Date(s.created_date);
     const agora = new Date();
-    const horasAtraso = differenceInHours(agora, dataPrograma);
+    const horasDesideCriacao = differenceInHours(agora, dataCriacao);
     
-    return horasAtraso >= 24;
+    return horasDesideCriacao >= 48;
   });
 
   // Enviar notificações para técnicos
