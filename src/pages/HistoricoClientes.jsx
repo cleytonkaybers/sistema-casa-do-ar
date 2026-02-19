@@ -1,16 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, Calendar, User, DollarSign, CheckCircle2, Clock, Download, FileText, Eye, X } from 'lucide-react';
+import { Search, Calendar, User, DollarSign, CheckCircle2, Clock, Download, FileText, Eye, X, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { gerarPDFCliente, gerarPDFTodos } from '@/components/utils/HistoricoDownload';
 import NoPermission from '../components/NoPermission';
 import { usePermissions } from '../components/auth/PermissionGuard';
+import { toast } from 'sonner';
 
 export default function HistoricoClientes() {
   const { isAdmin } = usePermissions();
