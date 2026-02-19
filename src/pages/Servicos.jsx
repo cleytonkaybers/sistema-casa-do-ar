@@ -484,7 +484,7 @@ export default function ServicosPage() {
                     servico={servico}
                     onEdit={(isAdmin || hasPermission('servicos_editar')) ? handleEdit : undefined}
                     onDelete={(isAdmin || hasPermission('servicos_deletar')) ? handleDelete : undefined}
-                    onStatusChange={(isAdmin || hasPermission('servicos_editar')) ? handleStatusChange : undefined}
+                    onStatusChange={handleStatusChange}
                     onShare={(servico) => {
                       setServicoConcluido({ ...servico, isConclusao: false });
                       setShowCompartilharModal(true);
