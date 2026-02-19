@@ -124,13 +124,6 @@ export default function ServicosPage() {
       setServicoParaConcluir(servico);
       setShowConclusaoModal(true);
     } else {
-      const updateData = {
-        ...servico,
-        status: novoStatus,
-        usuario_atualizacao_status: currentUser?.email,
-        data_atualizacao_status: new Date().toISOString()
-      };
-      
       await base44.entities.AlteracaoStatus.create({
         servico_id: servico.id,
         status_anterior: statusAnterior,
@@ -142,7 +135,11 @@ export default function ServicosPage() {
       
       updateMutation.mutate({ 
         id: servico.id, 
-        data: updateData
+        data: {
+          status: novoStatus,
+          usuario_atualizacao_status: currentUser?.email,
+          data_atualizacao_status: new Date().toISOString()
+        }
       });
       toast.success(`Status alterado para ${novoStatus}`);
     }
