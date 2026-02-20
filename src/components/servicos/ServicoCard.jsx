@@ -225,6 +225,7 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
             </Button>
           )}
         </div>
+      <ServicoDetalhesModal open={showDetalhes} onClose={() => setShowDetalhes(false)} servico={servico} />
       </div>
     );
   }
