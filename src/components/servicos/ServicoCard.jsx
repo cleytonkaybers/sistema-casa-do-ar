@@ -99,31 +99,30 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <h4 className="font-semibold text-gray-800 break-words">{servico.cliente_nome}</h4>
-            <p className="text-xs text-gray-500 truncate">{servico.tipo_servico}</p>
-            <Badge className={`${statusConfig.color} text-xs mt-1 border`}>
-              <StatusIcon className="w-3 h-3 mr-1" />
-              {statusConfig.label}
-            </Badge>
+            <p className="text-xs text-gray-500 mt-0.5">{servico.tipo_servico}</p>
+            <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+              <Badge className={`${statusConfig.color} text-xs border`}>
+                <StatusIcon className="w-3 h-3 mr-1" />
+                {statusConfig.label}
+              </Badge>
+              <button
+                onClick={() => setShowDetalhes(true)}
+                className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-800 hover:underline"
+                title="Ver detalhes"
+              >
+                <Eye className="w-3 h-3" />
+                detalhes
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowDetalhes(true)}
-              className="h-8 w-8 text-gray-400 hover:text-purple-600"
-              title="Ver detalhes"
-            >
-              <Eye className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleShare}
-              className="h-8 w-8 text-gray-400 hover:text-blue-600"
-            >
-              <Share2 className="w-4 h-4" />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleShare}
+            className="h-8 w-8 text-gray-400 hover:text-blue-600 flex-shrink-0"
+          >
+            <Share2 className="w-4 h-4" />
+          </Button>
         </div>
 
         <div className="space-y-2">
