@@ -283,7 +283,18 @@ export default function ServicosPage() {
 
   const today = startOfDay(new Date());
 
+  // Determina a equipe do usuário logado
+  const usuarioLogado = usuarios.find(u => u.email === currentUser?.email);
+  const equipeIdUsuario = usuarioLogado?.equipe_id || null;
+
   const filteredServicos = servicos.filter(s => {
+    // Filtro por equipe: admin vê tudo, não-admin só vê da sua equipe (ou sem equipe se não tem equipe)
+    if (!isAdmin) {
+      if (equipeIdUsuario) {
+        // Usuário tem equipe: só vê serviços da sua equipe
+        if (s.equipe_id && s.equipe_id !== equipeIdUsuario) return false;
+      }
+    }
     // Serviços concluídos nunca aparecem na agenda
     if (s.status === 'concluido') return false;
 
