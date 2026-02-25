@@ -448,6 +448,15 @@ export default function Atendimentos() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            onClick={() => handleCompartilhar(atendimento)}
+                            className="text-gray-500 hover:text-green-600"
+                            title="Compartilhar"
+                          >
+                            <Share2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => handleVerDetalhes(atendimento)}
                             className="text-gray-500 hover:text-blue-600"
                             title="Ver Detalhes"
