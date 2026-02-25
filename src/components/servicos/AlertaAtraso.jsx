@@ -18,7 +18,12 @@ import { toast } from 'sonner';
 export default function AlertaAtraso({ onConcluirServico }) {
   const [dismissed, setDismissed] = useState(false);
   const [notificacaoEnviada, setNotificacaoEnviada] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const queryClient = useQueryClient();
+
+  React.useEffect(() => {
+    base44.auth.me().then(u => setCurrentUser(u)).catch(() => {});
+  }, []);
 
   const { data: servicos = [] } = useQuery({
     queryKey: ['servicos'],
