@@ -105,11 +105,22 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
                 <StatusIcon className="w-3 h-3 mr-1" />
                 {statusConfig.label}
               </Badge>
-              {servico.equipe_nome && (
-                <Badge className="text-xs border bg-purple-100 text-purple-700 border-purple-200">
-                  {servico.equipe_nome}
-                </Badge>
-              )}
+              {servico.equipe_nome && (() => {
+                const equipe = equipes.find(e => e.id === servico.equipe_id);
+                const cor = equipe?.cor || '#a855f7';
+                return (
+                  <Badge
+                    className="text-xs border font-semibold"
+                    style={{
+                      backgroundColor: cor + '22',
+                      color: cor,
+                      borderColor: cor + '55',
+                    }}
+                  >
+                    {servico.equipe_nome}
+                  </Badge>
+                );
+              })()}
             </div>
           </div>
           <Button
