@@ -44,6 +44,7 @@ import AtendimentoForm from '@/components/atendimentos/AtendimentoForm';
 import DeleteConfirmDialog from '@/components/clientes/DeleteConfirmDialog';
 import HistoricoStatusModal from '@/components/atendimentos/HistoricoStatusModal';
 import DetalhesModal from '@/components/atendimentos/DetalhesModal';
+import CompartilharModal from '@/components/servicos/CompartilharModal';
 
 const statusColors = {
   'Aberto': 'bg-gray-100 text-gray-700 border-gray-200',
