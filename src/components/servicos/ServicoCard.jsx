@@ -105,6 +105,11 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
                 <StatusIcon className="w-3 h-3 mr-1" />
                 {statusConfig.label}
               </Badge>
+              {servico.equipe_nome && (
+                <Badge className="text-xs border bg-purple-100 text-purple-700 border-purple-200">
+                  {servico.equipe_nome}
+                </Badge>
+              )}
             </div>
           </div>
           <Button
