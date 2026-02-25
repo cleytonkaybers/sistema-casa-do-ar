@@ -65,10 +65,20 @@ export default function AlertaAtraso({ onConcluirServico }) {
     onError: () => toast.error('Erro ao atualizar status'),
   });
 
-  // Verificar serviços em atraso (mais de 24h da data programada, status não concluído e não em andamento/aberto sem data futura)
+  // Determina se o usuário logado é admin e qual sua equipe
+  const usuarioLogado = usuarios.find(u => u.email === currentUser?.email);
+  const isAdmin = currentUser?.role === 'admin';
+  const equipeIdUsuario = usuarioLogado?.equipe_id || null;
+
+  // Verificar serviços em atraso (mais de 48h da data programada, status não concluído)
   const servicosAtrasados = servicos.filter(s => {
     if (s.status === 'concluido' || !s.data_programada) return false;
     
+    // Filtro por equipe: admin vê tudo, não-admin só vê da sua equipe
+    if (!isAdmin && equipeIdUsuario) {
+      if (s.equipe_id && s.equipe_id !== equipeIdUsuario) return false;
+    }
+
     const dataPrograma = new Date(s.data_programada);
     const agora = new Date();
     const horasAtraso = differenceInHours(agora, dataPrograma);
