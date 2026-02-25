@@ -491,6 +491,7 @@ export default function ServicosPage() {
                                 setServicoConcluido({ ...servico, isConclusao: false });
                                 setShowCompartilharModal(true);
                               }}
+                              equipes={equipes}
                               compact
                             />
                           </div>
