@@ -250,6 +250,23 @@ export default function Atendimentos() {
     setDetalhesOpen(true);
   };
 
+  const handleCompartilhar = (atendimento) => {
+    // Monta objeto compatível com CompartilharModal
+    setAtendimentoCompartilhar({
+      cliente_nome: atendimento.cliente_nome,
+      telefone: atendimento.telefone,
+      tipo_servico: atendimento.tipo_servico,
+      data_programada: atendimento.data_atendimento,
+      horario: atendimento.horario,
+      endereco: atendimento.endereco,
+      valor: atendimento.valor,
+      descricao: atendimento.descricao,
+      observacoes_conclusao: atendimento.observacoes,
+      status: atendimento.status?.toLowerCase().replace(' ', '_').replace('ú', 'u').replace('í', 'i') || 'aberto',
+    });
+    setCompartilharOpen(true);
+  };
+
   const handleVerHistorico = (atendimento) => {
     if (atendimento.origem === 'servico') {
       setSelectedServicoId(atendimento.servico_id);
