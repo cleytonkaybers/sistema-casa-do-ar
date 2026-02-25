@@ -88,7 +88,9 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         horario: servico.horario || '',
         descricao: servico.descricao || '',
         valor: servico.valor || '',
-        ativo: servico.ativo !== false
+        ativo: servico.ativo !== false,
+        equipe_id: servico.equipe_id || '',
+        equipe_nome: servico.equipe_nome || ''
       });
     } else if (prefilledData) {
       setFormData({
@@ -104,7 +106,9 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         horario: '',
         descricao: '',
         valor: '',
-        ativo: true
+        ativo: true,
+        equipe_id: currentUserEquipeId || '',
+        equipe_nome: ''
       });
     } else {
       setFormData({
@@ -120,10 +124,12 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         horario: '',
         descricao: '',
         valor: '',
-        ativo: true
+        ativo: true,
+        equipe_id: currentUserEquipeId || '',
+        equipe_nome: ''
       });
     }
-  }, [servico, prefilledData, open]);
+  }, [servico, prefilledData, open, currentUserEquipeId]);
 
   const formatPhoneInput = (value) => {
     const cleaned = value.replace(/\D/g, '');
