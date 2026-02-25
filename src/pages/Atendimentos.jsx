@@ -549,6 +549,14 @@ export default function Atendimentos() {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => handleCompartilhar(atendimento)}
+                        className="text-green-600 hover:text-green-700 hover:border-green-300"
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleVerDetalhes(atendimento)}
                         className="flex-1"
                       >
