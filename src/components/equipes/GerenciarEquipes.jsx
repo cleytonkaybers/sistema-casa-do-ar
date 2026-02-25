@@ -175,7 +175,10 @@ export default function GerenciarEquipes() {
                     ) : (
                       membros.map(u => (
                         <div key={u.id} className="flex items-center justify-between bg-slate-700/50 rounded-lg px-3 py-1.5">
-                          <span className="text-slate-200 text-sm">{u.full_name || u.email}</span>
+                          <div className="flex flex-col">
+                            <span className="text-slate-200 text-sm">{u.full_name || u.email}</span>
+                            {u.full_name && <span className="text-slate-400 text-xs">{u.email}</span>}
+                          </div>
                           <Button
                             variant="ghost"
                             size="icon"
