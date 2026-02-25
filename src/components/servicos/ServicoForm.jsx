@@ -337,11 +337,16 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
     const diaSemanaFormatado = format(data, 'EEEE', { locale: ptBR });
     const diaSemana = diaSemanaFormatado.charAt(0).toUpperCase() + diaSemanaFormatado.slice(1);
     
+    // Resolve nome da equipe
+    const equipeSelecionada = equipes.find(e => e.id === formData.equipe_id);
+
     const dataToSave = {
       ...formData,
       tipo_servico: formData.tipos_servico.join(' + '),
       dia_semana: diaSemana,
-      valor: formData.valor ? parseFloat(formData.valor) : 0
+      valor: formData.valor ? parseFloat(formData.valor) : 0,
+      equipe_id: formData.equipe_id || null,
+      equipe_nome: equipeSelecionada?.nome || null
     };
     delete dataToSave.tipos_servico;
     
