@@ -203,7 +203,9 @@ export default function GerenciarEquipes() {
                       </SelectTrigger>
                       <SelectContent>
                         {semEquipe.map(u => (
-                          <SelectItem key={u.id} value={u.id}>{u.full_name || u.email}</SelectItem>
+                           <SelectItem key={u.id} value={u.id}>
+                             {u.full_name ? `${u.full_name} (${u.email})` : u.email}
+                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
