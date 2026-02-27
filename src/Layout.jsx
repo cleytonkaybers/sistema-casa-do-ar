@@ -118,9 +118,9 @@ function LayoutContent({ children }) {
 
         {/* Sidebar */}
         <aside className={`
-        fixed top-0 left-0 z-50 h-full w-72 bg-gradient-to-b from-slate-950 via-purple-950 to-slate-950 shadow-2xl transform transition-transform duration-300 ease-in-out
+        fixed top-0 left-0 z-50 h-full w-72 shadow-2xl transform transition-transform duration-300 ease-in-out
         lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
+      `} style={{backgroundColor: '#0f1923'}}>
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between p-6 border-b border-purple-700/50">
