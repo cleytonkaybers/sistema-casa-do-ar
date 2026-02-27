@@ -63,7 +63,10 @@ export default function RelatóriosPage() {
     const servicosFiltrados = servicos.filter(s => {
       if (!s.data_programada) return false;
       const date = new Date(s.data_programada);
-      return isWithinInterval(date, { start: filteredStartDate, end: filteredEndDate });
+      const noIntervalo = isWithinInterval(date, { start: filteredStartDate, end: filteredEndDate });
+      if (!noIntervalo) return false;
+      if (filtroCategoria !== 'todas') return getCategoria(s.tipo_servico) === filtroCategoria;
+      return true;
     });
 
     const atendimentosFiltrados = atendimentos.filter(a => {
