@@ -213,8 +213,8 @@ function LayoutContent({ children }) {
 
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="hidden sm:block text-right">
-                <p className="text-sm font-medium text-purple-200">Sistema de Clientes</p>
-                <p className="text-xs text-purple-300/60">Casa do Ar Climatização</p>
+                <p className="text-sm font-medium text-blue-200">Sistema de Clientes</p>
+                <p className="text-xs text-blue-300/60">Casa do Ar Climatização</p>
               </div>
               <button
                 onClick={() => window.location.reload()}
