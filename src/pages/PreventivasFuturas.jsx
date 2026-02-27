@@ -287,8 +287,8 @@ export default function PreventivasFuturasPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Preventivas Futuras</h1>
-          <p className="text-gray-500 mt-1">Manutenções programadas e serviços ativos</p>
+          <h1 className="text-3xl font-bold text-white">Preventivas Futuras</h1>
+          <p className="text-blue-300/70 mt-1">Manutenções programadas e serviços ativos</p>
         </div>
       </div>
 
