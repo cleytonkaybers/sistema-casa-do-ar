@@ -76,6 +76,10 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
   });
 
   useEffect(() => {
+    if (!open) setSemRegistroCliente(false);
+  }, [open]);
+
+  useEffect(() => {
     if (servico) {
       setFormData({
         cliente_nome: servico.cliente_nome || '',
