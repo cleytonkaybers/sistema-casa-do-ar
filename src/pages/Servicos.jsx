@@ -382,7 +382,7 @@ export default function ServicosPage() {
           <h1 className="text-3xl font-bold text-gray-800">Serviços</h1>
           <p className="text-gray-500 mt-1">Gerencie serviços diários e semanais</p>
         </div>
-        {(isAdmin || hasPermission('servicos_criar')) && (
+        {(isAdmin || hasPermission('servicos_criar') || equipeIdUsuario) && (
           <Button
             onClick={() => {
               setEditingServico(null);
