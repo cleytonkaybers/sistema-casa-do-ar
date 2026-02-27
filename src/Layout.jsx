@@ -185,7 +185,7 @@ function LayoutContent({ children }) {
             <Button
               variant="ghost"
               onClick={() => base44.auth.logout()}
-              className="w-full justify-start text-purple-200/80 hover:text-red-400 hover:bg-red-500/20"
+              className="w-full justify-start text-blue-200/80 hover:text-red-400 hover:bg-red-500/20"
             >
               <LogOut className="w-5 h-5 mr-3" />
               Sair
