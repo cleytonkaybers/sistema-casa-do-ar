@@ -387,7 +387,7 @@ export default function ServicosPage() {
             setEditingServico(null);
             setShowForm(true);
           }}
-          className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+          className="text-white font-bold" style={{background: 'linear-gradient(135deg, #1e40af, #f59e0b)'}}
         >
           <Plus className="w-5 h-5 mr-2" />
           Novo Serviço
