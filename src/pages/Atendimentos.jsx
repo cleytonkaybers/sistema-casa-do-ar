@@ -414,18 +414,18 @@ export default function Atendimentos() {
                           <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center text-white text-sm font-medium">
                             {atendimento.cliente_nome?.charAt(0).toUpperCase() || '?'}
                           </div>
-                          <span className="font-medium">{atendimento.cliente_nome || 'Cliente não identificado'}</span>
+                          <span className="font-medium text-white">{atendimento.cliente_nome || 'Cliente não identificado'}</span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1.5 text-gray-600">
-                          <Calendar className="w-4 h-4 text-gray-400" />
+                        <div className="flex items-center gap-1.5 text-blue-200">
+                          <Calendar className="w-4 h-4 text-blue-400" />
                           {format(new Date(atendimento.data_atendimento), "dd/MM/yyyy", { locale: ptBR })}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <Wrench className="w-4 h-4 text-gray-400" />
+                        <div className="flex items-center gap-1.5 text-blue-200">
+                          <Wrench className="w-4 h-4 text-blue-400" />
                           {atendimento.tipo_servico}
                         </div>
                       </TableCell>
@@ -440,7 +440,7 @@ export default function Atendimentos() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <span className="font-medium text-green-600">
+                        <span className="font-medium text-green-400">
                           {formatCurrency(atendimento.valor)}
                         </span>
                       </TableCell>
@@ -450,7 +450,7 @@ export default function Atendimentos() {
                             variant="ghost"
                             size="icon"
                             onClick={() => handleCompartilhar(atendimento)}
-                            className="text-gray-500 hover:text-green-600"
+                            className="text-blue-300 hover:text-green-400"
                             title="Compartilhar"
                           >
                             <Share2 className="w-4 h-4" />
