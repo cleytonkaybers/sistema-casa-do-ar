@@ -109,21 +109,21 @@ export default function Dashboard() {
 
   const StatCard = ({ title, value, icon: Icon, color, subtitle, onClick, href }) => {
     const content = (
-      <CardContent className="p-6">
+      <CardContent className="p-4 sm:p-6">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <p className="text-sm font-medium text-gray-400">{title}</p>
-            <p className="text-3xl font-bold mt-2 text-white">{value}</p>
-            {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
+            <p className="text-xs sm:text-sm font-medium text-blue-300/70">{title}</p>
+            <p className="text-2xl sm:text-3xl font-bold mt-1 sm:mt-2 text-white">{value}</p>
+            {subtitle && <p className="text-xs text-blue-300/50 mt-1">{subtitle}</p>}
           </div>
-          <div className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center shadow-xl`}>
-            <Icon className="w-6 h-6 text-white" />
+          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shadow-xl ${color}`}>
+            <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
           </div>
         </div>
         {(onClick || href) && (
-          <div className="mt-4 pt-4 border-t border-purple-700/30">
-            <div className="flex items-center text-sm font-medium text-cyan-400 group-hover:text-cyan-300">
-              Ver detalhes <ArrowRight className="w-4 h-4 ml-1" />
+          <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-blue-800/40">
+            <div className="flex items-center text-xs sm:text-sm font-medium text-yellow-400 group-hover:text-yellow-300">
+              Ver detalhes <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1" />
             </div>
           </div>
         )}
@@ -133,7 +133,7 @@ export default function Dashboard() {
     if (href) {
       return (
         <Link to={href}>
-          <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border border-purple-700/30 shadow-xl hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-300 cursor-pointer hover:scale-105 group">
+          <Card className="border border-blue-800/40 shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer hover:scale-105 group" style={{backgroundColor: '#243447'}}>
             {content}
           </Card>
         </Link>
@@ -142,7 +142,8 @@ export default function Dashboard() {
 
     return (
       <Card 
-        className={`bg-gradient-to-br from-slate-800 to-slate-900 border border-purple-700/30 shadow-xl hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-300 ${onClick ? 'cursor-pointer hover:scale-105 group' : ''}`}
+        className={`border border-blue-800/40 shadow-xl hover:shadow-2xl transition-all duration-300 ${onClick ? 'cursor-pointer hover:scale-105 group' : ''}`}
+        style={{backgroundColor: '#243447'}}
         onClick={onClick}
       >
         {content}
