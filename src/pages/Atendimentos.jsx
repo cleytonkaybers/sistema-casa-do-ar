@@ -392,23 +392,23 @@ export default function Atendimentos() {
       ) : (
         <>
           {/* Desktop Table */}
-          <Card className="hidden lg:block bg-white border-0 shadow-lg overflow-hidden">
+          <Card className="hidden lg:block border border-blue-800/40 shadow-lg overflow-hidden" style={{backgroundColor: '#243447'}}>
             <Table>
               <TableHeader>
-                <TableRow className="bg-gray-50">
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Tipo de Serviço</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Origem</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                <TableRow className="border-blue-800/40" style={{backgroundColor: 'rgba(30,64,175,0.3)'}}>
+                  <TableHead className="text-blue-200">Cliente</TableHead>
+                  <TableHead className="text-blue-200">Data</TableHead>
+                  <TableHead className="text-blue-200">Tipo de Serviço</TableHead>
+                  <TableHead className="text-blue-200">Status</TableHead>
+                  <TableHead className="text-blue-200">Origem</TableHead>
+                  <TableHead className="text-blue-200">Valor</TableHead>
+                  <TableHead className="text-right text-blue-200">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredAtendimentos.map((atendimento) => {
                   return (
-                    <TableRow key={`${atendimento.origem}-${atendimento.id}`} className="hover:bg-gray-50">
+                    <TableRow key={`${atendimento.origem}-${atendimento.id}`} className="border-blue-800/30 hover:bg-blue-900/20">
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center text-white text-sm font-medium">
