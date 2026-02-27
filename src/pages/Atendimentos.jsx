@@ -302,8 +302,8 @@ export default function Atendimentos() {
         </Button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 space-y-4">
-        <div className="flex items-center gap-2 text-gray-700 mb-2">
+      <div className="rounded-2xl shadow-lg p-4 sm:p-6 space-y-4 border border-blue-800/40" style={{backgroundColor: '#243447'}}>
+        <div className="flex items-center gap-2 text-blue-200 mb-2">
           <Filter className="w-5 h-5" />
           <span className="font-medium">Filtros</span>
           {hasActiveFilters && (
@@ -311,7 +311,7 @@ export default function Atendimentos() {
               variant="ghost"
               size="sm"
               onClick={clearFilters}
-              className="ml-auto text-gray-500 hover:text-gray-700"
+              className="ml-auto text-blue-300 hover:text-white"
             >
               <X className="w-4 h-4 mr-1" />
               Limpar
@@ -322,18 +322,19 @@ export default function Atendimentos() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="sm:col-span-2">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-400" />
               <Input
                 placeholder="Buscar por cliente ou descrição..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-11 bg-gray-50 border-gray-200 focus:bg-white"
+                className="pl-10 h-11 border-blue-800/50 text-white placeholder:text-blue-400/60"
+                style={{backgroundColor: 'rgba(30,64,175,0.2)'}}
               />
             </div>
           </div>
 
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="h-11 bg-gray-50 border-gray-200">
+            <SelectTrigger className="h-11 border-blue-800/50 text-white" style={{backgroundColor: 'rgba(30,64,175,0.2)'}}>
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -347,7 +348,7 @@ export default function Atendimentos() {
           </Select>
 
           <Select value={filterTipo} onValueChange={setFilterTipo}>
-            <SelectTrigger className="h-11 bg-gray-50 border-gray-200">
+            <SelectTrigger className="h-11 border-blue-800/50 text-white" style={{backgroundColor: 'rgba(30,64,175,0.2)'}}>
               <SelectValue placeholder="Tipo de Serviço" />
             </SelectTrigger>
             <SelectContent>
