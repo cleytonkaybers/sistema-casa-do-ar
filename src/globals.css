@@ -1,6 +1,16 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --primary-blue: #1e40af;
+  --primary-yellow: #f59e0b;
+  --bg-main: #1e2a3a;
+  --bg-sidebar: #0f1923;
+  --bg-card: #243447;
+  --bg-card-hover: #2d4060;
+}
 
 * {
   -webkit-tap-highlight-color: transparent;
