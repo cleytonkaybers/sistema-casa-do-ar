@@ -218,7 +218,7 @@ function LayoutContent({ children }) {
               </div>
               <button
                 onClick={() => window.location.reload()}
-                className="p-2 rounded-lg hover:bg-purple-700/30 transition-colors text-purple-300 hover:text-purple-100"
+                className="p-2 rounded-lg hover:bg-blue-800/40 transition-colors text-blue-300 hover:text-blue-100"
                 title="Atualizar página"
               >
                 <RotateCw className="w-5 h-5" />
