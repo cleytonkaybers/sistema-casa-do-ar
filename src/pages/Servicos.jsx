@@ -547,6 +547,7 @@ export default function ServicosPage() {
         isLoading={createMutation.isPending || updateMutation.isPending}
         equipes={equipes}
         currentUserEquipeId={equipeIdUsuario}
+        isAdmin={isAdmin}
       />
 
       <ReagendarModal
