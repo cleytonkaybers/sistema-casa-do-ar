@@ -551,7 +551,7 @@ export default function Atendimentos() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleCompartilhar(atendimento)}
-                        className="text-green-600 hover:text-green-700 hover:border-green-300"
+                        className="border-blue-700/50 text-blue-300 hover:text-green-400 hover:border-green-600/50"
                       >
                         <Share2 className="w-4 h-4" />
                       </Button>
@@ -559,7 +559,7 @@ export default function Atendimentos() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleVerDetalhes(atendimento)}
-                        className="flex-1"
+                        className="flex-1 border-blue-700/50 text-blue-200 hover:text-white"
                       >
                         <Info className="w-4 h-4 mr-1.5" />
                         Ver Detalhes
@@ -569,7 +569,7 @@ export default function Atendimentos() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleVerHistorico(atendimento)}
-                          className="flex-1"
+                          className="flex-1 border-blue-700/50 text-blue-200 hover:text-white"
                         >
                           <History className="w-4 h-4 mr-1.5" />
                           Histórico
@@ -581,7 +581,7 @@ export default function Atendimentos() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleEdit(atendimento)}
-                            className="flex-1"
+                            className="flex-1 border-blue-700/50 text-blue-200 hover:text-yellow-400"
                           >
                             <Pencil className="w-4 h-4 mr-1.5" />
                             Editar
@@ -590,7 +590,7 @@ export default function Atendimentos() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleDelete(atendimento)}
-                            className="text-red-600 hover:text-red-700 hover:border-red-300"
+                            className="border-blue-700/50 text-blue-300 hover:text-red-400 hover:border-red-600/50"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
