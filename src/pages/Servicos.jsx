@@ -473,7 +473,7 @@ export default function ServicosPage() {
 
                   <div className="p-3 space-y-3 flex-1 overflow-y-auto">
                     {servicosDoDia.length === 0 ? (
-                      <p className="text-gray-400 text-center text-sm py-4">
+                      <p className="text-blue-300/40 text-center text-sm py-4">
                         Nenhum serviço
                       </p>
                     ) : (
