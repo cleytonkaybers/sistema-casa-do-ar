@@ -12,6 +12,25 @@ import ExportButtons from '../components/reporting/ExportButtons';
 import NoPermission from '../components/NoPermission';
 import { usePermissions } from '../components/auth/PermissionGuard';
 
+const CATEGORIAS_SERVICO = [
+  { label: 'Limpeza', keywords: ['limpeza'] },
+  { label: 'Instalação', keywords: ['instalação', 'instalacao'] },
+  { label: 'Recarga de Gás', keywords: ['recarga', 'carga de gás', 'carga de gas'] },
+  { label: 'Conserto / Reparo', keywords: ['troca', 'conserto', 'reparo', 'solda', 'capacitor', 'relé', 'sensor', 'chave', 'placa', 'defeito'] },
+  { label: 'Retirada', keywords: ['retirada'] },
+  { label: 'Outros', keywords: [] },
+];
+
+function getCategoria(tipoServico) {
+  if (!tipoServico) return 'Outros';
+  const lower = tipoServico.toLowerCase();
+  for (const cat of CATEGORIAS_SERVICO) {
+    if (cat.keywords.length === 0) continue;
+    if (cat.keywords.some(k => lower.includes(k))) return cat.label;
+  }
+  return 'Outros';
+}
+
 export default function RelatóriosPage() {
   const { isAdmin } = usePermissions();
   const today = new Date();
@@ -19,6 +38,7 @@ export default function RelatóriosPage() {
   const [endDate, setEndDate] = useState(endOfMonth(today));
   const [filteredStartDate, setFilteredStartDate] = useState(startOfMonth(today));
   const [filteredEndDate, setFilteredEndDate] = useState(endOfMonth(today));
+  const [filtroCategoria, setFiltroCategoria] = useState('todas');
 
   // Buscar dados
   const { data: servicos = [], isLoading: servLoading } = useQuery({
