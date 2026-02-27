@@ -55,6 +55,8 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
     setShowClienteDropdown(false);
     toast.success(`Cliente "${cliente.nome}" selecionado!`);
   };
+  const [semRegistroCliente, setSemRegistroCliente] = useState(false);
+
   const [formData, setFormData] = useState({
     cliente_nome: '',
     cpf: '',
