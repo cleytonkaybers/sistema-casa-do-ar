@@ -352,13 +352,11 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
       dia_semana: diaSemana,
       valor: formData.valor ? parseFloat(formData.valor) : 0,
       equipe_id: formData.equipe_id || null,
-      equipe_nome: equipeSelecionada?.nome || null
+      equipe_nome: equipeSelecionada?.nome || null,
+      sem_registro_cliente: semRegistroCliente
     };
     delete dataToSave.tipos_servico;
     
-    console.log('Tipos de serviço selecionados:', formData.tipos_servico);
-    console.log('Tipo concatenado para salvar:', dataToSave.tipo_servico);
-    console.log('Dados completos para salvar:', dataToSave);
     onSave(dataToSave);
   };
 
