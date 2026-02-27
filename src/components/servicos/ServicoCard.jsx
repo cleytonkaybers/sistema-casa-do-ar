@@ -246,44 +246,44 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
   }
 
   return (
-    <Card className="group bg-white hover:shadow-xl transition-all duration-300 border-0 shadow-md">
+    <Card className="group hover:shadow-2xl transition-all duration-300 border border-blue-800/40 shadow-xl" style={{backgroundColor: '#243447'}}>
       <CardContent className="p-0">
-        <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-4 text-white">
+        <div className="p-4 border-b border-blue-800/40" style={{background: 'linear-gradient(135deg, rgba(30,64,175,0.4), rgba(245,158,11,0.15))'}}>
           <div className="flex items-start justify-between gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleShare}
-              className="text-white hover:bg-white/20 flex-shrink-0"
-            >
-              <Share2 className="w-5 h-5" />
-            </Button>
             <div className="flex-1">
-              <h3 className="font-semibold text-lg">{servico.cliente_nome}</h3>
+              <h3 className="font-semibold text-lg text-white">{servico.cliente_nome}</h3>
               <div className="flex items-center gap-2 flex-wrap mt-1">
-                <Badge className={`${getTipoColor(servico.tipo_servico)}`}>
+                <Badge className="bg-blue-900/60 text-blue-200 border border-blue-700/50 text-xs">
                   {servico.tipo_servico}
                 </Badge>
-                <Badge className={`${statusConfig.color} border`}>
+                <Badge className={`${statusConfig.color} border text-xs`}>
                   <StatusIcon className="w-3 h-3 mr-1" />
                   {statusConfig.label}
                 </Badge>
               </div>
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleShare}
+              className="text-blue-300 hover:text-white hover:bg-blue-800/40 flex-shrink-0"
+            >
+              <Share2 className="w-5 h-5" />
+            </Button>
           </div>
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-gray-600">
-              <Phone className="w-4 h-4 text-gray-400" />
-              <span className="font-medium">{formatPhone(servico.telefone)}</span>
+            <div className="flex items-center gap-2 text-blue-100">
+              <Phone className="w-4 h-4 text-blue-400" />
+              <span className="font-medium text-sm">{formatPhone(servico.telefone)}</span>
             </div>
             <a
               href={getWhatsAppLink(servico.telefone)}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-full transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-lg transition-colors"
             >
               <MessageCircle className="w-4 h-4" />
               <span className="hidden sm:inline">WhatsApp</span>
@@ -291,15 +291,15 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
           </div>
 
           {servico.cpf && (
-            <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
-              <CreditCard className="w-4 h-4 text-gray-400" />
+            <div className="flex items-center gap-2 text-sm text-blue-200 bg-blue-900/30 px-3 py-2 rounded-lg border border-blue-800/40">
+              <CreditCard className="w-4 h-4 text-blue-400" />
               <span>CPF: {servico.cpf}</span>
             </div>
           )}
 
           {servico.endereco && (
-            <div className="flex items-start gap-2 text-gray-600">
-              <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+            <div className="flex items-start gap-2 text-blue-200">
+              <MapPin className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
               <span className="text-sm line-clamp-2">{servico.endereco}</span>
             </div>
           )}
@@ -309,7 +309,8 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
               href={mapsLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors font-semibold border border-blue-200"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition-colors font-semibold border border-blue-700/50 hover:border-yellow-600/50 text-blue-200 hover:text-yellow-400"
+              style={{backgroundColor: 'rgba(30,64,175,0.2)'}}
             >
               <Navigation className="w-4 h-4" />
               <span className="text-sm">
@@ -323,19 +324,19 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
 
           <div className="flex flex-wrap gap-2">
             {servico.dia_semana && (
-              <div className="flex items-center gap-1.5 text-sm text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg">
-                <Calendar className="w-4 h-4" />
+              <div className="flex items-center gap-1.5 text-sm text-blue-200 border border-blue-800/40 px-3 py-1.5 rounded-lg" style={{backgroundColor: 'rgba(30,64,175,0.15)'}}>
+                <Calendar className="w-4 h-4 text-blue-400" />
                 {servico.dia_semana}
               </div>
             )}
             {servico.horario && (
-              <div className="flex items-center gap-1.5 text-sm text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg">
-                <Clock className="w-4 h-4" />
+              <div className="flex items-center gap-1.5 text-sm text-blue-200 border border-blue-800/40 px-3 py-1.5 rounded-lg" style={{backgroundColor: 'rgba(30,64,175,0.15)'}}>
+                <Clock className="w-4 h-4 text-blue-400" />
                 {servico.horario}
               </div>
             )}
             {servico.valor > 0 && (
-              <div className="flex items-center gap-1.5 text-sm text-green-700 bg-green-50 px-3 py-1.5 rounded-lg font-semibold">
+              <div className="flex items-center gap-1.5 text-sm text-green-300 border border-green-800/40 px-3 py-1.5 rounded-lg font-semibold" style={{backgroundColor: 'rgba(16,185,129,0.1)'}}>
                 <DollarSign className="w-4 h-4" />
                 R$ {servico.valor.toFixed(2)}
               </div>
@@ -343,15 +344,15 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
           </div>
 
           {servico.descricao && (
-            <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg line-clamp-2">
+            <p className="text-sm text-blue-300/70 border border-blue-800/40 p-3 rounded-lg line-clamp-2" style={{backgroundColor: 'rgba(30,64,175,0.1)'}}>
               {servico.descricao}
             </p>
           )}
 
-          <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+          <div className="flex items-center gap-2 pt-2 border-t border-blue-800/40">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" className="flex-1">
+                <Button size="sm" variant="outline" className="flex-1 border-blue-700/50 text-blue-200 hover:text-white hover:bg-blue-800/40">
                   <StatusIcon className="w-4 h-4 mr-1.5" />
                   {statusConfig.label}
                 </Button>
@@ -379,7 +380,7 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
               variant="outline"
               size="sm"
               onClick={() => onEdit(servico)}
-              className="text-gray-600 hover:text-blue-600 hover:border-blue-300"
+              className="border-blue-700/50 text-blue-300 hover:text-yellow-400 hover:border-yellow-600/50"
             >
               <Pencil className="w-4 h-4" />
             </Button>
@@ -387,7 +388,7 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
               variant="outline"
               size="sm"
               onClick={() => onDelete(servico)}
-              className="text-gray-600 hover:text-red-600 hover:border-red-300"
+              className="border-blue-700/50 text-blue-300 hover:text-red-400 hover:border-red-600/50"
             >
               <Trash2 className="w-4 h-4" />
             </Button>
