@@ -193,7 +193,7 @@ function LayoutContent({ children }) {
 
           {/* Top bar */}
           <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
-            <div className="bg-[#1293e2] px-4 py-3 flex items-center justify-between lg:px-6">
+            <div className="px-4 py-3 flex items-center justify-between lg:px-6" style={{ backgroundColor: '#1e3a8a' }}>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setSidebarOpen(true)}
