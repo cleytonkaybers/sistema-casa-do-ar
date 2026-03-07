@@ -391,39 +391,39 @@ export default function Atendimentos() {
       ) : (
         <>
           {/* Desktop Table */}
-          <Card className="hidden lg:block border border-blue-800/40 shadow-lg overflow-hidden" style={{backgroundColor: '#243447'}}>
+          <Card className="hidden lg:block border border-gray-200 shadow-sm overflow-hidden bg-white">
             <Table>
               <TableHeader>
-                <TableRow className="border-blue-800/40" style={{backgroundColor: 'rgba(30,64,175,0.3)'}}>
-                  <TableHead className="text-blue-200">Cliente</TableHead>
-                  <TableHead className="text-blue-200">Data</TableHead>
-                  <TableHead className="text-blue-200">Tipo de Serviço</TableHead>
-                  <TableHead className="text-blue-200">Status</TableHead>
-                  <TableHead className="text-blue-200">Origem</TableHead>
-                  <TableHead className="text-blue-200">Valor</TableHead>
-                  <TableHead className="text-right text-blue-200">Ações</TableHead>
+                <TableRow style={{ backgroundColor: '#1e3a8a' }}>
+                  <TableHead className="text-white">Cliente</TableHead>
+                  <TableHead className="text-white">Data</TableHead>
+                  <TableHead className="text-white">Tipo de Serviço</TableHead>
+                  <TableHead className="text-white">Status</TableHead>
+                  <TableHead className="text-white">Origem</TableHead>
+                  <TableHead className="text-white">Valor</TableHead>
+                  <TableHead className="text-right text-white">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredAtendimentos.map((atendimento) => {
                   return (
-                    <TableRow key={`${atendimento.origem}-${atendimento.id}`} className="border-blue-800/30 hover:bg-blue-900/20">
+                    <TableRow key={`${atendimento.origem}-${atendimento.id}`} className="border-gray-100 hover:bg-gray-50">
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center text-white text-sm font-medium">
                             {atendimento.cliente_nome?.charAt(0).toUpperCase() || '?'}
                           </div>
-                          <span className="font-medium text-white">{atendimento.cliente_nome || 'Cliente não identificado'}</span>
+                          <span className="font-medium text-gray-800">{atendimento.cliente_nome || 'Cliente não identificado'}</span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1.5 text-blue-200">
+                        <div className="flex items-center gap-1.5 text-gray-600">
                           <Calendar className="w-4 h-4 text-blue-400" />
                           {format(new Date(atendimento.data_atendimento), "dd/MM/yyyy", { locale: ptBR })}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1.5 text-blue-200">
+                        <div className="flex items-center gap-1.5 text-gray-600">
                           <Wrench className="w-4 h-4 text-blue-400" />
                           {atendimento.tipo_servico}
                         </div>

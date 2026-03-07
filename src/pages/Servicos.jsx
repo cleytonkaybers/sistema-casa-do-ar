@@ -466,7 +466,7 @@ export default function ServicosPage() {
               const servicosDoDia = servicosPorDia[dia] || [];
               
               return (
-                <div key={dia} className="rounded-xl shadow-lg border border-blue-800/40 overflow-hidden flex flex-col h-full" style={{backgroundColor: '#243447'}}>
+                <div key={dia} className="rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full bg-white">
                   <div className={`bg-gradient-to-r ${diaColors[dia]} px-4 py-3 sticky top-0 z-10`}>
                     <h3 className="font-bold text-white text-center text-sm lg:text-base">
                       {dia}
@@ -478,12 +478,12 @@ export default function ServicosPage() {
 
                   <div className="p-3 space-y-3 flex-1 overflow-y-auto">
                     {servicosDoDia.length === 0 ? (
-                      <p className="text-blue-300/40 text-center text-sm py-4">
+                      <p className="text-gray-300 text-center text-sm py-4">
                         Nenhum serviço
                       </p>
                     ) : (
                       servicosDoDia.map(servico => (
-                        <div key={servico.id} className="rounded-lg shadow-sm border border-blue-900/40 overflow-hidden" style={{backgroundColor: 'rgba(15,25,35,0.5)'}}>
+                        <div key={servico.id} className="rounded-lg shadow-sm border border-gray-100 overflow-hidden bg-gray-50">
                           <div className="p-3">
                             <ServicoCard
                               servico={servico}
@@ -508,8 +508,8 @@ export default function ServicosPage() {
           </div>
 
           {servicosSemData.length > 0 && (
-            <div className="rounded-xl shadow-md border border-blue-800/40 overflow-hidden" style={{backgroundColor: '#243447'}}>
-              <div className="px-4 py-3 flex items-center justify-between" style={{background: 'linear-gradient(90deg, #1e3a5f, #2d5a8e)'}}>
+            <div className="rounded-xl shadow-sm border border-gray-200 overflow-hidden bg-white">
+              <div className="px-4 py-3 flex items-center justify-between" style={{ backgroundColor: '#1e3a8a' }}>
                 <div className="flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-white" />
                   <h3 className="font-bold text-white">Sem Data Programada</h3>
