@@ -98,8 +98,8 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-white break-words">{servico.cliente_nome}</h4>
-            <p className="text-xs text-blue-200 mt-0.5">{servico.tipo_servico}</p>
+            <h4 className="font-semibold text-gray-800 break-words">{servico.cliente_nome}</h4>
+            <p className="text-xs text-gray-500 mt-0.5">{servico.tipo_servico}</p>
             <div className="flex items-center gap-1 mt-1.5 flex-wrap">
               <Badge className={`${statusConfig.color} text-xs border`}>
                 <StatusIcon className="w-3 h-3 mr-1" />
