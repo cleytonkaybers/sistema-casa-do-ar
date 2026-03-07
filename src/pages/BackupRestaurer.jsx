@@ -1,69 +1,73 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Download, Upload, Database, Loader2, CheckCircle, AlertCircle, FileJson } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Download, Upload, Database, Loader2, CheckCircle, AlertCircle, FileJson, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import NoPermission from '../components/NoPermission';
 import { usePermissions } from '../components/auth/PermissionGuard';
+
+// Todas as entidades do sistema
+const ENTITIES = [
+  { key: 'clientes',              label: 'Clientes',                  entity: 'Cliente' },
+  { key: 'servicos',              label: 'Serviços',                  entity: 'Servico' },
+  { key: 'atendimentos',         label: 'Atendimentos',              entity: 'Atendimento' },
+  { key: 'equipes',               label: 'Equipes',                   entity: 'Equipe' },
+  { key: 'alteracaoStatus',       label: 'Histórico de Status',       entity: 'AlteracaoStatus' },
+  { key: 'notificacoes',          label: 'Notificações',              entity: 'Notificacao' },
+  { key: 'preferenciasNotif',     label: 'Preferências de Notif.',    entity: 'PreferenciaNotificacao' },
+  { key: 'configuracaoRelatorio', label: 'Config. de Relatórios',     entity: 'ConfiguracaoRelatorio' },
+  { key: 'relatoriosGerados',     label: 'Relatórios Gerados',        entity: 'RelatorioGerado' },
+  { key: 'companySettings',       label: 'Configurações da Empresa',  entity: 'CompanySettings' },
+  { key: 'usuarios',              label: 'Usuários',                  entity: 'User' },
+];
 
 export default function BackupRestaurerPage() {
   const { isAdmin } = usePermissions();
   const [importFile, setImportFile] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importLog, setImportLog] = useState([]);
   const queryClient = useQueryClient();
 
-  const { data: clientes = [] } = useQuery({
-    queryKey: ['clientes'],
-    queryFn: () => base44.entities.Cliente.list(),
+  // Buscar contagens de todas as entidades
+  const queries = ENTITIES.map(e => ({
+    ...e,
+    result: useQuery({
+      queryKey: [e.key],
+      queryFn: () => base44.entities[e.entity].list(),
+      enabled: !!isAdmin,
+    })
+  }));
+
+  const dataMap = {};
+  queries.forEach(q => {
+    dataMap[q.key] = q.result.data || [];
   });
 
-  const { data: servicos = [] } = useQuery({
-    queryKey: ['servicos'],
-    queryFn: () => base44.entities.Servico.list(),
-  });
-
-  const { data: atendimentos = [] } = useQuery({
-    queryKey: ['atendimentos'],
-    queryFn: () => base44.entities.Atendimento.list(),
-  });
-
-  const { data: alteracaoStatus = [] } = useQuery({
-    queryKey: ['alteracaoStatus'],
-    queryFn: () => base44.entities.AlteracaoStatus.list(),
-  });
-
-  const { data: usuarios = [] } = useQuery({
-    queryKey: ['usuarios'],
-    queryFn: () => base44.entities.User.list(),
-  });
+  const totalRegistros = Object.values(dataMap).reduce((sum, arr) => sum + arr.length, 0);
 
   const handleExportBackup = async () => {
     setExporting(true);
     try {
       const backup = {
-        version: '1.0',
+        version: '2.0',
+        app: 'Casa do Ar',
         timestamp: new Date().toISOString(),
-        data: {
-          clientes: clientes,
-          servicos: servicos,
-          atendimentos: atendimentos,
-          alteracaoStatus: alteracaoStatus,
-          usuarios: usuarios
-        },
-        metadata: {
-          total_clientes: clientes.length,
-          total_servicos: servicos.length,
-          total_atendimentos: atendimentos.length,
-          total_alteracoes: alteracaoStatus.length,
-          total_usuarios: usuarios.length
-        }
+        metadata: {},
+        data: {}
       };
+
+      ENTITIES.forEach(e => {
+        backup.data[e.key] = dataMap[e.key];
+        backup.metadata[`total_${e.key}`] = dataMap[e.key].length;
+      });
 
       const json = JSON.stringify(backup, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
@@ -76,10 +80,9 @@ export default function BackupRestaurerPage() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      toast.success('Backup exportado com sucesso!');
+      toast.success(`Backup exportado! ${totalRegistros} registros salvos.`);
     } catch (error) {
-      console.error('Erro ao exportar backup:', error);
-      toast.error('Erro ao exportar backup');
+      toast.error('Erro ao exportar backup: ' + error.message);
     } finally {
       setExporting(false);
     }
@@ -92,6 +95,9 @@ export default function BackupRestaurerPage() {
     }
 
     setImporting(true);
+    setImportProgress(0);
+    setImportLog([]);
+
     try {
       const text = await importFile.text();
       const backup = JSON.parse(text);
@@ -100,209 +106,193 @@ export default function BackupRestaurerPage() {
         throw new Error('Formato de backup inválido');
       }
 
-      let importedCount = 0;
+      const log = [];
+      let totalImported = 0;
+      let step = 0;
 
-      // Importar clientes
-      if (backup.data.clientes && backup.data.clientes.length > 0) {
-        for (const cliente of backup.data.clientes) {
-          const { id, created_date, updated_date, created_by, ...clienteData } = cliente;
-          await base44.entities.Cliente.create(clienteData);
-          importedCount++;
-        }
-      }
+      // Suporte a backup v1.0 (legado) e v2.0
+      const entityMap = backup.version === '1.0'
+        ? [
+            { key: 'clientes',        entity: 'Cliente' },
+            { key: 'servicos',        entity: 'Servico' },
+            { key: 'atendimentos',    entity: 'Atendimento' },
+            { key: 'alteracaoStatus', entity: 'AlteracaoStatus' },
+          ]
+        : ENTITIES.filter(e => e.entity !== 'User'); // Usuários não são recriáveis
 
-      // Importar serviços
-      if (backup.data.servicos && backup.data.servicos.length > 0) {
-        for (const servico of backup.data.servicos) {
-          const { id, created_date, updated_date, created_by, ...servicoData } = servico;
-          await base44.entities.Servico.create(servicoData);
-          importedCount++;
+      for (const e of entityMap) {
+        const records = backup.data[e.key];
+        if (!records || records.length === 0) {
+          log.push(`⚪ ${e.entity}: nenhum registro encontrado`);
+          step++;
+          setImportProgress(Math.round((step / entityMap.length) * 100));
+          setImportLog([...log]);
+          continue;
         }
-      }
 
-      // Importar atendimentos
-      if (backup.data.atendimentos && backup.data.atendimentos.length > 0) {
-        for (const atendimento of backup.data.atendimentos) {
-          const { id, created_date, updated_date, created_by, ...atendimentoData } = atendimento;
-          await base44.entities.Atendimento.create(atendimentoData);
-          importedCount++;
+        let count = 0;
+        for (const record of records) {
+          const { id, created_date, updated_date, created_by, ...data } = record;
+          await base44.entities[e.entity].create(data);
+          count++;
         }
-      }
 
-      // Importar histórico de alterações
-      if (backup.data.alteracaoStatus && backup.data.alteracaoStatus.length > 0) {
-        for (const alteracao of backup.data.alteracaoStatus) {
-          const { id, created_date, updated_date, created_by, ...alteracaoData } = alteracao;
-          await base44.entities.AlteracaoStatus.create(alteracaoData);
-          importedCount++;
-        }
+        totalImported += count;
+        log.push(`✅ ${e.entity}: ${count} registros importados`);
+        step++;
+        setImportProgress(Math.round((step / entityMap.length) * 100));
+        setImportLog([...log]);
       }
 
       queryClient.invalidateQueries();
-      toast.success(`Backup restaurado! ${importedCount} registros importados.`);
+      toast.success(`Backup restaurado! ${totalImported} registros importados.`);
       setImportFile(null);
     } catch (error) {
-      console.error('Erro ao importar backup:', error);
       toast.error('Erro ao importar backup: ' + error.message);
     } finally {
       setImporting(false);
     }
   };
 
-  const totalRegistros = clientes.length + servicos.length + atendimentos.length + alteracaoStatus.length;
-
-  if (!isAdmin) {
-    return <NoPermission />;
-  }
+  if (!isAdmin) return <NoPermission />;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold text-gray-800">Backup e Restaurar</h1>
-        <p className="text-gray-500 mt-1">Faça backup ou restaure seus dados do sistema</p>
+        <h1 className="text-3xl font-bold text-white">Backup e Restaurar</h1>
+        <p className="text-blue-300/70 mt-1">Exporte ou restaure todos os dados do sistema</p>
       </div>
 
-      {/* Card de Estatísticas */}
-      <Card className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0">
+      {/* Estatísticas */}
+      <Card className="border-blue-800/40" style={{backgroundColor: '#243447'}}>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="w-6 h-6" />
-            Dados do Sistema
+          <CardTitle className="flex items-center gap-2 text-white">
+            <Database className="w-5 h-5 text-blue-400" />
+            Dados Atuais no Sistema
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <p className="text-sm opacity-90">Total de Registros</p>
-              <p className="text-2xl font-bold">{totalRegistros}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {ENTITIES.filter(e => e.entity !== 'User').map(e => (
+              <div key={e.key} className="rounded-xl p-3 border border-blue-800/30" style={{backgroundColor: 'rgba(30,64,175,0.15)'}}>
+                <p className="text-xs text-blue-300/70">{e.label}</p>
+                <p className="text-xl font-bold text-white">{dataMap[e.key]?.length ?? 0}</p>
+              </div>
+            ))}
+            <div className="rounded-xl p-3 border border-yellow-700/30" style={{backgroundColor: 'rgba(245,158,11,0.1)'}}>
+              <p className="text-xs text-yellow-300/70">Total Geral</p>
+              <p className="text-xl font-bold text-yellow-300">{totalRegistros}</p>
             </div>
-            <div>
-              <p className="text-sm opacity-90">Clientes</p>
-              <p className="text-2xl font-bold">{clientes.length}</p>
-            </div>
-            <div>
-              <p className="text-sm opacity-90">Serviços</p>
-              <p className="text-2xl font-bold">{servicos.length}</p>
-            </div>
-            <div>
-              <p className="text-sm opacity-90">Atendimentos</p>
-              <p className="text-2xl font-bold">{atendimentos.length}</p>
-            </div>
-            <div>
-              <p className="text-sm opacity-90">Histórico</p>
-              <p className="text-2xl font-bold">{alteracaoStatus.length}</p>
-            </div>
-            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Card de Exportar Backup */}
-      <Card>
+      {/* Exportar */}
+      <Card className="border-blue-800/40" style={{backgroundColor: '#243447'}}>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-gray-800">
-            <Download className="w-5 h-5 text-blue-600" />
-            Exportar Backup
+          <CardTitle className="flex items-center gap-2 text-white">
+            <Download className="w-5 h-5 text-blue-400" />
+            Exportar Backup Completo
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-gray-600">
-            Faça o download de todos os dados do sistema em formato JSON. 
-            Este arquivo contém clientes, serviços e atendimentos.
+          <p className="text-blue-200/80 text-sm">
+            Exporta <strong className="text-white">todos</strong> os dados do sistema em um arquivo JSON.
           </p>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
-            <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-blue-800">
-              <p className="font-medium">O backup inclui:</p>
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>{clientes.length} clientes cadastrados</li>
-                <li>{servicos.length} serviços registrados</li>
-                <li>{atendimentos.length} atendimentos realizados</li>
-                <li>{alteracaoStatus.length} registros históricos</li>
-                <li>{usuarios.length} usuários cadastrados</li>
-              </ul>
-            </div>
+          <div className="bg-blue-900/30 border border-blue-700/40 rounded-xl p-4 space-y-1">
+            {ENTITIES.map(e => (
+              <div key={e.key} className="flex justify-between text-sm text-blue-200">
+                <span>{e.label}</span>
+                <span className="font-bold text-white">{dataMap[e.key]?.length ?? 0} registros</span>
+              </div>
+            ))}
           </div>
-          <Button 
+          <Button
             onClick={handleExportBackup}
             disabled={exporting || totalRegistros === 0}
-            className="w-full h-12 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+            className="w-full h-12 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 font-semibold text-base"
           >
             {exporting ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Exportando...
-              </>
+              <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Exportando...</>
             ) : (
-              <>
-                <Download className="w-5 h-5 mr-2" />
-                Exportar Backup Completo
-              </>
+              <><Download className="w-5 h-5 mr-2" />Exportar Backup Completo ({totalRegistros} registros)</>
             )}
           </Button>
         </CardContent>
       </Card>
 
-      {/* Card de Importar Backup */}
-      <Card>
+      {/* Importar */}
+      <Card className="border-blue-800/40" style={{backgroundColor: '#243447'}}>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-gray-800">
-            <Upload className="w-5 h-5 text-green-600" />
-            Importar Backup
+          <CardTitle className="flex items-center gap-2 text-white">
+            <Upload className="w-5 h-5 text-green-400" />
+            Importar / Restaurar Backup
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-gray-600">
-            Selecione um arquivo de backup (.json) para restaurar os dados no sistema.
-          </p>
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-amber-800">
+          <div className="bg-amber-900/20 border border-amber-700/40 rounded-xl p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-amber-200">
               <p className="font-medium">Atenção:</p>
-              <p className="mt-1">
-                A importação irá ADICIONAR os dados do backup ao sistema. 
-                Os dados existentes não serão removidos.
-              </p>
+              <p className="mt-1">A importação <strong>ADICIONA</strong> os dados do backup ao sistema sem remover os existentes. Compatível com backups v1.0 e v2.0.</p>
             </div>
           </div>
-          <div className="space-y-3">
-            <Label htmlFor="backup-file" className="text-gray-700">
-              Arquivo de Backup (.json)
-            </Label>
-            <div className="flex items-center gap-3">
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <Label className="text-blue-200 mb-2 block">Arquivo de Backup (.json)</Label>
               <Input
-                id="backup-file"
                 type="file"
                 accept=".json,application/json"
-                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-                className="flex-1"
+                onChange={(e) => { setImportFile(e.target.files?.[0] || null); setImportLog([]); setImportProgress(0); }}
+                className="border-blue-800/50 text-white"
+                style={{backgroundColor: 'rgba(30,64,175,0.15)'}}
               />
-              {importFile && (
-                <div className="flex items-center gap-2 text-sm text-green-600">
-                  <FileJson className="w-4 h-4" />
-                  <span>{importFile.name}</span>
-                </div>
-              )}
             </div>
+            {importFile && (
+              <div className="flex items-center gap-2 text-sm text-green-400 mt-6">
+                <FileJson className="w-4 h-4" />
+                <span className="truncate max-w-[140px]">{importFile.name}</span>
+              </div>
+            )}
           </div>
-          <Button 
+
+          {importing && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm text-blue-200">
+                <span>Importando...</span>
+                <span>{importProgress}%</span>
+              </div>
+              <Progress value={importProgress} className="h-2" />
+            </div>
+          )}
+
+          {importLog.length > 0 && (
+            <div className="rounded-xl border border-blue-800/30 p-4 space-y-1 text-sm" style={{backgroundColor: 'rgba(15,25,35,0.6)'}}>
+              {importLog.map((line, i) => (
+                <p key={i} className="text-blue-100 font-mono">{line}</p>
+              ))}
+            </div>
+          )}
+
+          <Button
             onClick={handleImportBackup}
             disabled={!importFile || importing}
-            className="w-full h-12 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+            className="w-full h-12 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 font-semibold text-base"
           >
             {importing ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Importando...
-              </>
+              <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Importando... {importProgress}%</>
             ) : (
-              <>
-                <Upload className="w-5 h-5 mr-2" />
-                Restaurar Backup
-              </>
+              <><Upload className="w-5 h-5 mr-2" />Restaurar Backup</>
             )}
           </Button>
         </CardContent>
       </Card>
+
+      <div className="flex items-center gap-2 text-xs text-blue-400/60 justify-center pb-4">
+        <Shield className="w-3 h-3" />
+        <span>Backup v2.0 — inclui todas as entidades do sistema</span>
+      </div>
     </div>
   );
 }
