@@ -266,7 +266,7 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
               variant="ghost"
               size="icon"
               onClick={handleShare}
-              className="text-blue-300 hover:text-white hover:bg-blue-800/40 flex-shrink-0"
+              className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0"
             >
               <Share2 className="w-5 h-5" />
             </Button>
@@ -275,7 +275,7 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
 
         <div className="p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-blue-100">
+            <div className="flex items-center gap-2 text-gray-700">
               <Phone className="w-4 h-4 text-blue-400" />
               <span className="font-medium text-sm">{formatPhone(servico.telefone)}</span>
             </div>
