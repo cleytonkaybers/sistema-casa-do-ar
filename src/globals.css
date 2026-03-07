@@ -12,6 +12,15 @@
   --bg-card-hover: #f8fafc;
 }
 
+/* Remove dark backgrounds from pages/cards - force light theme */
+[style*="background-color: #243447"],
+[style*="background-color: #1e2a3a"],
+[style*="background-color: #0f1923"],
+[style*="backgroundColor: #243447"],
+[style*="backgroundColor: #1e2a3a"] {
+  background-color: #ffffff !important;
+}
+
 * {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
