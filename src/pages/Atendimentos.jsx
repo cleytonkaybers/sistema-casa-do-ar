@@ -290,8 +290,8 @@ export default function Atendimentos() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">Atendimentos</h1>
-          <p className="text-blue-300/70 mt-1">{atendimentos.length} atendimentos registrados</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Atendimentos</h1>
+          <p className="text-gray-500 mt-1">{atendimentos.length} atendimentos registrados</p>
         </div>
         <Button 
           onClick={handleNewAtendimento}
