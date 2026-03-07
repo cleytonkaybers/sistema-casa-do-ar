@@ -148,6 +148,13 @@ export default function Atendimentos() {
       const servicoOrigem = servicos.find(s => s.id === atendimento.servico_id);
       telefone = servicoOrigem?.telefone || '';
     }
+    // Fallback final: buscar pelo nome do cliente na entidade Cliente
+    if (!telefone && atendimento.cliente_nome) {
+      const clienteMatch = clientes.find(c => 
+        c.nome?.trim().toLowerCase() === atendimento.cliente_nome?.trim().toLowerCase()
+      );
+      telefone = clienteMatch?.telefone || '';
+    }
 
     setAtendimentoCompartilhar({
       cliente_nome: atendimento.cliente_nome,
