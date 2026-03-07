@@ -153,30 +153,20 @@ export default function Dashboard() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3" style={{ backgroundColor: '#1e3a8a' }}>
         <div>
-          <h1 className="text-xl sm:text-3xl font-bold text-white">
-            Dashboard
-          </h1>
-          <p className="text-blue-300/70 mt-1 flex items-center gap-2 text-xs sm:text-sm">
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Dashboard</h1>
+          <p className="text-blue-200/80 mt-1 flex items-center gap-2 text-xs sm:text-sm">
             <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
             {format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-           <Link to={createPageUrl('Servicos')}>
-             <Button className="text-xs sm:text-sm px-3 sm:px-4 h-9 text-white font-bold" style={{background: 'linear-gradient(135deg, #1e40af, #2563eb)'}}>
-               <Plus className="w-4 h-4 mr-1" />
-               <span className="hidden xs:inline">Novo </span>Serviço
-             </Button>
-           </Link>
-           <Link to={createPageUrl('Clientes')}>
-             <Button className="text-xs sm:text-sm px-3 sm:px-4 h-9 text-white font-bold" style={{background: 'linear-gradient(135deg, #f59e0b, #d97706)'}}>
-               <Users className="w-4 h-4 mr-1" />
-               <span className="hidden xs:inline">Ver </span>Clientes
-             </Button>
-           </Link>
-         </div>
+        <Link to={createPageUrl('Servicos')}>
+          <Button className="text-sm px-5 h-10 font-bold rounded-xl" style={{ backgroundColor: '#f59e0b', color: '#1e1e1e' }}>
+            <Plus className="w-4 h-4 mr-1" />
+            + Novo Serviço
+          </Button>
+        </Link>
       </div>
 
       {/* Stats Grid */}
