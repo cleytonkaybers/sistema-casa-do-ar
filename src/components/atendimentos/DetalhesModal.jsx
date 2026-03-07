@@ -25,13 +25,6 @@ import {
   ArrowRight
 } from 'lucide-react';
 
-const statusColors = {
-  'Aberto': 'bg-gray-100 text-gray-700 border-gray-200',
-  'Em Andamento': 'bg-blue-100 text-blue-700 border-blue-200',
-  'Agendado': 'bg-yellow-100 text-yellow-700 border-yellow-200',
-  'Reagendado': 'bg-orange-100 text-orange-700 border-orange-200',
-  'Concluído': 'bg-green-100 text-green-700 border-green-200'
-};
 
 function InfoRow({ icon: Icon, label, value, className = '' }) {
   if (!value) return null;
