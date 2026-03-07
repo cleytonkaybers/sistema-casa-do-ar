@@ -199,7 +199,7 @@ function LayoutContent({ children }) {
                   onClick={() => setSidebarOpen(true)}
                   className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors">
 
-                  <Menu className="w-6 h-6 text-white" />
+                  <Menu className="w-6 h-6 text-gray-700" />
                 </button>
 
                 {/* Logo visível no mobile topbar */}
@@ -212,7 +212,7 @@ function LayoutContent({ children }) {
                     <LogoIcon className="w-4 h-4 text-white" />
                     }
                   </div>
-                  <span className="font-bold text-gray-800">{currentEmpresa?.nome || companySettings.company_name}</span>
+                  <span className="font-bold text-white">{currentEmpresa?.nome || companySettings.company_name}</span>
                 </div>
               </div>
 
