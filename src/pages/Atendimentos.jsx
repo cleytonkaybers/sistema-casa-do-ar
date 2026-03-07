@@ -529,28 +529,28 @@ export default function Atendimentos() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-sm text-blue-200 mb-3">
+                    <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
                       <div className="flex items-center gap-1.5">
                         <Calendar className="w-4 h-4 text-blue-400" />
                         {format(new Date(atendimento.data_atendimento), "dd/MM/yyyy", { locale: ptBR })}
                       </div>
-                      <span className="font-medium text-green-400">
+                      <span className="font-medium text-green-600">
                         {formatCurrency(atendimento.valor)}
                       </span>
                     </div>
 
                     {atendimento.descricao && (
-                      <p className="text-sm text-blue-300/70 border border-blue-800/40 p-2 rounded-lg mb-3 line-clamp-2" style={{backgroundColor: 'rgba(30,64,175,0.1)'}}>
+                      <p className="text-sm text-gray-500 border border-gray-100 p-2 rounded-lg mb-3 line-clamp-2 bg-gray-50">
                         {atendimento.descricao}
                       </p>
                     )}
 
-                    <div className="flex items-center gap-2 pt-3 border-t border-blue-800/40">
+                    <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleCompartilhar(atendimento)}
-                        className="border-blue-700/50 text-blue-300 hover:text-green-400 hover:border-green-600/50"
+                        className="border-gray-200 text-gray-500 hover:text-green-600"
                       >
                         <Share2 className="w-4 h-4" />
                       </Button>
@@ -558,7 +558,7 @@ export default function Atendimentos() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleVerDetalhes(atendimento)}
-                        className="flex-1 border-blue-700/50 text-blue-200 hover:text-white"
+                        className="flex-1 border-gray-200 text-gray-600 hover:text-blue-600"
                       >
                         <Info className="w-4 h-4 mr-1.5" />
                         Ver Detalhes
@@ -568,7 +568,7 @@ export default function Atendimentos() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleVerHistorico(atendimento)}
-                          className="flex-1 border-blue-700/50 text-blue-200 hover:text-white"
+                          className="flex-1 border-gray-200 text-gray-600 hover:text-purple-600"
                         >
                           <History className="w-4 h-4 mr-1.5" />
                           Histórico
@@ -580,7 +580,7 @@ export default function Atendimentos() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleEdit(atendimento)}
-                            className="flex-1 border-blue-700/50 text-blue-200 hover:text-yellow-400"
+                            className="flex-1 border-gray-200 text-gray-600 hover:text-amber-500"
                           >
                             <Pencil className="w-4 h-4 mr-1.5" />
                             Editar
@@ -589,7 +589,7 @@ export default function Atendimentos() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleDelete(atendimento)}
-                            className="border-blue-700/50 text-blue-300 hover:text-red-400 hover:border-red-600/50"
+                            className="border-gray-200 text-gray-500 hover:text-red-500"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
