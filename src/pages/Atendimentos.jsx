@@ -166,15 +166,8 @@ export default function Atendimentos() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Atendimentos</h1>
-          <p className="text-gray-500 mt-1">{atendimentos.length} atendimentos registrados</p>
+          <p className="text-gray-500 mt-1">{atendimentos.length} atendimentos concluídos</p>
         </div>
-        <Button 
-          onClick={handleNewAtendimento}
-          className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 shadow-lg shadow-blue-500/30"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Novo Atendimento
-        </Button>
       </div>
 
       <div className="rounded-2xl shadow-sm p-4 sm:p-6 space-y-4 border border-gray-200 bg-white">
