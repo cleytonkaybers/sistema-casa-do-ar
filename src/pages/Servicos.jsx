@@ -451,8 +451,8 @@ export default function ServicosPage() {
           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
         </div>
       ) : filteredServicos.length === 0 ? (
-        <div className="text-center py-12 rounded-xl border-2 border-dashed border-blue-800/40" style={{backgroundColor: '#243447'}}>
-          <p className="text-blue-300/60">
+        <div className="text-center py-12 rounded-xl border-2 border-dashed border-gray-200 bg-white">
+          <p className="text-gray-400">
             {searchTerm || tipoFilter !== 'todos' 
               ? 'Nenhum serviço encontrado com esses filtros'
               : 'Nenhum serviço cadastrado ainda'
