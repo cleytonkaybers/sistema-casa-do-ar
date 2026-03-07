@@ -20,7 +20,9 @@ import {
   Phone,
   MapPin,
   CreditCard,
-  Users
+  Users,
+  History,
+  ArrowRight
 } from 'lucide-react';
 
 const statusColors = {
