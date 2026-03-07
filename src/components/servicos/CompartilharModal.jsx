@@ -43,6 +43,7 @@ export default function CompartilharModal({ open, onClose, servico, isConclusao 
   const mensagem = isConclusao 
     ? [
         `✅ *Serviço Concluído!*`,
+        servico.equipe_nome ? `👷 *Equipe:* ${servico.equipe_nome}` : null,
         ``,
         `👤 *Cliente:* ${servico.cliente_nome}`,
         servico.telefone ? `📞 *Telefone:* ${formatPhone(servico.telefone)}` : null,
