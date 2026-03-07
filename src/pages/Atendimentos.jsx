@@ -24,7 +24,6 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
-  Plus, 
   Search, 
   ClipboardList, 
   Filter,
@@ -32,13 +31,11 @@ import {
   Calendar,
   Wrench,
   DollarSign,
-  Pencil,
   Trash2,
   X,
-  User,
-  History,
   Info,
-  Share2
+  Share2,
+  CheckCircle2
 } from 'lucide-react';
 
 import DeleteConfirmDialog from '@/components/clientes/DeleteConfirmDialog';
