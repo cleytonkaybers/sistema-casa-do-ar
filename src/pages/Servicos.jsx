@@ -178,39 +178,90 @@ export default function ServicosPage() {
     
     const currentUser = await base44.auth.me();
     const statusAnterior = servicoParaConcluir.status || 'aberto';
-    
-    const updateData = {
-      ...servicoParaConcluir,
-      status: 'concluido',
-      observacoes_conclusao: observacoes,
-      usuario_atualizacao_status: currentUser?.email,
-      data_atualizacao_status: new Date().toISOString()
-    };
+    const agora = new Date().toISOString();
 
+    // Registrar alteração de status para conclusão
     await base44.entities.AlteracaoStatus.create({
       servico_id: servicoParaConcluir.id,
       status_anterior: statusAnterior,
       status_novo: 'concluido',
       usuario: currentUser?.email,
-      data_alteracao: new Date().toISOString(),
+      data_alteracao: agora,
       tipo_registro: 'servico'
     });
+
+    // Buscar todo o histórico de status desta ordem de serviço
+    const historicoStatus = await base44.entities.AlteracaoStatus.filter(
+      { servico_id: servicoParaConcluir.id },
+      'data_alteracao'
+    );
+
+    // Montar objeto de detalhes completo
+    const detalhesCompletos = {
+      dados_ordem_servico: {
+        id: servicoParaConcluir.id,
+        cliente_nome: servicoParaConcluir.cliente_nome,
+        cpf: servicoParaConcluir.cpf || null,
+        telefone: servicoParaConcluir.telefone || null,
+        endereco: servicoParaConcluir.endereco || null,
+        latitude: servicoParaConcluir.latitude || null,
+        longitude: servicoParaConcluir.longitude || null,
+        tipo_servico: servicoParaConcluir.tipo_servico,
+        descricao: servicoParaConcluir.descricao || null,
+        valor: servicoParaConcluir.valor || 0,
+        data_programada: servicoParaConcluir.data_programada || null,
+        horario: servicoParaConcluir.horario || null,
+        dia_semana: servicoParaConcluir.dia_semana || null,
+        equipe_id: servicoParaConcluir.equipe_id || null,
+        equipe_nome: servicoParaConcluir.equipe_nome || null,
+        data_criacao: servicoParaConcluir.created_date || null,
+      },
+      observacoes_conclusao: observacoes || null,
+      usuario_conclusao: currentUser?.email,
+      data_conclusao: agora,
+      historico_status: historicoStatus.map(h => ({
+        status_anterior: h.status_anterior,
+        status_novo: h.status_novo,
+        usuario: h.usuario,
+        data_alteracao: h.data_alteracao,
+      })),
+    };
+
+    // Atualizar serviço como concluído
+    const updateData = {
+      ...servicoParaConcluir,
+      status: 'concluido',
+      observacoes_conclusao: observacoes,
+      usuario_atualizacao_status: currentUser?.email,
+      data_atualizacao_status: agora,
+    };
 
     updateMutation.mutate({ 
       id: servicoParaConcluir.id, 
       data: updateData
     }, {
       onSuccess: async () => {
+        // Criar ÚNICO registro de atendimento com todos os dados
         await base44.entities.Atendimento.create({
+          servico_id: servicoParaConcluir.id,
           cliente_nome: servicoParaConcluir.cliente_nome,
+          cpf: servicoParaConcluir.cpf || '',
+          telefone: servicoParaConcluir.telefone || '',
+          endereco: servicoParaConcluir.endereco || '',
+          latitude: servicoParaConcluir.latitude || null,
+          longitude: servicoParaConcluir.longitude || null,
           data_atendimento: servicoParaConcluir.data_programada,
+          horario: servicoParaConcluir.horario || '',
+          dia_semana: servicoParaConcluir.dia_semana || '',
           tipo_servico: servicoParaConcluir.tipo_servico,
           descricao: servicoParaConcluir.descricao || '',
           valor: servicoParaConcluir.valor || 0,
-          status: 'Concluído',
-          observacoes: observacoes || '',
-          usuario_atualizacao_status: currentUser?.email,
-          data_atualizacao_status: new Date().toISOString()
+          observacoes_conclusao: observacoes || '',
+          equipe_id: servicoParaConcluir.equipe_id || '',
+          equipe_nome: servicoParaConcluir.equipe_nome || '',
+          usuario_conclusao: currentUser?.email,
+          data_conclusao: agora,
+          detalhes: JSON.stringify(detalhesCompletos),
         });
 
         // Gerar preventiva futura apenas se não for serviço avulso
