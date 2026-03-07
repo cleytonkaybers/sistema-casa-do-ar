@@ -70,6 +70,11 @@ export default function Atendimentos() {
     queryFn: () => base44.entities.Servico.list(),
   });
 
+  const { data: clientes = [] } = useQuery({
+    queryKey: ['clientes-atendimentos'],
+    queryFn: () => base44.entities.Cliente.list(),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.Atendimento.delete(id),
     onSuccess: () => {
