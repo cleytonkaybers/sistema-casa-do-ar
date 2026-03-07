@@ -54,7 +54,6 @@ export default function CompartilharModal({ open, onClose, servico, isConclusao 
         servico.valor ? `💰 *Valor:* R$ ${servico.valor.toFixed(2)}` : null,
         servico.descricao ? `📝 *Descrição:* ${servico.descricao}` : null,
         servico.observacoes_conclusao ? `📋 *Observações:* ${servico.observacoes_conclusao}` : null,
-        servico.equipe_nome ? `👷 *Equipe:* ${servico.equipe_nome}` : null,
       ].filter(l => l !== null).join('\n')
     : [
         `${statusEmoji} *${statusTexto}*`,
