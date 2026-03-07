@@ -16,7 +16,8 @@ import {
   Search, 
   Users, 
   Filter,
-  X
+  X,
+  CloudUpload
 } from 'lucide-react';
 
 import ClienteForm from '@/components/clientes/ClienteForm';
