@@ -308,7 +308,12 @@ export default function Atendimentos() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <span className="text-xs text-gray-500">{atendimento.usuario_conclusao || '-'}</span>
+                      <div className="text-xs text-gray-600">
+                        {atendimento.equipe_nome && (
+                          <p className="font-medium text-blue-700">👷 {atendimento.equipe_nome}</p>
+                        )}
+                        <p className="text-gray-400">{atendimento.usuario_conclusao || '-'}</p>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
