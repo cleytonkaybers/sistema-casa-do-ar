@@ -212,7 +212,7 @@ function LayoutContent({ children }) {
                     <LogoIcon className="w-4 h-4 text-white" />
                     }
                   </div>
-                  <span className="font-bold text-gray-800">{currentEmpresa?.nome || companySettings.company_name}</span>
+                  <span className="font-bold text-white">{currentEmpresa?.nome || companySettings.company_name}</span>
                 </div>
               </div>
 
