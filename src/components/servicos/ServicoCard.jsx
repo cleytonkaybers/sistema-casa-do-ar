@@ -127,40 +127,40 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
             variant="ghost"
             size="icon"
             onClick={handleShare}
-            className="h-8 w-8 text-blue-300 hover:text-white flex-shrink-0"
+            className="h-8 w-8 text-gray-400 hover:text-gray-700 flex-shrink-0"
           >
             <Share2 className="w-4 h-4" />
           </Button>
         </div>
 
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm text-blue-100">
-            <Phone className="w-3.5 h-3.5 text-blue-300" />
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <Phone className="w-3.5 h-3.5 text-blue-400" />
             <span className="text-xs">{formatPhone(servico.telefone)}</span>
           </div>
           
           {servico.horario && (
-            <div className="flex items-center gap-2 text-sm text-blue-100">
-              <Clock className="w-3.5 h-3.5 text-blue-300" />
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Clock className="w-3.5 h-3.5 text-blue-400" />
               <span className="text-xs">{servico.horario}</span>
             </div>
           )}
 
           {servico.descricao && (
-            <div className="text-xs text-blue-200 bg-blue-900/40 px-2 py-1.5 rounded-md line-clamp-2">
+            <div className="text-xs text-gray-500 bg-gray-50 px-2 py-1.5 rounded-md line-clamp-2 border border-gray-100">
               {servico.descricao}
             </div>
           )}
 
           {servico.valor > 0 && (
-            <div className="flex items-center gap-2 text-sm text-green-300 font-semibold">
+            <div className="flex items-center gap-2 text-sm text-green-600 font-semibold">
               <DollarSign className="w-3.5 h-3.5" />
               <span className="text-xs">R$ {servico.valor.toFixed(2)}</span>
             </div>
           )}
         </div>
 
-        <div className="flex gap-1.5 pt-2 border-t border-blue-800/40">
+        <div className="flex gap-1.5 pt-2 border-t border-gray-100">
           <a
             href={getWhatsAppLink(servico.telefone)}
             target="_blank"
@@ -246,14 +246,14 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
   }
 
   return (
-    <Card className="group hover:shadow-2xl transition-all duration-300 border border-blue-800/40 shadow-xl" style={{backgroundColor: '#243447'}}>
+    <Card className="group hover:shadow-md transition-all duration-300 border border-gray-200 shadow-sm bg-white">
       <CardContent className="p-0">
-        <div className="p-4 border-b border-blue-800/40" style={{background: 'linear-gradient(135deg, rgba(30,64,175,0.4), rgba(245,158,11,0.15))'}}>
+        <div className="p-4 border-b border-gray-100" style={{background: 'linear-gradient(135deg, #eff6ff, #fefce8)'}}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">
-              <h3 className="font-semibold text-lg text-white">{servico.cliente_nome}</h3>
+              <h3 className="font-semibold text-lg text-gray-800">{servico.cliente_nome}</h3>
               <div className="flex items-center gap-2 flex-wrap mt-1">
-                <Badge className="bg-blue-900/60 text-blue-200 border border-blue-700/50 text-xs">
+                <Badge className="bg-blue-100 text-blue-700 border border-blue-200 text-xs">
                   {servico.tipo_servico}
                 </Badge>
                 <Badge className={`${statusConfig.color} border text-xs`}>
