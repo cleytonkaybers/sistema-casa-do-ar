@@ -78,37 +78,6 @@ export default function Atendimentos() {
     queryFn: () => base44.entities.Atendimento.list('-data_atendimento'),
   });
 
-  const { data: clientes = [] } = useQuery({
-    queryKey: ['clientes'],
-    queryFn: () => base44.entities.Cliente.list(),
-  });
-
-  const { data: servicos = [] } = useQuery({
-    queryKey: ['servicos'],
-    queryFn: () => base44.entities.Servico.list(),
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Atendimento.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
-      setFormOpen(false);
-      toast.success('Atendimento registrado com sucesso!');
-    },
-    onError: () => toast.error('Erro ao registrar atendimento'),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Atendimento.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
-      setFormOpen(false);
-      setEditingAtendimento(null);
-      toast.success('Atendimento atualizado com sucesso!');
-    },
-    onError: () => toast.error('Erro ao atualizar atendimento'),
-  });
-
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.Atendimento.delete(id),
     onSuccess: () => {
@@ -125,76 +94,24 @@ export default function Atendimentos() {
     return Array.from(tiposSet).sort();
   }, [atendimentos]);
 
-  const atendimentosComServicos = useMemo(() => {
-    // Todos os serviços aparecem em atendimentos, independente do status
-    const servicosNaoConcluidos = servicos
-      .map(servico => ({
-        id: servico.id,
-        cliente_nome: servico.cliente_nome,
-        cpf: servico.cpf || '',
-        telefone: servico.telefone || '',
-        endereco: servico.endereco || '',
-        latitude: servico.latitude,
-        longitude: servico.longitude,
-        data_atendimento: servico.data_programada,
-        horario: servico.horario || '',
-        dia_semana: servico.dia_semana || '',
-        tipo_servico: servico.tipo_servico,
-        descricao: servico.descricao || '',
-        valor: servico.valor || 0,
-        status: servico.status === 'aberto' ? 'Aberto' :
-                servico.status === 'andamento' ? 'Em Andamento' :
-                servico.status === 'agendado' ? 'Agendado' :
-                servico.status === 'reagendado' ? 'Reagendado' :
-                servico.status === 'concluido' ? 'Concluído' : 'Aberto',
-        observacoes: servico.observacoes_conclusao || '',
-        equipe_id: servico.equipe_id || '',
-        equipe_nome: servico.equipe_nome || '',
-        origem: 'servico',
-        servico_id: servico.id,
-      }));
-
-    const atendimentosReais = atendimentos.map(a => ({
-      ...a,
-      origem: 'atendimento'
-    }));
-
-    return [...servicosNaoConcluidos, ...atendimentosReais];
-  }, [servicos, atendimentos]);
-
   const filteredAtendimentos = useMemo(() => {
-    const filtered = atendimentosComServicos.filter(atendimento => {
+    const filtered = atendimentos.filter(atendimento => {
       const matchesSearch = 
         atendimento.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        atendimento.tipo_servico?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         atendimento.descricao?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesStatus = filterStatus === 'all' || atendimento.status === filterStatus;
       const matchesTipo = filterTipo === 'all' || atendimento.tipo_servico === filterTipo;
       
-      return matchesSearch && matchesStatus && matchesTipo;
+      return matchesSearch && matchesTipo;
     });
-
-    const statusPrioridade = {
-      'Agendado': 1,
-      'Reagendado': 2,
-      'Aberto': 3,
-      'Em Andamento': 4,
-      'Concluído': 5
-    };
 
     return filtered.sort((a, b) => {
-      const prioA = statusPrioridade[a.status] || 999;
-      const prioB = statusPrioridade[b.status] || 999;
-      
-      if (prioA !== prioB) {
-        return prioA - prioB;
-      }
-      
-      const dataA = new Date(a.data_atendimento);
-      const dataB = new Date(b.data_atendimento);
+      const dataA = new Date(a.data_conclusao || a.data_atendimento);
+      const dataB = new Date(b.data_conclusao || b.data_atendimento);
       return dataB - dataA;
     });
-  }, [atendimentosComServicos, searchTerm, filterStatus, filterTipo]);
+  }, [atendimentos, searchTerm, filterTipo]);
 
   const handleSave = async (data) => {
     const currentUser = await base44.auth.me();
