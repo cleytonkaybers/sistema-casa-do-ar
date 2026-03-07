@@ -172,34 +172,34 @@ export default function Dashboard() {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
-          title="Total de Clientes"
+          title="Clientes"
           value={totalClientes}
           icon={Users}
-          color="bg-blue-700"
+          color="bg-blue-500"
           subtitle={`${clientesAtivos} ativos`}
           href={createPageUrl('Clientes')}
         />
         <StatCard
-          title="Atendimentos do Mês"
+          title="Atendimentos"
           value={atendimentosDoMes.length}
           icon={ClipboardList}
-          color="bg-yellow-500"
-          subtitle={format(new Date(), "MMMM", { locale: ptBR })}
+          color="bg-amber-400"
+          subtitle="Este mês"
           href={createPageUrl('Atendimentos')}
         />
         <StatCard
-          title="Manutenções Pendentes"
+          title="Pendentes"
           value={manutencoesPendentes.length}
           icon={AlertTriangle}
-          color={manutencoesPendentes.length > 0 ? "bg-orange-500" : "bg-emerald-600"}
-          subtitle="Próximos 30 dias"
+          color="bg-emerald-500"
+          subtitle="Próx. 30 dias"
           href={createPageUrl('PreventivasFuturas')}
         />
         <StatCard
-          title="Serviços Concluídos"
+          title="Concluídos"
           value={atendimentosConcluidos}
           icon={CheckCircle2}
-          color="bg-emerald-600"
+          color="bg-emerald-500"
           subtitle="Total histórico"
           href={createPageUrl('Atendimentos')}
         />
