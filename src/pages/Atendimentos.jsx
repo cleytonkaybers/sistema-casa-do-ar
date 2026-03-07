@@ -113,46 +113,17 @@ export default function Atendimentos() {
     });
   }, [atendimentos, searchTerm, filterTipo]);
 
-  const handleSave = async (data) => {
-    const currentUser = await base44.auth.me();
-    const dataWithUser = {
-      ...data,
-      usuario_atualizacao_status: currentUser?.email,
-      data_atualizacao_status: new Date().toISOString()
-    };
-
-    if (editingAtendimento) {
-      updateMutation.mutate({ id: editingAtendimento.id, data: dataWithUser });
-    } else {
-      createMutation.mutate(dataWithUser);
-    }
-  };
-
-  const handleEdit = (atendimento) => {
-    setEditingAtendimento(atendimento);
-    const cliente = clientes.find(c => c.id === atendimento.cliente_id);
-    setSelectedCliente(cliente);
-    setFormOpen(true);
-  };
-
   const handleDelete = (atendimento) => {
     setDeletingAtendimento(atendimento);
     setDeleteDialogOpen(true);
   };
 
-  const handleNewAtendimento = () => {
-    setEditingAtendimento(null);
-    setSelectedCliente(null);
-    setFormOpen(true);
-  };
-
   const clearFilters = () => {
     setSearchTerm('');
-    setFilterStatus('all');
     setFilterTipo('all');
   };
 
-  const hasActiveFilters = searchTerm || filterStatus !== 'all' || filterTipo !== 'all';
+  const hasActiveFilters = searchTerm || filterTipo !== 'all';
 
   const formatCurrency = (value) => {
     if (!value) return '-';
