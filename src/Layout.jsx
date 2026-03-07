@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from './utils';
-import { 
-  Users, 
-  LayoutDashboard, 
-  ClipboardList, 
-  Menu, 
+import {
+  Users,
+  LayoutDashboard,
+  ClipboardList,
+  Menu,
   X,
   LogOut,
   Database,
@@ -21,8 +21,8 @@ import {
   Cloud,
   Droplets,
   RotateCw,
-  ChevronRight
-} from 'lucide-react';
+  ChevronRight } from
+'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -46,46 +46,46 @@ function LayoutContent({ children }) {
   const [companySettings, setCompanySettings] = useState({ company_name: 'Casa do Ar', company_icon: 'Snowflake' });
 
   React.useEffect(() => {
-    base44.auth.me().then(u => setUser(u)).catch(() => setUser(null));
-    base44.entities.CompanySettings.list().then(result => {
+    base44.auth.me().then((u) => setUser(u)).catch(() => setUser(null));
+    base44.entities.CompanySettings.list().then((result) => {
       if (result.length > 0) setCompanySettings(result[0]);
     }).catch(() => {});
   }, []);
 
   const baseNavigation = [
-    { name: 'Dashboard', href: createPageUrl('Dashboard'), icon: LayoutDashboard },
-    { name: 'Clientes', href: createPageUrl('Clientes'), icon: Users },
-    { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
-    { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList },
-  ];
+  { name: 'Dashboard', href: createPageUrl('Dashboard'), icon: LayoutDashboard },
+  { name: 'Clientes', href: createPageUrl('Clientes'), icon: Users },
+  { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
+  { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList }];
+
 
   const preventivasNavigation = [
-    { name: 'Preventivas Futuras', href: createPageUrl('PreventivasFuturas'), icon: ClipboardList },
-    { name: 'Histórico de Clientes', href: createPageUrl('HistoricoClientes'), icon: BarChart3 },
-  ];
+  { name: 'Preventivas Futuras', href: createPageUrl('PreventivasFuturas'), icon: ClipboardList },
+  { name: 'Histórico de Clientes', href: createPageUrl('HistoricoClientes'), icon: BarChart3 }];
+
 
   const superAdminNavigation = [
-    { name: 'Gerenciar Empresas', href: createPageUrl('GerenciarEmpresas'), icon: Database },
-  ];
+  { name: 'Gerenciar Empresas', href: createPageUrl('GerenciarEmpresas'), icon: Database }];
+
 
   const adminNavigation = [
-    { name: 'Relatórios', href: createPageUrl('Relatorios'), icon: BarChart3 },
-    { name: 'Backup e Restaurar', href: createPageUrl('BackupRestaurer'), icon: Database },
-    { name: 'Usuários', href: createPageUrl('Usuarios'), icon: Users },
-    { name: 'Configurações', href: createPageUrl('Configuracoes'), icon: Settings },
-    { name: 'Suporte', href: createPageUrl('Suporte'), icon: MessageCircle },
-  ];
+  { name: 'Relatórios', href: createPageUrl('Relatorios'), icon: BarChart3 },
+  { name: 'Backup e Restaurar', href: createPageUrl('BackupRestaurer'), icon: Database },
+  { name: 'Usuários', href: createPageUrl('Usuarios'), icon: Users },
+  { name: 'Configurações', href: createPageUrl('Configuracoes'), icon: Settings },
+  { name: 'Suporte', href: createPageUrl('Suporte'), icon: MessageCircle }];
+
 
   const allUsersNavigation = [
-    { name: 'Preferências de Notificação', href: createPageUrl('PreferencesNotificacao'), icon: Bell },
-    { name: 'Sair', href: '#', icon: LogOut, action: () => base44.auth.logout() },
-  ];
+  { name: 'Preferências de Notificação', href: createPageUrl('PreferencesNotificacao'), icon: Bell },
+  { name: 'Sair', href: '#', icon: LogOut, action: () => base44.auth.logout() }];
 
-  const navigation = isSuperAdmin()
-    ? [...superAdminNavigation, ...baseNavigation, ...preventivasNavigation, ...adminNavigation, ...allUsersNavigation]
-    : currentUser?.tipo_usuario === 'tecnico'
-    ? [...baseNavigation, ...preventivasNavigation]
-    : [...baseNavigation, ...preventivasNavigation, ...adminNavigation, ...allUsersNavigation];
+
+  const navigation = isSuperAdmin() ?
+  [...superAdminNavigation, ...baseNavigation, ...preventivasNavigation, ...adminNavigation, ...allUsersNavigation] :
+  currentUser?.tipo_usuario === 'tecnico' ?
+  [...baseNavigation, ...preventivasNavigation] :
+  [...baseNavigation, ...preventivasNavigation, ...adminNavigation, ...allUsersNavigation];
 
   const isActive = (href) => {
     return location.pathname === new URL(href, window.location.origin).pathname;
@@ -97,12 +97,12 @@ function LayoutContent({ children }) {
     <ErrorBoundary>
       <div className="min-h-screen" style={{ backgroundColor: '#f0f4f8' }}>
         {/* Backdrop mobile */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
+        {sidebarOpen &&
+        <div
+          className="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm"
+          onClick={() => setSidebarOpen(false)} />
+
+        }
 
         {/* Sidebar */}
         <aside className={`
@@ -115,16 +115,16 @@ function LayoutContent({ children }) {
             <div className="flex items-center justify-between px-5 py-5 border-b border-white/10">
               <Link
                 to={isAdminEmpresa() || isSuperAdmin() ? createPageUrl('Configuracoes') : '#'}
-                className="flex items-center gap-3 hover:opacity-90 transition-opacity"
-              >
+                className="flex items-center gap-3 hover:opacity-90 transition-opacity">
+
                 {/* Logo box */}
                 <div className="w-12 h-12 rounded-2xl flex items-center justify-center overflow-hidden shadow-lg flex-shrink-0"
-                  style={{ backgroundColor: '#f59e0b' }}>
-                  {companySettings.company_logo_url ? (
-                    <img src={companySettings.company_logo_url} alt="Logo" className="w-full h-full object-cover" />
-                  ) : (
-                    <LogoIcon className="w-6 h-6 text-white" />
-                  )}
+                style={{ backgroundColor: '#f59e0b' }}>
+                  {companySettings.company_logo_url ?
+                  <img src={companySettings.company_logo_url} alt="Logo" className="w-full h-full object-cover" /> :
+
+                  <LogoIcon className="w-6 h-6 text-white" />
+                  }
                 </div>
                 <div>
                   <p className="font-bold text-white text-lg leading-tight">
@@ -133,15 +133,15 @@ function LayoutContent({ children }) {
                   <p className="text-xs font-medium" style={{ color: '#93c5fd' }}>
                     {isSuperAdmin() ? 'Super Admin' : currentUser?.tipo_usuario === 'admin_empresa' ? 'Administrador' : 'Climatização'}
                   </p>
-                  {user?.full_name && (
-                    <p className="text-xs font-semibold" style={{ color: '#f59e0b' }}>{user.full_name}</p>
-                  )}
+                  {user?.full_name &&
+                  <p className="text-xs font-semibold" style={{ color: '#f59e0b' }}>{user.full_name}</p>
+                  }
                 </div>
               </Link>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="lg:hidden p-2 rounded-lg hover:bg-white/10 transition-colors text-white"
-              >
+                className="lg:hidden p-2 rounded-lg hover:bg-white/10 transition-colors text-white">
+
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -157,12 +157,12 @@ function LayoutContent({ children }) {
                     <button
                       key={item.name}
                       onClick={item.action}
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-200/70 hover:text-white hover:bg-white/10 transition-all"
-                    >
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-200/70 hover:text-white hover:bg-white/10 transition-all">
+
                       <Icon className="w-5 h-5 flex-shrink-0" />
                       <span className="font-medium">{item.name}</span>
-                    </button>
-                  );
+                    </button>);
+
                 }
 
                 return (
@@ -171,17 +171,17 @@ function LayoutContent({ children }) {
                     to={item.href}
                     onClick={() => setSidebarOpen(false)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                      active
-                        ? 'text-gray-900 font-bold shadow-lg'
-                        : 'text-blue-100/80 hover:text-white hover:bg-white/10'
-                    }`}
-                    style={active ? { backgroundColor: '#f59e0b' } : {}}
-                  >
+                    active ?
+                    'text-gray-900 font-bold shadow-lg' :
+                    'text-blue-100/80 hover:text-white hover:bg-white/10'}`
+                    }
+                    style={active ? { backgroundColor: '#f59e0b' } : {}}>
+
                     <Icon className={`w-5 h-5 flex-shrink-0 ${active ? 'text-gray-900' : 'text-blue-200/60'}`} />
                     <span className="font-medium flex-1">{item.name}</span>
                     {active && <ChevronRight className="w-4 h-4 text-gray-900/70" />}
-                  </Link>
-                );
+                  </Link>);
+
               })}
             </nav>
           </div>
@@ -193,24 +193,24 @@ function LayoutContent({ children }) {
 
           {/* Top bar */}
           <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
-            <div className="flex items-center justify-between px-4 lg:px-6 py-3">
+            <div className="bg-[#1293e2] px-4 py-3 flex items-center justify-between lg:px-6">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                >
+                  className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors">
+
                   <Menu className="w-6 h-6 text-gray-700" />
                 </button>
 
                 {/* Logo visível no mobile topbar */}
                 <div className="flex items-center gap-2 lg:hidden">
                   <div className="w-8 h-8 rounded-xl flex items-center justify-center overflow-hidden shadow"
-                    style={{ backgroundColor: '#f59e0b' }}>
-                    {companySettings.company_logo_url ? (
-                      <img src={companySettings.company_logo_url} alt="Logo" className="w-full h-full object-cover" />
-                    ) : (
-                      <LogoIcon className="w-4 h-4 text-white" />
-                    )}
+                  style={{ backgroundColor: '#f59e0b' }}>
+                    {companySettings.company_logo_url ?
+                    <img src={companySettings.company_logo_url} alt="Logo" className="w-full h-full object-cover" /> :
+
+                    <LogoIcon className="w-4 h-4 text-white" />
+                    }
                   </div>
                   <span className="font-bold text-gray-800">{currentEmpresa?.nome || companySettings.company_name}</span>
                 </div>
@@ -218,11 +218,11 @@ function LayoutContent({ children }) {
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => window.location.reload()}
-                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
-                  title="Atualizar"
-                >
-                  <RotateCw className="w-5 h-5" />
+                  onClick={() => window.location.reload()} className="text-slate-50 p-2 rounded-lg hover:bg-gray-100 transition-colors hover:text-gray-700"
+
+                  title="Atualizar">
+
+                  <RotateCw className="bg-[none] lucide lucide-rotate-cw w-5 h-5" />
                 </button>
                 <NotificationCenter />
                 <UserMenu user={user} />
@@ -236,8 +236,8 @@ function LayoutContent({ children }) {
           </main>
         </div>
       </div>
-    </ErrorBoundary>
-  );
+    </ErrorBoundary>);
+
 }
 
 export default function Layout({ children }) {
@@ -246,6 +246,6 @@ export default function Layout({ children }) {
       <EmpresaProvider>
         <LayoutContent>{children}</LayoutContent>
       </EmpresaProvider>
-    </SubscriptionBlocker>
-  );
+    </SubscriptionBlocker>);
+
 }
