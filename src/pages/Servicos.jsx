@@ -18,9 +18,7 @@ import { ptBR } from 'date-fns/locale';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 
 export default function ServicosPage() {
-  const { hasPermission, isAdmin } = usePermissions();
-  const [currentUser, setCurrentUser] = useState(null);
-  const [loadingUser, setLoadingUser] = useState(true);
+  const { hasPermission, isAdmin, user: currentUser, loading: loadingUser } = usePermissions();
   const [showForm, setShowForm] = useState(false);
   const [editingServico, setEditingServico] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
