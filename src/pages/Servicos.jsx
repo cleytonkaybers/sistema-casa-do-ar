@@ -361,15 +361,14 @@ export default function ServicosPage() {
   const equipeIdUsuario = usuarioLogado?.equipe_id || null;
 
   const filteredServicos = servicos.filter(s => {
-    // Filtro por equipe: admin vê tudo, não-admin só vê da sua equipe
-    // Aguarda o usuário carregar antes de filtrar
-    if (loadingUser) return false;
+    // Aguarda o usuário e a lista de usuários carregar antes de filtrar
+    if (loadingUser || (usuarios.length === 0 && !isAdmin)) return false;
     if (!isAdmin) {
       if (equipeIdUsuario) {
         // Usuário tem equipe: só vê serviços da sua equipe
         if (s.equipe_id !== equipeIdUsuario) return false;
       } else {
-        // Usuário sem equipe: só vê serviços sem equipe atribuída
+        // Usuário sem equipe atribuída: não vê serviços de nenhuma equipe
         if (s.equipe_id) return false;
       }
     }
