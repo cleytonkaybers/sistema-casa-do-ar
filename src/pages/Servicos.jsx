@@ -350,22 +350,16 @@ export default function ServicosPage() {
 
   const today = startOfDay(new Date());
 
-  // Determina a equipe do usuário logado a partir da entidade User (onde equipe_id é salvo)
-  const usuarioLogado = usuarios.find(u => u.email === currentUser?.email);
-  const equipeIdUsuario = usuarioLogado?.equipe_id || null;
+  // equipe_id vem direto do auth.me() — sem depender da lista de usuários
+  const equipeIdUsuario = currentUser?.equipe_id || null;
 
-  // Aguarda apenas o carregamento do auth — não bloqueia nos usuários
   const filteredServicos = servicos.filter(s => {
     if (loadingUser) return false;
     if (!isAdmin) {
-      // Se a lista de usuários ainda carrega, não filtra por equipe ainda
-      if (!isLoadingUsuarios && equipeIdUsuario) {
+      if (equipeIdUsuario) {
         if (s.equipe_id !== equipeIdUsuario) return false;
-      } else if (!isLoadingUsuarios && !equipeIdUsuario) {
-        // Usuário sem equipe: só vê serviços sem equipe
-        if (s.equipe_id) return false;
       } else {
-        // Ainda carregando lista — deixa passar (evita tela vazia)
+        if (s.equipe_id) return false;
       }
     }
 
