@@ -67,7 +67,7 @@ export default function Atendimentos() {
     queryFn: () => base44.entities.Atendimento.list('-data_atendimento'),
   });
 
-  const { data: usuarios = [] } = useQuery({
+  const { data: usuarios = [], isLoading: isLoadingUsuarios } = useQuery({
     queryKey: ['usuarios-atendimentos'],
     queryFn: () => base44.entities.User.list(),
   });
