@@ -20,6 +20,7 @@ import { usePermissions } from '@/components/auth/PermissionGuard';
 export default function ServicosPage() {
   const { hasPermission, isAdmin } = usePermissions();
   const [currentUser, setCurrentUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingServico, setEditingServico] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
