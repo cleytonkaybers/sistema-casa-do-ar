@@ -51,6 +51,8 @@ const formatDate = (date) => {
 export default function Atendimentos() {
   const queryClient = useQueryClient();
   
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -60,9 +62,18 @@ export default function Atendimentos() {
   const [compartilharOpen, setCompartilharOpen] = useState(false);
   const [atendimentoCompartilhar, setAtendimentoCompartilhar] = useState(null);
 
+  React.useEffect(() => {
+    base44.auth.me().then(u => { setCurrentUser(u); setLoadingUser(false); }).catch(() => setLoadingUser(false));
+  }, []);
+
   const { data: atendimentos = [], isLoading } = useQuery({
     queryKey: ['atendimentos'],
     queryFn: () => base44.entities.Atendimento.list('-data_atendimento'),
+  });
+
+  const { data: usuarios = [] } = useQuery({
+    queryKey: ['usuarios-atendimentos'],
+    queryFn: () => base44.entities.User.list(),
   });
 
   const { data: servicos = [] } = useQuery({
