@@ -33,10 +33,6 @@ export default function ServicosPage() {
 
   const queryClient = useQueryClient();
 
-  React.useEffect(() => {
-    base44.auth.me().then(u => { setCurrentUser(u); setLoadingUser(false); }).catch(() => setLoadingUser(false));
-  }, []);
-
   const { data: servicos = [], isLoading } = useQuery({
     queryKey: ['servicos'],
     queryFn: () => base44.entities.Servico.list('-created_date'),
