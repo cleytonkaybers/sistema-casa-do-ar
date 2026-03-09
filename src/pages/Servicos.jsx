@@ -98,11 +98,13 @@ export default function ServicosPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Servico.update(id, data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['servicos'] });
-      setShowForm(false);
-      setEditingServico(null);
-      toast.success('Serviço atualizado!');
+      if (!variables.silencioso) {
+        setShowForm(false);
+        setEditingServico(null);
+        toast.success('Serviço atualizado!');
+      }
     },
     onError: () => toast.error('Erro ao atualizar serviço'),
   });
