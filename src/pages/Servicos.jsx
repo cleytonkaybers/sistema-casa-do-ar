@@ -36,7 +36,7 @@ export default function ServicosPage() {
   const queryClient = useQueryClient();
 
   React.useEffect(() => {
-    base44.auth.me().then(u => setCurrentUser(u)).catch(() => {});
+    base44.auth.me().then(u => { setCurrentUser(u); setLoadingUser(false); }).catch(() => setLoadingUser(false));
   }, []);
 
   const { data: servicos = [], isLoading } = useQuery({
