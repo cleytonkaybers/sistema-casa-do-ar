@@ -48,6 +48,11 @@ export default function Dashboard() {
     queryFn: () => base44.entities.Servico.list('-created_date'),
   });
 
+  const { data: equipes = [] } = useQuery({
+    queryKey: ['equipes'],
+    queryFn: () => base44.entities.Equipe.list(),
+  });
+
   // Estatísticas
   const totalClientes = clientes.length;
   const clientesAtivos = clientes.filter(c => c.status === 'Ativo').length;
@@ -106,6 +111,18 @@ export default function Dashboard() {
   });
 
   const atendimentosConcluidos = atendimentos.filter(a => a.status === 'Concluído').length;
+
+  // Serviços de hoje por equipe
+  const servicosHoje = servicos.filter(s => {
+    if (!s.data_programada) return false;
+    if (s.status === 'concluido') return false;
+    return isToday(new Date(s.data_programada));
+  });
+
+  const servicosPorEquipe = equipes.map(equipe => ({
+    equipe,
+    servicos: servicosHoje.filter(s => s.equipe_id === equipe.id)
+  })).filter(e => e.servicos.length > 0);
 
   const StatCard = ({ title, value, icon: Icon, color, subtitle, onClick, href }) => {
     const content = (
@@ -168,6 +185,89 @@ export default function Dashboard() {
           </Button>
         </Link>
       </div>
+
+      {/* Serviços Diários por Equipe */}
+      {servicosPorEquipe.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-blue-600" />
+            Serviços de Hoje por Equipe
+          </h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {servicosPorEquipe.map(({ equipe, servicos }) => (
+              <Card key={equipe.id} className="bg-white border border-gray-200 shadow-sm rounded-2xl">
+                <CardHeader className="pb-3 px-4 pt-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg"
+                        style={{ backgroundColor: equipe.cor || '#3b82f6' }}
+                      >
+                        {equipe.nome.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <CardTitle className="text-base font-semibold text-gray-800">
+                          {equipe.nome}
+                        </CardTitle>
+                        <p className="text-xs text-gray-500">
+                          {servicos.length} {servicos.length === 1 ? 'serviço hoje' : 'serviços hoje'}
+                        </p>
+                      </div>
+                    </div>
+                    <Link to={createPageUrl('Servicos')}>
+                      <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 text-xs">
+                        Ver <ArrowRight className="w-3 h-3 ml-1" />
+                      </Button>
+                    </Link>
+                  </div>
+                </CardHeader>
+                <CardContent className="px-4 pb-4">
+                  <div className="space-y-2">
+                    {servicos.slice(0, 4).map(servico => {
+                      const statusColors = {
+                        'aberto': 'bg-gray-100 text-gray-700 border-gray-200',
+                        'andamento': 'bg-blue-100 text-blue-700 border-blue-200',
+                        'agendado': 'bg-amber-100 text-amber-700 border-amber-200',
+                        'reagendado': 'bg-purple-100 text-purple-700 border-purple-200'
+                      };
+                      const statusClass = statusColors[servico.status] || statusColors.aberto;
+                      
+                      return (
+                        <div key={servico.id} className={`p-3 rounded-lg border ${statusClass} transition-all`}>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <p className="font-semibold text-sm">{servico.cliente_nome}</p>
+                              <p className="text-xs opacity-80 mt-0.5">{servico.tipo_servico}</p>
+                              {servico.horario && (
+                                <p className="text-xs font-medium mt-1 flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {servico.horario}
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <span className="text-xs font-medium px-2 py-1 rounded-full bg-white/50">
+                                {servico.status}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {servicos.length > 4 && (
+                      <Link to={createPageUrl('Servicos')}>
+                        <Button variant="ghost" size="sm" className="w-full text-xs text-blue-600 hover:text-blue-700 mt-1">
+                          Ver todos os {servicos.length} serviços
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
