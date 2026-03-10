@@ -53,6 +53,16 @@ export default function Dashboard() {
     queryFn: () => base44.entities.Equipe.list(),
   });
 
+  const { data: currentUser } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me(),
+  });
+
+  const { data: usuarios = [] } = useQuery({
+    queryKey: ['usuarios'],
+    queryFn: () => base44.entities.User.list(),
+  });
+
   // Estatísticas
   const totalClientes = clientes.length;
   const clientesAtivos = clientes.filter(c => c.status === 'Ativo').length;
@@ -119,10 +129,21 @@ export default function Dashboard() {
     return isToday(new Date(s.data_programada));
   });
 
-  const servicosPorEquipe = equipes.map(equipe => ({
-    equipe,
-    servicos: servicosHoje.filter(s => s.equipe_id === equipe.id)
-  })).filter(e => e.servicos.length > 0);
+  // Buscar equipe do usuário atual
+  const usuarioAtual = usuarios.find(u => u.email === currentUser?.email);
+  const equipeDoUsuario = usuarioAtual?.equipe_id;
+
+  // Filtrar apenas serviços da equipe do usuário (se não for admin)
+  const servicosFiltradosPorEquipe = currentUser?.role === 'admin' 
+    ? servicosHoje 
+    : servicosHoje.filter(s => s.equipe_id === equipeDoUsuario);
+
+  const servicosPorEquipe = equipes
+    .map(equipe => ({
+      equipe,
+      servicos: servicosFiltradosPorEquipe.filter(s => s.equipe_id === equipe.id)
+    }))
+    .filter(e => e.servicos.length > 0);
 
   const StatCard = ({ title, value, icon: Icon, color, subtitle, onClick, href }) => {
     const content = (
@@ -191,79 +212,63 @@ export default function Dashboard() {
         <div className="space-y-3">
           <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
             <Calendar className="w-5 h-5 text-blue-600" />
-            Serviços de Hoje por Equipe
+            {currentUser?.role === 'admin' ? 'Serviços de Hoje por Equipe' : 'Meus Serviços de Hoje'}
           </h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {servicosPorEquipe.map(({ equipe, servicos }) => (
-              <Card key={equipe.id} className="bg-white border border-gray-200 shadow-sm rounded-2xl">
-                <CardHeader className="pb-3 px-4 pt-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg"
-                        style={{ backgroundColor: equipe.cor || '#3b82f6' }}
-                      >
-                        {equipe.nome.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <CardTitle className="text-base font-semibold text-gray-800">
-                          {equipe.nome}
-                        </CardTitle>
-                        <p className="text-xs text-gray-500">
-                          {servicos.length} {servicos.length === 1 ? 'serviço hoje' : 'serviços hoje'}
-                        </p>
-                      </div>
-                    </div>
-                    <Link to={createPageUrl('Servicos')}>
-                      <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 text-xs">
-                        Ver <ArrowRight className="w-3 h-3 ml-1" />
-                      </Button>
-                    </Link>
+              <div key={equipe.id} className="space-y-2">
+                {/* Header da equipe */}
+                <div className="flex items-center gap-2 px-1">
+                  <div 
+                    className="w-6 h-6 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow"
+                    style={{ backgroundColor: equipe.cor || '#3b82f6' }}
+                  >
+                    {equipe.nome.charAt(0).toUpperCase()}
                   </div>
-                </CardHeader>
-                <CardContent className="px-4 pb-4">
-                  <div className="space-y-2">
-                    {servicos.slice(0, 4).map(servico => {
-                      const statusColors = {
-                        'aberto': 'bg-gray-100 text-gray-700 border-gray-200',
-                        'andamento': 'bg-blue-100 text-blue-700 border-blue-200',
-                        'agendado': 'bg-amber-100 text-amber-700 border-amber-200',
-                        'reagendado': 'bg-purple-100 text-purple-700 border-purple-200'
-                      };
-                      const statusClass = statusColors[servico.status] || statusColors.aberto;
-                      
-                      return (
-                        <div key={servico.id} className={`p-3 rounded-lg border ${statusClass} transition-all`}>
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <p className="font-semibold text-sm">{servico.cliente_nome}</p>
-                              <p className="text-xs opacity-80 mt-0.5">{servico.tipo_servico}</p>
+                  <p className="text-sm font-semibold text-gray-800">{equipe.nome}</p>
+                  <span className="text-xs text-gray-500">({servicos.length})</span>
+                </div>
+
+                {/* Mini cards dos serviços */}
+                <div className="space-y-1.5">
+                  {servicos.map(servico => {
+                    const statusColors = {
+                      'aberto': 'bg-gray-50 border-gray-200',
+                      'andamento': 'bg-blue-50 border-blue-200',
+                      'agendado': 'bg-amber-50 border-amber-200',
+                      'reagendado': 'bg-purple-50 border-purple-200'
+                    };
+                    const statusDot = {
+                      'aberto': 'bg-gray-500',
+                      'andamento': 'bg-blue-500',
+                      'agendado': 'bg-amber-500',
+                      'reagendado': 'bg-purple-500'
+                    };
+                    const statusClass = statusColors[servico.status] || statusColors.aberto;
+                    const dotClass = statusDot[servico.status] || statusDot.aberto;
+                    
+                    return (
+                      <Link key={servico.id} to={createPageUrl('Servicos')}>
+                        <div className={`p-2.5 rounded-lg border ${statusClass} hover:shadow-sm transition-all cursor-pointer`}>
+                          <div className="flex items-start gap-2">
+                            <div className={`w-2 h-2 rounded-full ${dotClass} mt-1.5 flex-shrink-0`} />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm text-gray-800 truncate">{servico.cliente_nome}</p>
+                              <p className="text-xs text-gray-600 truncate">{servico.tipo_servico}</p>
                               {servico.horario && (
-                                <p className="text-xs font-medium mt-1 flex items-center gap-1">
+                                <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
                                   <Clock className="w-3 h-3" />
                                   {servico.horario}
                                 </p>
                               )}
                             </div>
-                            <div className="text-right">
-                              <span className="text-xs font-medium px-2 py-1 rounded-full bg-white/50">
-                                {servico.status}
-                              </span>
-                            </div>
                           </div>
                         </div>
-                      );
-                    })}
-                    {servicos.length > 4 && (
-                      <Link to={createPageUrl('Servicos')}>
-                        <Button variant="ghost" size="sm" className="w-full text-xs text-blue-600 hover:text-blue-700 mt-1">
-                          Ver todos os {servicos.length} serviços
-                        </Button>
                       </Link>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                    );
+                  })}
+                </div>
+              </div>
             ))}
           </div>
         </div>
