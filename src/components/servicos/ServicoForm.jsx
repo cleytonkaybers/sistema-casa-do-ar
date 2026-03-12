@@ -515,6 +515,12 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                        <SelectItem value="Instalação de 24k">Instalação de 24k</SelectItem>
                        <SelectItem value="Instalação de 30 a 32k">Instalação de 30 a 32k</SelectItem>
                        <SelectItem value="Instalação piso e teto">Instalação piso e teto</SelectItem>
+                       <SelectItem value="Instalação de cortina de ar">Instalação de cortina de ar</SelectItem>
+                       <SelectItem value="Instalação cortina de ar">Instalação cortina de ar</SelectItem>
+                       <SelectItem value="Mudança + limpeza ar 9/12/18">Mudança + limpeza ar 9/12/18</SelectItem>
+                       <SelectItem value="Mudança + limpeza 22/24/30">Mudança + limpeza 22/24/30</SelectItem>
+                       <SelectItem value="Retirada cortina de ar">Retirada cortina de ar</SelectItem>
+                       <SelectItem value="Troca de compressor">Troca de compressor</SelectItem>
                        <SelectItem value="Troca de capacitor">Troca de capacitor</SelectItem>
                        <SelectItem value="Recarga de gás">Recarga de gás</SelectItem>
                        <SelectItem value="Carga de gás completa">Carga de gás completa</SelectItem>
