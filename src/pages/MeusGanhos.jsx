@@ -91,15 +91,15 @@ export default function MeusGanhos() {
     }
   };
 
-  const handleValorPagoChange = (equipeId, valor) => {
+  const handleValorPagoChange = (tecnicoEmail, valor) => {
     setValoresPagos(prev => ({
       ...prev,
-      [equipeId]: valor
+      [tecnicoEmail]: valor
     }));
   };
 
-  const handleConfirmarPagamento = (equipeId) => {
-    const valor = parseFloat(valoresPagos[equipeId] || 0);
+  const handleConfirmarPagamento = (tecnicoEmail) => {
+    const valor = parseFloat(valoresPagos[tecnicoEmail] || 0);
     if (valor <= 0) {
       toast.error('Digite um valor válido');
       return;
