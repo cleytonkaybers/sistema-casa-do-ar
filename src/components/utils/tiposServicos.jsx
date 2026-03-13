@@ -9,7 +9,6 @@ export const TIPOS_SERVICOS = [
   "Limpeza de 30 a 32k",
   "Limpeza piso e teto",
   "Limpeza de 9 a 22k no bolsão",
-  "Limpeza de 22 a 32k no bolsão",
   "Limpeza ar 18k licitação prefeitura",
   "Limpeza ar 9-12-18 câmara",
   "Instalação de 9k",
