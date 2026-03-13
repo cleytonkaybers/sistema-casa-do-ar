@@ -441,12 +441,16 @@ export default function MeusGanhos() {
                           
                           return (
                             <TableRow 
-                              key={ganho.id}
-                              className={ganho.pago ? 'bg-green-50' : 'hover:bg-gray-50'}
-                            >
-                              <TableCell className="font-medium">{ganho.cliente_nome}</TableCell>
-                              <TableCell className="text-sm text-blue-600">{ganho.equipe_nome}</TableCell>
-                              <TableCell className="text-sm">{ganho.tipo_servico}</TableCell>
+                               key={ganho.id}
+                               className={ganho.pago ? 'bg-green-50' : 'hover:bg-gray-50'}
+                             >
+                               <TableCell className="font-medium">{ganho.cliente_nome}</TableCell>
+                               <TableCell className="text-sm">
+                                 <span className="inline-block px-2.5 py-1 rounded-full font-medium" style={{ backgroundColor: `${equipeObj?.cor || '#3b82f6'}20`, color: equipeObj?.cor || '#3b82f6' }}>
+                                   {ganho.equipe_nome || 'Sem equipe'}
+                                 </span>
+                               </TableCell>
+                               <TableCell className="text-sm">{ganho.tipo_servico}</TableCell>
                             <TableCell className="text-sm text-gray-600">
                               {format(parseISO(ganho.data_conclusao), "dd/MM/yy HH:mm", { locale: ptBR })}
                             </TableCell>
