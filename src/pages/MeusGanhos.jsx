@@ -32,23 +32,8 @@ export default function MeusGanhos() {
     enabled: !!user,
   });
 
-  const { data: equipes = [] } = useQuery({
-    queryKey: ['equipes'],
-    queryFn: () => base44.entities.Equipe.list(),
-    enabled: !!user,
-  });
-
-  const { data: usuarios = [] } = useQuery({
-    queryKey: ['usuarios'],
-    queryFn: () => base44.entities.User.list(),
-    enabled: !!user,
-  });
-
   const meuEmail = user?.email;
   const isAdmin = user?.role === 'admin';
-  
-  // Buscar equipe_id do usuário (prioriza equipe_id direto do auth.me, senão busca na lista de usuarios)
-  const minhaEquipeId = user?.equipe_id || usuarios.find(u => u.email === user?.email)?.equipe_id;
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.GanhoTecnico.delete(id),
