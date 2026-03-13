@@ -130,22 +130,13 @@ export default function MeusGanhos() {
     // Admin vê tudo
     if (isAdmin) return ganhos;
     
-    // Técnico vé os ganhos da sua equipe (todos os ganhos de um mesmo atendimento são iguais)
+    // Técnico vê os ganhos da sua equipe
     if (minhaEquipeId) {
-      const tecnicosEquipe = usuarios.filter(u => u.equipe_id === minhaEquipeId).map(u => u.email);
-      // Pega ganhos da equipe, filtrando apenas uma instância por atendimento
-      const ganhosPorAtendimento = {};
-      return ganhos.filter(g => {
-        if (!tecnicosEquipe.includes(g.tecnico_email)) return false;
-        const atendimento_id = g.atendimento_id;
-        if (ganhosPorAtendimento[atendimento_id]) return false;
-        ganhosPorAtendimento[atendimento_id] = true;
-        return true;
-      });
+      return ganhos.filter(g => g.equipe_id === minhaEquipeId);
     }
     
     return [];
-  }, [ganhos, user, isAdmin, minhaEquipeId, usuarios]);
+  }, [ganhos, user, isAdmin, minhaEquipeId]);
 
   // Calcular períodos (semana começa na segunda-feira)
   const hoje = new Date();
@@ -190,29 +181,13 @@ export default function MeusGanhos() {
 
 
 
-  // Agrupar ganhos por equipe e remover duplicatas (agrupar por cliente + tipo_servico + data)
+  // Agrupar ganhos por equipe
   const ganhosPorEquipe = useMemo(() => {
     const grupos = {};
     
-    // Agrupar ganhos duplicados do mesmo serviço
-    const ganhosUnicos = {};
     ganhosFiltrados.forEach(ganho => {
-      // Chave única: cliente + tipo_servico + data (sem hora/minuto)
-      const dataServico = ganho.data_conclusao ? ganho.data_conclusao.split('T')[0] : 'sem-data';
-      const chaveUnica = `${ganho.cliente_nome}-${ganho.tipo_servico}-${dataServico}`;
-      
-      if (!ganhosUnicos[chaveUnica]) {
-        // Usar o valor de comissão já gravado no banco
-        ganhosUnicos[chaveUnica] = ganho;
-      }
-      // Se já existe, não somar (apenas ignorar duplicata)
-    });
-    
-    // Criar grupos por equipe usando os ganhos únicos
-    Object.values(ganhosUnicos).forEach(ganho => {
-      const usuario = usuarios.find(u => u.email === ganho.tecnico_email);
-      const equipeId = usuario?.equipe_id || 'sem-equipe';
-      const equipeNome = equipes.find(e => e.id === equipeId)?.nome || 'Sem Equipe';
+      const equipeId = ganho.equipe_id || 'sem-equipe';
+      const equipeNome = ganho.equipe_nome || 'Sem Equipe';
       
       if (!grupos[equipeId]) {
         grupos[equipeId] = {
@@ -235,7 +210,7 @@ export default function MeusGanhos() {
     });
     
     return Object.values(grupos);
-  }, [ganhosFiltrados, usuarios, equipes]);
+  }, [ganhosFiltrados]);
 
   // Calcular totais
   const totalGanhos = ganhosFiltrados.reduce((sum, g) => sum + (g.valor_comissao || 0), 0);
@@ -449,8 +424,6 @@ export default function MeusGanhos() {
                       {grupo.ganhos
                         .sort((a, b) => new Date(b.data_conclusao) - new Date(a.data_conclusao))
                         .map((ganho) => {
-                          const usuario = usuarios.find(u => u.email === ganho.tecnico_email);
-                          const equipeNome = equipes.find(e => e.id === usuario?.equipe_id)?.nome || 'Sem Equipe';
                           
                           return (
                             <TableRow 
@@ -458,7 +431,7 @@ export default function MeusGanhos() {
                               className={ganho.pago ? 'bg-green-50' : 'hover:bg-gray-50'}
                             >
                               <TableCell className="font-medium">{ganho.cliente_nome}</TableCell>
-                              <TableCell className="text-sm text-blue-600">{equipeNome}</TableCell>
+                              <TableCell className="text-sm text-blue-600">{ganho.equipe_nome}</TableCell>
                               <TableCell className="text-sm">{ganho.tipo_servico}</TableCell>
                             <TableCell className="text-sm text-gray-600">
                               {format(parseISO(ganho.data_conclusao), "dd/MM/yy HH:mm", { locale: ptBR })}

@@ -335,9 +335,9 @@ export default function ServicosPage() {
                 atendimento_id: atendimentoCriado?.id
               });
 
-              if (equipeTecnicos.length > 0 && valorServico > 0) {
-                // Cada técnico recebe 30% inteiro, não dividido
-                const valorPorTecnico = (valorServico * comissaoPerc) / 100;
+              if (servicoSnapshot.equipe_id && valorServico > 0) {
+                // Um único ganho de 30% para toda a equipe
+                const valorComissao = (valorServico * comissaoPerc) / 100;
                 
                 const dataConc = new Date();
                 const getWeekNumber = (d) => {
@@ -349,22 +349,22 @@ export default function ServicosPage() {
                 const semana = `${dataConc.getFullYear()}-W${String(getWeekNumber(dataConc)).padStart(2, '0')}`;
                 const mes = `${dataConc.getFullYear()}-${String(dataConc.getMonth() + 1).padStart(2, '0')}`;
                 
-                const ganhosData = equipeTecnicos.map(tecnico => ({
-                  tecnico_email: tecnico.email,
-                  tecnico_nome: tecnico.full_name || tecnico.email,
+                const ganhoData = {
+                  equipe_id: servicoSnapshot.equipe_id,
+                  equipe_nome: servicoSnapshot.equipe_nome,
                   atendimento_id: atendimentoCriado.id,
                   cliente_nome: servicoSnapshot.cliente_nome,
                   tipo_servico: servicoSnapshot.tipo_servico,
                   valor_servico: valorServico,
                   comissao_percentual: comissaoPerc,
-                  valor_comissao: valorPorTecnico,
+                  valor_comissao: valorComissao,
                   data_conclusao: agora,
                   semana: semana,
                   mes: mes,
                   pago: false
-                }));
+                };
 
-                return base44.entities.GanhoTecnico.bulkCreate(ganhosData);
+                return base44.entities.GanhoTecnico.create(ganhoData);
               }
             }
           });
