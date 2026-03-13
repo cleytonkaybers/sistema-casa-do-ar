@@ -100,11 +100,27 @@ export default function MeusGanhos() {
 
 
 
-  // Agrupar ganhos por equipe
+  // Agrupar ganhos por equipe e remover duplicatas (agrupar por cliente + tipo_servico + data)
   const ganhosPorEquipe = useMemo(() => {
     const grupos = {};
     
+    // Agrupar ganhos duplicados do mesmo serviço
+    const ganhosUnicos = {};
     ganhosFiltrados.forEach(ganho => {
+      // Chave única: cliente + tipo_servico + data (sem hora/minuto)
+      const dataServico = ganho.data_conclusao ? ganho.data_conclusao.split('T')[0] : 'sem-data';
+      const chaveUnica = `${ganho.cliente_nome}-${ganho.tipo_servico}-${dataServico}`;
+      
+      if (!ganhosUnicos[chaveUnica]) {
+        ganhosUnicos[chaveUnica] = ganho;
+      } else {
+        // Se já existe, somar os valores de comissão
+        ganhosUnicos[chaveUnica].valor_comissao += ganho.valor_comissao || 0;
+      }
+    });
+    
+    // Criar grupos por equipe usando os ganhos únicos
+    Object.values(ganhosUnicos).forEach(ganho => {
       const usuario = usuarios.find(u => u.email === ganho.tecnico_email);
       const equipeId = usuario?.equipe_id || 'sem-equipe';
       const equipeNome = equipes.find(e => e.id === equipeId)?.nome || 'Sem Equipe';
