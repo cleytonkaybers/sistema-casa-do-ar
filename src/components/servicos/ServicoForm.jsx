@@ -12,6 +12,7 @@ import { base44 } from '@/api/base44Client';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
+import { TIPOS_SERVICOS } from '@/components/utils/tiposServicos';
 
 export default function ServicoForm({ open, onClose, onSave, servico, isLoading, prefilledData, equipes = [], currentUserEquipeId = null, isAdmin = false }) {
   const [loadingLocation, setLoadingLocation] = useState(false);
@@ -501,38 +502,9 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                       <SelectItem value="Limpeza de 9k">Limpeza de 9k</SelectItem>
-                       <SelectItem value="Limpeza de 12k">Limpeza de 12k</SelectItem>
-                       <SelectItem value="Limpeza de 18k">Limpeza de 18k</SelectItem>
-                       <SelectItem value="Limpeza de 22 a 24k">Limpeza de 22 a 24k</SelectItem>
-                       <SelectItem value="Limpeza de 24k">Limpeza de 24k</SelectItem>
-                       <SelectItem value="Limpeza de 30 a 32k">Limpeza de 30 a 32k</SelectItem>
-                       <SelectItem value="Limpeza piso e teto">Limpeza piso e teto</SelectItem>
-                       <SelectItem value="Instalação de 9k">Instalação de 9k</SelectItem>
-                       <SelectItem value="Instalação de 12k">Instalação de 12k</SelectItem>
-                       <SelectItem value="Instalação de 18k">Instalação de 18k</SelectItem>
-                       <SelectItem value="Instalação de 22 a 24k">Instalação de 22 a 24k</SelectItem>
-                       <SelectItem value="Instalação de 24k">Instalação de 24k</SelectItem>
-                       <SelectItem value="Instalação de 30 a 32k">Instalação de 30 a 32k</SelectItem>
-                       <SelectItem value="Instalação piso e teto">Instalação piso e teto</SelectItem>
-                       <SelectItem value="Instalação de cortina de ar">Instalação de cortina de ar</SelectItem>
-                       <SelectItem value="Mudança + limpeza ar 9/12/18">Mudança + limpeza ar 9/12/18</SelectItem>
-                       <SelectItem value="Mudança + limpeza 22/24/30">Mudança + limpeza 22/24/30</SelectItem>
-                       <SelectItem value="Retirada cortina de ar">Retirada cortina de ar</SelectItem>
-                       <SelectItem value="Troca de compressor">Troca de compressor</SelectItem>
-                       <SelectItem value="Troca de capacitor">Troca de capacitor</SelectItem>
-                       <SelectItem value="Recarga de gás">Recarga de gás</SelectItem>
-                       <SelectItem value="Carga de gás completa">Carga de gás completa</SelectItem>
-                       <SelectItem value="Serviço de solda">Serviço de solda</SelectItem>
-                       <SelectItem value="Troca de relé da placa">Troca de relé da placa</SelectItem>
-                       <SelectItem value="Troca de sensor">Troca de sensor</SelectItem>
-                       <SelectItem value="Troca de chave contadora">Troca de chave contadora</SelectItem>
-                       <SelectItem value="Conserto de placa eletrônica">Conserto de placa eletrônica</SelectItem>
-                       <SelectItem value="Retirada de ar condicionado">Retirada de ar condicionado</SelectItem>
-                       <SelectItem value="Serviço de passar tubulação de infra">Serviço de passar tubulação de infra</SelectItem>
-                       <SelectItem value="Ver defeito">Ver defeito</SelectItem>
-                       <SelectItem value="Troca de local">Troca de local</SelectItem>
-                       <SelectItem value="Outro tipo de serviço">Outro tipo de serviço</SelectItem>
+                      {TIPOS_SERVICOS.map(tipo => (
+                        <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   {formData.tipos_servico.length > 1 && (
