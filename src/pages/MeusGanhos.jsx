@@ -172,8 +172,7 @@ export default function MeusGanhos() {
     
     // Filtro de equipe (apenas para admin)
     if (isAdmin && equipeFilter !== 'todas') {
-      const tecnicosEquipe = usuarios.filter(u => u.equipe_id === equipeFilter).map(u => u.email);
-      resultado = resultado.filter(g => tecnicosEquipe.includes(g.tecnico_email));
+      resultado = resultado.filter(g => g.equipe_id === equipeFilter);
     }
     
     return resultado;
