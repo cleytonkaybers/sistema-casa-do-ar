@@ -119,7 +119,11 @@ Deno.serve(async (req) => {
       sucesso: true,
       sincronizados,
       erros,
-      mensagem: `${sincronizados} ganhos sincronizados com sucesso`
+      totalServicos: servicosConcluidos.length,
+      totalPrecificacoes: Object.keys(precMap).length,
+      mensagem: sincronizados > 0 
+        ? `${sincronizados} ganhos sincronizados com sucesso` 
+        : `Nenhum novo ganho para sincronizar (${servicosConcluidos.length} serviços concluídos, ${Object.keys(precMap).length} precificações)`
     });
   } catch (error) {
     console.error('Erro na sincronização:', error);
