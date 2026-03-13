@@ -48,6 +48,17 @@ Deno.serve(async (req) => {
       }
 
       try {
+        // Buscar nome do usuário que concluiu
+        let tecnicoEmail = atendimento.usuario_conclusao || 'sistema@app.com';
+        let tecnicoNome = 'Sistema';
+        
+        if (atendimento.usuario_conclusao) {
+          const usuarios = await base44.entities.User.filter({ email: atendimento.usuario_conclusao });
+          if (usuarios.length > 0) {
+            tecnicoNome = usuarios[0].full_name || atendimento.usuario_conclusao;
+          }
+        }
+
         const prec = precMap[servico.tipo_servico];
         const comissaoPerc = prec?.comissao_tecnico_percentual || 30;
         const valorComissao = (servico.valor * comissaoPerc) / 100;
@@ -64,8 +75,8 @@ Deno.serve(async (req) => {
         const mes = `${dataServico.getFullYear()}-${String(dataServico.getMonth() + 1).padStart(2, '0')}`;
 
         const ganhoData = {
-          tecnico_email: atendimento.usuario_conclusao || 'sistema@app.com',
-          tecnico_nome: atendimento.usuario_conclusao || 'Sistema',
+          tecnico_email: tecnicoEmail,
+          tecnico_nome: tecnicoNome,
           equipe_id: servico.equipe_id,
           equipe_nome: servico.equipe_nome,
           atendimento_id: atendimento.id,
