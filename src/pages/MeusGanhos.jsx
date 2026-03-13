@@ -315,29 +315,27 @@ export default function MeusGanhos() {
         </Card>
       </div>
 
-      {/* Lista de serviços por equipe */}
-      {ganhosPorEquipe.length === 0 ? (
+      {/* Lista de serviços por técnico */}
+      {ganhosPorTecnico.length === 0 ? (
         <Card>
           <CardContent className="py-12">
             <div className="text-center">
               <DollarSign className="w-12 h-12 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-500">
-                {isAdmin ? 'Nenhum ganho registrado neste período' : 'Sua equipe ainda não tem ganhos registrados neste período'}
+                {isAdmin ? 'Nenhum ganho registrado neste período' : 'Você ainda não tem ganhos registrados neste período'}
               </p>
             </div>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-6">
-          {ganhosPorEquipe.map((grupo) => {
-            const equipeObj = equipes.find(e => e.id === grupo.equipeId);
-            return (
-            <Card key={grupo.equipeId} className="overflow-hidden">
-              <CardHeader className="text-white" style={{ background: `linear-gradient(135deg, ${equipeObj?.cor || '#3b82f6'}, ${equipeObj?.cor || '#3b82f6'}cc)` }}>
+          {ganhosPorTecnico.map((grupo) => (
+            <Card key={grupo.tecnicoEmail} className="overflow-hidden">
+              <CardHeader className="text-white bg-gradient-to-r from-blue-600 to-blue-700">
                 <div className="flex items-center justify-between flex-wrap gap-4">
                   <CardTitle className="flex items-center gap-2">
                     <TrendingUp className="w-5 h-5" />
-                    {grupo.equipeNome}
+                    {grupo.tecnicoNome}
                   </CardTitle>
                   <div className="flex gap-4 text-sm items-center">
                     <div className="text-right">
@@ -360,14 +358,14 @@ export default function MeusGanhos() {
                             type="number"
                             step="0.01"
                             placeholder="0.00"
-                            value={valoresPagos[grupo.equipeId] || ''}
-                            onChange={(e) => handleValorPagoChange(grupo.equipeId, e.target.value)}
+                            value={valoresPagos[grupo.tecnicoEmail] || ''}
+                            onChange={(e) => handleValorPagoChange(grupo.tecnicoEmail, e.target.value)}
                             className="w-28 h-8 text-sm bg-white text-gray-900"
                           />
                         </div>
                         <Button
                           size="sm"
-                          onClick={() => handleConfirmarPagamento(grupo.equipeId)}
+                          onClick={() => handleConfirmarPagamento(grupo.tecnicoEmail)}
                           className="h-8 bg-green-600 hover:bg-green-700 text-white"
                         >
                           Confirmar
@@ -383,7 +381,6 @@ export default function MeusGanhos() {
                     <TableHeader>
                       <TableRow className="bg-gray-50">
                         <TableHead className="font-semibold">Cliente</TableHead>
-                        <TableHead className="font-semibold">Equipe</TableHead>
                         <TableHead className="font-semibold">Serviço</TableHead>
                         <TableHead className="font-semibold">Data</TableHead>
                         <TableHead className="text-right font-semibold">Valor</TableHead>
@@ -396,19 +393,12 @@ export default function MeusGanhos() {
                     <TableBody>
                       {grupo.ganhos
                         .sort((a, b) => new Date(b.data_conclusao) - new Date(a.data_conclusao))
-                        .map((ganho) => {
-                          
-                          return (
+                        .map((ganho) => (
                             <TableRow 
                                key={ganho.id}
                                className={ganho.pago ? 'bg-green-50' : 'hover:bg-gray-50'}
                              >
                                <TableCell className="font-medium">{ganho.cliente_nome}</TableCell>
-                               <TableCell className="text-sm">
-                                 <span className="inline-block px-2.5 py-1 rounded-full font-medium" style={{ backgroundColor: `${equipeObj?.cor || '#3b82f6'}20`, color: equipeObj?.cor || '#3b82f6' }}>
-                                   {ganho.equipe_nome || 'Sem equipe'}
-                                 </span>
-                               </TableCell>
                                <TableCell className="text-sm">{ganho.tipo_servico}</TableCell>
                             <TableCell className="text-sm text-gray-600">
                               {format(parseISO(ganho.data_conclusao), "dd/MM/yy HH:mm", { locale: ptBR })}
@@ -458,17 +448,15 @@ export default function MeusGanhos() {
                               </TableCell>
                             )}
                           </TableRow>
-                        );
-                      })}
+                        ))}
                     </TableBody>
                   </Table>
                 </div>
               </CardContent>
-              </Card>
-              );
-              })}
-              </div>
-              )}
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Modal de edição */}
       <Dialog open={!!editandoGanho} onOpenChange={() => setEditandoGanho(null)}>
