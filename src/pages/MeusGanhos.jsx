@@ -160,41 +160,40 @@ export default function MeusGanhos() {
 
 
 
-  // Agrupar ganhos por equipe
-   const ganhosPorEquipe = useMemo(() => {
-     const grupos = {};
+  // Agrupar ganhos por técnico
+    const ganhosPorTecnico = useMemo(() => {
+      const grupos = {};
 
-     ganhosFiltrados.forEach(ganho => {
-       // Usar equipe_id como chave primária
-       const equipeId = ganho.equipe_id || 'sem-equipe';
-       const equipeNome = ganho.equipe_nome || 'Sem Equipe';
+      ganhosFiltrados.forEach(ganho => {
+        const tecnicoEmail = ganho.tecnico_email || 'sistema@app.com';
+        const tecnicoNome = ganho.tecnico_nome || 'Sistema';
 
-       if (!grupos[equipeId]) {
-         grupos[equipeId] = {
-           equipeId,
-           equipeNome,
-           ganhos: [],
-           total: 0,
-           totalPago: 0,
-           totalPendente: 0
-         };
-       }
+        if (!grupos[tecnicoEmail]) {
+          grupos[tecnicoEmail] = {
+            tecnicoEmail,
+            tecnicoNome,
+            ganhos: [],
+            total: 0,
+            totalPago: 0,
+            totalPendente: 0
+          };
+        }
 
-       // Verificar duplicatas por ID do ganho
-       const jaExiste = grupos[equipeId].ganhos.some(g => g.id === ganho.id);
-       if (!jaExiste) {
-         grupos[equipeId].ganhos.push(ganho);
-         grupos[equipeId].total += ganho.valor_comissao || 0;
-         if (ganho.pago) {
-           grupos[equipeId].totalPago += ganho.valor_comissao || 0;
-         } else {
-           grupos[equipeId].totalPendente += ganho.valor_comissao || 0;
-         }
-       }
-     });
+        // Verificar duplicatas por ID do ganho
+        const jaExiste = grupos[tecnicoEmail].ganhos.some(g => g.id === ganho.id);
+        if (!jaExiste) {
+          grupos[tecnicoEmail].ganhos.push(ganho);
+          grupos[tecnicoEmail].total += ganho.valor_comissao || 0;
+          if (ganho.pago) {
+            grupos[tecnicoEmail].totalPago += ganho.valor_comissao || 0;
+          } else {
+            grupos[tecnicoEmail].totalPendente += ganho.valor_comissao || 0;
+          }
+        }
+      });
 
-     return Object.values(grupos).sort((a, b) => (a.equipeNome || '').localeCompare(b.equipeNome || ''));
-   }, [ganhosFiltrados]);
+      return Object.values(grupos).sort((a, b) => (a.tecnicoNome || '').localeCompare(b.tecnicoNome || ''));
+    }, [ganhosFiltrados]);
 
   // Calcular totais
   const totalGanhos = ganhosFiltrados.reduce((sum, g) => sum + (g.valor_comissao || 0), 0);
