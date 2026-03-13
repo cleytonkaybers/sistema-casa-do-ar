@@ -341,8 +341,8 @@ export default function ServicosPage() {
                  const ganhoData = {
                    tecnico_email: user?.email || 'sistema@app.com',
                    tecnico_nome: user?.full_name || 'Sistema',
-                   equipe_id: servicoSnapshot.equipe_id,
-                   equipe_nome: servicoSnapshot.equipe_nome,
+                   equipe_id: servicoSnapshot.equipe_id || '',
+                   equipe_nome: servicoSnapshot.equipe_nome || '',
                    atendimento_id: atendimentoCriado.id,
                    cliente_nome: servicoSnapshot.cliente_nome,
                    tipo_servico: servicoSnapshot.tipo_servico,
