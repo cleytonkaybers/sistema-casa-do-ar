@@ -26,6 +26,9 @@ Deno.serve(async (req) => {
      let sincronizados = 0;
      let erros = [];
 
+     console.log(`📊 Total de serviços concluídos: ${servicosConcluidos.length}`);
+     console.log(`📋 Precificações disponíveis: ${Object.keys(precMap).length}`);
+
      // Para cada serviço concluído, criar ganho se existir precificação
      for (const servico of servicosConcluidos) {
        // Validar se tem precificação
