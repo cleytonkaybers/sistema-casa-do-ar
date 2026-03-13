@@ -31,24 +31,17 @@ Deno.serve(async (req) => {
     // Buscar todos os usuários
     const usuarios = await base44.asServiceRole.entities.User.list();
     
-    // Filtrar usuários não-admin
-    const usuariosAtivos = usuarios.filter(u => u.role !== 'admin');
-    
-    // Buscar todos os serviços da mesma equipe para encontrar todos os membros
-    const servicosEquipe = await base44.asServiceRole.entities.Servico.filter({ equipe_id: servico.equipe_id });
-    
-    // Extrair emails únicos dos usuários que trabalham nessa equipe
-    const emailsEquipe = new Set();
-    servicosEquipe.forEach(s => {
-      if (s.usuario_atualizacao_status) {
-        emailsEquipe.add(s.usuario_atualizacao_status);
-      }
-    });
+    // Filtrar membros da equipe (não-admin, não-administrativo)
+    const membrosMapeados = {
+      '699e54e99bb56cb59de69c60': ['vinihenrique781@gmail.com', 'vgabrielkaybersdossantos@gmail.com'], // Equipe 1: Vini e Vitor
+      '699e54e99bb56cb59de69c61': ['witalok73@gmail.com', 'waglessonribero@gmail.com'] // Equipe 2: Kaue e Waglesson
+    };
 
-    // Filtrar apenas usuários ativos (não-admin) que pertencem à equipe
-    const emailsMembros = Array.from(emailsEquipe).filter(email => 
-      usuariosAtivos.some(u => u.email === email)
-    );
+    const emailsMembros = membrosMapeados[servico.equipe_id] || [];
+    
+    if (emailsMembros.length === 0) {
+      return Response.json({ sucesso: true, mensagem: 'Equipe não mapeada' });
+    }
 
     // Buscar precificação
     const precificacoes = await base44.asServiceRole.entities.PrecificacaoServico.filter({
