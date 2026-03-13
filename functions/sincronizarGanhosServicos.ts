@@ -34,15 +34,14 @@ Deno.serve(async (req) => {
          continue;
        }
 
-       // Validar dados mínimos
-       if (!servico.equipe_id || servico.valor <= 0) {
+       // Validar valor mínimo
+       if (servico.valor <= 0) {
          continue;
        }
 
        // Buscar atendimento correspondente
        const atendimentos = await base44.entities.Atendimento.filter({ servico_id: servico.id });
        if (atendimentos.length === 0) {
-         erros.push(`Serviço ${servico.id} não tem atendimento`);
          continue;
        }
 
@@ -50,6 +49,15 @@ Deno.serve(async (req) => {
 
        // Verificar se já existe ganho para este serviço
        if (servicosComGanho.has(atendimento.id)) {
+         continue;
+       }
+
+       // Usar equipe_id do atendimento ou serviço
+       const equipeId = atendimento.equipe_id || servico.equipe_id;
+       const equipeNome = atendimento.equipe_nome || servico.equipe_nome;
+
+       // Se não tem equipe, pular
+       if (!equipeId) {
          continue;
        }
 
