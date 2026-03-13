@@ -56,8 +56,10 @@ import ClientesSaaS from './pages/ClientesSaaS';
 import Configuracoes from './pages/Configuracoes';
 import Dashboard from './pages/Dashboard';
 import DashboardSaaS from './pages/DashboardSaaS';
+import Financeiro from './pages/Financeiro';
 import GerenciarEmpresas from './pages/GerenciarEmpresas';
 import HistoricoClientes from './pages/HistoricoClientes';
+import MeusGanhos from './pages/MeusGanhos';
 import MigrarDados from './pages/MigrarDados';
 import OrdensServicoSaaS from './pages/OrdensServicoSaaS';
 import PreferencesNotificacao from './pages/PreferencesNotificacao';
@@ -82,8 +84,10 @@ export const PAGES = {
     "Configuracoes": Configuracoes,
     "Dashboard": Dashboard,
     "DashboardSaaS": DashboardSaaS,
+    "Financeiro": Financeiro,
     "GerenciarEmpresas": GerenciarEmpresas,
     "HistoricoClientes": HistoricoClientes,
+    "MeusGanhos": MeusGanhos,
     "MigrarDados": MigrarDados,
     "OrdensServicoSaaS": OrdensServicoSaaS,
     "PreferencesNotificacao": PreferencesNotificacao,

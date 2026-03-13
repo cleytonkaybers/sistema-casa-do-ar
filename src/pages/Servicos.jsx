@@ -331,7 +331,8 @@ export default function ServicosPage() {
                 valorServico,
                 comissaoPerc,
                 equipeTecnicos: equipeTecnicos.map(t => ({ email: t.email, equipe_id: t.equipe_id })),
-                totalTecnicos: equipeTecnicos.length
+                totalTecnicos: equipeTecnicos.length,
+                atendimento_id: atendimentoCriado?.id
               });
 
               if (equipeTecnicos.length > 0 && valorServico > 0) {
