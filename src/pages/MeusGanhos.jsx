@@ -115,7 +115,13 @@ export default function MeusGanhos() {
     if (isAdmin) return ganhos;
     
     // Técnico vê apenas seus próprios ganhos
-    return ganhos.filter(g => g.tecnico_email === meuEmail);
+    // Filtrar também usuários administrativos (tipo_usuario === 'administrativo')
+    return ganhos.filter(g => {
+      if (g.tecnico_email !== meuEmail) return false;
+      // Excluir se for administrativo
+      const isAdminUser = user.data?.tipo_usuario === 'administrativo' || user.data?.perfil === 'admin';
+      return !isAdminUser;
+    });
   }, [ganhos, user, isAdmin, meuEmail]);
 
   // Calcular períodos (semana começa na segunda-feira)
