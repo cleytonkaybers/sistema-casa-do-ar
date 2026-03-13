@@ -17,7 +17,6 @@ import { ptBR } from 'date-fns/locale';
 export default function MeusGanhos() {
   const [user, setUser] = useState(null);
   const [filtroPeriodo, setFiltroPeriodo] = useState('hoje');
-  const [equipeFilter, setEquipeFilter] = useState('todas');
   const [editandoGanho, setEditandoGanho] = useState(null);
   const [valorEditado, setValorEditado] = useState('');
   const [valoresPagos, setValoresPagos] = useState({});
