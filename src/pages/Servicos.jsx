@@ -223,142 +223,138 @@ export default function ServicosPage() {
       queryClient.invalidateQueries({ queryKey: ['servicos'] });
       toast.success(servicoSnapshot.sem_registro_cliente ? 'Serviço avulso concluído! 🎉' : 'Serviço concluído! 🎉');
 
-      // 3. Operações secundárias em background (não bloqueiam a UI)
-      Promise.all([
-        base44.entities.AlteracaoStatus.create({
-          servico_id: servicoSnapshot.id,
-          status_anterior: statusAnterior,
-          status_novo: 'concluido',
-          usuario: user?.email,
-          data_alteracao: agora,
-          tipo_registro: 'servico'
-        }).catch(() => {}),
-
-        base44.entities.AlteracaoStatus.filter({ servico_id: servicoSnapshot.id }, 'data_alteracao')
-          .then(historicoStatus => {
-            const detalhesCompletos = {
-              dados_ordem_servico: {
-                id: servicoSnapshot.id,
-                cliente_nome: servicoSnapshot.cliente_nome,
-                cpf: servicoSnapshot.cpf || null,
-                telefone: servicoSnapshot.telefone || null,
-                endereco: servicoSnapshot.endereco || null,
-                latitude: servicoSnapshot.latitude || null,
-                longitude: servicoSnapshot.longitude || null,
-                tipo_servico: servicoSnapshot.tipo_servico,
-                descricao: servicoSnapshot.descricao || null,
-                valor: servicoSnapshot.valor || 0,
-                data_programada: servicoSnapshot.data_programada || null,
-                horario: servicoSnapshot.horario || null,
-                dia_semana: servicoSnapshot.dia_semana || null,
-                equipe_id: servicoSnapshot.equipe_id || null,
-                equipe_nome: servicoSnapshot.equipe_nome || null,
-                data_criacao: servicoSnapshot.created_date || null,
-              },
-              observacoes_conclusao: observacoes || null,
-              usuario_conclusao: user?.email,
-              data_conclusao: agora,
-              historico_status: (historicoStatus || []).map(h => ({
-                status_anterior: h.status_anterior,
-                status_novo: h.status_novo,
-                usuario: h.usuario,
-                data_alteracao: h.data_alteracao,
-              })),
-            };
-            return base44.entities.Atendimento.create({
-              servico_id: servicoSnapshot.id,
-              cliente_nome: servicoSnapshot.cliente_nome,
-              cpf: servicoSnapshot.cpf || '',
-              telefone: servicoSnapshot.telefone || '',
-              endereco: servicoSnapshot.endereco || '',
-              latitude: servicoSnapshot.latitude || null,
-              longitude: servicoSnapshot.longitude || null,
-              data_atendimento: servicoSnapshot.data_programada,
-              horario: servicoSnapshot.horario || '',
-              dia_semana: servicoSnapshot.dia_semana || '',
-              tipo_servico: servicoSnapshot.tipo_servico,
-              descricao: servicoSnapshot.descricao || '',
-              valor: servicoSnapshot.valor || 0,
-              observacoes_conclusao: observacoes || '',
-              equipe_id: servicoSnapshot.equipe_id || '',
-              equipe_nome: servicoSnapshot.equipe_nome || '',
-              usuario_conclusao: user?.email,
-              data_conclusao: agora,
-              detalhes: JSON.stringify(detalhesCompletos),
-            });
-          }).catch(() => {}),
-      ]).then(() => {
-        queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
-        queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
+      // 3. Criar atendimento e registrar ganhos em sequência
+      base44.entities.AlteracaoStatus.create({
+        servico_id: servicoSnapshot.id,
+        status_anterior: statusAnterior,
+        status_novo: 'concluido',
+        usuario: user?.email,
+        data_alteracao: agora,
+        tipo_registro: 'servico'
       }).catch(() => {});
 
-      // Atualizar preventiva do cliente em background
-      if (!servicoSnapshot.sem_registro_cliente) {
-        base44.entities.Cliente.filter({ telefone: servicoSnapshot.telefone })
-          .then(clientesMatch => {
-            if (clientesMatch.length > 0) {
-              const dataConc = servicoSnapshot.data_programada || new Date().toISOString().split('T')[0];
-              const proxima = new Date(dataConc);
-              proxima.setMonth(proxima.getMonth() + 6);
-              return base44.entities.Cliente.update(clientesMatch[0].id, {
-                ultima_manutencao: dataConc,
-                proxima_manutencao: proxima.toISOString().split('T')[0]
-              });
-            }
-          }).then(() => queryClient.invalidateQueries({ queryKey: ['clientes'] }))
-          .catch(() => {});
-      }
-
-      // Registrar ganhos dos técnicos da equipe designada em background
-      Promise.all([
-        base44.entities.PrecificacaoServico.filter({ tipo_servico: servicoSnapshot.tipo_servico }),
-        base44.auth.me(),
-        base44.entities.User.list()
-      ]).then(([precList, currentUser, allUsers]) => {
-        if (precList.length > 0 && servicoSnapshot.equipe_id) {
-          const prec = precList[0];
-          const valorServico = servicoSnapshot.valor || prec.preco_padrao || 0;
-          const comissaoPerc = prec.comissao_tecnico_percentual || 30;
-          
-          // Encontrar SOMENTE técnicos da equipe designada para este serviço
-          const equipeTecnicos = allUsers.filter(u => {
-            // Verificar se o usuário tem equipe_id (campo direto) igual à equipe do serviço
-            return u.equipe_id === servicoSnapshot.equipe_id;
-          });
-
-          if (equipeTecnicos.length > 0 && valorServico > 0) {
-            const valorComissaoTotal = (valorServico * comissaoPerc) / 100;
-            const valorPorTecnico = valorComissaoTotal / equipeTecnicos.length;
-            
-            const dataConc = new Date();
-            const getWeekNumber = (d) => {
-              d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-              d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-              const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-              return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-            };
-            const semana = `${dataConc.getFullYear()}-W${String(getWeekNumber(dataConc)).padStart(2, '0')}`;
-            const mes = `${dataConc.getFullYear()}-${String(dataConc.getMonth() + 1).padStart(2, '0')}`;
-            
-            const ganhosData = equipeTecnicos.map(tecnico => ({
-              tecnico_email: tecnico.email,
-              tecnico_nome: tecnico.full_name || tecnico.email,
-              atendimento_id: null,
+      base44.entities.AlteracaoStatus.filter({ servico_id: servicoSnapshot.id }, 'data_alteracao')
+        .then(historicoStatus => {
+          const detalhesCompletos = {
+            dados_ordem_servico: {
+              id: servicoSnapshot.id,
               cliente_nome: servicoSnapshot.cliente_nome,
+              cpf: servicoSnapshot.cpf || null,
+              telefone: servicoSnapshot.telefone || null,
+              endereco: servicoSnapshot.endereco || null,
+              latitude: servicoSnapshot.latitude || null,
+              longitude: servicoSnapshot.longitude || null,
               tipo_servico: servicoSnapshot.tipo_servico,
-              valor_servico: valorServico,
-              comissao_percentual: comissaoPerc,
-              valor_comissao: valorPorTecnico,
-              data_conclusao: agora,
-              semana: semana,
-              mes: mes,
-              pago: false
-            }));
+              descricao: servicoSnapshot.descricao || null,
+              valor: servicoSnapshot.valor || 0,
+              data_programada: servicoSnapshot.data_programada || null,
+              horario: servicoSnapshot.horario || null,
+              dia_semana: servicoSnapshot.dia_semana || null,
+              equipe_id: servicoSnapshot.equipe_id || null,
+              equipe_nome: servicoSnapshot.equipe_nome || null,
+              data_criacao: servicoSnapshot.created_date || null,
+            },
+            observacoes_conclusao: observacoes || null,
+            usuario_conclusao: user?.email,
+            data_conclusao: agora,
+            historico_status: (historicoStatus || []).map(h => ({
+              status_anterior: h.status_anterior,
+              status_novo: h.status_novo,
+              usuario: h.usuario,
+              data_alteracao: h.data_alteracao,
+            })),
+          };
+          return base44.entities.Atendimento.create({
+            servico_id: servicoSnapshot.id,
+            cliente_nome: servicoSnapshot.cliente_nome,
+            cpf: servicoSnapshot.cpf || '',
+            telefone: servicoSnapshot.telefone || '',
+            endereco: servicoSnapshot.endereco || '',
+            latitude: servicoSnapshot.latitude || null,
+            longitude: servicoSnapshot.longitude || null,
+            data_atendimento: servicoSnapshot.data_programada,
+            horario: servicoSnapshot.horario || '',
+            dia_semana: servicoSnapshot.dia_semana || '',
+            tipo_servico: servicoSnapshot.tipo_servico,
+            descricao: servicoSnapshot.descricao || '',
+            valor: servicoSnapshot.valor || 0,
+            observacoes_conclusao: observacoes || '',
+            equipe_id: servicoSnapshot.equipe_id || '',
+            equipe_nome: servicoSnapshot.equipe_nome || '',
+            usuario_conclusao: user?.email,
+            data_conclusao: agora,
+            detalhes: JSON.stringify(detalhesCompletos),
+          });
+        })
+        .then((atendimentoCriado) => {
+          queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
+          queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
 
-            return base44.entities.GanhoTecnico.bulkCreate(ganhosData);
+          // Atualizar preventiva do cliente
+          if (!servicoSnapshot.sem_registro_cliente) {
+            base44.entities.Cliente.filter({ telefone: servicoSnapshot.telefone })
+              .then(clientesMatch => {
+                if (clientesMatch.length > 0) {
+                  const dataConc = servicoSnapshot.data_programada || new Date().toISOString().split('T')[0];
+                  const proxima = new Date(dataConc);
+                  proxima.setMonth(proxima.getMonth() + 6);
+                  return base44.entities.Cliente.update(clientesMatch[0].id, {
+                    ultima_manutencao: dataConc,
+                    proxima_manutencao: proxima.toISOString().split('T')[0]
+                  });
+                }
+              }).then(() => queryClient.invalidateQueries({ queryKey: ['clientes'] }))
+              .catch(() => {});
           }
-        }
-      }).then(() => queryClient.invalidateQueries({ queryKey: ['ganhos-tecnicos'] })).catch(() => {});
+
+          // Registrar ganhos com o atendimento_id correto
+          return Promise.all([
+            base44.entities.PrecificacaoServico.filter({ tipo_servico: servicoSnapshot.tipo_servico }),
+            base44.entities.User.list()
+          ]).then(([precList, allUsers]) => {
+            if (precList.length > 0 && servicoSnapshot.equipe_id) {
+              const prec = precList[0];
+              const valorServico = servicoSnapshot.valor || prec.preco_padrao || 0;
+              const comissaoPerc = prec.comissao_tecnico_percentual || 30;
+              
+              const equipeTecnicos = allUsers.filter(u => u.equipe_id === servicoSnapshot.equipe_id);
+
+              if (equipeTecnicos.length > 0 && valorServico > 0) {
+                const valorComissaoTotal = (valorServico * comissaoPerc) / 100;
+                const valorPorTecnico = valorComissaoTotal / equipeTecnicos.length;
+                
+                const dataConc = new Date();
+                const getWeekNumber = (d) => {
+                  d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+                  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+                  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+                  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+                };
+                const semana = `${dataConc.getFullYear()}-W${String(getWeekNumber(dataConc)).padStart(2, '0')}`;
+                const mes = `${dataConc.getFullYear()}-${String(dataConc.getMonth() + 1).padStart(2, '0')}`;
+                
+                const ganhosData = equipeTecnicos.map(tecnico => ({
+                  tecnico_email: tecnico.email,
+                  tecnico_nome: tecnico.full_name || tecnico.email,
+                  atendimento_id: atendimentoCriado.id,
+                  cliente_nome: servicoSnapshot.cliente_nome,
+                  tipo_servico: servicoSnapshot.tipo_servico,
+                  valor_servico: valorServico,
+                  comissao_percentual: comissaoPerc,
+                  valor_comissao: valorPorTecnico,
+                  data_conclusao: agora,
+                  semana: semana,
+                  mes: mes,
+                  pago: false
+                }));
+
+                return base44.entities.GanhoTecnico.bulkCreate(ganhosData);
+              }
+            }
+          });
+        })
+        .then(() => queryClient.invalidateQueries({ queryKey: ['ganhos-tecnicos'] }))
+        .catch(() => {});
 
     } catch (error) {
       console.error('Erro ao concluir serviço:', error);
