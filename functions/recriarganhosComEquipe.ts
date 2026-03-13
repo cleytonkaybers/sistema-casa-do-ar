@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Recriar ganhos com equipe vinculada
+    // Recriar ganhos - 15% para cada técnico
     for (const servico of servicosConcluidos) {
       const prec = precMap[servico.tipo_servico];
       if (!prec || servico.valor <= 0) continue;
@@ -45,10 +45,6 @@ Deno.serve(async (req) => {
       if (atendimentos.length === 0) continue;
 
       const atendimento = atendimentos[0];
-      const equipeId = atendimento.equipe_id || servico.equipe_id;
-      const equipeNome = atendimento.equipe_nome || servico.equipe_nome;
-
-      if (!equipeId) continue;
 
       try {
         let tecnicoEmail = atendimento.usuario_conclusao || 'sistema@app.com';
@@ -61,7 +57,8 @@ Deno.serve(async (req) => {
           }
         }
 
-        const comissaoPerc = prec.comissao_tecnico_percentual || 30;
+        // Comissão fixa de 15% para cada técnico
+        const comissaoPerc = 15;
         const valorComissao = (servico.valor * comissaoPerc) / 100;
 
         const dataConc = new Date(atendimento.data_conclusao || servico.data_atualizacao_status || new Date().toISOString());
