@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
         // Buscar nome do usuário que concluiu
         let tecnicoEmail = atendimento.usuario_conclusao || 'sistema@app.com';
         let tecnicoNome = 'Sistema';
-        
+
         if (atendimento.usuario_conclusao) {
           const usuarios = await base44.entities.User.filter({ email: atendimento.usuario_conclusao });
           if (usuarios.length > 0) {
@@ -50,33 +50,33 @@ Deno.serve(async (req) => {
           }
         }
 
-        const prec = precMap[servico.tipo_servico];
+        const prec = precMap[atendimento.tipo_servico];
         const comissaoPerc = prec?.comissao_tecnico_percentual || 30;
-        const valorComissao = (servico.valor * comissaoPerc) / 100;
+        const valorComissao = (atendimento.valor * comissaoPerc) / 100;
 
         // Calcular semana e mês
-        const dataServico = new Date(servico.data_atualizacao_status || servico.created_date);
+        const dataConc = new Date(atendimento.data_conclusao || atendimento.created_date);
         const getWeekNumber = (d) => {
           d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
           d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
           const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
           return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
         };
-        const semana = `${dataServico.getFullYear()}-W${String(getWeekNumber(dataServico)).padStart(2, '0')}`;
-        const mes = `${dataServico.getFullYear()}-${String(dataServico.getMonth() + 1).padStart(2, '0')}`;
+        const semana = `${dataConc.getFullYear()}-W${String(getWeekNumber(dataConc)).padStart(2, '0')}`;
+        const mes = `${dataConc.getFullYear()}-${String(dataConc.getMonth() + 1).padStart(2, '0')}`;
 
         const ganhoData = {
           tecnico_email: tecnicoEmail,
           tecnico_nome: tecnicoNome,
-          equipe_id: servico.equipe_id,
-          equipe_nome: servico.equipe_nome,
+          equipe_id: atendimento.equipe_id,
+          equipe_nome: atendimento.equipe_nome,
           atendimento_id: atendimento.id,
-          cliente_nome: servico.cliente_nome,
-          tipo_servico: servico.tipo_servico,
-          valor_servico: servico.valor,
+          cliente_nome: atendimento.cliente_nome,
+          tipo_servico: atendimento.tipo_servico,
+          valor_servico: atendimento.valor,
           comissao_percentual: comissaoPerc,
           valor_comissao: valorComissao,
-          data_conclusao: atendimento.data_conclusao || dataServico.toISOString(),
+          data_conclusao: atendimento.data_conclusao || dataConc.toISOString(),
           semana: semana,
           mes: mes,
           pago: false
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
         await base44.entities.GanhoTecnico.create(ganhoData);
         sincronizados++;
       } catch (error) {
-        erros.push(`Erro ao sincronizar serviço ${servico.id}: ${error.message}`);
+        erros.push(`Erro ao sincronizar atendimento ${atendimento.id}: ${error.message}`);
       }
     }
 
