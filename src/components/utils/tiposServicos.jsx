@@ -8,6 +8,8 @@ export const TIPOS_SERVICOS = [
   "Limpeza de 24k",
   "Limpeza de 30 a 32k",
   "Limpeza piso e teto",
+  "Limpeza de 9 a 22k no bolsão",
+  "Limpeza de 22 a 32k no bolsão",
   "Instalação de 9k",
   "Instalação de 12k",
   "Instalação de 18k",
