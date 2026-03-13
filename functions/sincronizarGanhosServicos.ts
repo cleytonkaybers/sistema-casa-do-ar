@@ -9,12 +9,12 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Apenas administradores podem sincronizar ganhos' }, { status: 403 });
     }
 
-    // Buscar todos os atendimentos concluídos
-     const atendimentos = await base44.entities.Atendimento.list();
+    // Buscar todos os serviços concluídos
+     const servicosConcluidos = await base44.entities.Servico.filter({ status: 'concluido' });
 
      // Buscar todos os ganhos já registrados
      const ganhosExistentes = await base44.entities.GanhoTecnico.list();
-     const atendimentosComGanho = new Set(ganhosExistentes.map(g => g.atendimento_id));
+     const servicosComGanho = new Set(ganhosExistentes.map(g => g.atendimento_id));
 
      // Buscar precificações para referência
      const precificacoes = await base44.entities.PrecificacaoServico.list();
@@ -26,15 +26,30 @@ Deno.serve(async (req) => {
      let sincronizados = 0;
      let erros = [];
 
-     // Para cada atendimento, criar ganho se não existir
-     for (const atendimento of atendimentos) {
-       // Verificar se já existe ganho para este atendimento
-       if (atendimentosComGanho.has(atendimento.id)) {
+     // Para cada serviço concluído, criar ganho se existir precificação
+     for (const servico of servicosConcluidos) {
+       // Validar se tem precificação
+       const prec = precMap[servico.tipo_servico];
+       if (!prec) {
          continue;
        }
 
        // Validar dados mínimos
-       if (!atendimento.equipe_id || atendimento.valor <= 0) {
+       if (!servico.equipe_id || servico.valor <= 0) {
+         continue;
+       }
+
+       // Buscar atendimento correspondente
+       const atendimentos = await base44.entities.Atendimento.filter({ servico_id: servico.id });
+       if (atendimentos.length === 0) {
+         erros.push(`Serviço ${servico.id} não tem atendimento`);
+         continue;
+       }
+
+       const atendimento = atendimentos[0];
+
+       // Verificar se já existe ganho para este serviço
+       if (servicosComGanho.has(atendimento.id)) {
          continue;
        }
 
