@@ -186,35 +186,40 @@ export default function MeusGanhos() {
 
 
   // Agrupar ganhos por equipe
-  const ganhosPorEquipe = useMemo(() => {
-    const grupos = {};
-    
-    ganhosFiltrados.forEach(ganho => {
-      const equipeId = ganho.equipe_id || 'sem-equipe';
-      const equipeNome = ganho.equipe_nome || 'Sem Equipe';
-      
-      if (!grupos[equipeId]) {
-        grupos[equipeId] = {
-          equipeId,
-          equipeNome,
-          ganhos: [],
-          total: 0,
-          totalPago: 0,
-          totalPendente: 0
-        };
-      }
-      
-      grupos[equipeId].ganhos.push(ganho);
-      grupos[equipeId].total += ganho.valor_comissao || 0;
-      if (ganho.pago) {
-        grupos[equipeId].totalPago += ganho.valor_comissao || 0;
-      } else {
-        grupos[equipeId].totalPendente += ganho.valor_comissao || 0;
-      }
-    });
-    
-    return Object.values(grupos);
-  }, [ganhosFiltrados]);
+   const ganhosPorEquipe = useMemo(() => {
+     const grupos = {};
+
+     ganhosFiltrados.forEach(ganho => {
+       // Usar equipe_id como chave primária
+       const equipeId = ganho.equipe_id || 'sem-equipe';
+       const equipeNome = ganho.equipe_nome || 'Sem Equipe';
+
+       if (!grupos[equipeId]) {
+         grupos[equipeId] = {
+           equipeId,
+           equipeNome,
+           ganhos: [],
+           total: 0,
+           totalPago: 0,
+           totalPendente: 0
+         };
+       }
+
+       // Verificar duplicatas por ID do ganho
+       const jaExiste = grupos[equipeId].ganhos.some(g => g.id === ganho.id);
+       if (!jaExiste) {
+         grupos[equipeId].ganhos.push(ganho);
+         grupos[equipeId].total += ganho.valor_comissao || 0;
+         if (ganho.pago) {
+           grupos[equipeId].totalPago += ganho.valor_comissao || 0;
+         } else {
+           grupos[equipeId].totalPendente += ganho.valor_comissao || 0;
+         }
+       }
+     });
+
+     return Object.values(grupos).sort((a, b) => (a.equipeNome || '').localeCompare(b.equipeNome || ''));
+   }, [ganhosFiltrados]);
 
   // Calcular totais
   const totalGanhos = ganhosFiltrados.reduce((sum, g) => sum + (g.valor_comissao || 0), 0);
