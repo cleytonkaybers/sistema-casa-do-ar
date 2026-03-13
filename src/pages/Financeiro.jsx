@@ -63,15 +63,20 @@ export default function Financeiro() {
       await createMutation.mutateAsync({
         tipo_servico: tipo,
         preco_padrao: 0,
-        comissao_tecnico_percentual: 50,
+        comissao_tecnico_percentual: 30,
         ativo: true
       });
     }
   };
 
   React.useEffect(() => {
-    if (precificacoes.length === 0 && !isLoading) {
-      handleCreateMissing();
+    if (!isLoading && precificacoes.length >= 0) {
+      const existingTipos = precificacoes.map(p => p.tipo_servico);
+      const missing = TIPOS_SERVICOS.filter(t => !existingTipos.includes(t));
+      
+      if (missing.length > 0) {
+        handleCreateMissing();
+      }
     }
   }, [precificacoes.length, isLoading]);
 
