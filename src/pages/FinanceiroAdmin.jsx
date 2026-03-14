@@ -34,6 +34,8 @@ export default function FinanceiroAdmin() {
     nota: '',
     lancamentos_relacionados: []
   });
+  const [editandoLancamento, setEditandoLancamento] = useState(null);
+  const [editValor, setEditValor] = useState('');
   
   const { data: lancamentos = [] } = useQuery({
     queryKey: ['lancamentos'],
