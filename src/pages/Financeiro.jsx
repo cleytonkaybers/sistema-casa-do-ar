@@ -77,13 +77,49 @@ export default function Financeiro() {
     }
   };
 
+  // Limpar duplicatas automaticamente
+  const handleLimparDuplicatas = async () => {
+    const groupedByTipo = {};
+    precificacoes.forEach(prec => {
+      if (!groupedByTipo[prec.tipo_servico]) {
+        groupedByTipo[prec.tipo_servico] = [];
+      }
+      groupedByTipo[prec.tipo_servico].push(prec);
+    });
+
+    for (const [_, items] of Object.entries(groupedByTipo)) {
+      if (items.length > 1) {
+        // Deletar todos exceto o primeiro
+        for (let i = 1; i < items.length; i++) {
+          await deleteMutation.mutateAsync(items[i].id);
+        }
+      }
+    }
+  };
+
   React.useEffect(() => {
-    if (!isLoading && precificacoes.length >= 0) {
-      const existingTipos = precificacoes.map(p => p.tipo_servico);
-      const missing = TIPOS_SERVICOS.filter(t => !existingTipos.includes(t));
+    if (!isLoading && precificacoes.length > 0) {
+      // Verificar e limpar duplicatas
+      const groupedByTipo = {};
+      precificacoes.forEach(prec => {
+        if (!groupedByTipo[prec.tipo_servico]) {
+          groupedByTipo[prec.tipo_servico] = [];
+        }
+        groupedByTipo[prec.tipo_servico].push(prec);
+      });
+
+      const temDuplicatas = Object.values(groupedByTipo).some(items => items.length > 1);
       
-      if (missing.length > 0) {
-        handleCreateMissing();
+      if (temDuplicatas) {
+        handleLimparDuplicatas();
+      } else {
+        // Se não tem duplicatas, criar missing
+        const existingTipos = precificacoes.map(p => p.tipo_servico);
+        const missing = TIPOS_SERVICOS.filter(t => !existingTipos.includes(t));
+        
+        if (missing.length > 0) {
+          handleCreateMissing();
+        }
       }
     }
   }, [precificacoes.length, isLoading]);
