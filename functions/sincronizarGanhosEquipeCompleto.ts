@@ -9,19 +9,6 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 
-    // Deletar ganhos existentes para refazer
-    const ganhosExistentes = await base44.asServiceRole.entities.GanhoTecnico.list();
-    
-    if (ganhosExistentes.length > 0) {
-      // Deletar em lotes para evitar rate limit
-      for (let i = 0; i < ganhosExistentes.length; i += 100) {
-        const lote = ganhosExistentes.slice(i, i + 100);
-        for (const ganho of lote) {
-          await base44.asServiceRole.entities.GanhoTecnico.delete(ganho.id);
-        }
-      }
-    }
-
     // Buscar serviços concluídos
     const servicos = await base44.asServiceRole.entities.Servico.filter({ status: 'concluido' });
     const usuarios = await base44.asServiceRole.entities.User.list();
@@ -31,6 +18,10 @@ Deno.serve(async (req) => {
     
     // Buscar precificações
     const precificacoes = await base44.asServiceRole.entities.PrecificacaoServico.list();
+    
+    // Buscar ganhos existentes para evitar duplicação
+    const ganhosExistentes = await base44.asServiceRole.entities.GanhoTecnico.list();
+    const servicosComGanho = new Set(ganhosExistentes.map(g => g.atendimento_id));
 
     let ganhosCriados = 0;
     const ganhosParaCriar = [];
@@ -43,8 +34,18 @@ Deno.serve(async (req) => {
 
     // Para cada serviço concluído
     for (const servico of servicos) {
+      // Pular se já tem ganho registrado
+      if (servicosComGanho.has(servico.id)) {
+        continue;
+      }
+
       // Pular se não tem técnico que completou ou equipe
       if (!servico.usuario_atualizacao_status || !servico.equipe_id) {
+        continue;
+      }
+
+      // Pular se valor é zero ou negativo
+      if (!servico.valor || servico.valor <= 0) {
         continue;
       }
 
@@ -79,26 +80,26 @@ Deno.serve(async (req) => {
       }
 
       // Criar ganho apenas para o primeiro membro (evita duplicação)
-       const emailMembro = membrosEquipe[0];
-       const usuarioMembro = usuariosAtivos.find(u => u.email === emailMembro);
-       const valorComissaoTotal = (servico.valor || 0) * (comissaoPercentual / 100);
+      const emailMembro = membrosEquipe[0];
+      const usuarioMembro = usuariosAtivos.find(u => u.email === emailMembro);
+      const valorComissaoTotal = (servico.valor || 0) * (comissaoPercentual / 100);
 
-       ganhosParaCriar.push({
-         tecnico_email: emailMembro,
-         tecnico_nome: usuarioMembro?.full_name || 'Sistema',
-         atendimento_id: servico.id,
-         cliente_nome: servico.cliente_nome,
-         tipo_servico: servico.tipo_servico,
-         valor_servico: servico.valor || 0,
-         comissao_percentual: comissaoPercentual,
-         valor_comissao: valorComissaoTotal,
-         data_conclusao: servico.data_atualizacao_status || new Date().toISOString(),
-         semana: getWeekOfYear(new Date(servico.data_atualizacao_status || new Date())),
-         mes: getMesAno(new Date(servico.data_atualizacao_status || new Date())),
-         equipe_id: servico.equipe_id,
-         equipe_nome: servico.equipe_nome,
-         pago: false
-       });
+      ganhosParaCriar.push({
+        tecnico_email: emailMembro,
+        tecnico_nome: usuarioMembro?.full_name || 'Sistema',
+        atendimento_id: servico.id,
+        cliente_nome: servico.cliente_nome,
+        tipo_servico: servico.tipo_servico,
+        valor_servico: servico.valor || 0,
+        comissao_percentual: comissaoPercentual,
+        valor_comissao: valorComissaoTotal,
+        data_conclusao: servico.data_atualizacao_status || new Date().toISOString(),
+        semana: getWeekOfYear(new Date(servico.data_atualizacao_status || new Date())),
+        mes: getMesAno(new Date(servico.data_atualizacao_status || new Date())),
+        equipe_id: servico.equipe_id,
+        equipe_nome: servico.equipe_nome,
+        pago: false
+      });
     }
 
     // Criar todos em lote
@@ -110,7 +111,7 @@ Deno.serve(async (req) => {
     return Response.json({
       sucesso: true,
       ganhosCriados,
-      mensagem: `${ganhosCriados} ganhos sincronizados para todas as equipes`
+      mensagem: `${ganhosCriados} ganhos sincronizados`
     });
   } catch (error) {
     console.error('Erro:', error.message);
