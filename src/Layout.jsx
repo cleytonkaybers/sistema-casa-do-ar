@@ -27,7 +27,7 @@ import {
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import ChatWidget from '@/components/ChatWidget/ChatWidget';
+
 import NotificationCenter from '@/components/NotificationCenter';
 import UserMenu from '@/components/UserMenu';
 import { EmpresaProvider, useEmpresa } from '@/components/auth/EmpresaGuard';
@@ -197,7 +197,6 @@ function LayoutContent({ children }) {
 
         {/* Main */}
         <div className="lg:pl-72">
-          <ChatWidget />
 
           {/* Top bar */}
           <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
