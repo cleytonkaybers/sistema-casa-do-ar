@@ -19,10 +19,12 @@ import {
   Filter,
   DollarSign,
   TrendingUp,
-  Sparkles
+  Sparkles,
+  BarChart3
 } from 'lucide-react';
-import { format, differenceInDays, startOfMonth, endOfMonth, isWithinInterval, startOfWeek, endOfWeek, isToday } from 'date-fns';
+import { format, differenceInDays, startOfMonth, endOfMonth, isWithinInterval, startOfWeek, endOfWeek, isToday, subWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const formatPhone = (phone) => {
   if (!phone) return '';
@@ -170,6 +172,37 @@ export default function Dashboard() {
   const totalGanhosEquipe = ganhosEquipeSemana.reduce((sum, g) => sum + (g.valor_comissao || 0), 0);
   const ganhosEquipePagos = ganhosEquipeSemana.filter(g => g.pago).reduce((sum, g) => sum + (g.valor_comissao || 0), 0);
   const ganhosEquipePendentes = totalGanhosEquipe - ganhosEquipePagos;
+
+  // Calcular ganhos semanais das últimas 4 semanas por equipe
+  const dadosGraficoPorSemana = React.useMemo(() => {
+    const semanas = [];
+    
+    for (let i = 3; i >= 0; i--) {
+      const inicioSemanaAtual = startOfWeek(subWeeks(hoje, i), { weekStartsOn: 1 });
+      const fimSemanaAtual = endOfWeek(subWeeks(hoje, i), { weekStartsOn: 1 });
+      
+      const semanaData = {
+        semana: i === 0 ? 'Atual' : `S-${i}`,
+        dataCompleta: format(inicioSemanaAtual, 'dd/MM', { locale: ptBR })
+      };
+
+      equipes.forEach(equipe => {
+        const ganhosEquipeSemana = ganhos.filter(g => {
+          const dataGanho = new Date(g.data_conclusao);
+          const pertenceEquipe = g.equipe_id === equipe.id;
+          const naSemana = isWithinInterval(dataGanho, { start: inicioSemanaAtual, end: fimSemanaAtual });
+          return pertenceEquipe && naSemana;
+        });
+
+        const totalSemana = ganhosEquipeSemana.reduce((sum, g) => sum + (g.valor_comissao || 0), 0);
+        semanaData[equipe.nome] = totalSemana;
+      });
+
+      semanas.push(semanaData);
+    }
+
+    return semanas;
+  }, [ganhos, equipes]);
 
   // Serviços de hoje por equipe
   const servicosHoje = servicos.filter(s => {
@@ -408,6 +441,62 @@ export default function Dashboard() {
               );
             })}
           </div>
+
+          {/* Gráfico de Ganhos Semanais - Últimas 4 Semanas */}
+          <Card className="bg-white border border-gray-200 shadow-sm rounded-2xl">
+            <CardHeader className="pb-3 px-4 pt-4">
+              <CardTitle className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-blue-600" />
+                Evolução Semanal por Equipe
+              </CardTitle>
+              <p className="text-xs text-gray-500 mt-1">Ganhos das últimas 4 semanas</p>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={dadosGraficoPorSemana}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis 
+                    dataKey="semana" 
+                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    axisLine={{ stroke: '#d1d5db' }}
+                  />
+                  <YAxis 
+                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    axisLine={{ stroke: '#d1d5db' }}
+                    tickFormatter={(value) => `R$ ${value}`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#fff', 
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                    }}
+                    formatter={(value) => [`R$ ${value.toFixed(2)}`, '']}
+                    labelFormatter={(label, payload) => {
+                      if (payload && payload.length > 0) {
+                        return `${label} (${payload[0].payload.dataCompleta})`;
+                      }
+                      return label;
+                    }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '20px' }}
+                    iconType="circle"
+                  />
+                  {equipes.map((equipe, index) => (
+                    <Bar 
+                      key={equipe.id}
+                      dataKey={equipe.nome} 
+                      fill={equipe.cor || (index === 0 ? '#10b981' : '#3b82f6')}
+                      radius={[8, 8, 0, 0]}
+                      maxBarSize={60}
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
         </div>
       )}
 
