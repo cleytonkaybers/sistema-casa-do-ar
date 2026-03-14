@@ -38,12 +38,6 @@ export default function MeusGanhos() {
     queryFn: () => base44.entities.Equipe.list(),
   });
 
-  const { data: atendimentos = [] } = useQuery({
-    queryKey: ['atendimentos'],
-    queryFn: () => base44.entities.Atendimento.list(),
-    enabled: isAdmin && filtroEquipe !== 'todas',
-  });
-
   const meuEmail = user?.email;
   const isAdmin = user?.role === 'admin';
 
@@ -178,7 +172,7 @@ export default function MeusGanhos() {
     }
     
     return resultado;
-  }, [ganhosPermitidos, filtroPeriodo, filtroEquipe, isAdmin, inicioSemanaAtual, fimSemanaAtual, inicioMesAtual, fimMesAtual, inicioAnoAtual, fimAnoAtual, atendimentos]);
+  }, [ganhosPermitidos, filtroPeriodo, filtroEquipe, isAdmin, inicioSemanaAtual, fimSemanaAtual, inicioMesAtual, fimMesAtual, inicioAnoAtual, fimAnoAtual]);
 
 
 
