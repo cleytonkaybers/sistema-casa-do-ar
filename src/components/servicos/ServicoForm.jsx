@@ -4,6 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input as UIInput } from '@/components/ui/input';
+import { ChevronDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2, MapPin, Search, ExternalLink, Users, Plus, X, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -46,6 +49,9 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         c.telefone?.includes(clienteSearch)
       )
     : clientes.slice(0, 8);
+
+  const [tipoOpen, setTipoOpen] = useState(null); // null ou índice
+  const [tipoSearch, setTipoSearch] = useState('');
 
   const handleSelectCliente = (cliente) => {
     setFormData(prev => ({
@@ -493,39 +499,71 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
           <div className="space-y-2">
             <Label>Tipos de Serviço *</Label>
             <div className="space-y-2">
-              {formData.tipos_servico.map((item, index) => (
+              {formData.tipos_servico.map((item, index) => {
+                const tiposFiltrados = tipoOpen === index && tipoSearch.trim()
+                  ? TIPOS_SERVICOS.filter(t => t.toLowerCase().includes(tipoSearch.toLowerCase()))
+                  : tipoOpen === index ? TIPOS_SERVICOS : [];
+
+                return (
                 <div key={index} className="flex gap-2">
-                  <Select 
-                   value={item.tipo} 
-                   onValueChange={(value) => {
-                     const newTipos = [...formData.tipos_servico];
-                     newTipos[index].tipo = value;
+                  <Popover open={tipoOpen === index} onOpenChange={(open) => {
+                    setTipoOpen(open ? index : null);
+                    setTipoSearch('');
+                  }}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="flex-1 justify-between text-left">
+                        <span className="truncate">{item.tipo}</span>
+                        <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56 p-0" align="start">
+                      <div className="sticky top-0 bg-white border-b p-2 z-10">
+                        <UIInput
+                          placeholder="Buscar serviço..."
+                          value={tipoSearch}
+                          onChange={(e) => setTipoSearch(e.target.value)}
+                          className="h-8 text-sm"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="max-h-64 overflow-y-auto">
+                        {tiposFiltrados.length > 0 ? (
+                          tiposFiltrados.map(tipo => (
+                            <button
+                              key={tipo}
+                              type="button"
+                              onClick={() => {
+                                const newTipos = [...formData.tipos_servico];
+                                newTipos[index].tipo = tipo;
 
-                     // Calcular soma dos valores de todos os serviços
-                     let valorTotal = 0;
-                     newTipos.forEach(tipoItem => {
-                       const prec = precificacoes.find(p => p.tipo_servico === tipoItem.tipo);
-                       if (prec && prec.preco_padrao) {
-                         valorTotal += Number(prec.preco_padrao) * tipoItem.multiplicador;
-                       }
-                     });
+                                // Calcular soma dos valores
+                                let valorTotal = 0;
+                                newTipos.forEach(tipoItem => {
+                                  const prec = precificacoes.find(p => p.tipo_servico === tipoItem.tipo);
+                                  if (prec && prec.preco_padrao) {
+                                    valorTotal += Number(prec.preco_padrao) * tipoItem.multiplicador;
+                                  }
+                                });
 
-                     setFormData({ 
-                       ...formData, 
-                       tipos_servico: newTipos,
-                       valor: valorTotal > 0 ? valorTotal : formData.valor
-                     });
-                   }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TIPOS_SERVICOS.map(tipo => (
-                        <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                                setFormData({ 
+                                  ...formData, 
+                                  tipos_servico: newTipos,
+                                  valor: valorTotal > 0 ? valorTotal : formData.valor
+                                });
+                                setTipoOpen(null);
+                                setTipoSearch('');
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 border-b last:border-0"
+                            >
+                              {tipo}
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-3 py-2 text-sm text-gray-500 text-center">Nenhum serviço encontrado</div>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   <div className="w-20">
                     <Input
                       type="number"
@@ -581,9 +619,10 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                     >
                       <X className="w-4 h-4" />
                     </Button>
-                  )}
-                </div>
-              ))}
+                    )}
+                    </div>
+                    );
+                    })}
               <Button
                 type="button"
                 variant="outline"
