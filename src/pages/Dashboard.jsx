@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import GanhosSemanaDashboard from '@/components/dashboard/GanhosSemanaDashboard';
 import { 
   Users, 
   ClipboardList, 
@@ -274,8 +275,9 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Stats Grid */}
+      {/* Stats Grid - Com card de ganhos para técnicos */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {currentUser?.role !== 'admin' && <GanhosSemanaDashboard />}
         <StatCard
           title="Clientes"
           value={totalClientes}
