@@ -35,6 +35,26 @@ export default function FinanceiroAdmin() {
     lancamentos_relacionados: []
   });
   
+  const { data: lancamentos = [] } = useQuery({
+    queryKey: ['lancamentos'],
+    queryFn: () => base44.entities.LancamentoFinanceiro.list()
+  });
+
+  const { data: tecnicos = [], refetch: refetchTecnicos } = useQuery({
+    queryKey: ['tecnicos'],
+    queryFn: () => base44.entities.TecnicoFinanceiro.list()
+  });
+
+  const { data: equipes = [] } = useQuery({
+    queryKey: ['equipes'],
+    queryFn: () => base44.entities.Equipe.list()
+  });
+
+  const { data: pagamentos = [], refetch: refetchPagamentos } = useQuery({
+    queryKey: ['pagamentos'],
+    queryFn: () => base44.entities.PagamentoTecnico.list()
+  });
+
   useEffect(() => {
     const checkAdmin = async () => {
       try {
@@ -55,26 +75,6 @@ export default function FinanceiroAdmin() {
 
   if (loading) return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div></div>;
   if (!isAdmin) return null;
-
-  const { data: lancamentos = [] } = useQuery({
-    queryKey: ['lancamentos'],
-    queryFn: () => base44.entities.LancamentoFinanceiro.list()
-  });
-
-  const { data: tecnicos = [], refetch: refetchTecnicos } = useQuery({
-    queryKey: ['tecnicos'],
-    queryFn: () => base44.entities.TecnicoFinanceiro.list()
-  });
-
-  const { data: equipes = [] } = useQuery({
-    queryKey: ['equipes'],
-    queryFn: () => base44.entities.Equipe.list()
-  });
-
-  const { data: pagamentos = [], refetch: refetchPagamentos } = useQuery({
-    queryKey: ['pagamentos'],
-    queryFn: () => base44.entities.PagamentoTecnico.list()
-  });
 
   const filteredTecnicos = tecnicos.filter(t => {
     const matchEquipe = !filtroEquipe || t.equipe_id === filtroEquipe;
