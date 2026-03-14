@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +18,31 @@ import { ptBR } from 'date-fns/locale';
 import RegistrarPagamentoModal from '@/components/financeiro/RegistrarPagamentoModal';
 
 export default function FinanceiroAdmin() {
+  const navigate = useNavigate();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    const checkAdmin = async () => {
+      try {
+        const user = await base44.auth.me();
+        if (user?.role !== 'admin') {
+          navigate('/Dashboard');
+          return;
+        }
+        setIsAdmin(true);
+      } catch {
+        navigate('/Dashboard');
+      } finally {
+        setLoading(false);
+      }
+    };
+    checkAdmin();
+  }, [navigate]);
+
+  if (loading) return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div></div>;
+  if (!isAdmin) return null;
+
   const [filtroEquipe, setFiltroEquipe] = useState('');
   const [filtroTecnico, setFiltroTecnico] = useState('');
   const [filtroSemana, setFiltroSemana] = useState('atual');
