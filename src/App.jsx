@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import FinanceiroAdmin from '@/pages/FinanceiroAdmin';
 import MeuFinanceiro from '@/pages/MeuFinanceiro';
+import TabelaServicos from '@/pages/TabelaServicos';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -68,6 +69,11 @@ const AuthenticatedApp = () => {
       <Route path="/MeuFinanceiro" element={
         <LayoutWrapper currentPageName="MeuFinanceiro">
           <MeuFinanceiro />
+        </LayoutWrapper>
+      } />
+      <Route path="/TabelaServicos" element={
+        <LayoutWrapper currentPageName="TabelaServicos">
+          <TabelaServicos />
         </LayoutWrapper>
       } />
       <Route path="*" element={<PageNotFound />} />
