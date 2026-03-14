@@ -64,7 +64,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
     endereco: '',
     latitude: null,
     longitude: null,
-    tipos_servico: ['Limpeza de 9k'],
+    tipos_servico: [{ tipo: 'Limpeza de 9k', quantidade: 1 }],
     dia_semana: '',
     data_programada: '',
     horario: '',
@@ -88,7 +88,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         endereco: servico.endereco || '',
         latitude: servico.latitude || null,
         longitude: servico.longitude || null,
-        tipos_servico: servico.tipo_servico ? [servico.tipo_servico] : ['Limpeza de 9k'],
+        tipos_servico: servico.tipo_servico ? [{ tipo: servico.tipo_servico, quantidade: 1 }] : [{ tipo: 'Limpeza de 9k', quantidade: 1 }],
         dia_semana: servico.dia_semana || '',
         data_programada: servico.data_programada || '',
         horario: servico.horario || '',
@@ -106,7 +106,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         endereco: prefilledData.endereco || '',
         latitude: prefilledData.latitude || null,
         longitude: prefilledData.longitude || null,
-        tipos_servico: ['Limpeza de 9k'],
+        tipos_servico: [{ tipo: 'Limpeza de 9k', quantidade: 1 }],
         dia_semana: '',
         data_programada: '',
         horario: '',
@@ -124,7 +124,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         endereco: '',
         latitude: null,
         longitude: null,
-        tipos_servico: ['Limpeza de 9k'],
+        tipos_servico: [{ tipo: 'Limpeza de 9k', quantidade: 1 }],
         dia_semana: '',
         data_programada: '',
         horario: '',
@@ -342,9 +342,14 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
     // Resolve nome da equipe
     const equipeSelecionada = equipes.find(e => e.id === formData.equipe_id);
 
+    // Expandir tipos de serviço baseado na quantidade
+    const tiposExpandidos = formData.tipos_servico.flatMap(item => 
+      Array(parseInt(item.quantidade) || 1).fill(item.tipo)
+    );
+
     const dataToSave = {
       ...formData,
-      tipo_servico: formData.tipos_servico.join(' + '),
+      tipo_servico: tiposExpandidos.join(' + '),
       dia_semana: diaSemana,
       valor: formData.valor ? parseFloat(formData.valor) : 0,
       equipe_id: formData.equipe_id || null,
@@ -487,17 +492,17 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
           <div className="space-y-2">
             <Label>Tipos de Serviço *</Label>
             <div className="space-y-2">
-              {formData.tipos_servico.map((tipo, index) => (
-                <div key={index} className="flex gap-2">
+              {formData.tipos_servico.map((item, index) => (
+                <div key={index} className="flex gap-2 items-end">
                   <Select 
-                    value={tipo} 
+                    value={item.tipo} 
                     onValueChange={(value) => {
                       const newTipos = [...formData.tipos_servico];
-                      newTipos[index] = value;
+                      newTipos[index] = { ...newTipos[index], tipo: value };
                       setFormData({ ...formData, tipos_servico: newTipos });
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="flex-1">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -535,6 +540,21 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                        <SelectItem value="Outro tipo de serviço">Outro tipo de serviço</SelectItem>
                     </SelectContent>
                   </Select>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs whitespace-nowrap">Qtd:</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={item.quantidade}
+                      onChange={(e) => {
+                        const newTipos = [...formData.tipos_servico];
+                        newTipos[index] = { ...newTipos[index], quantidade: parseInt(e.target.value) || 1 };
+                        setFormData({ ...formData, tipos_servico: newTipos });
+                      }}
+                      className="w-16"
+                    />
+                  </div>
                   {formData.tipos_servico.length > 1 && (
                     <Button
                       type="button"
@@ -554,7 +574,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setFormData({ ...formData, tipos_servico: [...formData.tipos_servico, 'Limpeza de 9k'] })}
+                onClick={() => setFormData({ ...formData, tipos_servico: [...formData.tipos_servico, { tipo: 'Limpeza de 9k', quantidade: 1 }] })}
                 className="w-full border-dashed"
               >
                 <Plus className="w-4 h-4 mr-2" />
