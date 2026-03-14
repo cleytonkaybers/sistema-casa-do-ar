@@ -20,6 +20,7 @@ export default function MeuFinanceiro() {
   const [dataFim, setDataFim] = useState(null);
   const [detalhesServico, setDetalhesServico] = useState(null);
   const [showDetalhesModal, setShowDetalhesModal] = useState(false);
+  const [servicoEditando, setServicoEditando] = useState(null);
 
   React.useEffect(() => {
     base44.auth.me().then(u => {
