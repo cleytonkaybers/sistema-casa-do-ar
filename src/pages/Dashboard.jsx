@@ -238,11 +238,8 @@ export default function Dashboard() {
   const StatCard = ({ title, value, icon: Icon, color, subtitle, onClick, href }) => {
     const content = (
       <CardContent className="p-4 sm:p-6">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <p className="text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wide">{title}</p>
-            <p className="text-2xl sm:text-3xl font-bold mt-1 sm:mt-2 text-gray-800">{value}</p>
-          </div>
+        <div className="flex items-center justify-between">
+          <p className="text-3xl sm:text-4xl font-bold text-gray-800">{value}</p>
           <div className={`w-11 h-11 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shadow-lg ${color}`}>
             <Icon className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
           </div>
