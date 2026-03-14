@@ -64,6 +64,7 @@ export default function TabelaServicos() {
       setShowModal(false);
       setNovoTipo('');
       setNovoValor('');
+      setIsCustomType(false);
       toast.success('Tipo de serviço adicionado');
     },
     onError: () => toast.error('Erro ao adicionar')
