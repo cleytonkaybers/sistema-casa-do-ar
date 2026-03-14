@@ -10,15 +10,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, Users, TrendingUp, AlertCircle, Check, X, FileText } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, AlertCircle, Check, X, FileText, Download, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfWeek, endOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import RegistrarPagamentoModal from '@/components/financeiro/RegistrarPagamentoModal';
 
 export default function FinanceiroAdmin() {
   const [filtroEquipe, setFiltroEquipe] = useState('');
   const [filtroTecnico, setFiltroTecnico] = useState('');
+  const [filtroSemana, setFiltroSemana] = useState('atual');
   const [showModalPagamento, setShowModalPagamento] = useState(false);
   const [tecnicoSelecionado, setTecnicoSelecionado] = useState(null);
   const [loadingPagamento, setLoadingPagamento] = useState(false);
@@ -96,8 +97,146 @@ export default function FinanceiroAdmin() {
     }
   };
 
+  // Filtrar por semana
+  const agora = new Date();
+  const inicioSemanaAtual = startOfWeek(agora, { weekStartsOn: 0 });
+  const fimSemanaAtual = endOfWeek(agora, { weekStartsOn: 0 });
+  const inicioSemanaPassada = new Date(inicioSemanaAtual);
+  inicioSemanaPassada.setDate(inicioSemanaPassada.getDate() - 7);
+  const fimSemanaPassada = new Date(fimSemanaAtual);
+  fimSemanaPassada.setDate(fimSemanaPassada.getDate() - 7);
+
+  const lancamentosFiltrados = lancamentos.filter(l => {
+    const dataLancamento = new Date(l.data_geracao);
+    if (filtroSemana === 'atual') {
+      return dataLancamento >= inicioSemanaAtual && dataLancamento <= fimSemanaAtual;
+    } else if (filtroSemana === 'passada') {
+      return dataLancamento >= inicioSemanaPassada && dataLancamento <= fimSemanaPassada;
+    }
+    return true;
+  });
+
+  const pagamentosAtrasados = lancamentos.filter(l => {
+    const dataLancamento = new Date(l.data_geracao);
+    const diasPassados = Math.floor((agora - dataLancamento) / (1000 * 60 * 60 * 24));
+    return l.status === 'pendente' && diasPassados > 7;
+  });
+
   const totalPendente = filteredTecnicos.reduce((sum, t) => sum + (t.credito_pendente || 0), 0);
   const totalPago = filteredTecnicos.reduce((sum, t) => sum + (t.credito_pago || 0), 0);
+
+  const gerarPDF = async () => {
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF();
+      
+      doc.setFontSize(16);
+      doc.text('Relatório Financeiro - Casa do Ar', 20, 20);
+      
+      doc.setFontSize(10);
+      doc.text(`Data: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`, 20, 30);
+      doc.text(`Período: ${format(filtroSemana === 'atual' ? inicioSemanaAtual : inicioSemanaPassada, 'dd/MM/yyyy')} a ${format(filtroSemana === 'atual' ? fimSemanaAtual : fimSemanaPassada, 'dd/MM/yyyy')}`, 20, 37);
+      
+      let y = 50;
+      
+      // Seção de Créditos
+      doc.setFontSize(12);
+      doc.text('GESTÃO DE CRÉDITOS', 20, y);
+      y += 8;
+      doc.setFontSize(10);
+      doc.text(`Total Pendente: R$ ${totalPendente.toFixed(2)}`, 20, y);
+      y += 7;
+      doc.text(`Total Pago: R$ ${totalPago.toFixed(2)}`, 20, y);
+      y += 12;
+      
+      // Tabela de Técnicos
+      doc.setFontSize(11);
+      doc.text('Créditos por Técnico:', 20, y);
+      y += 7;
+      doc.setFontSize(9);
+      doc.setTextColor(100);
+      doc.text('Técnico', 20, y);
+      doc.text('Equipe', 70, y);
+      doc.text('Pendente', 110, y);
+      doc.text('Pago', 150, y);
+      doc.text('Total', 180, y);
+      y += 5;
+      
+      doc.setTextColor(0);
+      filteredTecnicos.forEach(tech => {
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFontSize(8);
+        doc.text(tech.tecnico_nome.substring(0, 20), 20, y);
+        doc.text(tech.equipe_nome.substring(0, 20), 70, y);
+        doc.text(`R$ ${(tech.credito_pendente || 0).toFixed(2)}`, 110, y);
+        doc.text(`R$ ${(tech.credito_pago || 0).toFixed(2)}`, 150, y);
+        doc.text(`R$ ${(tech.total_ganho || 0).toFixed(2)}`, 180, y);
+        y += 5;
+      });
+
+      y += 8;
+      doc.setFontSize(11);
+      doc.text('Comissões por Serviço:', 20, y);
+      y += 7;
+      doc.setFontSize(9);
+      doc.setTextColor(100);
+      doc.text('Equipe', 20, y);
+      doc.text('Técnico', 50, y);
+      doc.text('Cliente', 90, y);
+      doc.text('Serviço', 130, y);
+      doc.text('Valor', 170, y);
+      doc.text('%', 190, y);
+      y += 5;
+
+      doc.setTextColor(0);
+      lancamentosFiltrados.forEach(lanc => {
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+        }
+        const percentual = lanc.valor_total_servico > 0 ? ((lanc.valor_comissao_tecnico / lanc.valor_total_servico) * 100).toFixed(1) : 0;
+        doc.setFontSize(8);
+        doc.text(lanc.equipe_nome.substring(0, 15), 20, y);
+        doc.text(lanc.tecnico_nome.substring(0, 15), 50, y);
+        doc.text(lanc.cliente_nome.substring(0, 18), 90, y);
+        doc.text(lanc.tipo_servico.substring(0, 18), 130, y);
+        doc.text(`R$ ${lanc.valor_comissao_tecnico.toFixed(2)}`, 170, y);
+        doc.text(`${percentual}%`, 190, y);
+        y += 5;
+      });
+
+      if (pagamentosAtrasados.length > 0) {
+        if (y > 250) {
+          doc.addPage();
+          y = 20;
+        }
+        y += 8;
+        doc.setTextColor(255, 0, 0);
+        doc.setFontSize(11);
+        doc.text('⚠️ PAGAMENTOS EM ATRASO', 20, y);
+        y += 7;
+        doc.setTextColor(0);
+        doc.setFontSize(9);
+        pagamentosAtrasados.forEach(pag => {
+          if (y > 270) {
+            doc.addPage();
+            y = 20;
+          }
+          const diasAtraso = Math.floor((agora - new Date(pag.data_geracao)) / (1000 * 60 * 60 * 24));
+          doc.text(`${pag.tecnico_nome} - R$ ${pag.valor_comissao_tecnico.toFixed(2)} (${diasAtraso} dias)`, 20, y);
+          y += 5;
+        });
+      }
+      
+      doc.save(`relatorio_financeiro_${format(new Date(), 'dd-MM-yyyy')}.pdf`);
+      toast.success('PDF gerado com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao gerar PDF');
+    }
+  };
 
   return (
     <>
@@ -143,11 +282,27 @@ export default function FinanceiroAdmin() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Gestão de Créditos</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+         <CardHeader className="flex items-center justify-between">
+           <CardTitle>Gestão de Créditos</CardTitle>
+           <Button onClick={gerarPDF} size="sm" className="gap-2">
+             <Download className="w-4 h-4" />
+             Gerar PDF
+           </Button>
+         </CardHeader>
+         <CardContent className="space-y-4">
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+             <div className="space-y-2">
+               <Label className="flex items-center gap-2"><Calendar className="w-4 h-4" /> Período</Label>
+               <Select value={filtroSemana} onValueChange={setFiltroSemana}>
+                 <SelectTrigger>
+                   <SelectValue />
+                 </SelectTrigger>
+                 <SelectContent>
+                   <SelectItem value="atual">Semana Atual</SelectItem>
+                   <SelectItem value="passada">Semana Passada</SelectItem>
+                 </SelectContent>
+               </Select>
+             </div>
             <div className="space-y-2">
               <Label>Filtrar por Equipe</Label>
               <Select value={filtroEquipe} onValueChange={setFiltroEquipe}>
@@ -170,7 +325,7 @@ export default function FinanceiroAdmin() {
                 onChange={(e) => setFiltroTecnico(e.target.value)}
               />
             </div>
-          </div>
+            </div>
 
           <div className="overflow-x-auto">
             <Table>
@@ -227,6 +382,33 @@ export default function FinanceiroAdmin() {
         </CardContent>
       </Card>
 
+      {pagamentosAtrasados.length > 0 && (
+        <Card className="border-red-200 bg-red-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-red-700"><AlertCircle className="w-5 h-5" /> Pagamentos em Atraso</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {pagamentosAtrasados.map(pag => {
+                const diasAtraso = Math.floor((agora - new Date(pag.data_geracao)) / (1000 * 60 * 60 * 24));
+                return (
+                  <div key={pag.id} className="flex justify-between items-center p-3 bg-white rounded border border-red-200">
+                    <div>
+                      <p className="font-medium">{pag.tecnico_nome}</p>
+                      <p className="text-sm text-gray-600">{pag.cliente_nome} - {pag.tipo_servico}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-red-600">R$ {pag.valor_comissao_tecnico.toFixed(2)}</p>
+                      <p className="text-xs text-red-500">{diasAtraso} dias em atraso</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
          <CardHeader>
            <CardTitle className="flex items-center gap-2"><FileText className="w-4 h-4" /> Relatório de Comissões por Serviço</CardTitle>
@@ -247,7 +429,7 @@ export default function FinanceiroAdmin() {
                  </TableRow>
                </TableHeader>
                <TableBody>
-                 {lancamentos.map(lanc => {
+                 {lancamentosFiltrados.map(lanc => {
                    const percentualGanho = lanc.valor_total_servico > 0
                      ? ((lanc.valor_comissao_tecnico / lanc.valor_total_servico) * 100).toFixed(1)
                      : 0;
