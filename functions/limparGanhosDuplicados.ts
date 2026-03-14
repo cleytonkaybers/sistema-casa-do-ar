@@ -14,23 +14,11 @@ Deno.serve(async (req) => {
     const usuarios = await base44.asServiceRole.entities.User.list();
     console.log(`Total de ganhos: ${ganhos.length}`);
 
-    // Descobrir automaticamente os membros por equipe analisando os ganhos
-    const membrosPorEquipe = {};
-    ganhos.forEach(g => {
-      if (g.equipe_id) {
-        if (!membrosPorEquipe[g.equipe_id]) {
-          membrosPorEquipe[g.equipe_id] = new Set();
-        }
-        if (g.tecnico_email) {
-          membrosPorEquipe[g.equipe_id].add(g.tecnico_email);
-        }
-      }
-    });
-
-    // Converter Set para Array
-    for (const equipeId in membrosPorEquipe) {
-      membrosPorEquipe[equipeId] = Array.from(membrosPorEquipe[equipeId]);
-    }
+    // Mapeamento correto de membros por equipe (apenas 2 técnicos por equipe)
+    const membrosPorEquipe = {
+      '699e53267d5629312b8742dd': ['vinihenrique781@gmail.com', 'vgabrielkaybersdossantos@gmail.com'],
+      '699e54e99bb56cb59de69c61': ['witalok73@gmail.com', 'waglessonribero@gmail.com']
+    };
 
     console.log('Equipes descobertas:', membrosPorEquipe);
 
