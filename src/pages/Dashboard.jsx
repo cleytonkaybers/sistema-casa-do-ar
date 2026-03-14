@@ -178,10 +178,22 @@ export default function Dashboard() {
     return isToday(new Date(s.data_programada));
   });
 
+  // Serviços atrasados (data programada passou e não foi concluído)
+  const servicosAtrasados = servicos.filter(s => {
+    if (!s.data_programada || s.status === 'concluido') return false;
+    const dataServico = new Date(s.data_programada);
+    dataServico.setHours(0, 0, 0, 0);
+    return dataServico < hojePuro;
+  });
+
   // Filtrar apenas serviços da equipe do usuário (se não for admin)
   const servicosFiltradosPorEquipe = currentUser?.role === 'admin' 
     ? servicosHoje 
     : servicosHoje.filter(s => s.equipe_id === equipeDoUsuario);
+
+  const servicosAtrasadosFiltrados = currentUser?.role === 'admin'
+    ? servicosAtrasados
+    : servicosAtrasados.filter(s => s.equipe_id === equipeDoUsuario);
 
   const servicosPorEquipe = equipes
     .map(equipe => ({
@@ -252,70 +264,84 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Serviços Diários por Equipe */}
-      {servicosPorEquipe.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-blue-600" />
-            {currentUser?.role === 'admin' ? 'Serviços de Hoje por Equipe' : 'Meus Serviços de Hoje'}
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            {servicosPorEquipe.map(({ equipe, servicos }) => (
-              <div key={equipe.id} className="space-y-2">
-                {/* Header da equipe */}
-                <div className="flex items-center gap-2 px-1">
-                  <div 
-                    className="w-6 h-6 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow"
-                    style={{ backgroundColor: equipe.cor || '#3b82f6' }}
-                  >
-                    {equipe.nome.charAt(0).toUpperCase()}
-                  </div>
-                  <p className="text-sm font-semibold text-gray-800">{equipe.nome}</p>
-                  <span className="text-xs text-gray-500">({servicos.length})</span>
-                </div>
+      {/* Serviços Atrasados e do Dia */}
+      {(servicosAtrasadosFiltrados.length > 0 || servicosFiltradosPorEquipe.length > 0) && (
+        <div className="space-y-4">
+          {/* Serviços Atrasados */}
+          {servicosAtrasadosFiltrados.length > 0 && (
+            <div>
+              <h2 className="text-lg font-bold text-red-700 flex items-center gap-2 mb-3">
+                <AlertTriangle className="w-5 h-5" />
+                Serviços Atrasados ({servicosAtrasadosFiltrados.length})
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                {servicosAtrasadosFiltrados.map(servico => (
+                  <Link key={servico.id} to={createPageUrl('Servicos')}>
+                    <div className="p-3 rounded-lg border-2 border-red-300 bg-red-50 hover:shadow-md transition-all cursor-pointer">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm text-gray-900 truncate">{servico.cliente_nome}</p>
+                          <p className="text-xs text-gray-600 truncate">{servico.tipo_servico}</p>
+                          <p className="text-xs text-red-600 font-medium mt-1">
+                            {Math.abs(differenceInDays(new Date(servico.data_programada), new Date()))}d atrasado
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
-                {/* Mini cards dos serviços */}
-                <div className="space-y-1.5">
-                  {servicos.map(servico => {
-                    const statusColors = {
-                      'aberto': 'bg-gray-50 border-gray-200',
-                      'andamento': 'bg-blue-50 border-blue-200',
-                      'agendado': 'bg-amber-50 border-amber-200',
-                      'reagendado': 'bg-purple-50 border-purple-200'
-                    };
-                    const statusDot = {
-                      'aberto': 'bg-gray-500',
-                      'andamento': 'bg-blue-500',
-                      'agendado': 'bg-amber-500',
-                      'reagendado': 'bg-purple-500'
-                    };
-                    const statusClass = statusColors[servico.status] || statusColors.aberto;
-                    const dotClass = statusDot[servico.status] || statusDot.aberto;
-                    
-                    return (
-                      <Link key={servico.id} to={createPageUrl('Servicos')}>
-                        <div className={`p-2.5 rounded-lg border ${statusClass} hover:shadow-sm transition-all cursor-pointer`}>
-                          <div className="flex items-start gap-2">
-                            <div className={`w-2 h-2 rounded-full ${dotClass} mt-1.5 flex-shrink-0`} />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm text-gray-800 truncate">{servico.cliente_nome}</p>
-                              <p className="text-xs text-gray-600 truncate">{servico.tipo_servico}</p>
-                              {servico.horario && (
-                                <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  {servico.horario}
-                                </p>
-                              )}
-                            </div>
+          {/* Serviços de Hoje */}
+          {servicosFiltradosPorEquipe.length > 0 && (
+            <div>
+              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-3">
+                <Calendar className="w-5 h-5 text-blue-600" />
+                Serviços de Hoje ({servicosFiltradosPorEquipe.length})
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                {servicosFiltradosPorEquipe.map(servico => {
+                  const statusColors = {
+                    'aberto': 'bg-gray-50 border-gray-200',
+                    'andamento': 'bg-blue-50 border-blue-200',
+                    'agendado': 'bg-amber-50 border-amber-200',
+                    'reagendado': 'bg-purple-50 border-purple-200'
+                  };
+                  const statusDot = {
+                    'aberto': 'bg-gray-500',
+                    'andamento': 'bg-blue-500',
+                    'agendado': 'bg-amber-500',
+                    'reagendado': 'bg-purple-500'
+                  };
+                  const statusClass = statusColors[servico.status] || statusColors.aberto;
+                  const dotClass = statusDot[servico.status] || statusDot.aberto;
+                  
+                  return (
+                    <Link key={servico.id} to={createPageUrl('Servicos')}>
+                      <div className={`p-2.5 rounded-lg border ${statusClass} hover:shadow-sm transition-all cursor-pointer`}>
+                        <div className="flex items-start gap-2">
+                          <div className={`w-2 h-2 rounded-full ${dotClass} mt-1.5 flex-shrink-0`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm text-gray-800 truncate">{servico.cliente_nome}</p>
+                            <p className="text-xs text-gray-600 truncate">{servico.tipo_servico}</p>
+                            {servico.horario && (
+                              <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {servico.horario}
+                              </p>
+                            )}
                           </div>
                         </div>
-                      </Link>
-                    );
-                  })}
-                </div>
+                      </div>
+                    </Link>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -381,6 +407,42 @@ export default function Dashboard() {
         </Link>
       )}
 
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <StatCard
+          title="Clientes"
+          value={totalClientes}
+          icon={Users}
+          color="bg-blue-500"
+          subtitle={`${clientesAtivos} ativos`}
+          href={createPageUrl('Clientes')}
+        />
+        <StatCard
+          title="Atendimentos"
+          value={atendimentosDoMes.length}
+          icon={ClipboardList}
+          color="bg-amber-400"
+          subtitle="Este mês"
+          href={createPageUrl('Atendimentos')}
+        />
+        <StatCard
+          title="Pendentes"
+          value={manutencoesPendentes.length}
+          icon={AlertTriangle}
+          color="bg-emerald-500"
+          subtitle="Próx. 30 dias"
+          href={createPageUrl('PreventivasFuturas')}
+        />
+        <StatCard
+          title="Concluídos"
+          value={atendimentosConcluidos}
+          icon={CheckCircle2}
+          color="bg-emerald-500"
+          subtitle="Total histórico"
+          href={createPageUrl('Atendimentos')}
+        />
+      </div>
+
       {/* Ganhos por Equipe para Admin - Versão Compacta */}
       {currentUser?.role === 'admin' && (
         <div className="space-y-4">
@@ -440,170 +502,7 @@ export default function Dashboard() {
         </div>
       )}
 
-
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard
-          title="Clientes"
-          value={totalClientes}
-          icon={Users}
-          color="bg-blue-500"
-          subtitle={`${clientesAtivos} ativos`}
-          href={createPageUrl('Clientes')}
-        />
-        <StatCard
-          title="Atendimentos"
-          value={atendimentosDoMes.length}
-          icon={ClipboardList}
-          color="bg-amber-400"
-          subtitle="Este mês"
-          href={createPageUrl('Atendimentos')}
-        />
-        <StatCard
-          title="Pendentes"
-          value={manutencoesPendentes.length}
-          icon={AlertTriangle}
-          color="bg-emerald-500"
-          subtitle="Próx. 30 dias"
-          href={createPageUrl('PreventivasFuturas')}
-        />
-        <StatCard
-          title="Concluídos"
-          value={atendimentosConcluidos}
-          icon={CheckCircle2}
-          color="bg-emerald-500"
-          subtitle="Total histórico"
-          href={createPageUrl('Atendimentos')}
-        />
-      </div>
-
-      {/* Filtro de Serviços */}
-      <Card className="bg-white border border-gray-200 shadow-sm rounded-2xl">
-        <CardHeader className="pb-3 px-4 pt-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-blue-100">
-                <Filter className="w-4 h-4 text-blue-600" />
-              </div>
-              <CardTitle className="text-base sm:text-lg font-semibold text-gray-800">
-                Serviços
-              </CardTitle>
-            </div>
-            <Select value={filtroServicos} onValueChange={setFiltroServicos}>
-              <SelectTrigger className="w-full sm:w-44 border-gray-200 text-gray-700 text-sm bg-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="dia">Hoje</SelectItem>
-                <SelectItem value="semana">Esta Semana</SelectItem>
-                <SelectItem value="mes">Este Mês</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="rounded-xl p-3 border border-gray-100 bg-green-50">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-7 h-7 bg-green-100 rounded-lg flex items-center justify-center">
-                  <CheckCircle2 className="w-4 h-4 text-green-600" />
-                </div>
-                <span className="text-xs text-gray-500 font-medium">Concluídos</span>
-              </div>
-              <p className="text-xl font-bold text-green-700">{servicosConcluidos}</p>
-            </div>
-            <div className="rounded-xl p-3 border border-gray-100 bg-blue-50">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Clock className="w-4 h-4 text-blue-600" />
-                </div>
-                <span className="text-xs text-gray-500 font-medium">Andamento</span>
-              </div>
-              <p className="text-xl font-bold text-blue-700">{servicosAndamento}</p>
-            </div>
-            <div className="rounded-xl p-3 border border-gray-100 bg-amber-50">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-7 h-7 bg-amber-100 rounded-lg flex items-center justify-center">
-                  <Calendar className="w-4 h-4 text-amber-600" />
-                </div>
-                <span className="text-xs text-gray-500 font-medium">Agendados</span>
-              </div>
-              <p className="text-xl font-bold text-amber-700">{servicosAgendados}</p>
-            </div>
-            <div className="rounded-xl p-3 border border-gray-100 bg-gray-50">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <ClipboardList className="w-4 h-4 text-gray-500" />
-                </div>
-                <span className="text-xs text-gray-500 font-medium">Abertos</span>
-              </div>
-              <p className="text-xl font-bold text-gray-700">{servicosAbertos}</p>
-            </div>
-          </div>
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            <p className="text-xs text-gray-400 text-center">
-              Total de <span className="text-gray-700 font-semibold">{servicosFiltrados.length}</span> serviços no período selecionado
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Manutenções Vencidas - Alerta Destaque */}
-      {manutencoesVencidas.length > 0 && (
-        <Card className="border-0 shadow-2xl shadow-red-500/30" style={{background: 'linear-gradient(135deg, #dc2626, #ea580c)'}}>
-          <CardHeader className="pb-2 px-4 pt-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                  <AlertTriangle className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-base sm:text-xl font-bold text-white">
-                    Manutenções Vencidas
-                  </CardTitle>
-                  <p className="text-white/90 text-xs sm:text-sm">
-                    {manutencoesVencidas.length} {manutencoesVencidas.length === 1 ? 'cliente precisa' : 'clientes precisam'} de atenção
-                  </p>
-                </div>
-              </div>
-              <Link to={createPageUrl('PreventivasFuturas')}>
-                <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 hover:text-white text-xs sm:text-sm">
-                  Ver <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1" />
-                </Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="space-y-2">
-              {manutencoesVencidas.slice(0, 5).map((cliente) => {
-                const daysOverdue = Math.abs(differenceInDays(new Date(cliente.proxima_manutencao), new Date()));
-                return (
-                  <Link key={cliente.id} to={createPageUrl('PreventivasFuturas')} className="block">
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-white/95 hover:bg-white transition-all cursor-pointer">
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div className="w-9 h-9 sm:w-12 sm:h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                          <Snowflake className="w-4 h-4 sm:w-6 sm:h-6 text-red-600" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-800 text-sm sm:text-base">{cliente.nome}</p>
-                          <p className="text-xs text-gray-600">{cliente.telefone && formatPhone(cliente.telefone)}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-red-600">{daysOverdue}d atrasado</p>
-                        <p className="text-xs text-gray-500">{format(new Date(cliente.proxima_manutencao), "dd/MM/yy")}</p>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Content Grid */}
+      {/* Content Grid - Manutenções e Clientes */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Manutenções Pendentes por Equipe */}
         <Card className="bg-white border border-gray-200 shadow-sm rounded-2xl">
@@ -778,6 +677,133 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Filtro de Serviços */}
+      <Card className="bg-white border border-gray-200 shadow-sm rounded-2xl">
+        <CardHeader className="pb-3 px-4 pt-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-blue-100">
+                <Filter className="w-4 h-4 text-blue-600" />
+              </div>
+              <CardTitle className="text-base sm:text-lg font-semibold text-gray-800">
+                Serviços
+              </CardTitle>
+            </div>
+            <Select value={filtroServicos} onValueChange={setFiltroServicos}>
+              <SelectTrigger className="w-full sm:w-44 border-gray-200 text-gray-700 text-sm bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="dia">Hoje</SelectItem>
+                <SelectItem value="semana">Esta Semana</SelectItem>
+                <SelectItem value="mes">Este Mês</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 pb-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="rounded-xl p-3 border border-gray-100 bg-green-50">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 bg-green-100 rounded-lg flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4 text-green-600" />
+                </div>
+                <span className="text-xs text-gray-500 font-medium">Concluídos</span>
+              </div>
+              <p className="text-xl font-bold text-green-700">{servicosConcluidos}</p>
+            </div>
+            <div className="rounded-xl p-3 border border-gray-100 bg-blue-50">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Clock className="w-4 h-4 text-blue-600" />
+                </div>
+                <span className="text-xs text-gray-500 font-medium">Andamento</span>
+              </div>
+              <p className="text-xl font-bold text-blue-700">{servicosAndamento}</p>
+            </div>
+            <div className="rounded-xl p-3 border border-gray-100 bg-amber-50">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 bg-amber-100 rounded-lg flex items-center justify-center">
+                  <Calendar className="w-4 h-4 text-amber-600" />
+                </div>
+                <span className="text-xs text-gray-500 font-medium">Agendados</span>
+              </div>
+              <p className="text-xl font-bold text-amber-700">{servicosAgendados}</p>
+            </div>
+            <div className="rounded-xl p-3 border border-gray-100 bg-gray-50">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <ClipboardList className="w-4 h-4 text-gray-500" />
+                </div>
+                <span className="text-xs text-gray-500 font-medium">Abertos</span>
+              </div>
+              <p className="text-xl font-bold text-gray-700">{servicosAbertos}</p>
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <p className="text-xs text-gray-400 text-center">
+              Total de <span className="text-gray-700 font-semibold">{servicosFiltrados.length}</span> serviços no período selecionado
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Manutenções Vencidas - Alerta Destaque */}
+      {manutencoesVencidas.length > 0 && (
+        <Card className="border-0 shadow-2xl shadow-red-500/30" style={{background: 'linear-gradient(135deg, #dc2626, #ea580c)'}}>
+          <CardHeader className="pb-2 px-4 pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-base sm:text-xl font-bold text-white">
+                    Manutenções Vencidas
+                  </CardTitle>
+                  <p className="text-white/90 text-xs sm:text-sm">
+                    {manutencoesVencidas.length} {manutencoesVencidas.length === 1 ? 'cliente precisa' : 'clientes precisam'} de atenção
+                  </p>
+                </div>
+              </div>
+              <Link to={createPageUrl('PreventivasFuturas')}>
+                <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 hover:text-white text-xs sm:text-sm">
+                  Ver <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1" />
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="space-y-2">
+              {manutencoesVencidas.slice(0, 5).map((cliente) => {
+                const daysOverdue = Math.abs(differenceInDays(new Date(cliente.proxima_manutencao), new Date()));
+                return (
+                  <Link key={cliente.id} to={createPageUrl('PreventivasFuturas')} className="block">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-white/95 hover:bg-white transition-all cursor-pointer">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="w-9 h-9 sm:w-12 sm:h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                          <Snowflake className="w-4 h-4 sm:w-6 sm:h-6 text-red-600" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-800 text-sm sm:text-base">{cliente.nome}</p>
+                          <p className="text-xs text-gray-600">{cliente.telefone && formatPhone(cliente.telefone)}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-red-600">{daysOverdue}d atrasado</p>
+                        <p className="text-xs text-gray-500">{format(new Date(cliente.proxima_manutencao), "dd/MM/yy")}</p>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+
     </div>
   );
 }
