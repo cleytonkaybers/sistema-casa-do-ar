@@ -496,20 +496,26 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
               {formData.tipos_servico.map((tipo, index) => (
                 <div key={index} className="flex gap-2">
                   <Select 
-                    value={tipo} 
-                    onValueChange={(value) => {
-                      const newTipos = [...formData.tipos_servico];
-                      newTipos[index] = value;
-                      setFormData({ ...formData, tipos_servico: newTipos });
+                   value={tipo} 
+                   onValueChange={(value) => {
+                     const newTipos = [...formData.tipos_servico];
+                     newTipos[index] = value;
 
-                      // Auto-carregar preço da precificação
-                      if (!servico && index === 0) {
-                        const prec = precificacoes.find(p => p.tipo_servico === value);
-                        if (prec && prec.preco_padrao) {
-                          setFormData(prev => ({ ...prev, valor: prec.preco_padrao }));
-                        }
-                      }
-                    }}
+                     // Calcular soma dos valores de todos os serviços
+                     let valorTotal = 0;
+                     newTipos.forEach(tipoServico => {
+                       const prec = precificacoes.find(p => p.tipo_servico === tipoServico);
+                       if (prec && prec.preco_padrao) {
+                         valorTotal += Number(prec.preco_padrao);
+                       }
+                     });
+
+                     setFormData({ 
+                       ...formData, 
+                       tipos_servico: newTipos,
+                       valor: valorTotal > 0 ? valorTotal : formData.valor
+                     });
+                   }}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -527,7 +533,21 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                       size="icon"
                       onClick={() => {
                         const newTipos = formData.tipos_servico.filter((_, i) => i !== index);
-                        setFormData({ ...formData, tipos_servico: newTipos });
+                        
+                        // Recalcular valor total após remover
+                        let valorTotal = 0;
+                        newTipos.forEach(tipoServico => {
+                          const prec = precificacoes.find(p => p.tipo_servico === tipoServico);
+                          if (prec && prec.preco_padrao) {
+                            valorTotal += Number(prec.preco_padrao);
+                          }
+                        });
+                        
+                        setFormData({ 
+                          ...formData, 
+                          tipos_servico: newTipos,
+                          valor: valorTotal > 0 ? valorTotal : 0
+                        });
                       }}
                       className="text-red-500 hover:bg-red-50"
                     >
@@ -539,7 +559,25 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setFormData({ ...formData, tipos_servico: [...formData.tipos_servico, 'Limpeza de 9k'] })}
+                onClick={() => {
+                  const novoTipo = 'Limpeza de 9k';
+                  const novosTipos = [...formData.tipos_servico, novoTipo];
+                  
+                  // Recalcular valor total
+                  let valorTotal = 0;
+                  novosTipos.forEach(tipoServico => {
+                    const prec = precificacoes.find(p => p.tipo_servico === tipoServico);
+                    if (prec && prec.preco_padrao) {
+                      valorTotal += Number(prec.preco_padrao);
+                    }
+                  });
+                  
+                  setFormData({ 
+                    ...formData, 
+                    tipos_servico: novosTipos,
+                    valor: valorTotal > 0 ? valorTotal : formData.valor
+                  });
+                }}
                 className="w-full border-dashed"
               >
                 <Plus className="w-4 h-4 mr-2" />
