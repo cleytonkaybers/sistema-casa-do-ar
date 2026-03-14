@@ -17,6 +17,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [clienteSearch, setClienteSearch] = useState('');
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
+  const [servicoSearch, setServicoSearch] = useState('');
   const clienteSearchRef = useRef(null);
 
   const { data: clientes = [] } = useQuery({
@@ -40,6 +41,25 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         c.telefone?.includes(clienteSearch)
       )
     : clientes.slice(0, 8);
+
+  const servicosDisponiveis = [
+    "Limpeza de 9k", "Limpeza de 12k", "Limpeza de 18k", "Limpeza de 22 a 24k",
+    "Limpeza de 24k", "Limpeza de 30 a 32k", "Limpeza piso e teto",
+    "Instalação de 9k", "Instalação de 12k", "Instalação de 18k",
+    "Instalação de 22 a 24k", "Instalação de 24k", "Instalação de 30 a 32k",
+    "Instalação piso e teto", "Instalação de cortina de ar",
+    "Mudança + limpeza ar 9/12/18", "Mudança + limpeza 22/24/30",
+    "Retirada cortina de ar", "Troca de compressor", "Troca de capacitor",
+    "Recarga de gás", "Carga de gás completa", "Serviço de solda",
+    "Troca de relé da placa", "Troca de sensor", "Troca de chave contadora",
+    "Conserto de placa eletrônica", "Retirada de ar condicionado",
+    "Serviço de passar tubulação de infra", "Ver defeito", "Troca de local",
+    "Outro tipo de serviço"
+  ];
+
+  const servicosFiltrados = servicoSearch.trim().length > 0
+    ? servicosDisponiveis.filter(s => s.toLowerCase().includes(servicoSearch.toLowerCase()))
+    : servicosDisponiveis;
 
   const handleSelectCliente = (cliente) => {
     setFormData(prev => ({
@@ -500,44 +520,29 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                       const newTipos = [...formData.tipos_servico];
                       newTipos[index] = { ...newTipos[index], tipo: value };
                       setFormData({ ...formData, tipos_servico: newTipos });
+                      setServicoSearch('');
                     }}
                   >
                     <SelectTrigger className="flex-1">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                       <SelectItem value="Limpeza de 9k">Limpeza de 9k</SelectItem>
-                       <SelectItem value="Limpeza de 12k">Limpeza de 12k</SelectItem>
-                       <SelectItem value="Limpeza de 18k">Limpeza de 18k</SelectItem>
-                       <SelectItem value="Limpeza de 22 a 24k">Limpeza de 22 a 24k</SelectItem>
-                       <SelectItem value="Limpeza de 24k">Limpeza de 24k</SelectItem>
-                       <SelectItem value="Limpeza de 30 a 32k">Limpeza de 30 a 32k</SelectItem>
-                       <SelectItem value="Limpeza piso e teto">Limpeza piso e teto</SelectItem>
-                       <SelectItem value="Instalação de 9k">Instalação de 9k</SelectItem>
-                       <SelectItem value="Instalação de 12k">Instalação de 12k</SelectItem>
-                       <SelectItem value="Instalação de 18k">Instalação de 18k</SelectItem>
-                       <SelectItem value="Instalação de 22 a 24k">Instalação de 22 a 24k</SelectItem>
-                       <SelectItem value="Instalação de 24k">Instalação de 24k</SelectItem>
-                       <SelectItem value="Instalação de 30 a 32k">Instalação de 30 a 32k</SelectItem>
-                       <SelectItem value="Instalação piso e teto">Instalação piso e teto</SelectItem>
-                       <SelectItem value="Instalação de cortina de ar">Instalação de cortina de ar</SelectItem>
-                       <SelectItem value="Mudança + limpeza ar 9/12/18">Mudança + limpeza ar 9/12/18</SelectItem>
-                       <SelectItem value="Mudança + limpeza 22/24/30">Mudança + limpeza 22/24/30</SelectItem>
-                       <SelectItem value="Retirada cortina de ar">Retirada cortina de ar</SelectItem>
-                       <SelectItem value="Troca de compressor">Troca de compressor</SelectItem>
-                       <SelectItem value="Troca de capacitor">Troca de capacitor</SelectItem>
-                       <SelectItem value="Recarga de gás">Recarga de gás</SelectItem>
-                       <SelectItem value="Carga de gás completa">Carga de gás completa</SelectItem>
-                       <SelectItem value="Serviço de solda">Serviço de solda</SelectItem>
-                       <SelectItem value="Troca de relé da placa">Troca de relé da placa</SelectItem>
-                       <SelectItem value="Troca de sensor">Troca de sensor</SelectItem>
-                       <SelectItem value="Troca de chave contadora">Troca de chave contadora</SelectItem>
-                       <SelectItem value="Conserto de placa eletrônica">Conserto de placa eletrônica</SelectItem>
-                       <SelectItem value="Retirada de ar condicionado">Retirada de ar condicionado</SelectItem>
-                       <SelectItem value="Serviço de passar tubulação de infra">Serviço de passar tubulação de infra</SelectItem>
-                       <SelectItem value="Ver defeito">Ver defeito</SelectItem>
-                       <SelectItem value="Troca de local">Troca de local</SelectItem>
-                       <SelectItem value="Outro tipo de serviço">Outro tipo de serviço</SelectItem>
+                    <SelectContent className="max-h-80">
+                      <div className="sticky top-0 bg-white border-b p-2">
+                        <Input
+                          placeholder="Buscar serviço..."
+                          value={servicoSearch}
+                          onChange={(e) => setServicoSearch(e.target.value)}
+                          className="h-8 text-sm"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                      <div className="max-h-64 overflow-y-auto">
+                        {servicosFiltrados.map(servico => (
+                          <SelectItem key={servico} value={servico}>
+                            {servico}
+                          </SelectItem>
+                        ))}
+                      </div>
                     </SelectContent>
                   </Select>
                   <div className="flex items-center gap-2">
