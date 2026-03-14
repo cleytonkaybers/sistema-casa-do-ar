@@ -14,6 +14,7 @@ import { DollarSign, Users, TrendingUp, AlertCircle, Check, X } from 'lucide-rea
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import RegistrarPagamentoModal from '@/components/financeiro/RegistrarPagamentoModal';
 
 export default function FinanceiroAdmin() {
   const [filtroEquipe, setFiltroEquipe] = useState('');
@@ -99,7 +100,16 @@ export default function FinanceiroAdmin() {
   const totalPago = filteredTecnicos.reduce((sum, t) => sum + (t.credito_pago || 0), 0);
 
   return (
-    <div className="space-y-6">
+    <>
+      <RegistrarPagamentoModal 
+        open={showModalPagamento} 
+        onClose={() => setShowModalPagamento(false)}
+        onSuccess={() => {
+          refetchPagamentos();
+          refetchTecnicos();
+        }}
+      />
+      <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-3">
