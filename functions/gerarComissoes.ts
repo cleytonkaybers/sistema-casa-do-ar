@@ -35,7 +35,21 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Comissão já foi gerada para este serviço' }, { status: 400 });
     }
 
-    if (!servico.valor || servico.valor <= 0) {
+    // Buscar valor da tabela se não houver valor no serviço
+    let valorFinal = servico.valor;
+    if (!valorFinal || valorFinal <= 0) {
+      const tiposServico = await base44.asServiceRole.entities.TipoServicoValor.filter({
+        tipo_servico: servico.tipo_servico
+      });
+      
+      if (tiposServico.length === 0) {
+        return Response.json({ error: 'Nenhum valor configurado para este tipo de serviço' }, { status: 400 });
+      }
+      
+      valorFinal = tiposServico[0].valor_tabela;
+    }
+
+    if (valorFinal <= 0) {
       return Response.json({ error: 'Valor do serviço inválido' }, { status: 400 });
     }
 
@@ -55,7 +69,7 @@ Deno.serve(async (req) => {
     }
 
     // Calcular comissão (30% da equipe, dividido igualmente entre técnicos)
-    const valor_total = servico.valor;
+    const valor_total = valorFinal;
     const percentual_equipe = 30;
     const valor_comissao_equipe = (valor_total * percentual_equipe) / 100;
     const valor_por_tecnico = valor_comissao_equipe / tecnicos.length;
