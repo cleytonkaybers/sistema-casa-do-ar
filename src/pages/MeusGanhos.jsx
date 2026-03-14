@@ -17,6 +17,7 @@ import { ptBR } from 'date-fns/locale';
 export default function MeusGanhos() {
   const [user, setUser] = useState(null);
   const [filtroPeriodo, setFiltroPeriodo] = useState('hoje');
+  const [filtroEquipe, setFiltroEquipe] = useState('todas');
   const [editandoGanho, setEditandoGanho] = useState(null);
   const [valorEditado, setValorEditado] = useState('');
   const [valoresPagos, setValoresPagos] = useState({});
@@ -30,6 +31,11 @@ export default function MeusGanhos() {
     queryKey: ['ganhos-tecnicos'],
     queryFn: () => base44.entities.GanhoTecnico.list(),
     enabled: !!user,
+  });
+
+  const { data: equipes = [] } = useQuery({
+    queryKey: ['equipes'],
+    queryFn: () => base44.entities.Equipe.list(),
   });
 
   const meuEmail = user?.email;
@@ -126,6 +132,12 @@ export default function MeusGanhos() {
   const inicioAnoAtual = startOfYear(hoje);
   const fimAnoAtual = endOfYear(hoje);
 
+  // Mapeamento de equipes para identificar membros
+  const membrosPorEquipe = {
+    '699e54e99bb56cb59de69c60': ['vinihenrique781@gmail.com', 'vgabrielkaybersdossantos@gmail.com'], // Equipe 1
+    '699e54e99bb56cb59de69c61': ['witalok73@gmail.com', 'waglessonribero@gmail.com'] // Equipe 2
+  };
+
   // Filtrar por período e equipe
   const ganhosFiltrados = useMemo(() => {
     let resultado = ganhosPermitidos;
@@ -152,10 +164,15 @@ export default function MeusGanhos() {
         return isWithinInterval(dataGanho, { start: inicioAnoAtual, end: fimAnoAtual });
       });
     }
-    // 'todos' não filtra
+    
+    // Filtro de equipe (apenas para admin)
+    if (isAdmin && filtroEquipe !== 'todas') {
+      const membros = membrosPorEquipe[filtroEquipe] || [];
+      resultado = resultado.filter(g => membros.includes(g.tecnico_email));
+    }
     
     return resultado;
-  }, [ganhosPermitidos, filtroPeriodo, inicioSemanaAtual, fimSemanaAtual, inicioMesAtual, fimMesAtual, inicioAnoAtual, fimAnoAtual]);
+  }, [ganhosPermitidos, filtroPeriodo, filtroEquipe, isAdmin, inicioSemanaAtual, fimSemanaAtual, inicioMesAtual, fimMesAtual, inicioAnoAtual, fimAnoAtual]);
 
 
 
@@ -250,6 +267,22 @@ export default function MeusGanhos() {
               <SelectItem value="todos">Histórico Completo</SelectItem>
              </SelectContent>
            </Select>
+           
+           {isAdmin && (
+             <Select value={filtroEquipe} onValueChange={setFiltroEquipe}>
+               <SelectTrigger className="w-40">
+                 <SelectValue placeholder="Equipe" />
+               </SelectTrigger>
+               <SelectContent>
+                 <SelectItem value="todas">Todas Equipes</SelectItem>
+                 {equipes.map(equipe => (
+                   <SelectItem key={equipe.id} value={equipe.id}>
+                     {equipe.nome}
+                   </SelectItem>
+                 ))}
+               </SelectContent>
+             </Select>
+           )}
          </div>
        </div>
 
