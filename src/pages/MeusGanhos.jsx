@@ -107,13 +107,15 @@ export default function MeusGanhos() {
     toast.success(`Pagamento de R$ ${valor.toFixed(2)} confirmado`);
   };
 
-  // Filtrar ganhos baseado em permissão - cada técnico vê apenas seus próprios ganhos
+  // Filtrar ganhos baseado em permissão
   const ganhosPermitidos = useMemo(() => {
     if (!user) return [];
     
-    // Cada usuário vê apenas seus próprios ganhos (incluindo admin)
+    // Admin vê todos os ganhos, técnicos veem apenas os próprios
+    if (isAdmin) return ganhos;
+    
     return ganhos.filter(g => g.tecnico_email === meuEmail);
-  }, [ganhos, user, meuEmail]);
+  }, [ganhos, user, isAdmin, meuEmail]);
 
   // Calcular períodos (semana começa na segunda-feira)
   const hoje = new Date();
@@ -241,16 +243,12 @@ export default function MeusGanhos() {
                <SelectValue />
              </SelectTrigger>
              <SelectContent>
-                <SelectItem value="hoje">Hoje</SelectItem>
-                <SelectItem value="semana-atual">Semana Atual (Seg-Dom)</SelectItem>
-                {isAdmin && (
-                  <>
-                    <SelectItem value="mes-atual">Mês Atual</SelectItem>
-                    <SelectItem value="ano-atual">Ano Atual</SelectItem>
-                    <SelectItem value="todos">Histórico Completo</SelectItem>
-                  </>
-                )}
-              </SelectContent>
+              <SelectItem value="hoje">Hoje</SelectItem>
+              <SelectItem value="semana-atual">Semana Atual (Seg-Dom)</SelectItem>
+              <SelectItem value="mes-atual">Mês Atual</SelectItem>
+              <SelectItem value="ano-atual">Ano Atual</SelectItem>
+              <SelectItem value="todos">Histórico Completo</SelectItem>
+             </SelectContent>
            </Select>
          </div>
        </div>
