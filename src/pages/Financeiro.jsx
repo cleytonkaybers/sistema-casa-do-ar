@@ -20,6 +20,14 @@ export default function Financeiro() {
     queryFn: () => base44.entities.PrecificacaoServico.list(),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.PrecificacaoServico.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['precificacoes'] });
+      toast.success('Serviço duplicado removido!');
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.PrecificacaoServico.create(data),
     onSuccess: () => {
@@ -84,6 +92,19 @@ export default function Financeiro() {
     a.tipo_servico.localeCompare(b.tipo_servico)
   );
 
+  // Detectar duplicatas
+  const groupedByTipo = {};
+  precificacoes.forEach(prec => {
+    if (!groupedByTipo[prec.tipo_servico]) {
+      groupedByTipo[prec.tipo_servico] = [];
+    }
+    groupedByTipo[prec.tipo_servico].push(prec);
+  });
+
+  const duplicatas = Object.entries(groupedByTipo)
+    .filter(([_, items]) => items.length > 1)
+    .flatMap(([_, items]) => items.slice(1)); // Manter o primeiro, marcar os demais como duplicata
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -105,16 +126,42 @@ export default function Financeiro() {
         </div>
       </div>
 
+      {duplicatas.length > 0 && (
+        <Card className="bg-red-50 border-red-200">
+          <CardHeader>
+            <CardTitle className="text-red-700 text-sm">
+              ⚠️ {duplicatas.length} serviço(s) duplicado(s) encontrado(s)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {duplicatas.map((prec) => (
+                <div key={prec.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-red-200">
+                  <p className="font-medium text-gray-900">{prec.tipo_servico}</p>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => deleteMutation.mutate(prec.id)}
+                  >
+                    Remover Duplicata
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-blue-600" />
-            Tabela de Preços e Comissões
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {sortedPrecificacoes.map((prec) => (
+         <CardHeader>
+           <CardTitle className="flex items-center gap-2">
+             <TrendingUp className="w-5 h-5 text-blue-600" />
+             Tabela de Preços e Comissões
+           </CardTitle>
+         </CardHeader>
+         <CardContent>
+           <div className="space-y-3">
+             {sortedPrecificacoes.map((prec) => (
               <div
                 key={prec.id}
                 className="flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
