@@ -80,6 +80,24 @@ export default function Dashboard() {
   const totalClientes = clientes.length;
   const clientesAtivos = clientes.filter(c => c.status === 'Ativo').length;
   
+  // Manutenções atrasadas e do dia
+  const hojePuro = new Date();
+  hojePuro.setHours(0, 0, 0, 0);
+  
+  const manutencoesAtrasadas = clientes.filter(c => {
+    if (!c.proxima_manutencao) return false;
+    const proximaData = new Date(c.proxima_manutencao);
+    proximaData.setHours(0, 0, 0, 0);
+    return proximaData < hojePuro;
+  });
+
+  const manutencoesDoDia = clientes.filter(c => {
+    if (!c.proxima_manutencao) return false;
+    const proximaData = new Date(c.proxima_manutencao);
+    proximaData.setHours(0, 0, 0, 0);
+    return proximaData.getTime() === hojePuro.getTime();
+  });
+
   const manutencoesPendentes = clientes.filter(c => {
     if (!c.proxima_manutencao) return false;
     const daysUntil = differenceInDays(new Date(c.proxima_manutencao), new Date());
@@ -587,13 +605,20 @@ export default function Dashboard() {
 
       {/* Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        {/* Manutenções Pendentes */}
+        {/* Manutenções Pendentes por Equipe */}
         <Card className="bg-white border border-gray-200 shadow-sm rounded-2xl">
           <CardHeader className="flex flex-row items-center justify-between pb-2 px-4 pt-4">
             <CardTitle className="text-base sm:text-lg font-semibold text-gray-800">
               Manutenções Pendentes
             </CardTitle>
-            <AlertTriangle className="w-5 h-5 text-orange-400" />
+            <div className="flex gap-2">
+              <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
+                {manutencoesAtrasadas.length} atrasadas
+              </span>
+              <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">
+                {manutencoesDoDia.length} hoje
+              </span>
+            </div>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             {manutencoesPendentes.length === 0 ? (
@@ -604,34 +629,102 @@ export default function Dashboard() {
                 <p className="text-gray-400 text-sm">Nenhuma manutenção pendente</p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {manutencoesPendentes.slice(0, 5).map((cliente) => {
-                  const daysUntil = differenceInDays(new Date(cliente.proxima_manutencao), new Date());
-                  const isOverdue = daysUntil < 0;
-                  return (
-                    <Link key={cliente.id} to={createPageUrl('PreventivasFuturas')} className="block">
-                      <div className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all ${
-                        isOverdue ? 'bg-red-50 border border-red-200' : 'bg-amber-50 border border-amber-200'
-                      }`}>
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isOverdue ? 'bg-red-100' : 'bg-amber-100'}`}>
-                            <Snowflake className={`w-4 h-4 ${isOverdue ? 'text-red-500' : 'text-amber-500'}`} />
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-800 text-sm">{cliente.nome}</p>
-                            <p className="text-xs text-gray-400">{cliente.tipo_equipamento || 'N/A'}</p>
-                          </div>
-                        </div>
-                        <div className={`text-right ${isOverdue ? 'text-red-500' : 'text-amber-600'}`}>
-                          <p className="text-xs font-medium">
-                            {isOverdue ? `${Math.abs(daysUntil)}d atrasado` : `em ${daysUntil}d`}
-                          </p>
-                          <p className="text-xs text-gray-400">{format(new Date(cliente.proxima_manutencao), "dd/MM/yy")}</p>
-                        </div>
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {/* Atrasadas */}
+                {manutencoesAtrasadas.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-red-700 mb-2">⚠️ Atrasadas</h4>
+                    {currentUser?.role === 'admin' ? (
+                      <div className="space-y-3">
+                        {equipes.map(equipe => {
+                          const atrasadasEquipe = manutencoesAtrasadas.filter(c => {
+                            const servicosCliente = servicos.filter(s => 
+                              s.cliente_nome === c.nome && s.equipe_id === equipe.id
+                            );
+                            return servicosCliente.length > 0;
+                          });
+                          
+                          if (atrasadasEquipe.length === 0) return null;
+                          
+                          return (
+                            <div key={equipe.id} className="border-l-4 pl-3" style={{ borderColor: equipe.cor || '#ef4444' }}>
+                              <p className="text-xs font-semibold text-gray-600 mb-1">{equipe.nome} ({atrasadasEquipe.length})</p>
+                              <div className="space-y-1">
+                                {atrasadasEquipe.slice(0, 3).map(c => (
+                                  <Link key={c.id} to={createPageUrl('PreventivasFuturas')} className="block">
+                                    <div className="p-2 bg-red-50 rounded-lg text-xs hover:bg-red-100 transition-colors">
+                                      <p className="font-medium text-gray-800">{c.nome}</p>
+                                      <p className="text-red-600">{Math.abs(differenceInDays(new Date(c.proxima_manutencao), new Date()))}d atrasado</p>
+                                    </div>
+                                  </Link>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    </Link>
-                  );
-                })}
+                    ) : (
+                      <div className="space-y-1">
+                        {manutencoesAtrasadas.slice(0, 3).map(c => (
+                          <Link key={c.id} to={createPageUrl('PreventivasFuturas')} className="block">
+                            <div className="p-2 bg-red-50 rounded-lg border border-red-200">
+                              <p className="font-medium text-gray-800 text-sm">{c.nome}</p>
+                              <p className="text-xs text-red-600">{Math.abs(differenceInDays(new Date(c.proxima_manutencao), new Date()))}d atrasado</p>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Do Dia */}
+                {manutencoesDoDia.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-orange-700 mb-2">📅 Hoje</h4>
+                    {currentUser?.role === 'admin' ? (
+                      <div className="space-y-3">
+                        {equipes.map(equipe => {
+                          const doDiaEquipe = manutencoesDoDia.filter(c => {
+                            const servicosCliente = servicos.filter(s => 
+                              s.cliente_nome === c.nome && s.equipe_id === equipe.id
+                            );
+                            return servicosCliente.length > 0;
+                          });
+                          
+                          if (doDiaEquipe.length === 0) return null;
+                          
+                          return (
+                            <div key={equipe.id} className="border-l-4 pl-3" style={{ borderColor: equipe.cor || '#f97316' }}>
+                              <p className="text-xs font-semibold text-gray-600 mb-1">{equipe.nome} ({doDiaEquipe.length})</p>
+                              <div className="space-y-1">
+                                {doDiaEquipe.slice(0, 3).map(c => (
+                                  <Link key={c.id} to={createPageUrl('PreventivasFuturas')} className="block">
+                                    <div className="p-2 bg-orange-50 rounded-lg text-xs hover:bg-orange-100 transition-colors">
+                                      <p className="font-medium text-gray-800">{c.nome}</p>
+                                      <p className="text-orange-600">Vence hoje</p>
+                                    </div>
+                                  </Link>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        {manutencoesDoDia.slice(0, 3).map(c => (
+                          <Link key={c.id} to={createPageUrl('PreventivasFuturas')} className="block">
+                            <div className="p-2 bg-orange-50 rounded-lg border border-orange-200">
+                              <p className="font-medium text-gray-800 text-sm">{c.nome}</p>
+                              <p className="text-xs text-orange-600">Vence hoje</p>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
