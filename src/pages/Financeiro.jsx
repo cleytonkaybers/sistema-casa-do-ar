@@ -12,7 +12,7 @@ import { TIPOS_SERVICOS } from '@/components/utils/tiposServicos';
 
 export default function Financeiro() {
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ preco_padrao: '', comissao_tecnico_percentual: 50 });
+  const [editForm, setEditForm] = useState({ preco_padrao: '', comissao_tecnico_percentual: 15 });
   const queryClient = useQueryClient();
 
   const { data: precificacoes = [], isLoading } = useQuery({
@@ -41,7 +41,7 @@ export default function Financeiro() {
     setEditingId(prec.id);
     setEditForm({
       preco_padrao: prec.preco_padrao || '',
-      comissao_tecnico_percentual: prec.comissao_tecnico_percentual || 50
+      comissao_tecnico_percentual: prec.comissao_tecnico_percentual || 15
     });
   };
 
@@ -63,7 +63,7 @@ export default function Financeiro() {
       await createMutation.mutateAsync({
         tipo_servico: tipo,
         preco_padrao: 0,
-        comissao_tecnico_percentual: 30,
+        comissao_tecnico_percentual: 15,
         ativo: true
       });
     }
@@ -176,7 +176,7 @@ export default function Financeiro() {
                     <div className="text-right w-28">
                       <p className="text-xs text-gray-500">Comissão</p>
                       <p className="text-sm font-semibold text-blue-600 flex items-center justify-end gap-1">
-                        {prec.comissao_tecnico_percentual || 50}%
+                        {prec.comissao_tecnico_percentual || 15}%
                         <Percent className="w-3 h-3" />
                       </p>
                     </div>
