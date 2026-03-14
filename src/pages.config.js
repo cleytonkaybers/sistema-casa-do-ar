@@ -71,6 +71,7 @@ import SaaSLanding from './pages/SaaSLanding';
 import Servicos from './pages/Servicos';
 import Suporte from './pages/Suporte';
 import Usuarios from './pages/Usuarios';
+import RelatoriosGanhos from './pages/RelatoriosGanhos';
 import __Layout from './Layout.jsx';
 
 
@@ -99,6 +100,7 @@ export const PAGES = {
     "Servicos": Servicos,
     "Suporte": Suporte,
     "Usuarios": Usuarios,
+    "RelatoriosGanhos": RelatoriosGanhos,
 }
 
 export const pagesConfig = {
