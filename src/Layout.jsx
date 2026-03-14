@@ -21,7 +21,8 @@ import {
   Cloud,
   Droplets,
   RotateCw,
-  ChevronRight } from
+  ChevronRight,
+  DollarSign } from
 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -56,7 +57,8 @@ function LayoutContent({ children }) {
   { name: 'Dashboard', href: createPageUrl('Dashboard'), icon: LayoutDashboard },
   { name: 'Clientes', href: createPageUrl('Clientes'), icon: Users },
   { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
-  { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList }];
+  { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList },
+  { name: 'Meu Financeiro', href: createPageUrl('MeuFinanceiro'), icon: DollarSign }];
 
 
   const preventivasNavigation = [
@@ -70,6 +72,7 @@ function LayoutContent({ children }) {
 
   const adminNavigation = [
   { name: 'Relatórios', href: createPageUrl('Relatorios'), icon: BarChart3 },
+  { name: 'Financeiro', href: createPageUrl('FinanceiroAdmin'), icon: DollarSign },
   { name: 'Backup e Restaurar', href: createPageUrl('BackupRestaurer'), icon: Database },
   { name: 'Usuários', href: createPageUrl('Usuarios'), icon: Users },
   { name: 'Configurações', href: createPageUrl('Configuracoes'), icon: Settings },
