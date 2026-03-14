@@ -31,9 +31,9 @@ Deno.serve(async (req) => {
     // Buscar todos os usuários
     const usuarios = await base44.asServiceRole.entities.User.list();
     
-    // Filtrar membros da equipe (não-admin, não-administrativo)
+    // Filtrar membros da equipe dinamicamente
     const membrosMapeados = {
-      '699e54e99bb56cb59de69c60': ['vinihenrique781@gmail.com', 'vgabrielkaybersdossantos@gmail.com'], // Equipe 1: Vini e Vitor
+      '699e53267d5629312b8742dd': ['vinihenrique781@gmail.com', 'vgabrielkaybersdossantos@gmail.com'], // Equipe 1: Vini e Vitor
       '699e54e99bb56cb59de69c61': ['witalok73@gmail.com', 'waglessonribero@gmail.com'] // Equipe 2: Kaue e Waglesson
     };
 
@@ -71,7 +71,9 @@ Deno.serve(async (req) => {
         data_conclusao: servico.data_atualizacao_status || new Date().toISOString(),
         semana: getWeekOfYear(new Date(servico.data_atualizacao_status || new Date())),
         mes: getMesAno(new Date(servico.data_atualizacao_status || new Date())),
-        pago: false
+        pago: false,
+        equipe_id: servico.equipe_id,
+        equipe_nome: servico.equipe_nome
       };
 
       await base44.asServiceRole.entities.GanhoTecnico.create(novoGanho);
