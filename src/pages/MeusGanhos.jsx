@@ -38,6 +38,12 @@ export default function MeusGanhos() {
     queryFn: () => base44.entities.Equipe.list(),
   });
 
+  const { data: atendimentos = [] } = useQuery({
+    queryKey: ['atendimentos'],
+    queryFn: () => base44.entities.Atendimento.list(),
+    enabled: isAdmin && filtroEquipe !== 'todas',
+  });
+
   const meuEmail = user?.email;
   const isAdmin = user?.role === 'admin';
 
@@ -134,7 +140,7 @@ export default function MeusGanhos() {
 
   // Mapeamento de equipes para identificar membros
   const membrosPorEquipe = {
-    '699e54e99bb56cb59de69c60': ['vinihenrique781@gmail.com', 'vgabrielkaybersdossantos@gmail.com'], // Equipe 1
+    '699e53267d5629312b8742dd': ['vinihenrique781@gmail.com', 'vgabrielkaybersdossantos@gmail.com'], // Equipe 1
     '699e54e99bb56cb59de69c61': ['witalok73@gmail.com', 'waglessonribero@gmail.com'] // Equipe 2
   };
 
@@ -172,7 +178,7 @@ export default function MeusGanhos() {
     }
     
     return resultado;
-  }, [ganhosPermitidos, filtroPeriodo, filtroEquipe, isAdmin, inicioSemanaAtual, fimSemanaAtual, inicioMesAtual, fimMesAtual, inicioAnoAtual, fimAnoAtual]);
+  }, [ganhosPermitidos, filtroPeriodo, filtroEquipe, isAdmin, inicioSemanaAtual, fimSemanaAtual, inicioMesAtual, fimMesAtual, inicioAnoAtual, fimAnoAtual, atendimentos]);
 
 
 
