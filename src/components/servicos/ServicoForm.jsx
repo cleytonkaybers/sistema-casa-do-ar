@@ -4,9 +4,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Input as UIInput } from '@/components/ui/input';
-import { ChevronDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2, MapPin, Search, ExternalLink, Users, Plus, X, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -15,7 +12,6 @@ import { base44 } from '@/api/base44Client';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
-import { TIPOS_SERVICOS } from '@/components/utils/tiposServicos';
 
 export default function ServicoForm({ open, onClose, onSave, servico, isLoading, prefilledData, equipes = [], currentUserEquipeId = null, isAdmin = false }) {
   const [loadingLocation, setLoadingLocation] = useState(false);
@@ -26,11 +22,6 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
   const { data: clientes = [] } = useQuery({
     queryKey: ['clientes'],
     queryFn: () => base44.entities.Cliente.list(),
-  });
-
-  const { data: precificacoes = [] } = useQuery({
-    queryKey: ['precificacoes'],
-    queryFn: () => base44.entities.PrecificacaoServico.list(),
   });
 
   useEffect(() => {
@@ -49,9 +40,6 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         c.telefone?.includes(clienteSearch)
       )
     : clientes.slice(0, 8);
-
-  const [tipoOpen, setTipoOpen] = useState(null); // null ou índice
-  const [tipoSearch, setTipoSearch] = useState('');
 
   const handleSelectCliente = (cliente) => {
     setFormData(prev => ({
@@ -76,7 +64,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
     endereco: '',
     latitude: null,
     longitude: null,
-    tipos_servico: [{ tipo: 'Limpeza de 9k', multiplicador: 1 }],
+    tipos_servico: ['Limpeza de 9k'],
     dia_semana: '',
     data_programada: '',
     horario: '',
@@ -100,7 +88,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         endereco: servico.endereco || '',
         latitude: servico.latitude || null,
         longitude: servico.longitude || null,
-        tipos_servico: servico.tipo_servico ? [{ tipo: servico.tipo_servico, multiplicador: 1 }] : [{ tipo: 'Limpeza de 9k', multiplicador: 1 }],
+        tipos_servico: servico.tipo_servico ? [servico.tipo_servico] : ['Limpeza de 9k'],
         dia_semana: servico.dia_semana || '',
         data_programada: servico.data_programada || '',
         horario: servico.horario || '',
@@ -118,7 +106,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         endereco: prefilledData.endereco || '',
         latitude: prefilledData.latitude || null,
         longitude: prefilledData.longitude || null,
-        tipos_servico: [{ tipo: 'Limpeza de 9k', multiplicador: 1 }],
+        tipos_servico: ['Limpeza de 9k'],
         dia_semana: '',
         data_programada: '',
         horario: '',
@@ -136,7 +124,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         endereco: '',
         latitude: null,
         longitude: null,
-        tipos_servico: [{ tipo: 'Limpeza de 9k', multiplicador: 1 }],
+        tipos_servico: ['Limpeza de 9k'],
         dia_semana: '',
         data_programada: '',
         horario: '',
@@ -356,7 +344,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
 
     const dataToSave = {
       ...formData,
-      tipo_servico: formData.tipos_servico.map(t => t.multiplicador > 1 ? `${t.tipo} (x${t.multiplicador})` : t.tipo).join(' + '),
+      tipo_servico: formData.tipos_servico.join(' + '),
       dia_semana: diaSemana,
       valor: formData.valor ? parseFloat(formData.valor) : 0,
       equipe_id: formData.equipe_id || null,
@@ -499,99 +487,54 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
           <div className="space-y-2">
             <Label>Tipos de Serviço *</Label>
             <div className="space-y-2">
-              {formData.tipos_servico.map((item, index) => {
-                const tiposFiltrados = tipoOpen === index && tipoSearch.trim()
-                  ? TIPOS_SERVICOS.filter(t => t.toLowerCase().includes(tipoSearch.toLowerCase()))
-                  : tipoOpen === index ? TIPOS_SERVICOS : [];
-
-                return (
+              {formData.tipos_servico.map((tipo, index) => (
                 <div key={index} className="flex gap-2">
-                  <Popover open={tipoOpen === index} onOpenChange={(open) => {
-                    setTipoOpen(open ? index : null);
-                    setTipoSearch('');
-                  }}>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="flex-1 justify-between text-left">
-                        <span className="truncate">{item.tipo}</span>
-                        <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-56 p-0" align="start">
-                      <div className="sticky top-0 bg-white border-b p-2 z-10">
-                        <UIInput
-                          placeholder="Buscar serviço..."
-                          value={tipoSearch}
-                          onChange={(e) => setTipoSearch(e.target.value)}
-                          className="h-8 text-sm"
-                          autoFocus
-                        />
-                      </div>
-                      <div className="max-h-64 overflow-y-auto">
-                        {tiposFiltrados.length > 0 ? (
-                          tiposFiltrados.map(tipo => (
-                            <button
-                              key={tipo}
-                              type="button"
-                              onClick={() => {
-                                const newTipos = [...formData.tipos_servico];
-                                newTipos[index].tipo = tipo;
-
-                                // Calcular soma dos valores
-                                let valorTotal = 0;
-                                newTipos.forEach(tipoItem => {
-                                  const prec = precificacoes.find(p => p.tipo_servico === tipoItem.tipo);
-                                  if (prec && prec.preco_padrao) {
-                                    valorTotal += Number(prec.preco_padrao) * tipoItem.multiplicador;
-                                  }
-                                });
-
-                                setFormData({ 
-                                  ...formData, 
-                                  tipos_servico: newTipos,
-                                  valor: valorTotal > 0 ? valorTotal : formData.valor
-                                });
-                                setTipoOpen(null);
-                                setTipoSearch('');
-                              }}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 border-b last:border-0"
-                            >
-                              {tipo}
-                            </button>
-                          ))
-                        ) : (
-                          <div className="px-3 py-2 text-sm text-gray-500 text-center">Nenhum serviço encontrado</div>
-                        )}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                  <div className="w-20">
-                    <Input
-                      type="number"
-                      min="1"
-                      value={item.multiplicador}
-                      onChange={(e) => {
-                        const newTipos = [...formData.tipos_servico];
-                        newTipos[index].multiplicador = Math.max(1, parseInt(e.target.value) || 1);
-
-                        // Recalcular valor total
-                        let valorTotal = 0;
-                        newTipos.forEach(tipoItem => {
-                          const prec = precificacoes.find(p => p.tipo_servico === tipoItem.tipo);
-                          if (prec && prec.preco_padrao) {
-                            valorTotal += Number(prec.preco_padrao) * tipoItem.multiplicador;
-                          }
-                        });
-
-                        setFormData({ 
-                          ...formData, 
-                          tipos_servico: newTipos,
-                          valor: valorTotal > 0 ? valorTotal : formData.valor
-                        });
-                      }}
-                      placeholder="x1"
-                      className="text-center"
-                    />
-                  </div>
+                  <Select 
+                    value={tipo} 
+                    onValueChange={(value) => {
+                      const newTipos = [...formData.tipos_servico];
+                      newTipos[index] = value;
+                      setFormData({ ...formData, tipos_servico: newTipos });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                       <SelectItem value="Limpeza de 9k">Limpeza de 9k</SelectItem>
+                       <SelectItem value="Limpeza de 12k">Limpeza de 12k</SelectItem>
+                       <SelectItem value="Limpeza de 18k">Limpeza de 18k</SelectItem>
+                       <SelectItem value="Limpeza de 22 a 24k">Limpeza de 22 a 24k</SelectItem>
+                       <SelectItem value="Limpeza de 24k">Limpeza de 24k</SelectItem>
+                       <SelectItem value="Limpeza de 30 a 32k">Limpeza de 30 a 32k</SelectItem>
+                       <SelectItem value="Limpeza piso e teto">Limpeza piso e teto</SelectItem>
+                       <SelectItem value="Instalação de 9k">Instalação de 9k</SelectItem>
+                       <SelectItem value="Instalação de 12k">Instalação de 12k</SelectItem>
+                       <SelectItem value="Instalação de 18k">Instalação de 18k</SelectItem>
+                       <SelectItem value="Instalação de 22 a 24k">Instalação de 22 a 24k</SelectItem>
+                       <SelectItem value="Instalação de 24k">Instalação de 24k</SelectItem>
+                       <SelectItem value="Instalação de 30 a 32k">Instalação de 30 a 32k</SelectItem>
+                       <SelectItem value="Instalação piso e teto">Instalação piso e teto</SelectItem>
+                       <SelectItem value="Instalação de cortina de ar">Instalação de cortina de ar</SelectItem>
+                       <SelectItem value="Mudança + limpeza ar 9/12/18">Mudança + limpeza ar 9/12/18</SelectItem>
+                       <SelectItem value="Mudança + limpeza 22/24/30">Mudança + limpeza 22/24/30</SelectItem>
+                       <SelectItem value="Retirada cortina de ar">Retirada cortina de ar</SelectItem>
+                       <SelectItem value="Troca de compressor">Troca de compressor</SelectItem>
+                       <SelectItem value="Troca de capacitor">Troca de capacitor</SelectItem>
+                       <SelectItem value="Recarga de gás">Recarga de gás</SelectItem>
+                       <SelectItem value="Carga de gás completa">Carga de gás completa</SelectItem>
+                       <SelectItem value="Serviço de solda">Serviço de solda</SelectItem>
+                       <SelectItem value="Troca de relé da placa">Troca de relé da placa</SelectItem>
+                       <SelectItem value="Troca de sensor">Troca de sensor</SelectItem>
+                       <SelectItem value="Troca de chave contadora">Troca de chave contadora</SelectItem>
+                       <SelectItem value="Conserto de placa eletrônica">Conserto de placa eletrônica</SelectItem>
+                       <SelectItem value="Retirada de ar condicionado">Retirada de ar condicionado</SelectItem>
+                       <SelectItem value="Serviço de passar tubulação de infra">Serviço de passar tubulação de infra</SelectItem>
+                       <SelectItem value="Ver defeito">Ver defeito</SelectItem>
+                       <SelectItem value="Troca de local">Troca de local</SelectItem>
+                       <SelectItem value="Outro tipo de serviço">Outro tipo de serviço</SelectItem>
+                    </SelectContent>
+                  </Select>
                   {formData.tipos_servico.length > 1 && (
                     <Button
                       type="button"
@@ -599,52 +542,19 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                       size="icon"
                       onClick={() => {
                         const newTipos = formData.tipos_servico.filter((_, i) => i !== index);
-
-                        // Recalcular valor total após remover
-                        let valorTotal = 0;
-                        newTipos.forEach(tipoItem => {
-                          const prec = precificacoes.find(p => p.tipo_servico === tipoItem.tipo);
-                          if (prec && prec.preco_padrao) {
-                            valorTotal += Number(prec.preco_padrao) * tipoItem.multiplicador;
-                          }
-                        });
-
-                        setFormData({ 
-                          ...formData, 
-                          tipos_servico: newTipos,
-                          valor: valorTotal > 0 ? valorTotal : 0
-                        });
+                        setFormData({ ...formData, tipos_servico: newTipos });
                       }}
                       className="text-red-500 hover:bg-red-50"
                     >
                       <X className="w-4 h-4" />
                     </Button>
-                    )}
-                    </div>
-                    );
-                    })}
+                  )}
+                </div>
+              ))}
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  const novoTipo = { tipo: 'Limpeza de 9k', multiplicador: 1 };
-                  const novosTipos = [...formData.tipos_servico, novoTipo];
-
-                  // Recalcular valor total
-                  let valorTotal = 0;
-                  novosTipos.forEach(tipoItem => {
-                    const prec = precificacoes.find(p => p.tipo_servico === tipoItem.tipo);
-                    if (prec && prec.preco_padrao) {
-                      valorTotal += Number(prec.preco_padrao) * tipoItem.multiplicador;
-                    }
-                  });
-
-                  setFormData({ 
-                    ...formData, 
-                    tipos_servico: novosTipos,
-                    valor: valorTotal > 0 ? valorTotal : formData.valor
-                  });
-                }}
+                onClick={() => setFormData({ ...formData, tipos_servico: [...formData.tipos_servico, 'Limpeza de 9k'] })}
                 className="w-full border-dashed"
               >
                 <Plus className="w-4 h-4 mr-2" />

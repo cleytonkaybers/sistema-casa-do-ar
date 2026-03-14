@@ -21,13 +21,12 @@ import {
   Cloud,
   Droplets,
   RotateCw,
-  ChevronRight,
-  DollarSign } from
+  ChevronRight } from
 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import ErrorBoundary from '@/components/ErrorBoundary';
-
+import ChatWidget from '@/components/ChatWidget/ChatWidget';
 import NotificationCenter from '@/components/NotificationCenter';
 import UserMenu from '@/components/UserMenu';
 import { EmpresaProvider, useEmpresa } from '@/components/auth/EmpresaGuard';
@@ -70,30 +69,23 @@ function LayoutContent({ children }) {
 
 
   const adminNavigation = [
-  { name: 'Financeiro', href: createPageUrl('Financeiro'), icon: DollarSign },
-  { name: 'Meus Ganhos', href: createPageUrl('MeusGanhos'), icon: DollarSign },
-  { name: 'Relatórios Ganhos', href: createPageUrl('RelatoriosGanhos'), icon: BarChart3 },
   { name: 'Relatórios', href: createPageUrl('Relatorios'), icon: BarChart3 },
   { name: 'Backup e Restaurar', href: createPageUrl('BackupRestaurer'), icon: Database },
   { name: 'Usuários', href: createPageUrl('Usuarios'), icon: Users },
   { name: 'Configurações', href: createPageUrl('Configuracoes'), icon: Settings },
   { name: 'Suporte', href: createPageUrl('Suporte'), icon: MessageCircle }];
 
-  const tecnicoNavigation = [
-  { name: 'Meus Ganhos', href: createPageUrl('MeusGanhos'), icon: DollarSign }];
 
   const allUsersNavigation = [
   { name: 'Preferências de Notificação', href: createPageUrl('PreferencesNotificacao'), icon: Bell },
   { name: 'Sair', href: '#', icon: LogOut, action: () => base44.auth.logout() }];
 
 
-  const isAdmin = isSuperAdmin() || isAdminEmpresa() || user?.role === 'admin';
-
   const navigation = isSuperAdmin() ?
   [...superAdminNavigation, ...baseNavigation, ...preventivasNavigation, ...adminNavigation, ...allUsersNavigation] :
-  isAdmin ?
-  [...baseNavigation, ...preventivasNavigation, ...adminNavigation, ...allUsersNavigation] :
-  [...baseNavigation, ...preventivasNavigation, ...tecnicoNavigation, ...allUsersNavigation];
+  currentUser?.tipo_usuario === 'tecnico' ?
+  [...baseNavigation, ...preventivasNavigation] :
+  [...baseNavigation, ...preventivasNavigation, ...adminNavigation, ...allUsersNavigation];
 
   const isActive = (href) => {
     return location.pathname === new URL(href, window.location.origin).pathname;
@@ -197,6 +189,7 @@ function LayoutContent({ children }) {
 
         {/* Main */}
         <div className="lg:pl-72">
+          <ChatWidget />
 
           {/* Top bar */}
           <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">

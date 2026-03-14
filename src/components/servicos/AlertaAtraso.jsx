@@ -98,9 +98,6 @@ export default function AlertaAtraso({ onConcluirServico }) {
       const tecnicos = usuarios.filter(u => u.role === 'tecnico' || u.role === 'admin');
       
       for (const servico of servicosAtrasados) {
-        // Verificação extra: pular se serviço foi concluído
-        if (servico.status === 'concluido') continue;
-        
         const dataPrograma = new Date(servico.data_programada);
         const horasAtraso = differenceInHours(new Date(), dataPrograma);
         const diasAtraso = Math.floor(horasAtraso / 24);
@@ -114,25 +111,16 @@ export default function AlertaAtraso({ onConcluirServico }) {
           const deveNotificar = preferencias.length === 0 || preferencias[0]?.atendimento_atualizado !== false;
           
           if (deveNotificar) {
-            // Verificar se já existe notificação para esse serviço/usuário
-            const notificacoesExistentes = await base44.entities.Notificacao.filter({
+            // Criar notificação
+            await base44.entities.Notificacao.create({
               usuario_email: tecnico.email,
+              tipo: 'atendimento_atualizado',
+              titulo: `⚠️ Serviço em Atraso - ${diasAtraso} dia(s)`,
+              mensagem: `O serviço de ${servico.tipo_servico} para ${servico.cliente_nome} está atrasado há ${diasAtraso} dia(s). Data prevista: ${format(dataPrograma, "dd/MM/yyyy", { locale: ptBR })}`,
               atendimento_id: servico.id,
-              tipo: 'atendimento_atualizado'
+              cliente_nome: servico.cliente_nome,
+              lida: false
             });
-            
-            // Apenas criar se não houver notificação existente
-            if (notificacoesExistentes.length === 0) {
-              await base44.entities.Notificacao.create({
-                usuario_email: tecnico.email,
-                tipo: 'atendimento_atualizado',
-                titulo: `⚠️ Serviço em Atraso - ${diasAtraso} dia(s)`,
-                mensagem: `O serviço de ${servico.tipo_servico} para ${servico.cliente_nome} está atrasado há ${diasAtraso} dia(s). Data prevista: ${format(dataPrograma, "dd/MM/yyyy", { locale: ptBR })}`,
-                atendimento_id: servico.id,
-                cliente_nome: servico.cliente_nome,
-                lida: false
-              });
-            }
           }
         }
       }

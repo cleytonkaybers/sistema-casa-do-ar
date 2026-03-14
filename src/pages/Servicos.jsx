@@ -48,23 +48,10 @@ export default function ServicosPage() {
     queryFn: () => base44.entities.User.list(),
   });
 
-  const { data: precificacoes = [] } = useQuery({
-    queryKey: ['precificacoes'],
-    queryFn: () => base44.entities.PrecificacaoServico.list(),
-  });
-
   const createMutation = useMutation({
     mutationFn: async (data) => {
       const { sem_registro_cliente, ...servicoData } = data;
-      
-      // Buscar preço padrão se não foi definido
-      const precificacao = precificacoes.find(p => p.tipo_servico === data.tipo_servico);
-      const valorPadrao = precificacao?.preco_padrao || 0;
-      
-      const servico = await base44.entities.Servico.create({
-        ...servicoData,
-        valor: servicoData.valor || valorPadrao
-      });
+      const servico = await base44.entities.Servico.create(servicoData);
       
       if (!sem_registro_cliente) {
         // Verificar duplicata por telefone OU por nome (normalizado)
@@ -104,16 +91,7 @@ export default function ServicosPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => {
-      // Buscar preço padrão se não foi definido
-      const precificacao = precificacoes.find(p => p.tipo_servico === data.tipo_servico);
-      const valorPadrao = precificacao?.preco_padrao || 0;
-      
-      return base44.entities.Servico.update(id, {
-        ...data,
-        valor: data.valor || valorPadrao
-      });
-    },
+    mutationFn: ({ id, data }) => base44.entities.Servico.update(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['servicos'] });
       if (!variables.silencioso) {
@@ -199,13 +177,6 @@ export default function ServicosPage() {
     
     try {
       const user = await base44.auth.me();
-      
-      // Bloquear ADM de concluir serviços
-      if (user?.role === 'admin') {
-        toast.error('Apenas técnicos podem concluir serviços');
-        return;
-      }
-      
       const statusAnterior = servicoSnapshot.status || 'aberto';
       const agora = new Date().toISOString();
 
@@ -230,194 +201,91 @@ export default function ServicosPage() {
       queryClient.invalidateQueries({ queryKey: ['servicos'] });
       toast.success(servicoSnapshot.sem_registro_cliente ? 'Serviço avulso concluído! 🎉' : 'Serviço concluído! 🎉');
 
-      // 3. Criar atendimento e registrar ganhos em sequência
-      base44.entities.AlteracaoStatus.create({
-        servico_id: servicoSnapshot.id,
-        status_anterior: statusAnterior,
-        status_novo: 'concluido',
-        usuario: user?.email,
-        data_alteracao: agora,
-        tipo_registro: 'servico'
-      }).catch(() => {});
+      // 3. Operações secundárias em background (não bloqueiam a UI)
+      Promise.all([
+        base44.entities.AlteracaoStatus.create({
+          servico_id: servicoSnapshot.id,
+          status_anterior: statusAnterior,
+          status_novo: 'concluido',
+          usuario: user?.email,
+          data_alteracao: agora,
+          tipo_registro: 'servico'
+        }).catch(() => {}),
 
-      base44.entities.AlteracaoStatus.filter({ servico_id: servicoSnapshot.id }, 'data_alteracao')
-        .then(historicoStatus => {
-          const detalhesCompletos = {
-            dados_ordem_servico: {
-              id: servicoSnapshot.id,
+        base44.entities.AlteracaoStatus.filter({ servico_id: servicoSnapshot.id }, 'data_alteracao')
+          .then(historicoStatus => {
+            const detalhesCompletos = {
+              dados_ordem_servico: {
+                id: servicoSnapshot.id,
+                cliente_nome: servicoSnapshot.cliente_nome,
+                cpf: servicoSnapshot.cpf || null,
+                telefone: servicoSnapshot.telefone || null,
+                endereco: servicoSnapshot.endereco || null,
+                latitude: servicoSnapshot.latitude || null,
+                longitude: servicoSnapshot.longitude || null,
+                tipo_servico: servicoSnapshot.tipo_servico,
+                descricao: servicoSnapshot.descricao || null,
+                valor: servicoSnapshot.valor || 0,
+                data_programada: servicoSnapshot.data_programada || null,
+                horario: servicoSnapshot.horario || null,
+                dia_semana: servicoSnapshot.dia_semana || null,
+                equipe_id: servicoSnapshot.equipe_id || null,
+                equipe_nome: servicoSnapshot.equipe_nome || null,
+                data_criacao: servicoSnapshot.created_date || null,
+              },
+              observacoes_conclusao: observacoes || null,
+              usuario_conclusao: user?.email,
+              data_conclusao: agora,
+              historico_status: (historicoStatus || []).map(h => ({
+                status_anterior: h.status_anterior,
+                status_novo: h.status_novo,
+                usuario: h.usuario,
+                data_alteracao: h.data_alteracao,
+              })),
+            };
+            return base44.entities.Atendimento.create({
+              servico_id: servicoSnapshot.id,
               cliente_nome: servicoSnapshot.cliente_nome,
-              cpf: servicoSnapshot.cpf || null,
-              telefone: servicoSnapshot.telefone || null,
-              endereco: servicoSnapshot.endereco || null,
+              cpf: servicoSnapshot.cpf || '',
+              telefone: servicoSnapshot.telefone || '',
+              endereco: servicoSnapshot.endereco || '',
               latitude: servicoSnapshot.latitude || null,
               longitude: servicoSnapshot.longitude || null,
+              data_atendimento: servicoSnapshot.data_programada,
+              horario: servicoSnapshot.horario || '',
+              dia_semana: servicoSnapshot.dia_semana || '',
               tipo_servico: servicoSnapshot.tipo_servico,
-              descricao: servicoSnapshot.descricao || null,
+              descricao: servicoSnapshot.descricao || '',
               valor: servicoSnapshot.valor || 0,
-              data_programada: servicoSnapshot.data_programada || null,
-              horario: servicoSnapshot.horario || null,
-              dia_semana: servicoSnapshot.dia_semana || null,
-              equipe_id: servicoSnapshot.equipe_id || null,
-              equipe_nome: servicoSnapshot.equipe_nome || null,
-              data_criacao: servicoSnapshot.created_date || null,
-            },
-            observacoes_conclusao: observacoes || null,
-            usuario_conclusao: user?.email,
-            data_conclusao: agora,
-            historico_status: (historicoStatus || []).map(h => ({
-              status_anterior: h.status_anterior,
-              status_novo: h.status_novo,
-              usuario: h.usuario,
-              data_alteracao: h.data_alteracao,
-            })),
-          };
-          return base44.entities.Atendimento.create({
-            servico_id: servicoSnapshot.id,
-            cliente_nome: servicoSnapshot.cliente_nome,
-            cpf: servicoSnapshot.cpf || '',
-            telefone: servicoSnapshot.telefone || '',
-            endereco: servicoSnapshot.endereco || '',
-            latitude: servicoSnapshot.latitude || null,
-            longitude: servicoSnapshot.longitude || null,
-            data_atendimento: servicoSnapshot.data_programada,
-            horario: servicoSnapshot.horario || '',
-            dia_semana: servicoSnapshot.dia_semana || '',
-            tipo_servico: servicoSnapshot.tipo_servico,
-            descricao: servicoSnapshot.descricao || '',
-            valor: servicoSnapshot.valor || 0,
-            observacoes_conclusao: observacoes || '',
-            equipe_id: servicoSnapshot.equipe_id || '',
-            equipe_nome: servicoSnapshot.equipe_nome || '',
-            usuario_conclusao: user?.email,
-            data_conclusao: agora,
-            detalhes: JSON.stringify(detalhesCompletos),
-          });
-        })
-        .then((atendimentoCriado) => {
-           if (!atendimentoCriado || !atendimentoCriado.id) {
-             console.error('❌ Erro: Atendimento não foi criado corretamente');
-             return;
-           }
+              observacoes_conclusao: observacoes || '',
+              equipe_id: servicoSnapshot.equipe_id || '',
+              equipe_nome: servicoSnapshot.equipe_nome || '',
+              usuario_conclusao: user?.email,
+              data_conclusao: agora,
+              detalhes: JSON.stringify(detalhesCompletos),
+            });
+          }).catch(() => {}),
+      ]).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
+        queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
+      }).catch(() => {});
 
-           queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
-           queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
-
-           // Registrar ganhos para todos os membros da equipe
-           return Promise.all([
-             base44.entities.PrecificacaoServico.filter({ tipo_servico: servicoSnapshot.tipo_servico }),
-             base44.entities.Servico.filter({ equipe_id: servicoSnapshot.equipe_id }),
-             base44.entities.User.list()
-           ]).then(([precList, servicosEquipe, todosUsuarios]) => {
-             if (servicoSnapshot.equipe_id && servicoSnapshot.valor > 0) {
-               // Validar se existe precificação cadastrada
-               const prec = precList.length > 0 ? precList[0] : null;
-               
-               if (!prec) {
-                 // Notificar admin sobre tipo de serviço sem precificação
-                 const admins = todosUsuarios.filter(u => u.role === 'admin');
-                 admins.forEach(admin => {
-                   base44.entities.Notificacao.create({
-                     usuario_email: admin.email,
-                     tipo: 'atendimento_concluido',
-                     titulo: '⚠️ Erro ao Gerar Ganhos',
-                     mensagem: `Serviço "${servicoSnapshot.tipo_servico}" não possui precificação cadastrada. Cadastre no Financeiro e recalcule os ganhos.`,
-                     atendimento_id: atendimentoCriado.id,
-                     cliente_nome: servicoSnapshot.cliente_nome,
-                     lida: false
-                   }).catch(() => {});
-                 });
-                 return;
-               }
-
-               // Encontrar todos os membros não-admin que trabalham nessa equipe
-               const usuariosAtivos = todosUsuarios.filter(u => u.role !== 'admin');
-               const emailsMembros = new Set();
-
-               servicosEquipe.forEach(s => {
-                 if (s.usuario_atualizacao_status) {
-                   const usuario = usuariosAtivos.find(u => u.email === s.usuario_atualizacao_status);
-                   if (usuario) {
-                     emailsMembros.add(s.usuario_atualizacao_status);
-                   }
-                 }
-               });
-
-               if (emailsMembros.size === 0) return;
-
-               const comissaoPerc = 15; // Sempre 15% fixo
-               const valorServico = servicoSnapshot.valor;
-               const valorComissao = Number((valorServico * 0.15).toFixed(2));
-
-               const dataConc = new Date();
-               const getWeekNumber = (d) => {
-                 d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-                 d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-                 const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-                 return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-               };
-               const semana = `${dataConc.getFullYear()}-W${String(getWeekNumber(dataConc)).padStart(2, '0')}`;
-               const mes = `${dataConc.getFullYear()}-${String(dataConc.getMonth() + 1).padStart(2, '0')}`;
-
-               const ganhosParaCriar = Array.from(emailsMembros).map(email => {
-                 const usuarioMembro = usuariosAtivos.find(u => u.email === email);
-                 return {
-                   tecnico_email: email,
-                   tecnico_nome: usuarioMembro?.full_name || 'Sistema',
-                   atendimento_id: atendimentoCriado.id,
-                   cliente_nome: servicoSnapshot.cliente_nome,
-                   tipo_servico: servicoSnapshot.tipo_servico,
-                   valor_servico: valorServico,
-                   comissao_percentual: 15,
-                   valor_comissao: valorComissao,
-                   data_conclusao: agora,
-                   semana: semana,
-                   mes: mes,
-                   pago: false,
-                   equipe_id: servicoSnapshot.equipe_id,
-                   equipe_nome: servicoSnapshot.equipe_nome
-                 };
-               });
-
-               if (ganhosParaCriar.length > 0) {
-                 return base44.entities.GanhoTecnico.bulkCreate(ganhosParaCriar)
-                   .catch(erro => {
-                     // Notificar admin sobre erro ao criar ganhos
-                     const admins = todosUsuarios.filter(u => u.role === 'admin');
-                     admins.forEach(admin => {
-                       base44.entities.Notificacao.create({
-                         usuario_email: admin.email,
-                         tipo: 'atendimento_concluido',
-                         titulo: '❌ Erro ao Criar Ganhos',
-                         mensagem: `Falha ao registrar ganhos para atendimento ${atendimentoCriado.id}. Verificar e corrigir manualmente.`,
-                         atendimento_id: atendimentoCriado.id,
-                         cliente_nome: servicoSnapshot.cliente_nome,
-                         lida: false
-                       }).catch(() => {});
-                     });
-                     throw erro;
-                   });
-               }
-             }
-           }).then(() => {
-             // Atualizar preventiva do cliente APENAS APÓS criar o atendimento com sucesso
-             if (!servicoSnapshot.sem_registro_cliente) {
-               return base44.entities.Cliente.filter({ telefone: servicoSnapshot.telefone })
-                 .then(clientesMatch => {
-                   if (clientesMatch.length > 0) {
-                     const dataConc = servicoSnapshot.data_programada || new Date().toISOString().split('T')[0];
-                     const proxima = new Date(dataConc);
-                     proxima.setMonth(proxima.getMonth() + 6);
-                     return base44.entities.Cliente.update(clientesMatch[0].id, {
-                       ultima_manutencao: dataConc,
-                       proxima_manutencao: proxima.toISOString().split('T')[0]
-                     });
-                   }
-                 }).then(() => queryClient.invalidateQueries({ queryKey: ['clientes'] }));
-             }
-           });
-         })
-        .then(() => queryClient.invalidateQueries({ queryKey: ['ganhos-tecnicos'] }))
-        .catch(() => {});
+      // Atualizar preventiva do cliente em background
+      if (!servicoSnapshot.sem_registro_cliente) {
+        base44.entities.Cliente.filter({ telefone: servicoSnapshot.telefone })
+          .then(clientesMatch => {
+            if (clientesMatch.length > 0) {
+              const dataConc = servicoSnapshot.data_programada || new Date().toISOString().split('T')[0];
+              const proxima = new Date(dataConc);
+              proxima.setMonth(proxima.getMonth() + 6);
+              return base44.entities.Cliente.update(clientesMatch[0].id, {
+                ultima_manutencao: dataConc,
+                proxima_manutencao: proxima.toISOString().split('T')[0]
+              });
+            }
+          }).then(() => queryClient.invalidateQueries({ queryKey: ['clientes'] }))
+          .catch(() => {});
+      }
 
     } catch (error) {
       console.error('Erro ao concluir serviço:', error);
