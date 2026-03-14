@@ -215,13 +215,6 @@ export default function Dashboard() {
             <Icon className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
           </div>
         </div>
-        {(onClick || href) && (
-          <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-100">
-            <div className="flex items-center text-xs sm:text-sm font-medium text-blue-600 group-hover:text-blue-700">
-              Ver detalhes <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1" />
-            </div>
-          </div>
-        )}
       </CardContent>
     );
 
