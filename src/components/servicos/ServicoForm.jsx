@@ -25,6 +25,11 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
     queryFn: () => base44.entities.Cliente.list(),
   });
 
+  const { data: tiposServicoValores = [] } = useQuery({
+    queryKey: ['tiposServicoValor'],
+    queryFn: () => base44.entities.TipoServicoValor.list(),
+  });
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (clienteSearchRef.current && !clienteSearchRef.current.contains(e.target)) {
@@ -60,6 +65,22 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
   const servicosFiltrados = servicoSearch.trim().length > 0
     ? servicosDisponiveis.filter(s => s.toLowerCase().includes(servicoSearch.toLowerCase()))
     : servicosDisponiveis;
+
+  // Calcular valor total baseado na tabela de preços
+  const calcularValorTotal = () => {
+    let total = 0;
+    formData.tipos_servico.forEach(item => {
+      const tipoEncontrado = tiposServicoValores.find(t => t.tipo_servico === item.tipo);
+      const valor = tipoEncontrado?.valor_tabela || 0;
+      total += valor * (parseInt(item.quantidade) || 1);
+    });
+    return total;
+  };
+
+  const getValorTipo = (tipo) => {
+    const tipoEncontrado = tiposServicoValores.find(t => t.tipo_servico === tipo);
+    return tipoEncontrado?.valor_tabela || 0;
+  };
 
   const handleSelectCliente = (cliente) => {
     setFormData(prev => ({
@@ -119,7 +140,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         equipe_nome: servico.equipe_nome || ''
       });
     } else if (prefilledData) {
-      setFormData({
+      const novoFormData = {
         cliente_nome: prefilledData.cliente_nome || '',
         cpf: prefilledData.cpf || '',
         telefone: prefilledData.telefone || '',
@@ -135,9 +156,10 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         ativo: true,
         equipe_id: currentUserEquipeId || '',
         equipe_nome: ''
-      });
+      };
+      setFormData(novoFormData);
     } else {
-      setFormData({
+      const novoFormData = {
         cliente_nome: '',
         cpf: '',
         telefone: '',
@@ -153,9 +175,20 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         ativo: true,
         equipe_id: currentUserEquipeId || '',
         equipe_nome: ''
-      });
+      };
+      setFormData(novoFormData);
     }
   }, [servico, prefilledData, open, currentUserEquipeId]);
+
+  // Atualizar valor automaticamente quando tipos de serviço mudam
+  useEffect(() => {
+    if (!servico) { // Só auto-sincronizar se for novo serviço
+      const valorCalculado = calcularValorTotal();
+      if (valorCalculado > 0) {
+        setFormData(prev => ({ ...prev, valor: valorCalculado }));
+      }
+    }
+  }, [formData.tipos_servico, tiposServicoValores]);
 
   const formatPhoneInput = (value) => {
     const cleaned = value.replace(/\D/g, '');
