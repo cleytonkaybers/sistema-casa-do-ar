@@ -477,8 +477,9 @@ export default function FinanceiroAdmin() {
                    <TableHead>Comissão Técnico</TableHead>
                    <TableHead>% Ganha</TableHead>
                    <TableHead>Status</TableHead>
-                 </TableRow>
-               </TableHeader>
+                   <TableHead>Ações</TableHead>
+                   </TableRow>
+                   </TableHeader>
                <TableBody>
                  {lancamentosFiltrados.map(lanc => {
                    const percentualGanho = lanc.valor_total_servico > 0
