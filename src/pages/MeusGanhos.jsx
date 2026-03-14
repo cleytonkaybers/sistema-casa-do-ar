@@ -20,7 +20,6 @@ export default function MeusGanhos() {
   const [filtroEquipe, setFiltroEquipe] = useState('todas');
   const [editandoGanho, setEditandoGanho] = useState(null);
   const [valorEditado, setValorEditado] = useState('');
-  const [valoresPagos, setValoresPagos] = useState({});
   const queryClient = useQueryClient();
 
   React.useEffect(() => {
@@ -97,20 +96,30 @@ export default function MeusGanhos() {
     }
   };
 
+  // Gerenciar valores pagos individualmente por técnico
+  const [valoresPagosPorTecnico, setValoresPagosPorTecnico] = useState({});
+
   const handleValorPagoChange = (tecnicoEmail, valor) => {
-    setValoresPagos(prev => ({
+    setValoresPagosPorTecnico(prev => ({
       ...prev,
       [tecnicoEmail]: valor
     }));
   };
 
   const handleConfirmarPagamento = (tecnicoEmail) => {
-    const valor = parseFloat(valoresPagos[tecnicoEmail] || 0);
+    const valor = parseFloat(valoresPagosPorTecnico[tecnicoEmail] || 0);
     if (valor <= 0) {
       toast.error('Digite um valor válido');
       return;
     }
-    toast.success(`Pagamento de R$ ${valor.toFixed(2)} confirmado`);
+    
+    // Limpar o valor após confirmação para evitar duplicação
+    setValoresPagosPorTecnico(prev => ({
+      ...prev,
+      [tecnicoEmail]: ''
+    }));
+    
+    toast.success(`Pagamento de R$ ${valor.toFixed(2)} confirmado para ${tecnicoEmail}`);
   };
 
   // Filtrar ganhos baseado em permissão
@@ -230,9 +239,8 @@ export default function MeusGanhos() {
   });
   const totalPendenteSemanal = ganhosSemanaAtual.reduce((sum, g) => sum + (g.valor_comissao || 0), 0);
   
-  // Subtrair valores já pagos do total a receber
-  const totalValoresPagos = Object.values(valoresPagos).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
-  const totalPendenteFinal = totalPendenteSemanal - totalValoresPagos;
+  // Subtrair apenas valores pagos CONFIRMADOS (já não fazem parte de totalPendenteSemanal)
+  const totalPendenteFinal = totalPendenteSemanal;
 
   if (isLoading || !user) {
     return (
@@ -334,11 +342,6 @@ export default function MeusGanhos() {
             <p className="text-xs text-orange-600 mt-1">
               Seg-Dom • {ganhosSemanaAtual.length} pendentes
             </p>
-            {totalValoresPagos > 0 && (
-              <p className="text-xs text-gray-500 mt-1">
-                (R$ {totalPendenteSemanal.toFixed(2)} - R$ {totalValoresPagos.toFixed(2)} pago)
-              </p>
-            )}
           </CardContent>
         </Card>
       </div>
@@ -386,7 +389,7 @@ export default function MeusGanhos() {
                             type="number"
                             step="0.01"
                             placeholder="0.00"
-                            value={valoresPagos[grupo.tecnicoEmail] || ''}
+                            value={valoresPagosPorTecnico[grupo.tecnicoEmail] || ''}
                             onChange={(e) => handleValorPagoChange(grupo.tecnicoEmail, e.target.value)}
                             className="w-28 h-8 text-sm bg-white text-gray-900"
                           />
