@@ -78,7 +78,7 @@ export default function MeusGanhos() {
       return;
     }
 
-    const novaComissao = (novoValor * (editandoGanho.comissao_percentual || 30)) / 100;
+    const novaComissao = (novoValor * (editandoGanho.comissao_percentual || 15)) / 100;
     
     updateMutation.mutate({
       id: editandoGanho.id,
@@ -514,8 +514,8 @@ export default function MeusGanhos() {
                 placeholder="0.00"
               />
               <p className="text-xs text-gray-500">
-                Comissão ({editandoGanho?.comissao_percentual || 30}%): R$ {
-                  valorEditado ? ((parseFloat(valorEditado) * (editandoGanho?.comissao_percentual || 30)) / 100).toFixed(2) : '0.00'
+                Comissão ({editandoGanho?.comissao_percentual || 15}%): R$ {
+                  valorEditado ? ((parseFloat(valorEditado) * (editandoGanho?.comissao_percentual || 15)) / 100).toFixed(2) : '0.00'
                 }
               </p>
             </div>
