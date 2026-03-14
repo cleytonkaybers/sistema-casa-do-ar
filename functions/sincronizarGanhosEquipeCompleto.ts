@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Dividir o ganho entre os membros da equipe
+      // Dividir o ganho entre os membros da equipe (distribuição igual)
       const valorComissaoTotal = (servico.valor || 0) * (comissaoPercentual / 100);
       const valorComissaoPorMembro = valorComissaoTotal / membrosEquipe.length;
 
