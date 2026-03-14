@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { DollarSign, TrendingUp, CheckCircle2, Clock, Eye, Send, FileText } from 'lucide-react';
+import { DollarSign, TrendingUp, CheckCircle2, Clock, Eye, Send, FileText, Edit2, Trash2 } from 'lucide-react';
 import { format, parseISO, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
