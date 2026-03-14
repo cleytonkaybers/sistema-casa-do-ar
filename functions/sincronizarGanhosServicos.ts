@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        const comissaoPerc = prec.comissao_tecnico_percentual || 30;
+        const comissaoPerc = prec.comissao_tecnico_percentual || 15;
         const valorComissao = (servico.valor * comissaoPerc) / 100;
 
         // Calcular semana e mês

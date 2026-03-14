@@ -110,7 +110,6 @@ Deno.serve(async (req) => {
     return Response.json({
       sucesso: true,
       ganhosCriados,
-      totalEquipes: Object.keys(servicosPorEquipe).length,
       mensagem: `${ganhosCriados} ganhos sincronizados para todas as equipes`
     });
   } catch (error) {
