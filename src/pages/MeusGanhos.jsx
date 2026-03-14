@@ -381,28 +381,158 @@ export default function MeusGanhos() {
                       <p className="text-blue-100 text-xs">Pendente</p>
                       <p className="font-bold">R$ {grupo.totalPendente.toFixed(2)}</p>
                     </div>
-                    {isAdmin && (
-                      <div className="ml-4 flex items-end gap-2">
-                        <div>
-                          <Label className="text-blue-100 text-xs block mb-1">Valor Pago</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={valoresPagosPorTecnico[grupo.tecnicoEmail] || ''}
-                            onChange={(e) => handleValorPagoChange(grupo.tecnicoEmail, e.target.value)}
-                            className="w-28 h-8 text-sm bg-white text-gray-900"
-                          />
-                        </div>
-                        <Button
-                          size="sm"
-                          onClick={() => handleConfirmarPagamento(grupo.tecnicoEmail)}
-                          className="h-8 bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          Confirmar
-                        </Button>
+                  </div>
+                  {isAdmin && (
+                    <div className="flex items-end gap-2 mt-3 lg:mt-0">
+                      <div>
+                        <Label className="text-blue-100 text-xs block mb-1">Valor Pago</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={valoresPagosPorTecnico[grupo.tecnicoEmail] || ''}
+                          onChange={(e) => handleValorPagoChange(grupo.tecnicoEmail, e.target.value)}
+                          className="w-28 h-8 text-sm bg-white text-gray-900"
+                        />
                       </div>
-                    )}
+                      <Button
+                        size="sm"
+                        onClick={() => handleConfirmarPagamento(grupo.tecnicoEmail)}
+                        className="h-8 bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        Confirmar
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gray-50">
+                        <TableHead className="font-semibold">Cliente</TableHead>
+                        <TableHead className="font-semibold">Serviço</TableHead>
+                        <TableHead className="font-semibold">Data</TableHead>
+                        <TableHead className="text-right font-semibold">Valor</TableHead>
+                        <TableHead className="text-right font-semibold">Comissão</TableHead>
+                        <TableHead className="text-right font-semibold">Ganho</TableHead>
+                        <TableHead className="text-center font-semibold">Status</TableHead>
+                        {isAdmin && <TableHead className="text-center font-semibold">Ações</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {grupo.ganhos
+                        .sort((a, b) => new Date(b.data_conclusao) - new Date(a.data_conclusao))
+                        .map((ganho) => (
+                            <TableRow 
+                               key={ganho.id}
+                               className={ganho.pago ? 'bg-green-50' : 'hover:bg-gray-50'}
+                             >
+                               <TableCell className="font-medium">{ganho.cliente_nome}</TableCell>
+                               <TableCell className="text-sm">{ganho.tipo_servico}</TableCell>
+                            <TableCell className="text-sm text-gray-600">
+                              {format(parseISO(ganho.data_conclusao), "dd/MM/yy HH:mm", { locale: ptBR })}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              R$ {(ganho.valor_servico || 0).toFixed(2)}
+                            </TableCell>
+                            <TableCell className="text-right text-sm text-gray-600">
+                              {ganho.comissao_percentual || 0}%
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-green-600">
+                              R$ {(ganho.valor_comissao || 0).toFixed(2)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {ganho.pago ? (
+                                <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded-full">
+                                  <CheckCircle className="w-3 h-3" />
+                                  Pago
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-100 px-2 py-1 rounded-full">
+                                  <Clock className="w-3 h-3" />
+                                  Pendente
+                                </span>
+                              )}
+                            </TableCell>
+                            {isAdmin && (
+                              <TableCell className="text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    onClick={() => handleEditarGanho(ganho)}
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    onClick={() => handleExcluirGanho(ganho.id)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Modal de edição */}
+      <Dialog open={!!editandoGanho} onOpenChange={() => setEditandoGanho(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Valor do Serviço</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Cliente</Label>
+              <Input value={editandoGanho?.cliente_nome || ''} disabled />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de Serviço</Label>
+              <Input value={editandoGanho?.tipo_servico || ''} disabled />
+            </div>
+            <div className="space-y-2">
+              <Label>Valor do Serviço (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={valorEditado}
+                onChange={(e) => setValorEditado(e.target.value)}
+                placeholder="0.00"
+              />
+              <p className="text-xs text-gray-500">
+                Comissão ({editandoGanho?.comissao_percentual || 30}%): R$ {
+                  valorEditado ? ((parseFloat(valorEditado) * (editandoGanho?.comissao_percentual || 30)) / 100).toFixed(2) : '0.00'
+                }
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setEditandoGanho(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSalvarEdicao} disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
                   </div>
                 </div>
               </CardHeader>
