@@ -26,10 +26,10 @@ export default function MeuFinanceiro() {
     base44.auth.me().then(u => {
       setUser(u);
       setLoading(false);
-      // Definir período padrão como semana atual
+      // Definir período padrão como semana atual (segunda-feira a domingo)
       const hoje = new Date();
-      const inicio = startOfWeek(hoje, { weekStartsOn: 0 });
-      const fim = endOfWeek(hoje, { weekStartsOn: 0 });
+      const inicio = startOfWeek(hoje, { weekStartsOn: 1 }); // 1 = Segunda-feira
+      const fim = endOfWeek(hoje, { weekStartsOn: 1 });
       setDataInicio(format(inicio, 'yyyy-MM-dd'));
       setDataFim(format(fim, 'yyyy-MM-dd'));
     });
@@ -41,12 +41,12 @@ export default function MeuFinanceiro() {
     let inicio, fim;
 
     if (periodo === 'atual') {
-      inicio = startOfWeek(hoje, { weekStartsOn: 0 });
-      fim = endOfWeek(hoje, { weekStartsOn: 0 });
+      inicio = startOfWeek(hoje, { weekStartsOn: 1 }); // 1 = Segunda-feira
+      fim = endOfWeek(hoje, { weekStartsOn: 1 });
     } else if (periodo === 'anterior') {
       const semanaAnterior = subWeeks(hoje, 1);
-      inicio = startOfWeek(semanaAnterior, { weekStartsOn: 0 });
-      fim = endOfWeek(semanaAnterior, { weekStartsOn: 0 });
+      inicio = startOfWeek(semanaAnterior, { weekStartsOn: 1 }); // 1 = Segunda-feira
+      fim = endOfWeek(semanaAnterior, { weekStartsOn: 1 });
     }
     
     setDataInicio(format(inicio, 'yyyy-MM-dd'));
