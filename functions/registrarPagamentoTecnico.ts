@@ -41,14 +41,14 @@ Deno.serve(async (req) => {
       status: 'Confirmado'
     });
 
-    // Atualizar crédito do técnico
-    const novoCredito = Math.max(0, tecnico.credito_pendente - valor_pago);
+    // Atualizar crédito do técnico (permite valor negativo se pagar a mais)
+    const novoCredito = tecnico.credito_pendente - valor_pago;
     const novoTotal = tecnico.credito_pago + valor_pago;
 
     await base44.asServiceRole.entities.TecnicoFinanceiro.update(tecnico.id, {
       credito_pendente: novoCredito,
       credito_pago: novoTotal,
-      total_ganho: tecnico.credito_pendente + novoTotal,
+      total_ganho: tecnico.total_ganho || (tecnico.credito_pendente + tecnico.credito_pago),
       data_ultimo_pagamento: new Date().toISOString()
     });
 
