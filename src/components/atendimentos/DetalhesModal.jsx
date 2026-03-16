@@ -6,7 +6,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   Calendar, User, Wrench, DollarSign, Clock, FileText,
   MessageSquare, Tag, Phone, MapPin, CreditCard, Users,
-  History, ArrowRight
+  History, ArrowRight, MessageCircle
 } from 'lucide-react';
 
 function InfoRow({ icon: Icon, label, value, className = '' }) {
@@ -62,7 +62,26 @@ export default function DetalhesModal({ open, onClose, atendimento }) {
 
           {/* Contato */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <InfoRow icon={Phone} label="Telefone" value={atendimento.telefone} />
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-500 flex items-center gap-1.5 mb-1">
+                <Phone className="w-4 h-4" />
+                Telefone
+              </p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-gray-800 flex-1">{atendimento.telefone}</p>
+                {atendimento.telefone && (
+                  <a
+                    href={`https://wa.me/55${atendimento.telefone.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors text-sm font-medium"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    WhatsApp
+                  </a>
+                )}
+              </div>
+            </div>
             <InfoRow icon={CreditCard} label="CPF" value={atendimento.cpf} />
           </div>
 
