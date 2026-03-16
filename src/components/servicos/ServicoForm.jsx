@@ -182,11 +182,9 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
 
   // Atualizar valor automaticamente quando tipos de serviço mudam
   useEffect(() => {
-    if (!servico) { // Só auto-sincronizar se for novo serviço
-      const valorCalculado = calcularValorTotal();
-      if (valorCalculado > 0) {
-        setFormData(prev => ({ ...prev, valor: valorCalculado }));
-      }
+    const valorCalculado = calcularValorTotal();
+    if (valorCalculado > 0) {
+      setFormData(prev => ({ ...prev, valor: valorCalculado }));
     }
   }, [formData.tipos_servico, tiposServicoValores]);
 
@@ -653,7 +651,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                  onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
                  placeholder="Automático pela tabela"
                />
-               {!servico && formData.tipos_servico.length > 0 && (
+               {formData.tipos_servico.length > 0 && (
                  <div className="text-xs text-gray-500 space-y-1">
                    {formData.tipos_servico.map((item, idx) => {
                      const valor = getValorTipo(item.tipo);
