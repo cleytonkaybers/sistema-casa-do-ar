@@ -53,23 +53,14 @@ export default function GanhosSemanaDashboard() {
         return dataGeracao >= inicioSemana && dataGeracao <= fimSemana;
       });
 
+      // Apenas comissões PENDENTES da semana atual
       const pendente = comissoesSemana
         .filter(c => c.status === 'pendente')
         .reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
 
-      const pago = comissoesSemana
-        .filter(c => c.status === 'pago' || c.status === 'creditado')
-        .reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
+      const total = pendente;
 
-      // Calcular pagamentos registrados esta semana
-      const pagamentosSemana = meusPagamentos.filter(p => {
-        const dataPag = parseISO(p.data_pagamento);
-        return dataPag >= inicioSemana && dataPag <= fimSemana;
-      }).reduce((sum, p) => sum + (p.valor_pago || 0), 0);
-
-      const total = pendente + pago;
-
-      setGanhosDetalhes({ pendente, pago, total, pagamentosSemana });
+      setGanhosDetalhes({ pendente, pago: 0, total, pagamentosSemana: 0 });
 
       // Animar contador
       let current = 0;
