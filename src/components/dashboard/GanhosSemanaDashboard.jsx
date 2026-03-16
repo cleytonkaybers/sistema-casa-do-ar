@@ -32,10 +32,8 @@ export default function GanhosSemanaDashboard() {
     queryKey: ['pagamentosSemana', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
-      return base44.entities.PagamentoTecnico.filter({
-        tecnico_id: user.email,
-        status: 'Confirmado'
-      });
+      const todos = await base44.entities.PagamentoTecnico.list();
+      return todos.filter(p => p.tecnico_id === user.email && p.status === 'Confirmado');
     },
     enabled: !!user?.email
   });
@@ -57,10 +55,22 @@ export default function GanhosSemanaDashboard() {
       }
     });
 
-    const pendente = comissoesSemana.reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
-    const total = pendente;
+    // Filtrar pagamentos da semana atual
+    const pagamentosSemana = meusPagamentos.filter(p => {
+      if (!p.data_pagamento) return false;
+      try {
+        const dataPagamento = new Date(p.data_pagamento);
+        return dataPagamento >= inicioSemana && dataPagamento <= fimSemana;
+      } catch (e) {
+        return false;
+      }
+    });
 
-    setGanhosDetalhes({ pendente, pago: 0, total, pagamentosSemana: 0 });
+    const pendente = comissoesSemana.reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
+    const pago = pagamentosSemana.reduce((sum, p) => sum + (p.valor_pago || 0), 0);
+    const total = pendente + pago;
+
+    setGanhosDetalhes({ pendente, pago, total, pagamentosSemana: pagamentosSemana.length });
 
     // Animar contador
     let current = 0;
@@ -76,7 +86,7 @@ export default function GanhosSemanaDashboard() {
     }, 27); // ~800ms total
 
     return () => clearInterval(timer);
-  }, [minhasComissoes]);
+  }, [minhasComissoes, meusPagamentos]);
 
   if (!user) return null;
 
@@ -101,9 +111,15 @@ export default function GanhosSemanaDashboard() {
           {/* Subtítulo com breakdown */}
           <div className="space-y-1 text-sm border-t border-green-200 pt-2">
             <div className="flex justify-between text-gray-600">
-              <span>A receber (semana):</span>
+              <span>Pendente:</span>
               <span className="font-semibold text-amber-600">R$ {ganhosDetalhes.pendente?.toFixed(2) || '0.00'}</span>
             </div>
+            {ganhosDetalhes.pago > 0 && (
+              <div className="flex justify-between text-gray-600">
+                <span>Pago (semana):</span>
+                <span className="font-semibold text-green-600">R$ {ganhosDetalhes.pago?.toFixed(2) || '0.00'}</span>
+              </div>
+            )}
           </div>
 
           {/* Botão de ação */}
