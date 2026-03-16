@@ -36,13 +36,16 @@ export default function GanhosSemanaDashboard() {
   useEffect(() => {
     const hoje = new Date();
     const inicioSemana = startOfWeek(hoje, { weekStartsOn: 1 }); // 1 = Segunda-feira
+    inicioSemana.setHours(0, 0, 0, 0); // Garantir 00:00:00
+    
     const fimSemana = endOfWeek(hoje, { weekStartsOn: 1 });
+    fimSemana.setHours(23, 59, 59, 999); // Garantir 23:59:59
 
-    // Filtrar apenas comissões geradas na semana atual (segunda a domingo 23:59)
+    // Filtrar apenas comissões geradas na semana atual (segunda 00:00 a domingo 23:59)
     const comissoesSemana = minhasComissoes.filter(c => {
       if (!c.data_geracao) return false;
       try {
-        const dataGeracao = new Date(c.data_geracao);
+        const dataGeracao = parseISO(c.data_geracao);
         return dataGeracao >= inicioSemana && dataGeracao <= fimSemana;
       } catch (e) {
         return false;
