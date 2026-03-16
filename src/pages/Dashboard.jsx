@@ -289,7 +289,7 @@ export default function Dashboard() {
                 <Users className="w-4 h-4 text-green-600" />
               </div>
               <CardTitle className="text-base sm:text-lg font-semibold text-gray-800">
-                Ganhos dos Técnicos (Semana Passada)
+                Ganhos dos Técnicos (Semana Atual)
               </CardTitle>
             </div>
           </CardHeader>
