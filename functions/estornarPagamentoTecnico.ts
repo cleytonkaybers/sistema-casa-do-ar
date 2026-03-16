@@ -43,14 +43,14 @@ Deno.serve(async (req) => {
       motivo_estorno: motivo_estorno || ''
     });
 
-    // Restaurar crédito do técnico
+    // Restaurar crédito do técnico (permite valores negativos)
     const creditoRestaurado = tecnico.credito_pendente + pag.valor_pago;
-    const creditoPagoReduzido = Math.max(0, tecnico.credito_pago - pag.valor_pago);
+    const creditoPagoReduzido = tecnico.credito_pago - pag.valor_pago;
 
     await base44.asServiceRole.entities.TecnicoFinanceiro.update(tecnico.id, {
       credito_pendente: creditoRestaurado,
       credito_pago: creditoPagoReduzido,
-      total_ganho: creditoRestaurado + creditoPagoReduzido
+      total_ganho: tecnico.total_ganho || (tecnico.credito_pendente + tecnico.credito_pago)
     });
 
     // Reverter status dos lançamentos se vinculados
