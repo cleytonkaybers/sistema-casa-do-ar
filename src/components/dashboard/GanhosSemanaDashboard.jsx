@@ -48,12 +48,16 @@ export default function GanhosSemanaDashboard() {
 
     const comissoesSemana = minhasComissoes.filter(c => {
       if (!c.data_geracao) return false;
-      const dataGeracao = parseISO(c.data_geracao);
-      return (
-        c.status === 'pendente' && // Apenas pendentes
-        dataGeracao >= inicioSemana && 
-        dataGeracao <= fimSemana
-      );
+      try {
+        const dataGeracao = new Date(c.data_geracao);
+        return (
+          c.status === 'pendente' && // Apenas pendentes
+          dataGeracao >= inicioSemana && 
+          dataGeracao <= fimSemana
+        );
+      } catch (e) {
+        return false;
+      }
     });
 
     const pendente = comissoesSemana.reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
