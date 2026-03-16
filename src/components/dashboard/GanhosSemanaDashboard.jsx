@@ -102,11 +102,7 @@ export default function GanhosSemanaDashboard() {
           {/* Subtítulo com breakdown */}
           <div className="space-y-1 text-sm border-t border-green-200 pt-2">
             <div className="flex justify-between text-gray-600">
-              <span>Pago esta semana:</span>
-              <span className="font-semibold text-green-700">R$ {ganhosDetalhes.pagamentosSemana?.toFixed(2) || '0.00'}</span>
-            </div>
-            <div className="flex justify-between text-gray-600">
-              <span>Pendente:</span>
+              <span>A receber (semana):</span>
               <span className="font-semibold text-amber-600">R$ {ganhosDetalhes.pendente?.toFixed(2) || '0.00'}</span>
             </div>
           </div>
