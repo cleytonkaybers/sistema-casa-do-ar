@@ -188,12 +188,12 @@ export default function MeuFinanceiro() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4" /> Crédito Pago
+              <CheckCircle2 className="w-4 h-4" /> Crédito Pago (Semana)
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">R$ {totalPago.toFixed(2)}</div>
-            <p className="text-xs text-gray-500 mt-1">{comissoesPagas.length} serviço(s)</p>
+            <div className="text-2xl font-bold text-green-600">R$ 0,00</div>
+            <p className="text-xs text-gray-500 mt-1">Zerado semanalmente</p>
           </CardContent>
         </Card>
 
@@ -204,11 +204,8 @@ export default function MeuFinanceiro() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">R$ {totalSemana.toFixed(2)}</div>
-            <div className="text-xs text-gray-500 mt-2 space-y-1">
-              <p>Ganho: R$ {totalPago.toFixed(2)}</p>
-              <p>Pendente: R$ {totalPendente.toFixed(2)}</p>
-            </div>
+            <div className="text-2xl font-bold text-blue-600">R$ {totalPendente.toFixed(2)}</div>
+            <p className="text-xs text-gray-500 mt-1">Apenas pendentes da semana</p>
           </CardContent>
         </Card>
       </div>
