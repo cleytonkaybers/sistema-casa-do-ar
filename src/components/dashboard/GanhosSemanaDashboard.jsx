@@ -22,9 +22,8 @@ export default function GanhosSemanaDashboard() {
     queryKey: ['minhasComissoesWeek', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
-      return base44.entities.LancamentoFinanceiro.filter({
-        tecnico_id: user.email
-      });
+      const todas = await base44.entities.LancamentoFinanceiro.list();
+      return todas.filter(c => c.tecnico_id === user.email);
     },
     enabled: !!user?.email
   });
