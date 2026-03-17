@@ -13,11 +13,12 @@ import { toast } from 'sonner';
 
 const TIPOS_SERVICO = [
   "Limpeza de 9k", "Limpeza de 12k", "Limpeza de 18k", "Limpeza de 22 a 24k", "Limpeza de 24k",
-  "Limpeza de 30 a 32k", "Limpeza piso e teto", "Instalação de 9k", "Instalação de 12k",
-  "Instalação de 18k", "Instalação de 22 a 24k", "Instalação de 24k", "Instalação de 30 a 32k",
-  "Instalação piso e teto", "Instalação de cortina de ar", "Mudança + limpeza ar 9/12/18",
-  "Mudança + limpeza 22/24/30", "Retirada cortina de ar", "Troca de compressor", "Troca de capacitor",
-  "Recarga de gás", "Carga de gás completa", "Serviço de solda", "Troca de relé da placa",
+  "Limpeza de 30 a 32k", "Limpeza piso e teto", "Limpeza no bolsão ar de 9 a 22k", "Limpeza no bolsão ar de 24 a 32k",
+  "Instalação de 9k", "Instalação de 12k", "Instalação de 18k", "Instalação de 22 a 24k", "Instalação de 24k",
+  "Instalação de 30 a 32k", "Instalação piso e teto", "Instalação de cortina de ar",
+  "Mudança + limpeza ar 9/12/18", "Mudança + limpeza 22/24/30", "Retirada cortina de ar",
+  "Troca de compressor", "Troca de capacitor", "Recarga de gás", "Carga de gás completa",
+  "1/3 de gás", "2/3 de gás", "1/2 carga de gás", "Serviço de solda", "Troca de relé da placa",
   "Troca de sensor", "Troca de chave contadora", "Conserto de placa eletrônica", "Retirada de ar condicionado",
   "Serviço de passar tubulação de infra", "Ver defeito", "Troca de local", "Outro tipo de serviço"
 ];
