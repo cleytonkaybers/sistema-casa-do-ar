@@ -11,17 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Edit2, Trash2, Save, X } from 'lucide-react';
 import { toast } from 'sonner';
 
-const TIPOS_SERVICO = [
-  "Limpeza de 9k", "Limpeza de 12k", "Limpeza de 18k", "Limpeza de 22 a 24k", "Limpeza de 24k",
-  "Limpeza de 30 a 32k", "Limpeza piso e teto", "Limpeza no bolsão ar de 9 a 22k", "Limpeza no bolsão ar de 24 a 32k",
-  "Instalação de 9k", "Instalação de 12k", "Instalação de 18k", "Instalação de 22 a 24k", "Instalação de 24k",
-  "Instalação de 30 a 32k", "Instalação piso e teto", "Instalação de cortina de ar",
-  "Mudança + limpeza ar 9/12/18", "Mudança + limpeza 22/24/30", "Retirada cortina de ar",
-  "Troca de compressor", "Troca de capacitor", "Recarga de gás", "Carga de gás completa",
-  "1/3 de gás", "2/3 de gás", "1/2 carga de gás", "Serviço de solda", "Troca de relé da placa",
-  "Troca de sensor", "Troca de chave contadora", "Conserto de placa eletrônica", "Retirada de ar condicionado",
-  "Serviço de passar tubulação de infra", "Ver defeito", "Troca de local", "Outro tipo de serviço"
-];
+
 
 export default function TabelaServicos() {
   const [editingId, setEditingId] = useState(null);
@@ -29,7 +19,7 @@ export default function TabelaServicos() {
   const [showModal, setShowModal] = useState(false);
   const [novoTipo, setNovoTipo] = useState('');
   const [novoValor, setNovoValor] = useState('');
-  const [isCustomType, setIsCustomType] = useState(false);
+  const [isCustomType, setIsCustomType] = useState(true);
   const queryClient = useQueryClient();
 
   const { data: valores = [] } = useQuery({
@@ -65,22 +55,23 @@ export default function TabelaServicos() {
       setShowModal(false);
       setNovoTipo('');
       setNovoValor('');
-      setIsCustomType(false);
+      setCustomTipo('');
+      setIsCustomType(true);
       toast.success('Tipo de serviço adicionado');
     },
     onError: () => toast.error('Erro ao adicionar')
   });
 
-  const tiposComValor = valores.map(v => v.tipo_servico);
-  const tiposSemValor = TIPOS_SERVICO.filter(t => !tiposComValor.includes(t));
+  const [customTipo, setCustomTipo] = useState('');
 
   const handleAddTipo = () => {
-    if (!novoTipo || !novoValor) {
+    const tipoFinal = isCustomType ? customTipo : novoTipo;
+    if (!tipoFinal || !novoValor) {
       toast.error('Preencha tipo e valor');
       return;
     }
     createMutation.mutate({
-      tipo_servico: novoTipo,
+      tipo_servico: tipoFinal,
       valor_tabela: parseFloat(novoValor)
     });
   };
@@ -183,52 +174,16 @@ export default function TabelaServicos() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Tipo de Serviço</Label>
-              {!isCustomType ? (
-                <div className="space-y-2">
-                  <select
-                    value={novoTipo}
-                    onChange={(e) => setNovoTipo(e.target.value)}
-                    className="w-full border rounded-md px-3 py-2"
-                  >
-                    <option value="">Selecione...</option>
-                    {tiposSemValor.map(tipo => (
-                      <option key={tipo} value={tipo}>{tipo}</option>
-                    ))}
-                  </select>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setIsCustomType(true);
-                      setNovoTipo('');
-                    }}
-                    className="w-full"
-                  >
-                    + Criar Tipo Customizado
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Input
-                    placeholder="Ex: 1/2 carga de gás"
-                    value={novoTipo}
-                    onChange={(e) => setNovoTipo(e.target.value)}
-                    autoFocus
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setIsCustomType(false);
-                      setNovoTipo('');
-                    }}
-                    className="w-full"
-                  >
-                    Voltar aos Serviços Pré-definidos
-                  </Button>
-                </div>
-              )}
+              <Label>Tipo de Serviço *</Label>
+              <Input
+                placeholder="Ex: Limpeza de 18k licitação 25/26"
+                value={customTipo}
+                onChange={(e) => setCustomTipo(e.target.value)}
+                autoFocus
+              />
+              <p className="text-xs text-gray-500">
+                Digite o nome do novo tipo de serviço personalizado
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Valor (R$)</Label>
