@@ -20,45 +20,42 @@ export default function GanhosSemanaDashboard() {
     queryKey: ['minhasComissoesWeek', user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
-      const todas = await base44.entities.LancamentoFinanceiro.list();
-      return todas.filter(c => c.tecnico_id === user.email && c.status === 'pendente');
+      try {
+        const todas = await base44.entities.LancamentoFinanceiro.list();
+        const inicioSemana = getStartOfWeek();
+        const fimSemana = getEndOfWeek();
+        
+        // Filtrar comissões pendentes do técnico da semana atual
+        const comissoesSemana = todas.filter(c => {
+          if (c.tecnico_id !== user.email || c.status !== 'pendente') return false;
+          if (!c.data_geracao) return false;
+          try {
+            const dataGeracao = toLocalDate(c.data_geracao);
+            if (!dataGeracao) return false;
+            return dataGeracao >= inicioSemana && dataGeracao <= fimSemana;
+          } catch {
+            return false;
+          }
+        });
+
+        // Calcular total diretamente
+        const total = comissoesSemana.reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
+        return total;
+      } catch (error) {
+        console.error('Erro ao calcular ganhos:', error);
+        return 0;
+      }
     },
-    enabled: !!user?.email
+    enabled: !!user?.email,
+    staleTime: 30000 // Cache por 30 segundos
   });
 
-  // Calcular ganhos da semana usando useMemo para evitar recalcular sempre
-  const ganhosDetalhes = React.useMemo(() => {
-    if (!minhasComissoes || minhasComissoes.length === 0) {
-      return { total: 0 };
-    }
-
-    try {
-      const inicioSemana = getStartOfWeek();
-      const fimSemana = getEndOfWeek();
-
-      const comissoesSemana = minhasComissoes.filter(c => {
-        if (!c.data_geracao) return false;
-        try {
-          const dataGeracao = toLocalDate(c.data_geracao);
-          if (!dataGeracao) return false;
-          return dataGeracao >= inicioSemana && dataGeracao <= fimSemana;
-        } catch {
-          return false;
-        }
-      });
-
-      const total = comissoesSemana.reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
-      return { total };
-    } catch (error) {
-      console.error('Erro ao calcular ganhos:', error);
-      return { total: 0 };
+  // Atualizar totalSemana apenas quando os dados mudarem
+  useEffect(() => {
+    if (typeof minhasComissoes === 'number') {
+      setTotalSemana(minhasComissoes);
     }
   }, [minhasComissoes]);
-
-  // Animar apenas quando o total mudar
-  useEffect(() => {
-    setTotalSemana(ganhosDetalhes.total);
-  }, [ganhosDetalhes.total]);
 
   if (!user) return null;
 
