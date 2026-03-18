@@ -62,7 +62,26 @@ export default function Clientes() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Cliente.create(data),
+    mutationFn: async (data) => {
+      const cliente = await base44.entities.Cliente.create(data);
+      
+      // Log de auditoria
+      try {
+        const user = await base44.auth.me();
+        await base44.entities.LogAuditoria.create({
+          usuario_email: user.email,
+          usuario_nome: user.full_name,
+          acao: 'criar_cliente',
+          entidade: 'Cliente',
+          entidade_id: cliente.id,
+          dados_depois: JSON.stringify(cliente),
+          observacao: `Cliente ${data.nome} cadastrado`,
+          sucesso: true
+        });
+      } catch {}
+      
+      return cliente;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
       setFormOpen(false);
@@ -83,7 +102,25 @@ export default function Clientes() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Cliente.delete(id),
+    mutationFn: async (id) => {
+      const cliente = clientes.find(c => c.id === id);
+      await base44.entities.Cliente.delete(id);
+      
+      // Log de auditoria
+      try {
+        const user = await base44.auth.me();
+        await base44.entities.LogAuditoria.create({
+          usuario_email: user.email,
+          usuario_nome: user.full_name,
+          acao: 'excluir_cliente',
+          entidade: 'Cliente',
+          entidade_id: id,
+          dados_antes: JSON.stringify(cliente),
+          observacao: `Cliente ${cliente?.nome} excluído`,
+          sucesso: true
+        });
+      } catch {}
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
       setDeleteDialogOpen(false);
