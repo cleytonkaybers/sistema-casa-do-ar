@@ -72,6 +72,7 @@ function LayoutContent({ children }) {
 
   const adminNavigation = [
   { name: 'Relatórios', href: createPageUrl('Relatorios'), icon: BarChart3 },
+  { name: 'Relatório Comissões', href: createPageUrl('RelatorioComissoes'), icon: DollarSign },
   { name: 'Financeiro', href: createPageUrl('FinanceiroAdmin'), icon: DollarSign },
   { name: 'Tabela de Serviços', href: createPageUrl('TabelaServicos'), icon: Database },
   { name: 'Backup e Restaurar', href: createPageUrl('BackupRestaurer'), icon: Database },
