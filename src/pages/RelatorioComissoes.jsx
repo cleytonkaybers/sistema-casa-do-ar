@@ -66,15 +66,7 @@ export default function RelatorioComissoes() {
   }, [lancamentos, dataInicio, dataFim, tecnicoFiltro]);
 
   // Totalizadores
-  const totais = useMemo(() => {
-    const resultado = calcularTotalComissoes(lancamentosFiltrados);
-    console.log('=== DEBUG RELATÓRIO COMISSÕES ===');
-    console.log('Total de lançamentos filtrados:', lancamentosFiltrados.length);
-    console.log('Lançamentos com status "pago":', lancamentosFiltrados.filter(l => l.status === 'pago').length);
-    console.log('Totais calculados:', resultado);
-    console.log('==================================');
-    return resultado;
-  }, [lancamentosFiltrados]);
+  const totais = useMemo(() => calcularTotalComissoes(lancamentosFiltrados), [lancamentosFiltrados]);
 
   // Agrupamento por mês
   const porMes = useMemo(() => agruparPorPeriodo(lancamentosFiltrados), [lancamentosFiltrados]);

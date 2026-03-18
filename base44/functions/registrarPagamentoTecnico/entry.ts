@@ -55,30 +55,15 @@ Deno.serve(async (req) => {
       data_ultimo_pagamento: new Date().toISOString()
     });
 
-    // Marcar lançamentos como pagos automaticamente
-    // Buscar lançamentos pendentes do técnico e marcar como pagos até atingir o valor pago
-    const lancamentosPendentes = await base44.asServiceRole.entities.LancamentoFinanceiro.filter({
-      tecnico_id: tecnico_id,
-      status: 'pendente'
-    });
-    
-    // Ordenar por data (mais antigos primeiro)
-    lancamentosPendentes.sort((a, b) => new Date(a.data_geracao) - new Date(b.data_geracao));
-    
-    let valorRestante = valor_pago;
-    const lancamentosAtualizados = [];
-    
-    for (const lanc of lancamentosPendentes) {
-      if (valorRestante <= 0) break;
-      
-      await base44.asServiceRole.entities.LancamentoFinanceiro.update(lanc.id, {
-        status: 'pago',
-        data_pagamento: new Date().toISOString(),
-        usuario_pagamento: user.email
-      });
-      
-      lancamentosAtualizados.push(lanc.id);
-      valorRestante -= (lanc.valor_comissao_tecnico || 0);
+    // Marcar lançamentos como pagos (se selecionados)
+    if (lancamentosIds.length > 0) {
+      for (const lancamento_id of lancamentosIds) {
+        await base44.asServiceRole.entities.LancamentoFinanceiro.update(lancamento_id, {
+          status: 'pago',
+          data_pagamento: new Date().toISOString(),
+          usuario_pagamento: user.email
+        });
+      }
     }
 
     return Response.json({

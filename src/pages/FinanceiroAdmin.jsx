@@ -41,7 +41,7 @@ export default function FinanceiroAdmin() {
   const [estornando, setEstornando] = useState(false);
   
   const { data: lancamentos = [], refetch: refetchLancamentos } = useQuery({
-    queryKey: ['lancamentos-financeiros'],
+    queryKey: ['lancamentos'],
     queryFn: () => base44.entities.LancamentoFinanceiro.list()
   });
 
@@ -206,11 +206,6 @@ export default function FinanceiroAdmin() {
         .filter(l => l.status === 'pago')
         .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
-      // Debug: mostrar no console
-      if (creditoPagoSemana > 0) {
-        console.log(`Técnico ${t.tecnico_nome}: ${lancamentosSemana.filter(l => l.status === 'pago').length} lançamentos pagos = R$ ${creditoPagoSemana}`);
-      }
-
       return {
         ...t,
         credito_pendente: creditoPendenteSemana,
@@ -290,17 +285,6 @@ export default function FinanceiroAdmin() {
   // Totais baseados nos valores recalculados da semana
   const totalPendente = filteredTecnicos.reduce((sum, t) => sum + (t.credito_pendente || 0), 0);
   const totalPago = filteredTecnicos.reduce((sum, t) => sum + (t.credito_pago || 0), 0);
-  
-  // Debug: mostrar totais no console
-  console.log('=== DEBUG FINANCEIRO ===');
-  console.log('Total de lançamentos carregados:', lancamentos.length);
-  console.log('Lançamentos com status "pago":', lancamentos.filter(l => l.status === 'pago').length);
-  console.log('Lançamentos com status "pendente":', lancamentos.filter(l => l.status === 'pendente').length);
-  console.log('Lançamentos com status "creditado":', lancamentos.filter(l => l.status === 'creditado').length);
-  console.log('Amostra de lançamentos (primeiros 5):', lancamentos.slice(0, 5).map(l => ({ id: l.id.substring(0, 8), status: l.status, valor: l.valor_comissao_tecnico, tecnico: l.tecnico_nome })));
-  console.log('Total Pendente calculado:', totalPendente);
-  console.log('Total Pago calculado:', totalPago);
-  console.log('========================');
 
   const gerarPDF = async () => {
     try {
@@ -823,11 +807,32 @@ export default function FinanceiroAdmin() {
               </div>
 
               <div className="space-y-2">
-                <Label>Informação</Label>
-                <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                  <p className="text-sm text-blue-800">
-                    ℹ️ Os lançamentos mais antigos serão automaticamente quitados até atingir o valor pago.
-                  </p>
+                <Label>Lançamentos a Quitar</Label>
+                <div className="max-h-40 overflow-y-auto border rounded p-2 space-y-2">
+                  {lancamentosParaTecnico(tecnicoSelecionado.tecnico_id).map(lanc => (
+                    <label key={lanc.id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={pagamentoForm.lancamentos_relacionados.includes(lanc.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setPagamentoForm({
+                              ...pagamentoForm,
+                              lancamentos_relacionados: [...pagamentoForm.lancamentos_relacionados, lanc.id]
+                            });
+                          } else {
+                            setPagamentoForm({
+                              ...pagamentoForm,
+                              lancamentos_relacionados: pagamentoForm.lancamentos_relacionados.filter(id => id !== lanc.id)
+                            });
+                          }
+                        }}
+                      />
+                      <span className="text-sm">
+                        {lanc.cliente_nome} - R$ {lanc.valor_comissao_tecnico.toFixed(2)}
+                      </span>
+                    </label>
+                  ))}
                 </div>
               </div>
             </div>
