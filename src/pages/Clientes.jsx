@@ -32,11 +32,31 @@ import EmptyState from '@/components/EmptyState';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import { useEmpresa } from '@/components/auth/EmpresaGuard';
 import { TableSkeleton } from '@/components/LoadingSkeleton';
+import NoPermission from '@/components/NoPermission';
+import { useNavigate } from 'react-router-dom';
 
 export default function Clientes() {
   const queryClient = useQueryClient();
   const { hasPermission, isAdmin } = usePermissions();
   const { filterByEmpresa, currentEmpresa } = useEmpresa();
+  const navigate = useNavigate();
+  
+  const [user, setUser] = React.useState(null);
+  
+  React.useEffect(() => {
+    const checkUser = async () => {
+      try {
+        const u = await base44.auth.me();
+        setUser(u);
+        if (u?.role !== 'admin') {
+          navigate('/Dashboard');
+        }
+      } catch {
+        navigate('/Dashboard');
+      }
+    };
+    checkUser();
+  }, [navigate]);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -192,6 +212,12 @@ export default function Clientes() {
   };
 
   const hasActiveFilters = searchTerm !== '';
+  
+  if (!user) {
+    return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div></div>;
+  }
+  
+  if (user.role !== 'admin') return <NoPermission />;
 
   // Paginação
   const totalPages = Math.ceil(filteredClientes.length / itemsPerPage);
