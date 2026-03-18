@@ -40,7 +40,7 @@ export default function FinanceiroAdmin() {
   const [confirmCancelPagamento, setConfirmCancelPagamento] = useState(null);
   const [estornando, setEstornando] = useState(false);
   
-  const { data: lancamentos = [] } = useQuery({
+  const { data: lancamentos = [], refetch: refetchLancamentos } = useQuery({
     queryKey: ['lancamentos'],
     queryFn: () => base44.entities.LancamentoFinanceiro.list()
   });
@@ -109,8 +109,9 @@ export default function FinanceiroAdmin() {
 
       if (response.data.success) {
         toast.success('Pagamento cancelado e crédito estornado com sucesso');
-        refetchPagamentos();
-        refetchTecnicos();
+        await refetchLancamentos();
+        await refetchPagamentos();
+        await refetchTecnicos();
       } else {
         throw new Error(response.data.error || 'Erro ao cancelar pagamento');
       }
@@ -236,6 +237,9 @@ export default function FinanceiroAdmin() {
 
       if (response.data.success) {
         toast.success('Pagamento registrado com sucesso');
+        await refetchLancamentos();
+        await refetchTecnicos();
+        await refetchPagamentos();
         setShowModalPagamento(false);
         setPagamentoForm({
           valor_pago: '',
