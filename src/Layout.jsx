@@ -53,46 +53,58 @@ function LayoutContent({ children }) {
     }).catch(() => {});
   }, []);
 
-  const baseNavigation = [
-  { name: 'Dashboard', href: createPageUrl('Dashboard'), icon: LayoutDashboard },
-  { name: 'Clientes', href: createPageUrl('Clientes'), icon: Users },
-  { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
-  { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList },
-  { name: 'Meu Financeiro', href: createPageUrl('MeuFinanceiro'), icon: DollarSign }];
+  // Navegação para técnicos
+  const tecnicoNavigation = [
+    { name: 'Dashboard', href: createPageUrl('Dashboard'), icon: LayoutDashboard },
+    { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
+    { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList },
+    { name: 'Meu Financeiro', href: createPageUrl('MeuFinanceiro'), icon: DollarSign },
+    { name: 'Preventivas Futuras', href: createPageUrl('PreventivasFuturas'), icon: ClipboardList },
+    { name: 'Suporte', href: createPageUrl('Suporte'), icon: MessageCircle },
+  ];
 
+  // Navegação completa para admins
+  const baseNavigation = [
+    { name: 'Dashboard', href: createPageUrl('Dashboard'), icon: LayoutDashboard },
+    { name: 'Clientes', href: createPageUrl('Clientes'), icon: Users },
+    { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
+    { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList },
+    { name: 'Meu Financeiro', href: createPageUrl('MeuFinanceiro'), icon: DollarSign },
+  ];
 
   const preventivasNavigation = [
-  { name: 'Preventivas Futuras', href: createPageUrl('PreventivasFuturas'), icon: ClipboardList },
-  { name: 'Histórico de Clientes', href: createPageUrl('HistoricoClientes'), icon: BarChart3 }];
-
+    { name: 'Preventivas Futuras', href: createPageUrl('PreventivasFuturas'), icon: ClipboardList },
+    { name: 'Histórico de Clientes', href: createPageUrl('HistoricoClientes'), icon: BarChart3 },
+  ];
 
   const superAdminNavigation = [
-  { name: 'Gerenciar Empresas', href: createPageUrl('GerenciarEmpresas'), icon: Database }];
-
+    { name: 'Gerenciar Empresas', href: createPageUrl('GerenciarEmpresas'), icon: Database },
+  ];
 
   const adminNavigation = [
-  { name: 'Relatórios', href: createPageUrl('Relatorios'), icon: BarChart3 },
-  { name: 'Relatório Comissões', href: createPageUrl('RelatorioComissoes'), icon: DollarSign },
-  { name: 'Financeiro', href: createPageUrl('FinanceiroAdmin'), icon: DollarSign },
-  { name: 'Tabela de Serviços', href: createPageUrl('TabelaServicos'), icon: Database },
-  { name: 'Logs de Auditoria', href: createPageUrl('LogsAuditoria'), icon: Database },
-  { name: 'Gerenciar Backups', href: createPageUrl('GerenciarBackups'), icon: Database },
-  { name: 'Backup e Restaurar', href: createPageUrl('BackupRestaurer'), icon: Database },
-  { name: 'Usuários', href: createPageUrl('Usuarios'), icon: Users },
-  { name: 'Configurações', href: createPageUrl('Configuracoes'), icon: Settings },
-  { name: 'Suporte', href: createPageUrl('Suporte'), icon: MessageCircle }];
-
+    { name: 'Relatórios', href: createPageUrl('Relatorios'), icon: BarChart3 },
+    { name: 'Relatório Comissões', href: createPageUrl('RelatorioComissoes'), icon: DollarSign },
+    { name: 'Financeiro', href: createPageUrl('FinanceiroAdmin'), icon: DollarSign },
+    { name: 'Tabela de Serviços', href: createPageUrl('TabelaServicos'), icon: Database },
+    { name: 'Logs de Auditoria', href: createPageUrl('LogsAuditoria'), icon: Database },
+    { name: 'Gerenciar Backups', href: createPageUrl('GerenciarBackups'), icon: Database },
+    { name: 'Backup e Restaurar', href: createPageUrl('BackupRestaurer'), icon: Database },
+    { name: 'Usuários', href: createPageUrl('Usuarios'), icon: Users },
+    { name: 'Configurações', href: createPageUrl('Configuracoes'), icon: Settings },
+    { name: 'Suporte', href: createPageUrl('Suporte'), icon: MessageCircle },
+  ];
 
   const allUsersNavigation = [
-  { name: 'Preferências de Notificação', href: createPageUrl('PreferencesNotificacao'), icon: Bell },
-  { name: 'Sair', href: '#', icon: LogOut, action: () => base44.auth.logout() }];
+    { name: 'Preferências de Notificação', href: createPageUrl('PreferencesNotificacao'), icon: Bell },
+    { name: 'Sair', href: '#', icon: LogOut, action: () => base44.auth.logout() },
+  ];
 
-
-  const navigation = isSuperAdmin() ?
-  [...superAdminNavigation, ...baseNavigation, ...preventivasNavigation, ...adminNavigation, ...allUsersNavigation] :
-  currentUser?.tipo_usuario === 'tecnico' ?
-  [...baseNavigation, ...preventivasNavigation] :
-  [...baseNavigation, ...preventivasNavigation, ...adminNavigation, ...allUsersNavigation];
+  // Montar navegação com base no tipo de usuário
+  const navigation = isSuperAdmin()
+    ? [...superAdminNavigation, ...baseNavigation, ...preventivasNavigation, ...adminNavigation, ...allUsersNavigation]
+    : currentUser?.tipo_usuario === 'tecnico'
+    ? [...tecnicoNavigation, { name: 'Preferências de Notificação', href: createPageUrl('PreferencesNotificacao'), icon: Bell }, { name: 'Sair', href: '#', icon: LogOut, action: () => base44.auth.logout() }]
+    : [...baseNavigation, ...preventivasNavigation, ...adminNavigation, ...allUsersNavigation];
 
   const isActive = (href) => {
     return location.pathname === new URL(href, window.location.origin).pathname;
