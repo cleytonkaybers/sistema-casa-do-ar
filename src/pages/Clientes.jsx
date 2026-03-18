@@ -73,7 +73,12 @@ export default function Clientes() {
     queryKey: ['clientes'],
     queryFn: async () => {
       const allClientes = await base44.entities.Cliente.list('-created_date');
-      return filterByEmpresa(allClientes);
+      // Temporariamente retornando todos os clientes para debug
+      console.log('Total de clientes no banco:', allClientes.length);
+      console.log('Empresa atual:', currentEmpresa);
+      const filtered = filterByEmpresa(allClientes);
+      console.log('Clientes após filtro de empresa:', filtered.length);
+      return filtered;
     },
   });
 
