@@ -9,25 +9,24 @@ import { getLocalDate, getStartOfWeek, getEndOfWeek, toLocalDate } from '@/lib/d
 
 export default function GanhosSemanaDashboard() {
   const [user, setUser] = useState(null);
-  const [totalSemana, setTotalSemana] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
     base44.auth.me().then(u => setUser(u));
   }, []);
 
-  const { data: minhasComissoes = [] } = useQuery({
+  const { data: dadosSemana = { totalGanho: 0, valorPago: 0, creditoPendente: 0 } } = useQuery({
     queryKey: ['minhasComissoesWeek', user?.email],
     queryFn: async () => {
-      if (!user?.email) return [];
+      if (!user?.email) return { totalGanho: 0, valorPago: 0, creditoPendente: 0 };
       try {
         const todas = await base44.entities.LancamentoFinanceiro.list();
         const inicioSemana = getStartOfWeek();
         const fimSemana = getEndOfWeek();
         
-        // Filtrar comissões pendentes do técnico da semana atual
+        // Filtrar comissões do técnico da semana atual
         const comissoesSemana = todas.filter(c => {
-          if (c.tecnico_id !== user.email || c.status !== 'pendente') return false;
+          if (c.tecnico_id !== user.email) return false;
           if (!c.data_geracao) return false;
           try {
             const dataGeracao = toLocalDate(c.data_geracao);
@@ -38,24 +37,24 @@ export default function GanhosSemanaDashboard() {
           }
         });
 
-        // Calcular total diretamente
-        const total = comissoesSemana.reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
-        return total;
+        // Calcular valores
+        const totalGanho = comissoesSemana.reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
+        const valorPago = comissoesSemana
+          .filter(c => c.status === 'pago')
+          .reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
+        const creditoPendente = comissoesSemana
+          .filter(c => c.status === 'pendente' || c.status === 'creditado')
+          .reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
+
+        return { totalGanho, valorPago, creditoPendente };
       } catch (error) {
         console.error('Erro ao calcular ganhos:', error);
-        return 0;
+        return { totalGanho: 0, valorPago: 0, creditoPendente: 0 };
       }
     },
     enabled: !!user?.email,
     staleTime: 30000 // Cache por 30 segundos
   });
-
-  // Atualizar totalSemana apenas quando os dados mudarem
-  useEffect(() => {
-    if (typeof minhasComissoes === 'number') {
-      setTotalSemana(minhasComissoes);
-    }
-  }, [minhasComissoes]);
 
   if (!user) return null;
 
@@ -73,15 +72,23 @@ export default function GanhosSemanaDashboard() {
       <CardContent>
         <div className="space-y-3">
           {/* Valor principal */}
-          <div className="text-4xl font-bold text-green-700 tabular-nums">
-            R$ {totalSemana.toFixed(2)}
+          <div className="text-3xl font-bold text-green-700 tabular-nums">
+            R$ {dadosSemana.totalGanho.toFixed(2)}
           </div>
 
-          {/* Subtítulo */}
-          <div className="space-y-1 text-sm border-t border-green-200 pt-2">
+          {/* Detalhes */}
+          <div className="space-y-1.5 text-xs border-t border-green-200 pt-2">
             <div className="flex justify-between text-gray-600">
-              <span>Ganhos da semana (segunda a domingo):</span>
-              <span className="font-semibold text-green-600">R$ {totalSemana.toFixed(2)}</span>
+              <span>Total ganho:</span>
+              <span className="font-semibold text-green-700">R$ {dadosSemana.totalGanho.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-gray-600">
+              <span>Valor pago:</span>
+              <span className="font-semibold text-blue-600">R$ {dadosSemana.valorPago.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-gray-600">
+              <span>Crédito pendente:</span>
+              <span className="font-semibold text-amber-600">R$ {dadosSemana.creditoPendente.toFixed(2)}</span>
             </div>
           </div>
 
