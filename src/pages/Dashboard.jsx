@@ -328,7 +328,7 @@ export default function Dashboard() {
           value={totalClientes}
           icon={Users}
           color="bg-blue-500"
-          subtitle={`${clientesAtivos} ativos`}
+          subtitle={`${totalClientes} cadastrados`}
           href={createPageUrl('Clientes')}
         />
         <StatCard
@@ -340,11 +340,11 @@ export default function Dashboard() {
           href={createPageUrl('Atendimentos')}
         />
         <StatCard
-          title="Pendentes"
+          title="Preventivas Futuras"
           value={manutencoesPendentes.length}
           icon={AlertTriangle}
           color="bg-emerald-500"
-          subtitle="Próx. 30 dias"
+          subtitle={`${manutencoesPendentes.length} agendadas`}
           href={createPageUrl('PreventivasFuturas')}
         />
         <StatCard
