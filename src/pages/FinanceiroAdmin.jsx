@@ -295,6 +295,9 @@ export default function FinanceiroAdmin() {
   console.log('=== DEBUG FINANCEIRO ===');
   console.log('Total de lançamentos carregados:', lancamentos.length);
   console.log('Lançamentos com status "pago":', lancamentos.filter(l => l.status === 'pago').length);
+  console.log('Lançamentos com status "pendente":', lancamentos.filter(l => l.status === 'pendente').length);
+  console.log('Lançamentos com status "creditado":', lancamentos.filter(l => l.status === 'creditado').length);
+  console.log('Amostra de lançamentos (primeiros 5):', lancamentos.slice(0, 5).map(l => ({ id: l.id.substring(0, 8), status: l.status, valor: l.valor_comissao_tecnico, tecnico: l.tecnico_nome })));
   console.log('Total Pendente calculado:', totalPendente);
   console.log('Total Pago calculado:', totalPago);
   console.log('========================');
