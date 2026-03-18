@@ -176,6 +176,15 @@ export default function FinanceiroAdmin() {
   if (loading) return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div></div>;
   if (!isAdmin) return null;
 
+  // Filtrar por semana (segunda 00:00 até domingo 23:59) - DECLARAR PRIMEIRO
+  const agora = new Date();
+  const inicioSemanaAtual = startOfWeek(agora, { weekStartsOn: 1 }); // 1 = Segunda-feira
+  const fimSemanaAtual = endOfWeek(agora, { weekStartsOn: 1 });
+  const inicioSemanaPassada = new Date(inicioSemanaAtual);
+  inicioSemanaPassada.setDate(inicioSemanaPassada.getDate() - 7);
+  const fimSemanaPassada = new Date(fimSemanaAtual);
+  fimSemanaPassada.setDate(fimSemanaPassada.getDate() - 7);
+
   // Filtrar técnicos e recalcular seus valores baseado apenas na semana selecionada
   const filteredTecnicos = tecnicos
     .filter(t => {
@@ -186,7 +195,6 @@ export default function FinanceiroAdmin() {
     .map(t => {
       // Definir intervalo da semana com base no filtro
       let inicioSemana, fimSemana;
-      const agora = new Date();
       
       if (filtroSemana === 'atual') {
         inicioSemana = inicioSemanaAtual;
@@ -270,15 +278,6 @@ export default function FinanceiroAdmin() {
       setLoadingPagamento(false);
     }
   };
-
-  // Filtrar por semana (segunda 00:00 até domingo 23:59)
-  const agora = new Date();
-  const inicioSemanaAtual = startOfWeek(agora, { weekStartsOn: 1 }); // 1 = Segunda-feira
-  const fimSemanaAtual = endOfWeek(agora, { weekStartsOn: 1 });
-  const inicioSemanaPassada = new Date(inicioSemanaAtual);
-  inicioSemanaPassada.setDate(inicioSemanaPassada.getDate() - 7);
-  const fimSemanaPassada = new Date(fimSemanaAtual);
-  fimSemanaPassada.setDate(fimSemanaPassada.getDate() - 7);
 
   const lancamentosFiltrados = lancamentos.filter(l => {
     const dataLancamento = new Date(l.data_geracao);
