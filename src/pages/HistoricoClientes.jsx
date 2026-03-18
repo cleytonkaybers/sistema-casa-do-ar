@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, Calendar, User, DollarSign, CheckCircle2, Clock, Download, FileText, Eye, X, Trash2 } from 'lucide-react';
+import { Search, Calendar, User, DollarSign, CheckCircle2, Clock, Download, FileText, Eye, X, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { gerarPDFCliente, gerarPDFTodos } from '@/components/utils/HistoricoDownload';
@@ -16,6 +16,8 @@ import { toast } from 'sonner';
 export default function HistoricoClientes() {
   const { isAdmin } = usePermissions();
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [clientesPerPage] = useState(10);
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
   const queryClient = useQueryClient();
 
@@ -118,6 +120,18 @@ export default function HistoricoClientes() {
 
     return clientesFiltrados;
   }, [historico, searchTerm]);
+
+  // Paginação
+  const clientesArray = Object.keys(clientesAgrupados);
+  const totalPages = Math.ceil(clientesArray.length / clientesPerPage);
+  const startIndex = (currentPage - 1) * clientesPerPage;
+  const endIndex = startIndex + clientesPerPage;
+  const paginatedClientes = clientesArray.slice(startIndex, endIndex);
+
+  // Reset para página 1 quando busca mudar
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const statusCores = {
     'aberto': 'bg-gray-100 text-gray-700',
@@ -294,16 +308,50 @@ export default function HistoricoClientes() {
         </Button>
       </div>
 
+      {/* Paginação */}
+      {clientesArray.length > 0 && (
+        <div className="bg-white rounded-lg p-4 border border-gray-200 flex items-center justify-between">
+          <p className="text-sm text-gray-600">
+            Mostrando <span className="font-medium">{startIndex + 1}</span> a <span className="font-medium">{Math.min(endIndex, clientesArray.length)}</span> de <span className="font-medium">{clientesArray.length}</span> clientes
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="border-gray-200"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <span className="text-sm text-gray-600">
+              Página {currentPage} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="border-gray-200"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Cliente Cards */}
       <div className="space-y-6">
-        {Object.keys(clientesAgrupados).length === 0 ? (
+        {clientesArray.length === 0 ? (
           <Card className="bg-white border-0 shadow-md">
             <CardContent className="p-8 text-center">
               <p className="text-gray-500">Nenhum histórico encontrado</p>
             </CardContent>
           </Card>
         ) : (
-          Object.entries(clientesAgrupados).map(([cliente, itens]) => (
+          paginatedClientes.map((cliente) => {
+            const itens = clientesAgrupados[cliente];
+            return (
             <Card key={cliente} className="bg-white border-0 shadow-lg hover:shadow-xl transition-shadow overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-slate-800 to-slate-900 text-white">
                 <div className="flex items-center justify-between">
@@ -427,7 +475,8 @@ export default function HistoricoClientes() {
                 </div>
               </CardContent>
             </Card>
-          ))
+          );
+          })
         )}
       </div>
     </div>

@@ -36,7 +36,9 @@ import {
   X,
   Info,
   Share2,
-  CheckCircle2
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 import DeleteConfirmDialog from '@/components/clientes/DeleteConfirmDialog';
@@ -55,6 +57,8 @@ export default function Atendimentos() {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(30);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingAtendimento, setDeletingAtendimento] = useState(null);
   const [detalhesOpen, setDetalhesOpen] = useState(false);
@@ -138,9 +142,21 @@ export default function Atendimentos() {
   const clearFilters = () => {
     setSearchTerm('');
     setFilterTipo('all');
+    setCurrentPage(1);
   };
 
   const hasActiveFilters = searchTerm || filterTipo !== 'all';
+
+  // Paginação
+  const totalPages = Math.ceil(filteredAtendimentos.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedAtendimentos = filteredAtendimentos.slice(startIndex, endIndex);
+
+  // Reset para página 1 quando filtros mudarem
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterTipo]);
 
   const formatCurrency = (value) => {
     if (!value) return '-';
@@ -281,7 +297,38 @@ export default function Atendimentos() {
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
         </div>
-      ) : filteredAtendimentos.length === 0 ? (
+      ) : (
+        <>
+          <div className="bg-white rounded-lg p-4 border border-gray-200 flex items-center justify-between">
+            <p className="text-sm text-gray-600">
+              Mostrando <span className="font-medium">{startIndex + 1}</span> a <span className="font-medium">{Math.min(endIndex, filteredAtendimentos.length)}</span> de <span className="font-medium">{filteredAtendimentos.length}</span> atendimentos
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="border-gray-200"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <span className="text-sm text-gray-600">
+                Página {currentPage} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="border-gray-200"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          {paginatedAtendimentos.length === 0 ? (
         <div className="text-center py-20">
           <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <ClipboardList className="w-10 h-10 text-gray-400" />
@@ -311,7 +358,7 @@ export default function Atendimentos() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAtendimentos.map((atendimento) => (
+                {paginatedAtendimentos.map((atendimento) => (
                   <TableRow key={atendimento.id} className="border-gray-100 hover:bg-gray-50">
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -372,7 +419,7 @@ export default function Atendimentos() {
 
           {/* Mobile Cards */}
           <div className="lg:hidden space-y-4">
-            {filteredAtendimentos.map((atendimento) => (
+            {paginatedAtendimentos.map((atendimento) => (
               <Card key={atendimento.id} className="border border-gray-200 shadow-sm bg-white">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
@@ -416,7 +463,9 @@ export default function Atendimentos() {
               </Card>
             ))}
           </div>
-        </>
+          </>
+        )}
+      </>
       )}
 
       <DeleteConfirmDialog
