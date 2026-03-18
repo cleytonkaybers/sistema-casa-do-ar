@@ -19,10 +19,28 @@ import { calcularTotalComissoes, agruparPorPeriodo } from '@/lib/utils/calculati
 import { TableSkeleton, CardSkeleton } from '@/components/LoadingSkeleton';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import NoPermission from '@/components/NoPermission';
+import { useNavigate } from 'react-router-dom';
 
 export default function RelatorioComissoes() {
   const { isAdmin } = usePermissions();
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
   const [dataInicio, setDataInicio] = useState('');
+  
+  React.useEffect(() => {
+    const checkAdmin = async () => {
+      try {
+        const u = await base44.auth.me();
+        setUser(u);
+        if (u?.role !== 'admin') {
+          navigate('/Dashboard');
+        }
+      } catch {
+        navigate('/Dashboard');
+      }
+    };
+    checkAdmin();
+  }, [navigate]);
   const [dataFim, setDataFim] = useState('');
   const [tecnicoFiltro, setTecnicoFiltro] = useState('');
 
@@ -74,8 +92,12 @@ export default function RelatorioComissoes() {
     link.download = `comissoes_${formatDate(new Date(), 'yyyy-MM-dd')}.csv`;
     link.click();
   };
-
-  if (!isAdmin) return <NoPermission />;
+  
+  if (!user) {
+    return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div></div>;
+  }
+  
+  if (user.role !== 'admin') return <NoPermission />;
 
   if (isLoading) {
     return (

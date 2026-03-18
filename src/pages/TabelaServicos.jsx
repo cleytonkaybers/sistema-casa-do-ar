@@ -10,11 +10,28 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Edit2, Trash2, Save, X } from 'lucide-react';
 import { toast } from 'sonner';
-
-
+import NoPermission from '@/components/NoPermission';
+import { useNavigate } from 'react-router-dom';
 
 export default function TabelaServicos() {
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
   const [editingId, setEditingId] = useState(null);
+  
+  React.useEffect(() => {
+    const checkAdmin = async () => {
+      try {
+        const u = await base44.auth.me();
+        setUser(u);
+        if (u?.role !== 'admin') {
+          navigate('/Dashboard');
+        }
+      } catch {
+        navigate('/Dashboard');
+      }
+    };
+    checkAdmin();
+  }, [navigate]);
   const [editingValor, setEditingValor] = useState('');
   const [editingPercEquipe, setEditingPercEquipe] = useState('');
   const [editingPercTecnico, setEditingPercTecnico] = useState('');
@@ -69,6 +86,12 @@ export default function TabelaServicos() {
   });
 
   const [customTipo, setCustomTipo] = useState('');
+  
+  if (!user) {
+    return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div></div>;
+  }
+  
+  if (user.role !== 'admin') return <NoPermission />;
 
   const handleAddTipo = () => {
     const tipoFinal = isCustomType ? customTipo : novoTipo;

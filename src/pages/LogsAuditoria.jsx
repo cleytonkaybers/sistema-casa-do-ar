@@ -17,10 +17,28 @@ import { formatDateTime } from '@/lib/utils/formatters';
 import { TableSkeleton } from '@/components/LoadingSkeleton';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import NoPermission from '@/components/NoPermission';
+import { useNavigate } from 'react-router-dom';
 
 export default function LogsAuditoria() {
   const { isAdmin } = usePermissions();
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  React.useEffect(() => {
+    const checkAdmin = async () => {
+      try {
+        const u = await base44.auth.me();
+        setUser(u);
+        if (u?.role !== 'admin') {
+          navigate('/Dashboard');
+        }
+      } catch {
+        navigate('/Dashboard');
+      }
+    };
+    checkAdmin();
+  }, [navigate]);
   const [acaoFiltro, setAcaoFiltro] = useState('');
 
   const { data: logs = [], isLoading } = useQuery({
@@ -69,8 +87,12 @@ export default function LogsAuditoria() {
     }
     return 'bg-gray-100 text-gray-700';
   };
-
-  if (!isAdmin) return <NoPermission />;
+  
+  if (!user) {
+    return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div></div>;
+  }
+  
+  if (user.role !== 'admin') return <NoPermission />;
 
   if (isLoading) return <TableSkeleton rows={15} />;
 
