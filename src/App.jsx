@@ -12,6 +12,7 @@ import MeuFinanceiro from '@/pages/MeuFinanceiro';
 import TabelaServicos from '@/pages/TabelaServicos';
 import RelatorioComissoes from '@/pages/RelatorioComissoes';
 import LogsAuditoria from '@/pages/LogsAuditoria';
+import GerenciarBackups from '@/pages/GerenciarBackups';
 import { Suspense } from 'react';
 
 const LoadingFallback = () => (
@@ -94,6 +95,11 @@ const AuthenticatedApp = () => {
         <Route path="/LogsAuditoria" element={
           <LayoutWrapper currentPageName="LogsAuditoria">
             <LogsAuditoria />
+          </LayoutWrapper>
+        } />
+        <Route path="/GerenciarBackups" element={
+          <LayoutWrapper currentPageName="GerenciarBackups">
+            <GerenciarBackups />
           </LayoutWrapper>
         } />
         <Route path="*" element={<PageNotFound />} />

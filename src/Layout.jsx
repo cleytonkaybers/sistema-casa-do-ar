@@ -76,6 +76,7 @@ function LayoutContent({ children }) {
   { name: 'Financeiro', href: createPageUrl('FinanceiroAdmin'), icon: DollarSign },
   { name: 'Tabela de Serviços', href: createPageUrl('TabelaServicos'), icon: Database },
   { name: 'Logs de Auditoria', href: createPageUrl('LogsAuditoria'), icon: Database },
+  { name: 'Gerenciar Backups', href: createPageUrl('GerenciarBackups'), icon: Database },
   { name: 'Backup e Restaurar', href: createPageUrl('BackupRestaurer'), icon: Database },
   { name: 'Usuários', href: createPageUrl('Usuarios'), icon: Users },
   { name: 'Configurações', href: createPageUrl('Configuracoes'), icon: Settings },
