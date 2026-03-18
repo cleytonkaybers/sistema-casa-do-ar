@@ -12,19 +12,24 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Database, Download, Calendar, CheckCircle2, AlertTriangle, Play, ExternalLink } from 'lucide-react';
+import { Database, Download, Calendar, CheckCircle2, AlertTriangle, Play, ExternalLink, RotateCcw } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils/formatters';
 import { TableSkeleton, CardSkeleton } from '@/components/LoadingSkeleton';
 import { showToast, toastMessages } from '@/lib/utils/toast';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import NoPermission from '@/components/NoPermission';
+import { useNavigate } from 'react-router-dom';
 
 export default function GerenciarBackups() {
   const { isAdmin } = usePermissions();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [executandoBackup, setExecutandoBackup] = useState(false);
   const [confirmManual, setConfirmManual] = useState(false);
+  const [selectedBackup, setSelectedBackup] = useState(null);
+  const [confirmRestore, setConfirmRestore] = useState(false);
+  const [restaurando, setRestaurando] = useState(false);
 
   const { data: backups = [], isLoading } = useQuery({
     queryKey: ['backups-incrementais'],
@@ -47,6 +52,31 @@ export default function GerenciarBackups() {
     } finally {
       setExecutandoBackup(false);
       setConfirmManual(false);
+    }
+  };
+
+  const handleRestaurar = (backup) => {
+    setSelectedBackup(backup);
+    setConfirmRestore(true);
+  };
+
+  const executarRestauracao = async () => {
+    if (!selectedBackup?.arquivo_drive_id) {
+      showToast.error('Backup inválido para restauração');
+      return;
+    }
+
+    setRestaurando(true);
+    try {
+      showToast.info('Baixando backup do Google Drive...');
+      
+      // Navegar para página de restauração com o ID do backup
+      navigate(`/BackupRestaurer?backup_id=${selectedBackup.id}`);
+    } catch (error) {
+      showToast.error('Erro ao iniciar restauração');
+    } finally {
+      setRestaurando(false);
+      setConfirmRestore(false);
     }
   };
 
@@ -202,17 +232,30 @@ export default function GerenciarBackups() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {backup.arquivo_drive_url && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.open(backup.arquivo_drive_url, '_blank')}
-                          className="gap-2"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                          Ver no Drive
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {backup.arquivo_drive_url && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(backup.arquivo_drive_url, '_blank')}
+                            className="gap-2"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            Ver no Drive
+                          </Button>
+                        )}
+                        {backup.status === 'sucesso' && backup.arquivo_drive_id && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRestaurar(backup)}
+                            className="gap-2 border-green-300 text-green-700 hover:bg-green-50"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            Restaurar
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -230,6 +273,19 @@ export default function GerenciarBackups() {
         description="Isso criará um backup incremental das alterações nas últimas 24 horas e salvará no Google Drive. Deseja continuar?"
         confirmText="Executar Backup"
         isLoading={executandoBackup}
+      />
+
+      <ConfirmDialog
+        open={confirmRestore}
+        onClose={() => {
+          setConfirmRestore(false);
+          setSelectedBackup(null);
+        }}
+        onConfirm={executarRestauracao}
+        title="Restaurar Backup"
+        description={`Você será redirecionado para a página de restauração. ATENÇÃO: Esta operação substituirá os dados atuais pelos dados do backup de ${selectedBackup ? formatDateTime(selectedBackup.data_backup) : ''}. Deseja continuar?`}
+        confirmText="Ir para Restauração"
+        isLoading={restaurando}
       />
     </div>
   );
