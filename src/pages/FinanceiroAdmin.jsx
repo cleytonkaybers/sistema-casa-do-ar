@@ -183,7 +183,7 @@ export default function FinanceiroAdmin() {
       return matchEquipe && matchTecnico;
     })
     .map(t => {
-      // Filtrar lançamentos PENDENTES da semana atual para este técnico
+      // Filtrar lançamentos da semana atual para este técnico
       const agora = new Date();
       const inicioSemana = startOfWeek(agora, { weekStartsOn: 1 }); // 1 = Segunda-feira
       const fimSemana = endOfWeek(agora, { weekStartsOn: 1 });
@@ -192,19 +192,24 @@ export default function FinanceiroAdmin() {
         const dataGeracao = new Date(l.data_geracao);
         return (
           l.tecnico_id === t.tecnico_id &&
-          l.status === 'pendente' &&
           dataGeracao >= inicioSemana &&
           dataGeracao <= fimSemana
         );
       });
 
-      const creditoPendenteSemana = lancamentosSemana.reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
+      const creditoPendenteSemana = lancamentosSemana
+        .filter(l => l.status === 'pendente')
+        .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
+
+      const creditoPagoSemana = lancamentosSemana
+        .filter(l => l.status === 'pago')
+        .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
       return {
         ...t,
         credito_pendente: creditoPendenteSemana,
-        credito_pago: 0, // Zerado semanalmente
-        total_ganho: creditoPendenteSemana // Apenas pendentes da semana
+        credito_pago: creditoPagoSemana,
+        total_ganho: creditoPendenteSemana + creditoPagoSemana
       };
     });
 
@@ -275,7 +280,7 @@ export default function FinanceiroAdmin() {
 
   // Totais baseados nos valores recalculados da semana
   const totalPendente = filteredTecnicos.reduce((sum, t) => sum + (t.credito_pendente || 0), 0);
-  const totalPago = 0; // Sempre zero (zerado semanalmente)
+  const totalPago = filteredTecnicos.reduce((sum, t) => sum + (t.credito_pago || 0), 0);
 
   const gerarPDF = async () => {
     try {
