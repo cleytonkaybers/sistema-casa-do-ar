@@ -20,12 +20,13 @@ export default function GanhosSemanaDashboard() {
     queryFn: async () => {
       if (!user?.email) return { totalGanho: 0, valorPago: 0, creditoPendente: 0 };
       try {
-        const todas = await base44.entities.LancamentoFinanceiro.list();
+        const lancamentos = await base44.entities.LancamentoFinanceiro.list();
+        const pagamentos = await base44.entities.PagamentoTecnico.list();
         const inicioSemana = getStartOfWeek();
         const fimSemana = getEndOfWeek();
         
         // Filtrar comissões do técnico da semana atual
-        const comissoesSemana = todas.filter(c => {
+        const comissoesSemana = lancamentos.filter(c => {
           if (c.tecnico_id !== user.email) return false;
           if (!c.data_geracao) return false;
           try {
@@ -37,14 +38,25 @@ export default function GanhosSemanaDashboard() {
           }
         });
 
-        // Calcular valores
+        // Calcular total de comissões ganhas na semana
         const totalGanho = comissoesSemana.reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
-        const valorPago = comissoesSemana
-          .filter(c => c.status === 'pago')
-          .reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
-        const creditoPendente = comissoesSemana
-          .filter(c => c.status === 'pendente' || c.status === 'creditado')
-          .reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
+
+        // Calcular pagamentos feitos ao técnico na semana
+        const pagamentosSemana = pagamentos.filter(p => {
+          if (p.tecnico_id !== user.email) return false;
+          if (p.status !== 'Confirmado') return false;
+          if (!p.created_date) return false;
+          try {
+            const dataPagamento = toLocalDate(p.created_date);
+            if (!dataPagamento) return false;
+            return dataPagamento >= inicioSemana && dataPagamento <= fimSemana;
+          } catch {
+            return false;
+          }
+        });
+
+        const valorPago = pagamentosSemana.reduce((sum, p) => sum + (p.valor_pago || 0), 0);
+        const creditoPendente = Math.max(0, totalGanho - valorPago);
 
         return { totalGanho, valorPago, creditoPendente };
       } catch (error) {

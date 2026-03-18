@@ -70,6 +70,16 @@ export default function Dashboard() {
     queryFn: () => base44.entities.TecnicoFinanceiro.list(),
   });
 
+  const { data: lancamentosFinanceiros = [] } = useQuery({
+    queryKey: ['lancamentosFinanceiros'],
+    queryFn: () => base44.entities.LancamentoFinanceiro.list(),
+  });
+
+  const { data: pagamentosTecnicos = [] } = useQuery({
+    queryKey: ['pagamentosTecnicos'],
+    queryFn: () => base44.entities.PagamentoTecnico.list(),
+  });
+
   // Estatísticas
   const totalClientes = clientes.length;
   const clientesAtivos = clientes.filter(c => c.status === 'Ativo').length;
@@ -301,20 +311,47 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {tecnicosFinanceiro.map(tecnico => (
-                <div key={tecnico.id} className="rounded-xl p-4 border border-gray-100 bg-gradient-to-br from-green-50 to-emerald-50">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center text-green-600 font-bold text-sm">
-                      {tecnico.tecnico_nome?.charAt(0).toUpperCase()}
+              {tecnicosFinanceiro.map(tecnico => {
+                const inicioSemana = getStartOfWeek();
+                const fimSemana = getEndOfWeek();
+                
+                // Calcular comissões ganhas na semana
+                const comissoesSemana = lancamentosFinanceiros.filter(l => {
+                  if (l.tecnico_id !== tecnico.tecnico_id) return false;
+                  if (!l.data_geracao) return false;
+                  const dataGeracao = toLocalDate(l.data_geracao);
+                  return dataGeracao && dataGeracao >= inicioSemana && dataGeracao <= fimSemana;
+                });
+
+                const totalComissoes = comissoesSemana.reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
+
+                // Calcular pagamentos feitos na semana
+                const pagamentosSemana = pagamentosTecnicos.filter(p => {
+                  if (p.tecnico_id !== tecnico.tecnico_id) return false;
+                  if (p.status !== 'Confirmado') return false;
+                  if (!p.created_date) return false;
+                  const dataPagamento = toLocalDate(p.created_date);
+                  return dataPagamento && dataPagamento >= inicioSemana && dataPagamento <= fimSemana;
+                });
+
+                const totalPago = pagamentosSemana.reduce((sum, p) => sum + (p.valor_pago || 0), 0);
+                const creditoPendente = Math.max(0, totalComissoes - totalPago);
+
+                return (
+                  <div key={tecnico.id} className="rounded-xl p-4 border border-gray-100 bg-gradient-to-br from-green-50 to-emerald-50">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center text-green-600 font-bold text-sm">
+                        {tecnico.tecnico_nome?.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-xs text-gray-600 font-medium">{tecnico.tecnico_nome}</span>
                     </div>
-                    <span className="text-xs text-gray-600 font-medium">{tecnico.tecnico_nome}</span>
+                    <p className="text-2xl font-bold text-green-700">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(creditoPendente)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">Pendente</p>
                   </div>
-                  <p className="text-2xl font-bold text-green-700">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tecnico.credito_pendente || 0)}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">Pendente</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
