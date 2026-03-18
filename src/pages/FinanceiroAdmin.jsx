@@ -226,12 +226,17 @@ export default function FinanceiroAdmin() {
 
     setLoadingPagamento(true);
     try {
+      // Buscar todos os lançamentos pendentes do técnico
+      const lancamentosPendentes = lancamentos.filter(l => 
+        l.tecnico_id === tecnicoSelecionado.tecnico_id && l.status === 'pendente'
+      );
+
       const response = await base44.functions.invoke('registrarPagamentoTecnico', {
         tecnico_id: tecnicoSelecionado.tecnico_id,
         valor_pago: parseFloat(pagamentoForm.valor_pago),
         data_pagamento: pagamentoForm.data_pagamento,
         metodo_pagamento: pagamentoForm.metodo_pagamento,
-        lancamentos_relacionados: pagamentoForm.lancamentos_relacionados,
+        lancamentos_relacionados: lancamentosPendentes.map(l => l.id),
         nota: pagamentoForm.nota
       });
 
@@ -804,36 +809,6 @@ export default function FinanceiroAdmin() {
                   placeholder="Observações sobre o pagamento..."
                   rows={3}
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Lançamentos a Quitar</Label>
-                <div className="max-h-40 overflow-y-auto border rounded p-2 space-y-2">
-                  {lancamentosParaTecnico(tecnicoSelecionado.tecnico_id).map(lanc => (
-                    <label key={lanc.id} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={pagamentoForm.lancamentos_relacionados.includes(lanc.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setPagamentoForm({
-                              ...pagamentoForm,
-                              lancamentos_relacionados: [...pagamentoForm.lancamentos_relacionados, lanc.id]
-                            });
-                          } else {
-                            setPagamentoForm({
-                              ...pagamentoForm,
-                              lancamentos_relacionados: pagamentoForm.lancamentos_relacionados.filter(id => id !== lanc.id)
-                            });
-                          }
-                        }}
-                      />
-                      <span className="text-sm">
-                        {lanc.cliente_nome} - R$ {lanc.valor_comissao_tecnico.toFixed(2)}
-                      </span>
-                    </label>
-                  ))}
-                </div>
               </div>
             </div>
           )}
