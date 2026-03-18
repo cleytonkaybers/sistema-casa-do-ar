@@ -18,7 +18,6 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
   const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().split('T')[0]);
   const [metodoPagamento, setMetodoPagamento] = useState('PIX');
   const [observacao, setObservacao] = useState('');
-  const [lancamentosSelecionados, setLancamentosSelecionados] = useState([]);
 
   const { data: tecnicos = [] } = useQuery({
     queryKey: ['tecnicos-financeiro'],
@@ -37,7 +36,7 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
         status: 'pendente'
       });
     },
-    enabled: !!tecnicoSelecionado?.tecnico_id
+    enabled: false
   });
 
   const handleRegistrarPagamento = async () => {
@@ -57,8 +56,7 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
         valor_pago: parseFloat(valorPago),
         data_pagamento: dataPagamento,
         metodo_pagamento: metodoPagamento,
-        observacao,
-        lancamentos_id: lancamentosSelecionados
+        observacao
       });
 
       toast.success(response.data.mensagem);
@@ -69,7 +67,6 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
       setTecnicoSelecionado(null);
       setValorPago('');
       setObservacao('');
-      setLancamentosSelecionados([]);
     } catch (error) {
       toast.error(error.response?.data?.error || 'Erro ao registrar pagamento');
     } finally {
@@ -91,7 +88,6 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
             <Select value={tecnicoSelecionado?.id || ''} onValueChange={(id) => {
               const tecnico = tecnicos.find(t => t.id === id);
               setTecnicoSelecionado(tecnico);
-              setLancamentosSelecionados([]);
             }}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecionar técnico..." />

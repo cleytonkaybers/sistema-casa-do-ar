@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -28,13 +28,6 @@ export default function FinanceiroAdmin() {
   const [showModalPagamento, setShowModalPagamento] = useState(false);
   const [tecnicoSelecionado, setTecnicoSelecionado] = useState(null);
   const [loadingPagamento, setLoadingPagamento] = useState(false);
-  const [pagamentoForm, setPagamentoForm] = useState({
-    valor_pago: '',
-    data_pagamento: new Date().toISOString().split('T')[0],
-    metodo_pagamento: 'PIX',
-    nota: '',
-    lancamentos_relacionados: []
-  });
   const [editandoLancamento, setEditandoLancamento] = useState(null);
   const [editValor, setEditValor] = useState('');
   const [confirmCancelPagamento, setConfirmCancelPagamento] = useState(null);
@@ -241,48 +234,7 @@ export default function FinanceiroAdmin() {
       };
     });
 
-  const lancamentosParaTecnico = (tecnico_id) => {
-    return lancamentos.filter(l => l.tecnico_id === tecnico_id && l.status === 'pendente');
-  };
 
-  const handleRegistrarPagamento = async () => {
-    if (!tecnicoSelecionado || !pagamentoForm.valor_pago) {
-      toast.error('Preencha todos os campos obrigatórios');
-      return;
-    }
-
-    setLoadingPagamento(true);
-    try {
-      const response = await base44.functions.invoke('registrarPagamentoTecnico', {
-        tecnico_id: tecnicoSelecionado.tecnico_id,
-        valor_pago: parseFloat(pagamentoForm.valor_pago),
-        data_pagamento: pagamentoForm.data_pagamento,
-        metodo_pagamento: pagamentoForm.metodo_pagamento,
-        lancamentos_relacionados: [],
-        nota: pagamentoForm.nota
-      });
-
-      if (response.data.success) {
-        toast.success('Pagamento registrado com sucesso');
-        await refetchLancamentos();
-        await refetchTecnicos();
-        await refetchPagamentos();
-        setShowModalPagamento(false);
-        setPagamentoForm({
-          valor_pago: '',
-          data_pagamento: new Date().toISOString().split('T')[0],
-          metodo_pagamento: 'PIX',
-          nota: '',
-          lancamentos_relacionados: []
-        });
-        setTecnicoSelecionado(null);
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Erro ao registrar pagamento');
-    } finally {
-      setLoadingPagamento(false);
-    }
-  };
 
   const lancamentosFiltrados = lancamentos.filter(l => {
     const dataLancamento = new Date(l.data_geracao);
@@ -741,98 +693,7 @@ export default function FinanceiroAdmin() {
         </CardContent>
       </Card>
 
-      <Dialog open={showModalPagamento} onOpenChange={setShowModalPagamento}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Registrar Pagamento - {tecnicoSelecionado?.tecnico_nome}</DialogTitle>
-          </DialogHeader>
 
-          {tecnicoSelecionado && (
-            <div className="space-y-4">
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <p className="text-sm text-blue-800">
-                  Crédito Pendente: <strong>R$ {(tecnicoSelecionado.credito_pendente || 0).toFixed(2)}</strong>
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                 <Label>Valor a Pagar *</Label>
-                 <div className="flex gap-2 mb-2">
-                   <Button
-                     type="button"
-                     size="sm"
-                     variant="outline"
-                     onClick={() => setPagamentoForm({ ...pagamentoForm, valor_pago: tecnicoSelecionado.credito_pendente.toString() })}
-                     className="flex-1"
-                   >
-                     Quitar Tudo (R$ {tecnicoSelecionado.credito_pendente.toFixed(2)})
-                   </Button>
-                 </div>
-                 <Input
-                   type="number"
-                   step="0.01"
-                   value={pagamentoForm.valor_pago}
-                   onChange={(e) => setPagamentoForm({ ...pagamentoForm, valor_pago: e.target.value })}
-                   placeholder="0.00"
-                 />
-                 {pagamentoForm.valor_pago && parseFloat(pagamentoForm.valor_pago) < tecnicoSelecionado.credito_pendente && (
-                   <p className="text-xs text-amber-600 mt-1">⚠️ Valor parcial: faltam R$ {(tecnicoSelecionado.credito_pendente - parseFloat(pagamentoForm.valor_pago)).toFixed(2)}</p>
-                 )}
-               </div>
-
-              <div className="space-y-2">
-                <Label>Data do Pagamento *</Label>
-                <Input
-                  type="date"
-                  value={pagamentoForm.data_pagamento}
-                  onChange={(e) => setPagamentoForm({ ...pagamentoForm, data_pagamento: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Método de Pagamento *</Label>
-                <Select
-                  value={pagamentoForm.metodo_pagamento}
-                  onValueChange={(value) => setPagamentoForm({ ...pagamentoForm, metodo_pagamento: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PIX">PIX</SelectItem>
-                    <SelectItem value="Transferência Bancária">Transferência Bancária</SelectItem>
-                    <SelectItem value="Cheque">Cheque</SelectItem>
-                    <SelectItem value="Dinheiro">Dinheiro</SelectItem>
-                    <SelectItem value="Outro">Outro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Nota (Opcional)</Label>
-                <Textarea
-                  value={pagamentoForm.nota}
-                  onChange={(e) => setPagamentoForm({ ...pagamentoForm, nota: e.target.value })}
-                  placeholder="Observações sobre o pagamento..."
-                  rows={3}
-                />
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowModalPagamento(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleRegistrarPagamento}
-              disabled={loadingPagamento}
-            >
-              {loadingPagamento ? 'Registrando...' : 'Registrar Pagamento'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <ConfirmDialog
         open={!!confirmDeleteLanc}
