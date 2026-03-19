@@ -4,24 +4,27 @@ import { AlertCircle, Clock, CreditCard, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { createPageUrl } from '@/utils';
+import { useAuth } from '@/lib/AuthContext';
 
 export function SubscriptionBlocker({ children }) {
-  const [user, setUser] = useState(null);
+  const { user: authUser, isLoadingAuth } = useAuth();
   const [empresa, setEmpresa] = useState(null);
   const [loading, setLoading] = useState(true);
   const [bloqueado, setBloqueado] = useState(false);
 
   useEffect(() => {
-    async function verificarAssinatura() {
-      try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
+    if (!isLoadingAuth) {
+      verificarAssinatura(authUser);
+    }
+  }, [authUser, isLoadingAuth]);
 
-        // Se o usuário não tem company_id, permitir acesso (sistema legado ou admin)
-        if (!currentUser?.company_id) {
-          setLoading(false);
-          return;
-        }
+  async function verificarAssinatura(currentUser) {
+    try {
+      // Se o usuário não tem company_id, permitir acesso (sistema legado ou admin)
+      if (!currentUser?.company_id) {
+        setLoading(false);
+        return;
+      }
 
         try {
           const empresas = await base44.entities.EmpresaSaaS.filter({
@@ -61,10 +64,7 @@ export function SubscriptionBlocker({ children }) {
       }
     }
 
-    verificarAssinatura();
-  }, []);
-
-  if (loading) {
+  if (loading || isLoadingAuth) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-purple-900">
         <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
