@@ -9,10 +9,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Acesso negado. Apenas administradores podem registrar pagamentos.' }, { status: 403 });
     }
 
-    const { tecnico_id, valor_pago, data_pagamento, metodo_pagamento, observacao, nota, lancamentos_relacionados = [], lancamentos_id = [] } = await req.json();
-    
-    // Aceitar tanto lancamentos_relacionados quanto lancamentos_id (compatibilidade)
-    const lancamentosIds = lancamentos_relacionados.length > 0 ? lancamentos_relacionados : lancamentos_id;
+    const { tecnico_id, valor_pago, data_pagamento, metodo_pagamento, observacao, lancamentos_id = [] } = await req.json();
 
     if (!tecnico_id || !valor_pago || valor_pago <= 0) {
       return Response.json({ error: 'Dados inválidos. Verifique tecnico_id e valor_pago.' }, { status: 400 });
@@ -35,11 +32,11 @@ Deno.serve(async (req) => {
       tecnico_nome: tecnico.tecnico_nome,
       equipe_id: tecnico.equipe_id,
       equipe_nome: tecnico.equipe_nome,
-      lancamentos_id: lancamentosIds,
+      lancamentos_id,
       valor_pago,
       data_pagamento,
       metodo_pagamento,
-      observacao: nota || observacao || '',
+      observacao: observacao || '',
       registrado_por: user.email,
       status: 'Confirmado'
     });
@@ -55,8 +52,16 @@ Deno.serve(async (req) => {
       data_ultimo_pagamento: new Date().toISOString()
     });
 
-    // Sistema simplificado: não vincular pagamentos a lançamentos específicos
-    // O valor pago é apenas abatido do crédito pendente do técnico
+    // Marcar lançamentos como pagos (se selecionados)
+    if (lancamentos_id.length > 0) {
+      for (const lancamento_id of lancamentos_id) {
+        await base44.asServiceRole.entities.LancamentoFinanceiro.update(lancamento_id, {
+          status: 'pago',
+          data_pagamento: new Date().toISOString(),
+          usuario_pagamento: user.email
+        });
+      }
+    }
 
     return Response.json({
       success: true,

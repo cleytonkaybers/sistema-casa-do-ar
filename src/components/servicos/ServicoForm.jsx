@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, MapPin, Search, ExternalLink, Users, Plus, X, AlertCircle, Minus } from 'lucide-react';
+import { Loader2, MapPin, Search, ExternalLink, Users, Plus, X, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import TimePickerClock from '@/components/ui/time-picker-clock';
 import { base44 } from '@/api/base44Client';
@@ -564,40 +564,20 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                       </div>
                     </SelectContent>
                   </Select>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-10 w-10 touch-manipulation"
-                      onClick={() => {
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs whitespace-nowrap">Qtd:</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={item.quantidade}
+                      onChange={(e) => {
                         const newTipos = [...formData.tipos_servico];
-                        const novaQtd = Math.max(1, (parseInt(item.quantidade) || 1) - 1);
-                        newTipos[index] = { ...newTipos[index], quantidade: novaQtd };
+                        newTipos[index] = { ...newTipos[index], quantidade: parseInt(e.target.value) || 1 };
                         setFormData({ ...formData, tipos_servico: newTipos });
                       }}
-                      disabled={item.quantidade <= 1}
-                    >
-                      <Minus className="w-4 h-4" />
-                    </Button>
-                    <div className="w-12 text-center font-semibold text-lg">
-                      {item.quantidade}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-10 w-10 touch-manipulation"
-                      onClick={() => {
-                        const newTipos = [...formData.tipos_servico];
-                        const novaQtd = Math.min(10, (parseInt(item.quantidade) || 1) + 1);
-                        newTipos[index] = { ...newTipos[index], quantidade: novaQtd };
-                        setFormData({ ...formData, tipos_servico: newTipos });
-                      }}
-                      disabled={item.quantidade >= 10}
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
+                      className="w-16"
+                    />
                   </div>
                   {formData.tipos_servico.length > 1 && (
                     <Button

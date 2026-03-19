@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -28,12 +28,19 @@ export default function FinanceiroAdmin() {
   const [showModalPagamento, setShowModalPagamento] = useState(false);
   const [tecnicoSelecionado, setTecnicoSelecionado] = useState(null);
   const [loadingPagamento, setLoadingPagamento] = useState(false);
+  const [pagamentoForm, setPagamentoForm] = useState({
+    valor_pago: '',
+    data_pagamento: new Date().toISOString().split('T')[0],
+    metodo_pagamento: 'PIX',
+    nota: '',
+    lancamentos_relacionados: []
+  });
   const [editandoLancamento, setEditandoLancamento] = useState(null);
   const [editValor, setEditValor] = useState('');
   const [confirmCancelPagamento, setConfirmCancelPagamento] = useState(null);
   const [estornando, setEstornando] = useState(false);
   
-  const { data: lancamentos = [], refetch: refetchLancamentos } = useQuery({
+  const { data: lancamentos = [] } = useQuery({
     queryKey: ['lancamentos'],
     queryFn: () => base44.entities.LancamentoFinanceiro.list()
   });
@@ -102,9 +109,8 @@ export default function FinanceiroAdmin() {
 
       if (response.data.success) {
         toast.success('Pagamento cancelado e crédito estornado com sucesso');
-        await refetchLancamentos();
-        await refetchPagamentos();
-        await refetchTecnicos();
+        refetchPagamentos();
+        refetchTecnicos();
       } else {
         throw new Error(response.data.error || 'Erro ao cancelar pagamento');
       }
@@ -169,16 +175,7 @@ export default function FinanceiroAdmin() {
   if (loading) return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div></div>;
   if (!isAdmin) return null;
 
-  // Filtrar por semana (segunda 00:00 até domingo 23:59) - DECLARAR PRIMEIRO
-  const agora = new Date();
-  const inicioSemanaAtual = startOfWeek(agora, { weekStartsOn: 1 }); // 1 = Segunda-feira
-  const fimSemanaAtual = endOfWeek(agora, { weekStartsOn: 1 });
-  const inicioSemanaPassada = new Date(inicioSemanaAtual);
-  inicioSemanaPassada.setDate(inicioSemanaPassada.getDate() - 7);
-  const fimSemanaPassada = new Date(fimSemanaAtual);
-  fimSemanaPassada.setDate(fimSemanaPassada.getDate() - 7);
-
-  // Filtrar técnicos e recalcular seus valores baseado apenas na semana selecionada
+  // Filtrar técnicos e recalcular seus valores baseado apenas na semana atual
   const filteredTecnicos = tecnicos
     .filter(t => {
       const matchEquipe = !filtroEquipe || t.equipe_id === filtroEquipe;
@@ -186,55 +183,79 @@ export default function FinanceiroAdmin() {
       return matchEquipe && matchTecnico;
     })
     .map(t => {
-      // Definir intervalo da semana com base no filtro
-      let inicioSemana, fimSemana;
-      
-      if (filtroSemana === 'atual') {
-        inicioSemana = inicioSemanaAtual;
-        fimSemana = fimSemanaAtual;
-      } else if (filtroSemana === 'passada') {
-        inicioSemana = inicioSemanaPassada;
-        fimSemana = fimSemanaPassada;
-      } else {
-        // Sem filtro de semana, usar tudo
-        inicioSemana = new Date(0);
-        fimSemana = new Date();
-      }
+      // Filtrar lançamentos PENDENTES da semana atual para este técnico
+      const agora = new Date();
+      const inicioSemana = startOfWeek(agora, { weekStartsOn: 1 }); // 1 = Segunda-feira
+      const fimSemana = endOfWeek(agora, { weekStartsOn: 1 });
 
-      // Calcular comissões ganhas na semana
       const lancamentosSemana = lancamentos.filter(l => {
-        if (l.tecnico_id !== t.tecnico_id) return false;
-        if (!l.data_geracao) return false;
         const dataGeracao = new Date(l.data_geracao);
-        return dataGeracao >= inicioSemana && dataGeracao <= fimSemana;
+        return (
+          l.tecnico_id === t.tecnico_id &&
+          l.status === 'pendente' &&
+          dataGeracao >= inicioSemana &&
+          dataGeracao <= fimSemana
+        );
       });
 
-      const totalComissoesSemana = lancamentosSemana
-        .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
-
-      // Calcular pagamentos feitos ao técnico na semana
-      const pagamentosSemana = pagamentos.filter(p => {
-        if (p.tecnico_id !== t.tecnico_id) return false;
-        if (p.status !== 'Confirmado') return false;
-        if (!p.created_date) return false;
-        const dataPagamento = new Date(p.created_date);
-        return dataPagamento >= inicioSemana && dataPagamento <= fimSemana;
-      });
-
-      const totalPagoSemana = pagamentosSemana
-        .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
-
-      const creditoPendenteSemana = Math.max(0, totalComissoesSemana - totalPagoSemana);
+      const creditoPendenteSemana = lancamentosSemana.reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
       return {
         ...t,
         credito_pendente: creditoPendenteSemana,
-        credito_pago: totalPagoSemana,
-        total_ganho: totalComissoesSemana
+        credito_pago: 0, // Zerado semanalmente
+        total_ganho: creditoPendenteSemana // Apenas pendentes da semana
       };
     });
 
+  const lancamentosParaTecnico = (tecnico_id) => {
+    return lancamentos.filter(l => l.tecnico_id === tecnico_id && l.status === 'pendente');
+  };
 
+  const handleRegistrarPagamento = async () => {
+    if (!tecnicoSelecionado || !pagamentoForm.valor_pago) {
+      toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    setLoadingPagamento(true);
+    try {
+      const response = await base44.functions.invoke('registrarPagamentoTecnico', {
+        tecnico_id: tecnicoSelecionado.tecnico_id,
+        valor_pago: parseFloat(pagamentoForm.valor_pago),
+        data_pagamento: pagamentoForm.data_pagamento,
+        metodo_pagamento: pagamentoForm.metodo_pagamento,
+        lancamentos_relacionados: pagamentoForm.lancamentos_relacionados,
+        nota: pagamentoForm.nota
+      });
+
+      if (response.data.success) {
+        toast.success('Pagamento registrado com sucesso');
+        setShowModalPagamento(false);
+        setPagamentoForm({
+          valor_pago: '',
+          data_pagamento: new Date().toISOString().split('T')[0],
+          metodo_pagamento: 'PIX',
+          nota: '',
+          lancamentos_relacionados: []
+        });
+        setTecnicoSelecionado(null);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Erro ao registrar pagamento');
+    } finally {
+      setLoadingPagamento(false);
+    }
+  };
+
+  // Filtrar por semana (segunda 00:00 até domingo 23:59)
+  const agora = new Date();
+  const inicioSemanaAtual = startOfWeek(agora, { weekStartsOn: 1 }); // 1 = Segunda-feira
+  const fimSemanaAtual = endOfWeek(agora, { weekStartsOn: 1 });
+  const inicioSemanaPassada = new Date(inicioSemanaAtual);
+  inicioSemanaPassada.setDate(inicioSemanaPassada.getDate() - 7);
+  const fimSemanaPassada = new Date(fimSemanaAtual);
+  fimSemanaPassada.setDate(fimSemanaPassada.getDate() - 7);
 
   const lancamentosFiltrados = lancamentos.filter(l => {
     const dataLancamento = new Date(l.data_geracao);
@@ -254,7 +275,7 @@ export default function FinanceiroAdmin() {
 
   // Totais baseados nos valores recalculados da semana
   const totalPendente = filteredTecnicos.reduce((sum, t) => sum + (t.credito_pendente || 0), 0);
-  const totalPago = filteredTecnicos.reduce((sum, t) => sum + (t.credito_pago || 0), 0);
+  const totalPago = 0; // Sempre zero (zerado semanalmente)
 
   const gerarPDF = async () => {
     try {
@@ -556,6 +577,7 @@ export default function FinanceiroAdmin() {
                    <TableHead>Valor Serviço</TableHead>
                    <TableHead>Comissão Técnico</TableHead>
                    <TableHead>% Ganha</TableHead>
+                   <TableHead>Status</TableHead>
                    <TableHead>Ações</TableHead>
                    </TableRow>
                    </TableHeader>
@@ -586,6 +608,11 @@ export default function FinanceiroAdmin() {
                        </TableCell>
                        <TableCell className="font-bold text-green-600">R$ {lanc.valor_comissao_tecnico.toFixed(2)}</TableCell>
                        <TableCell className="font-semibold text-blue-600">{percentualGanho}%</TableCell>
+                       <TableCell>
+                         <Badge variant={lanc.status === 'pendente' ? 'destructive' : lanc.status === 'pago' ? 'default' : 'secondary'}>
+                           {lanc.status === 'pendente' ? 'Pendente' : lanc.status === 'pago' ? 'Pago' : 'Creditado'}
+                         </Badge>
+                       </TableCell>
                        <TableCell className="space-x-1">
                          {editandoLancamento === lanc.id ? (
                            <>
@@ -681,31 +708,8 @@ export default function FinanceiroAdmin() {
                           Cancelar
                         </Button>
                       )}
-                      {pag.status === 'Estornado' && (
-                        <div className="space-y-1">
-                          {pag.motivo_estorno && (
-                            <p className="text-xs text-gray-500">{pag.motivo_estorno}</p>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={async () => {
-                              if (window.confirm('Tem certeza que deseja remover este pagamento estornado da lista?')) {
-                                try {
-                                  await base44.entities.PagamentoTecnico.delete(pag.id);
-                                  toast.success('Pagamento removido da lista');
-                                  refetchPagamentos();
-                                } catch (error) {
-                                  toast.error('Erro ao remover pagamento');
-                                }
-                              }
-                            }}
-                            className="text-gray-600 hover:text-gray-700 hover:bg-gray-50"
-                          >
-                            <Trash2 className="w-4 h-4 mr-1" />
-                            Remover
-                          </Button>
-                        </div>
+                      {pag.status === 'Estornado' && pag.motivo_estorno && (
+                        <p className="text-xs text-gray-500">{pag.motivo_estorno}</p>
                       )}
                     </TableCell>
                   </TableRow>
@@ -716,7 +720,128 @@ export default function FinanceiroAdmin() {
         </CardContent>
       </Card>
 
+      <Dialog open={showModalPagamento} onOpenChange={setShowModalPagamento}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar Pagamento - {tecnicoSelecionado?.tecnico_nome}</DialogTitle>
+          </DialogHeader>
 
+          {tecnicoSelecionado && (
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-800">
+                  Crédito Pendente: <strong>R$ {(tecnicoSelecionado.credito_pendente || 0).toFixed(2)}</strong>
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                 <Label>Valor a Pagar *</Label>
+                 <div className="flex gap-2 mb-2">
+                   <Button
+                     type="button"
+                     size="sm"
+                     variant="outline"
+                     onClick={() => setPagamentoForm({ ...pagamentoForm, valor_pago: tecnicoSelecionado.credito_pendente.toString() })}
+                     className="flex-1"
+                   >
+                     Quitar Tudo (R$ {tecnicoSelecionado.credito_pendente.toFixed(2)})
+                   </Button>
+                 </div>
+                 <Input
+                   type="number"
+                   step="0.01"
+                   value={pagamentoForm.valor_pago}
+                   onChange={(e) => setPagamentoForm({ ...pagamentoForm, valor_pago: e.target.value })}
+                   placeholder="0.00"
+                 />
+                 {pagamentoForm.valor_pago && parseFloat(pagamentoForm.valor_pago) < tecnicoSelecionado.credito_pendente && (
+                   <p className="text-xs text-amber-600 mt-1">⚠️ Valor parcial: faltam R$ {(tecnicoSelecionado.credito_pendente - parseFloat(pagamentoForm.valor_pago)).toFixed(2)}</p>
+                 )}
+               </div>
+
+              <div className="space-y-2">
+                <Label>Data do Pagamento *</Label>
+                <Input
+                  type="date"
+                  value={pagamentoForm.data_pagamento}
+                  onChange={(e) => setPagamentoForm({ ...pagamentoForm, data_pagamento: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Método de Pagamento *</Label>
+                <Select
+                  value={pagamentoForm.metodo_pagamento}
+                  onValueChange={(value) => setPagamentoForm({ ...pagamentoForm, metodo_pagamento: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PIX">PIX</SelectItem>
+                    <SelectItem value="Transferência Bancária">Transferência Bancária</SelectItem>
+                    <SelectItem value="Cheque">Cheque</SelectItem>
+                    <SelectItem value="Dinheiro">Dinheiro</SelectItem>
+                    <SelectItem value="Outro">Outro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Nota (Opcional)</Label>
+                <Textarea
+                  value={pagamentoForm.nota}
+                  onChange={(e) => setPagamentoForm({ ...pagamentoForm, nota: e.target.value })}
+                  placeholder="Observações sobre o pagamento..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Lançamentos a Quitar</Label>
+                <div className="max-h-40 overflow-y-auto border rounded p-2 space-y-2">
+                  {lancamentosParaTecnico(tecnicoSelecionado.tecnico_id).map(lanc => (
+                    <label key={lanc.id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={pagamentoForm.lancamentos_relacionados.includes(lanc.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setPagamentoForm({
+                              ...pagamentoForm,
+                              lancamentos_relacionados: [...pagamentoForm.lancamentos_relacionados, lanc.id]
+                            });
+                          } else {
+                            setPagamentoForm({
+                              ...pagamentoForm,
+                              lancamentos_relacionados: pagamentoForm.lancamentos_relacionados.filter(id => id !== lanc.id)
+                            });
+                          }
+                        }}
+                      />
+                      <span className="text-sm">
+                        {lanc.cliente_nome} - R$ {lanc.valor_comissao_tecnico.toFixed(2)}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowModalPagamento(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleRegistrarPagamento}
+              disabled={loadingPagamento}
+            >
+              {loadingPagamento ? 'Registrando...' : 'Registrar Pagamento'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={!!confirmDeleteLanc}

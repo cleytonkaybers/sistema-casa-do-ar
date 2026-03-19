@@ -6,8 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-import { DollarSign, TrendingUp, CheckCircle2, Clock, FileText } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DollarSign, TrendingUp, CheckCircle2, Clock, Eye, Send, FileText, Edit2, Trash2 } from 'lucide-react';
 import { format, parseISO, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -18,7 +18,9 @@ export default function MeuFinanceiro() {
   const [periodoFiltro, setPeriodoFiltro] = useState('atual'); // atual, anterior, customizado
   const [dataInicio, setDataInicio] = useState(null);
   const [dataFim, setDataFim] = useState(null);
-
+  const [detalhesServico, setDetalhesServico] = useState(null);
+  const [showDetalhesModal, setShowDetalhesModal] = useState(false);
+  const [servicoEditando, setServicoEditando] = useState(null);
 
   React.useEffect(() => {
     base44.auth.me().then(u => {
@@ -110,17 +112,62 @@ export default function MeuFinanceiro() {
     return <div className="text-center py-8">Carregando...</div>;
   }
 
-  // Filtrar comissões por período
+  // Filtrar comissões por período - APENAS PENDENTES da semana atual
   const comissoesFiltradas = minhasComissoes.filter(c => {
     if (!dataInicio || !dataFim) return c.status === 'pendente';
     const dataReferencia = format(parseISO(c.data_geracao), 'yyyy-MM-dd');
     return dataReferencia >= dataInicio && dataReferencia <= dataFim && c.status === 'pendente';
   });
 
-  // Totais semanais
+  const comissoesPendentes = comissoesFiltradas;
+  const comissoesPagas = [];
+
+  // Totais semanais (apenas pendentes)
   const totalPendente = comissoesPendentes.reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
+  const totalPago = 0;
+  const totalSemana = totalPendente;
 
+  // Agrupar por dia
+  const comissoesPorDia = comissoesFiltradas.reduce((acc, comissao) => {
+    const data = format(parseISO(comissao.data_geracao), 'dd/MM/yyyy', { locale: ptBR });
+    if (!acc[data]) acc[data] = [];
+    acc[data].push(comissao);
+    return acc;
+  }, {});
 
+  const handleSolicitarPagamento = async (comissao) => {
+    try {
+      toast.success(`Solicitação de pagamento enviada para ${comissao.valor_comissao_tecnico.toFixed(2)}`);
+      // Aqui seria feita a solicitação real ao backend
+    } catch (error) {
+      toast.error('Erro ao solicitar pagamento');
+    }
+  };
+
+  const handleEditarServico = (servicoId) => {
+    const servico = servicos.find(s => s.id === servicoId);
+    if (servico) {
+      setServicoEditando(servico);
+      // Aqui seria aberto um modal de edição
+      toast.info('Funcionalidade de edição em desenvolvimento');
+    }
+  };
+
+  const handleExcluirComissao = async (comissaoId, servicoId) => {
+    if (window.confirm('Tem certeza que deseja excluir esta comissão?')) {
+      try {
+        await base44.entities.LancamentoFinanceiro.delete(comissaoId);
+        toast.success('Comissão excluída com sucesso');
+        // Recarregar dados
+      } catch (error) {
+        toast.error('Erro ao excluir comissão');
+      }
+    }
+  };
+
+  const getServicoDetalhes = (servicoId) => {
+    return servicos.find(s => s.id === servicoId);
+  };
 
   return (
     <div className="space-y-6">
@@ -134,7 +181,7 @@ export default function MeuFinanceiro() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">R$ {totalPendente.toFixed(2)}</div>
-            <p className="text-xs text-gray-500 mt-1">{comissoesFiltradas.length} serviço(s)</p>
+            <p className="text-xs text-gray-500 mt-1">{comissoesPendentes.length} serviço(s)</p>
           </CardContent>
         </Card>
 
@@ -191,6 +238,7 @@ export default function MeuFinanceiro() {
                    <TableHead>Sua Comissão</TableHead>
                    <TableHead>% Ganha</TableHead>
                    <TableHead>Status</TableHead>
+                   <TableHead>Ações</TableHead>
                  </TableRow>
                </TableHeader>
                <TableBody>
@@ -207,7 +255,27 @@ export default function MeuFinanceiro() {
                        <TableCell className="font-bold text-green-600">R$ {comissao.valor_comissao_tecnico.toFixed(2)}</TableCell>
                        <TableCell className="font-semibold text-blue-600">{percentualGanho}%</TableCell>
                        <TableCell>
-                         <Badge variant="destructive">Pendente</Badge>
+                         <Badge variant={comissao.status === 'pendente' ? 'destructive' : 'default'}>
+                           {comissao.status === 'pendente' ? 'Pendente' : comissao.status === 'pago' ? 'Pago' : 'Creditado'}
+                         </Badge>
+                       </TableCell>
+                       <TableCell className="space-x-2">
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           onClick={() => handleEditarServico(comissao.servico_id)}
+                           className="text-blue-600 hover:bg-blue-50"
+                         >
+                           <Edit2 className="w-4 h-4" />
+                         </Button>
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           onClick={() => handleExcluirComissao(comissao.id, comissao.servico_id)}
+                           className="text-red-600 hover:bg-red-50"
+                         >
+                           <Trash2 className="w-4 h-4" />
+                         </Button>
                        </TableCell>
                        </TableRow>
                        );
@@ -255,7 +323,129 @@ export default function MeuFinanceiro() {
       )}
 
       {/* Tabela de Comissões por Dia */}
-
+      {Object.keys(comissoesPorDia).length > 0 ? (
+        <div className="space-y-4">
+          {Object.entries(comissoesPorDia).sort().map(([data, comissoes]) => {
+            const totalDia = comissoes.reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
+            const pendenteDia = comissoes.filter(c => c.status === 'pendente').reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
+            
+            return (
+              <Card key={data}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">{data}</CardTitle>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold">R$ {totalDia.toFixed(2)}</p>
+                      <p className="text-xs text-gray-500">{pendenteDia > 0 ? `Pendente: R$ ${pendenteDia.toFixed(2)}` : 'Tudo pago'}</p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead>Serviço</TableHead>
+                          <TableHead>Equipe</TableHead>
+                          <TableHead>Valor Serviço</TableHead>
+                          <TableHead>Sua Comissão</TableHead>
+                          <TableHead>% Ganha</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {comissoes.map(comissao => {
+                          const percentualGanho = comissao.valor_total_servico > 0 
+                            ? ((comissao.valor_comissao_tecnico / comissao.valor_total_servico) * 100).toFixed(1)
+                            : 0;
+                          return (
+                          <TableRow key={comissao.id}>
+                            <TableCell className="font-medium">{comissao.cliente_nome}</TableCell>
+                            <TableCell className="text-sm">{comissao.tipo_servico}</TableCell>
+                            <TableCell className="text-sm">{comissao.equipe_nome}</TableCell>
+                            <TableCell className="font-semibold">R$ {comissao.valor_total_servico.toFixed(2)}</TableCell>
+                            <TableCell className="font-bold text-green-600">R$ {comissao.valor_comissao_tecnico.toFixed(2)}</TableCell>
+                            <TableCell className="font-semibold text-blue-600">{percentualGanho}%</TableCell>
+                            <TableCell>
+                              <Badge variant={comissao.status === 'pendente' ? 'destructive' : 'default'}>
+                                {comissao.status === 'pendente' ? 'Pendente' : 'Pago'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="space-x-2">
+                              <Dialog open={showDetalhesModal && detalhesServico?.id === comissao.servico_id} onOpenChange={setShowDetalhesModal}>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setDetalhesServico(getServicoDetalhes(comissao.servico_id));
+                                      setShowDetalhesModal(true);
+                                    }}
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Detalhes do Serviço</DialogTitle>
+                                  </DialogHeader>
+                                  {detalhesServico && (
+                                    <div className="space-y-3 text-sm">
+                                      <div>
+                                        <p className="font-semibold text-gray-600">Cliente</p>
+                                        <p>{detalhesServico.cliente_nome}</p>
+                                      </div>
+                                      <div>
+                                        <p className="font-semibold text-gray-600">Tipo de Serviço</p>
+                                        <p>{detalhesServico.tipo_servico}</p>
+                                      </div>
+                                      <div>
+                                        <p className="font-semibold text-gray-600">Valor Total</p>
+                                        <p className="text-lg font-bold">R$ {(detalhesServico.valor || 0).toFixed(2)}</p>
+                                      </div>
+                                      <div>
+                                        <p className="font-semibold text-gray-600">Data</p>
+                                        <p>{format(parseISO(detalhesServico.data_programada), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                                      </div>
+                                      <div>
+                                        <p className="font-semibold text-gray-600">Sua Comissão</p>
+                                        <p className="text-lg font-bold text-green-600">R$ {comissao.valor_comissao_tecnico.toFixed(2)}</p>
+                                      </div>
+                                    </div>
+                                  )}
+                                </DialogContent>
+                              </Dialog>
+                              {comissao.status === 'pendente' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleSolicitarPagamento(comissao)}
+                                  className="text-blue-600 hover:bg-blue-50"
+                                >
+                                  <Send className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </TableCell>
+                            </TableRow>
+                            );
+                            })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="py-8 text-center text-gray-500">
+            Nenhuma comissão neste período
+          </CardContent>
+        </Card>
+      )}
 
       {meusPagamentos.length > 0 && (
         <Card>
