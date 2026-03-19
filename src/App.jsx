@@ -41,19 +41,22 @@ const AuthenticatedApp = () => {
     );
   }
 
+  // Redirect on auth_required error
+  React.useEffect(() => {
+    if (authError?.type === 'auth_required') {
+      const currentPath = window.location.pathname;
+      // Avoid redirect loop - only redirect if not already on login or special pages
+      if (!currentPath.includes('/login') && !window.location.search.includes('from_url')) {
+        navigateToLogin();
+      }
+    }
+  }, [authError, navigateToLogin]);
+
   // Handle authentication errors
   if (authError) {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      // Redirect to login automatically - but only once
-      React.useEffect(() => {
-        const currentPath = window.location.pathname;
-        // Avoid redirect loop - only redirect if not already on login or special pages
-        if (!currentPath.includes('/login') && !window.location.search.includes('from_url')) {
-          navigateToLogin();
-        }
-      }, []);
       return (
         <div className="fixed inset-0 flex items-center justify-center bg-gray-50">
           <div className="text-center">
