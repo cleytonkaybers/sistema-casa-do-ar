@@ -15,6 +15,18 @@ export const AuthProvider = ({ children }) => {
   const checkAuth = async () => {
     try {
       setIsLoading(true);
+      const isAuth = await base44.auth.isAuthenticated();
+      
+      if (!isAuth) {
+        // Not authenticated - redirect to login
+        const currentPath = window.location.pathname;
+        if (!currentPath.includes('/login') && !window.location.search.includes('from_url')) {
+          base44.auth.redirectToLogin(currentPath);
+          return;
+        }
+      }
+      
+      // If authenticated, get user data
       const currentUser = await base44.auth.me();
       setUser(currentUser);
       setAuthError(null);
@@ -28,7 +40,7 @@ export const AuthProvider = ({ children }) => {
       } else if (error.status === 401 || error.status === 403) {
         // Auth required - redirect to login
         const currentPath = window.location.pathname;
-        if (!currentPath.includes('/login')) {
+        if (!currentPath.includes('/login') && !window.location.search.includes('from_url')) {
           base44.auth.redirectToLogin(currentPath);
         }
       }
