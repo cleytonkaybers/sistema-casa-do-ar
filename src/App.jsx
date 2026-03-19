@@ -47,11 +47,13 @@ const AuthenticatedApp = () => {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
       // Redirect to login automatically - but only once
-      useEffect(() => {
-        if (!window.location.href.includes('/login')) {
+      React.useEffect(() => {
+        const currentPath = window.location.pathname;
+        // Avoid redirect loop - only redirect if not already on login or special pages
+        if (!currentPath.includes('/login') && !window.location.search.includes('from_url')) {
           navigateToLogin();
         }
-      }, [navigateToLogin]);
+      }, []);
       return (
         <div className="fixed inset-0 flex items-center justify-center bg-gray-50">
           <div className="text-center">
