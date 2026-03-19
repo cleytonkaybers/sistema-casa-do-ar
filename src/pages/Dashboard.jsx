@@ -35,49 +35,57 @@ const formatPhone = (phone) => {
 export default function Dashboard() {
   const [filtroServicos, setFiltroServicos] = useState('mes');
   
-  const { data: clientes = [], isLoading } = useQuery({
-    queryKey: ['clientes'],
-    queryFn: () => base44.entities.Cliente.list('-created_date'),
-  });
-
-  const { data: atendimentos = [] } = useQuery({
-    queryKey: ['atendimentos'],
-    queryFn: () => base44.entities.Atendimento.list('-created_date'),
-  });
-
-  const { data: servicos = [] } = useQuery({
-    queryKey: ['servicos'],
-    queryFn: () => base44.entities.Servico.list('-created_date'),
-  });
-
-  const { data: equipes = [] } = useQuery({
-    queryKey: ['equipes'],
-    queryFn: () => base44.entities.Equipe.list(),
-  });
-
   const { data: currentUser } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
   });
 
+  const { data: clientes = [], isLoading } = useQuery({
+    queryKey: ['clientes'],
+    queryFn: () => base44.entities.Cliente.list('-created_date'),
+    enabled: !!currentUser,
+  });
+
+  const { data: atendimentos = [] } = useQuery({
+    queryKey: ['atendimentos'],
+    queryFn: () => base44.entities.Atendimento.list('-created_date'),
+    enabled: !!currentUser,
+  });
+
+  const { data: servicos = [] } = useQuery({
+    queryKey: ['servicos'],
+    queryFn: () => base44.entities.Servico.list('-created_date'),
+    enabled: !!currentUser,
+  });
+
+  const { data: equipes = [] } = useQuery({
+    queryKey: ['equipes'],
+    queryFn: () => base44.entities.Equipe.list(),
+    enabled: !!currentUser,
+  });
+
   const { data: usuarios = [] } = useQuery({
     queryKey: ['usuarios'],
     queryFn: () => base44.entities.User.list(),
+    enabled: !!currentUser,
   });
 
   const { data: tecnicosFinanceiro = [] } = useQuery({
     queryKey: ['tecnicosFinanceiro'],
     queryFn: () => base44.entities.TecnicoFinanceiro.list(),
+    enabled: !!currentUser,
   });
 
   const { data: lancamentosFinanceiros = [] } = useQuery({
     queryKey: ['lancamentosFinanceiros'],
     queryFn: () => base44.entities.LancamentoFinanceiro.list(),
+    enabled: !!currentUser,
   });
 
   const { data: pagamentosTecnicos = [] } = useQuery({
     queryKey: ['pagamentosTecnicos'],
     queryFn: () => base44.entities.PagamentoTecnico.list(),
+    enabled: !!currentUser,
   });
 
   // Estatísticas
