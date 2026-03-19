@@ -45,7 +45,11 @@ export default function UserMenu({ user }) {
               </button>
               
               <button
-              onClick={() => base44.auth.logout()}
+              onClick={() => {
+                localStorage.removeItem('base44_token');
+                sessionStorage.removeItem('base44_token');
+                window.location.replace('/');
+              }}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-red-300 hover:bg-red-500/20 transition-colors text-sm">
 
                 <LogOut className="w-4 h-4" />
