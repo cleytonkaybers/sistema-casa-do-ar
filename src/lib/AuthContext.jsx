@@ -64,12 +64,15 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
+      localStorage.removeItem('base44_token');
+      sessionStorage.removeItem('base44_token');
       setUser(null);
       setIsAuthenticated(false);
-      await base44.auth.logout();
       window.location.href = '/';
     } catch (error) {
       console.error('Erro ao fazer logout:', error);
+      localStorage.removeItem('base44_token');
+      sessionStorage.removeItem('base44_token');
       window.location.href = '/';
     }
   };
