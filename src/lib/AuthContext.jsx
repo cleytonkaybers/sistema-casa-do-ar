@@ -23,14 +23,12 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingAuth(true);
       setAuthError(null);
       
-      // Se não tem token, redirecionar para login
+      // Se não tem token, não redirecionar - permitir app funcionar
       if (!appParams.token) {
         setUser(null);
         setIsAuthenticated(false);
         setIsLoadingPublicSettings(false);
         setIsLoadingAuth(false);
-        // Redirecionar para login automaticamente
-        base44.auth.redirectToLogin(window.location.href);
         return;
       }
       
@@ -61,11 +59,16 @@ export const AuthProvider = ({ children }) => {
 
 
 
-  const logout = () => {
-    setUser(null);
-    setIsAuthenticated(false);
-    // Usar o método do SDK que limpa o token e redireciona
-    base44.auth.logout();
+  const logout = async () => {
+    try {
+      setUser(null);
+      setIsAuthenticated(false);
+      await base44.auth.logout();
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      window.location.href = '/';
+    }
   };
 
   const navigateToLogin = () => {
