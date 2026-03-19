@@ -47,38 +47,15 @@ function LayoutContent({ children }) {
   const [companySettings, setCompanySettings] = useState({ company_name: 'Casa do Ar', company_icon: 'Snowflake' });
 
   React.useEffect(() => {
-    const loadData = async () => {
-      const token = localStorage.getItem('base44_token');
-      if (!token) {
-        setUser(null);
-        setCompanySettings({ company_name: 'Casa do Ar', company_icon: 'Snowflake' });
-        return;
-      }
-
-      try {
-        const u = await base44.auth.me();
-        setUser(u);
-        
-        const result = await base44.entities.CompanySettings.list();
-        if (result.length > 0) setCompanySettings(result[0]);
-      } catch (error) {
-        setUser(null);
-        setCompanySettings({ company_name: 'Casa do Ar', company_icon: 'Snowflake' });
-      }
-    };
-    
-    loadData();
+    base44.auth.me().then((u) => setUser(u)).catch(() => setUser(null));
+    base44.entities.CompanySettings.list().then((result) => {
+      if (result.length > 0) setCompanySettings(result[0]);
+    }).catch(() => {});
   }, []);
 
   // Definir navegação com base no tipo de usuário
   let navigation = [];
   
-  const handleLogout = () => {
-    localStorage.removeItem('base44_token');
-    sessionStorage.removeItem('base44_token');
-    base44.auth.logout();
-  };
-
   if (isSuperAdmin()) {
     // Super Admin vê tudo
     navigation = [
@@ -101,7 +78,7 @@ function LayoutContent({ children }) {
       { name: 'Configurações', href: createPageUrl('Configuracoes'), icon: Settings },
       { name: 'Suporte', href: createPageUrl('Suporte'), icon: MessageCircle },
       { name: 'Preferências de Notificação', href: createPageUrl('PreferencesNotificacao'), icon: Bell },
-      { name: 'Sair', href: '#', icon: LogOut, action: handleLogout },
+      { name: 'Sair', href: '#', icon: LogOut, action: () => base44.auth.logout() },
     ];
   } else if (currentUser?.tipo_usuario === 'tecnico') {
     // Técnicos veem apenas o essencial
@@ -113,7 +90,7 @@ function LayoutContent({ children }) {
       { name: 'Preventivas Futuras', href: createPageUrl('PreventivasFuturas'), icon: ClipboardList },
       { name: 'Suporte', href: createPageUrl('Suporte'), icon: MessageCircle },
       { name: 'Preferências de Notificação', href: createPageUrl('PreferencesNotificacao'), icon: Bell },
-      { name: 'Sair', href: '#', icon: LogOut, action: handleLogout },
+      { name: 'Sair', href: '#', icon: LogOut, action: () => base44.auth.logout() },
     ];
   } else {
     // Admins normais veem tudo exceto gerenciar empresas
@@ -136,7 +113,7 @@ function LayoutContent({ children }) {
       { name: 'Configurações', href: createPageUrl('Configuracoes'), icon: Settings },
       { name: 'Suporte', href: createPageUrl('Suporte'), icon: MessageCircle },
       { name: 'Preferências de Notificação', href: createPageUrl('PreferencesNotificacao'), icon: Bell },
-      { name: 'Sair', href: '#', icon: LogOut, action: handleLogout },
+      { name: 'Sair', href: '#', icon: LogOut, action: () => base44.auth.logout() },
     ];
   }
 

@@ -1,34 +1,20 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useAuth } from '@/lib/AuthContext';
 
 const EmpresaContext = createContext(null);
 
 export function EmpresaProvider({ children }) {
-  const { user: authUser } = useAuth();
   const [currentUser, setCurrentUser] = useState(null);
   const [currentEmpresa, setCurrentEmpresa] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (authUser) {
-      loadUserAndEmpresa(authUser);
-    } else {
-      setLoading(false);
-    }
-  }, [authUser]);
+    loadUserAndEmpresa();
+  }, []);
 
-  const loadUserAndEmpresa = async (user) => {
-    setLoading(false);
-    
-    const token = localStorage.getItem('base44_token');
-    if (!token || !user) {
-      setCurrentUser(null);
-      setCurrentEmpresa(null);
-      return;
-    }
-    
+  const loadUserAndEmpresa = async () => {
     try {
+      const user = await base44.auth.me();
       setCurrentUser(user);
 
       if (user.empresa_id) {
@@ -38,7 +24,9 @@ export function EmpresaProvider({ children }) {
         }
       }
     } catch (error) {
-      console.error('Erro ao carregar empresa:', error);
+      console.error('Erro ao carregar usuário:', error);
+    } finally {
+      setLoading(false);
     }
   };
 

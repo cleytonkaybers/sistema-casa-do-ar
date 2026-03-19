@@ -12,12 +12,7 @@ export default function GanhosSemanaDashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('base44_token');
-    if (!token) return;
-    
-    base44.auth.me()
-      .then(u => setUser(u))
-      .catch(() => setUser(null));
+    base44.auth.me().then(u => setUser(u));
   }, []);
 
   const { data: dadosSemana = { totalGanho: 0, valorPago: 0, creditoPendente: 0 } } = useQuery({

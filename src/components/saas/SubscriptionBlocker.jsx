@@ -4,73 +4,57 @@ import { AlertCircle, Clock, CreditCard, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { createPageUrl } from '@/utils';
-import { useAuth } from '@/lib/AuthContext';
 
 export function SubscriptionBlocker({ children }) {
-  const { user: authUser, isLoadingAuth } = useAuth();
+  const [user, setUser] = useState(null);
   const [empresa, setEmpresa] = useState(null);
   const [loading, setLoading] = useState(true);
   const [bloqueado, setBloqueado] = useState(false);
 
   useEffect(() => {
-    if (!isLoadingAuth) {
-      verificarAssinatura(authUser);
-    }
-  }, [authUser, isLoadingAuth]);
-
-  async function verificarAssinatura(currentUser) {
-    try {
-      setLoading(false);
-      
-      const token = localStorage.getItem('base44_token');
-      if (!token || !currentUser) {
-        setBloqueado(false);
-        setEmpresa(null);
-        return;
-      }
-
-      // Se o usuário não tem company_id, permitir acesso (sistema legado ou admin)
-      if (!currentUser.company_id) {
-        return;
-      }
-
+    async function verificarAssinatura() {
       try {
-        const empresas = await base44.entities.EmpresaSaaS.filter({
-          company_id: currentUser.company_id
-        });
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
 
-        if (empresas.length > 0) {
-          const emp = empresas[0];
-          setEmpresa(emp);
+        if (currentUser?.company_id) {
+          const empresas = await base44.entities.EmpresaSaaS.filter({
+            company_id: currentUser.company_id
+          });
 
-          // Verificar se está vencida
-          if (emp.status_assinatura === 'vencida' || emp.bloqueada) {
-            setBloqueado(true);
-          } else if (emp.status_assinatura === 'trial') {
-            // Validar trial
-            const agora = new Date();
-            const fimTrial = new Date(emp.data_fim_trial);
-            if (agora > fimTrial) {
-              // Atualizar para vencida
-              await base44.entities.EmpresaSaaS.update(emp.id, {
-                status_assinatura: 'vencida'
-              });
+          if (empresas.length > 0) {
+            const emp = empresas[0];
+            setEmpresa(emp);
+
+            // Verificar se está vencida
+            if (emp.status_assinatura === 'vencida' || emp.bloqueada) {
               setBloqueado(true);
-              setEmpresa({...emp, status_assinatura: 'vencida'});
+            } else if (emp.status_assinatura === 'trial') {
+              // Validar trial
+              const agora = new Date();
+              const fimTrial = new Date(emp.data_fim_trial);
+              if (agora > fimTrial) {
+                // Atualizar para vencida
+                await base44.entities.EmpresaSaaS.update(emp.id, {
+                  status_assinatura: 'vencida'
+                });
+                setBloqueado(true);
+                setEmpresa({...emp, status_assinatura: 'vencida'});
+              }
             }
           }
         }
-      } catch (empresaError) {
-        // Se a entidade EmpresaSaaS não existir ou houver erro, permitir acesso
-        console.log('EmpresaSaaS não encontrada - permitindo acesso');
+      } catch (error) {
+        console.error('Erro ao verificar assinatura:', error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Erro ao verificar assinatura:', error);
-      // Em caso de erro, permitir acesso para não bloquear o usuário
     }
-  }
 
-  if (loading || isLoadingAuth) {
+    verificarAssinatura();
+  }, []);
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-purple-900">
         <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
@@ -156,11 +140,7 @@ function SubscriptionBlockedScreen({ empresa }) {
               </Button>
             </a>
             <button
-              onClick={() => {
-                localStorage.removeItem('base44_token');
-                sessionStorage.removeItem('base44_token');
-                base44.auth.logout();
-              }}
+              onClick={() => base44.auth.logout()}
               className="w-full h-12 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors"
             >
               Sair da Conta

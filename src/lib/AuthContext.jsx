@@ -20,52 +20,107 @@ export const AuthProvider = ({ children }) => {
   const checkAppState = async () => {
     try {
       setIsLoadingPublicSettings(true);
-      setIsLoadingAuth(true);
       setAuthError(null);
       
-      // Se não tem token, não redirecionar - permitir app funcionar
-      if (!appParams.token) {
-        setUser(null);
-        setIsAuthenticated(false);
+      // First, check app public settings (with token if available)
+      // This will tell us if auth is required, user not registered, etc.
+      const appClient = createAxiosClient({
+        baseURL: `/api/apps/public`,
+        headers: {
+          'X-App-Id': appParams.appId
+        },
+        token: appParams.token, // Include token if available
+        interceptResponses: true
+      });
+      
+      try {
+        const publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
+        setAppPublicSettings(publicSettings);
+        
+        // If we got the app public settings successfully, check if user is authenticated
+        if (appParams.token) {
+          await checkUserAuth();
+        } else {
+          setIsLoadingAuth(false);
+          setIsAuthenticated(false);
+        }
+        setIsLoadingPublicSettings(false);
+      } catch (appError) {
+        console.error('App state check failed:', appError);
+        
+        // Handle app-level errors
+        if (appError.status === 403 && appError.data?.extra_data?.reason) {
+          const reason = appError.data.extra_data.reason;
+          if (reason === 'auth_required') {
+            setAuthError({
+              type: 'auth_required',
+              message: 'Authentication required'
+            });
+          } else if (reason === 'user_not_registered') {
+            setAuthError({
+              type: 'user_not_registered',
+              message: 'User not registered for this app'
+            });
+          } else {
+            setAuthError({
+              type: reason,
+              message: appError.message
+            });
+          }
+        } else {
+          setAuthError({
+            type: 'unknown',
+            message: appError.message || 'Failed to load app'
+          });
+        }
         setIsLoadingPublicSettings(false);
         setIsLoadingAuth(false);
-        return;
-      }
-      
-      // Se tem token, verificar autenticação
-      try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-        setIsAuthenticated(true);
-        setAuthError(null);
-      } catch (error) {
-        console.log('Erro de autenticação:', error);
-        setUser(null);
-        setIsAuthenticated(false);
-        
-        // Se o erro for de acesso negado (app privado), redirecionar para login
-        if (error.message?.includes('private') || error.message?.includes('access') || error.message?.includes('do not have access')) {
-          // Limpar token inválido e redirecionar
-          localStorage.removeItem('base44_token');
-          sessionStorage.removeItem('base44_token');
-          base44.auth.redirectToLogin(window.location.href);
-          return;
-        }
       }
     } catch (error) {
-      console.error('Erro na verificação:', error);
-    } finally {
+      console.error('Unexpected error:', error);
+      setAuthError({
+        type: 'unknown',
+        message: error.message || 'An unexpected error occurred'
+      });
       setIsLoadingPublicSettings(false);
       setIsLoadingAuth(false);
     }
   };
 
+  const checkUserAuth = async () => {
+    try {
+      // Now check if the user is authenticated
+      setIsLoadingAuth(true);
+      const currentUser = await base44.auth.me();
+      setUser(currentUser);
+      setIsAuthenticated(true);
+      setIsLoadingAuth(false);
+    } catch (error) {
+      console.error('User auth check failed:', error);
+      setIsLoadingAuth(false);
+      setIsAuthenticated(false);
+      
+      // If user auth fails, it might be an expired token
+      if (error.status === 401 || error.status === 403) {
+        setAuthError({
+          type: 'auth_required',
+          message: 'Authentication required'
+        });
+      }
+    }
+  };
 
-
-  const logout = () => {
-    localStorage.removeItem('base44_token');
-    sessionStorage.removeItem('base44_token');
-    base44.auth.logout();
+  const logout = (shouldRedirect = true) => {
+    setUser(null);
+    setIsAuthenticated(false);
+    
+    if (shouldRedirect) {
+      // Use the SDK's logout method which handles token cleanup and redirect
+      base44.auth.logout(window.location.href);
+    } else {
+      // Just remove the token without redirect
+      base44.auth.logout();
+    }
   };
 
   const navigateToLogin = () => {

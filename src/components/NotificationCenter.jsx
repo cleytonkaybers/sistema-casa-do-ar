@@ -11,12 +11,7 @@ export default function NotificationCenter() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const token = localStorage.getItem('base44_token');
-    if (!token) return;
-    
-    base44.auth.me()
-      .then((user) => setCurrentUser(user))
-      .catch(() => setCurrentUser(null));
+    base44.auth.me().then((user) => setCurrentUser(user)).catch(() => {});
   }, []);
 
   const { data: notificacoes = [], isLoading } = useQuery({
