@@ -53,69 +53,43 @@ function LayoutContent({ children }) {
     }).catch(() => {});
   }, []);
 
-  // Definir navegação com base no tipo de usuário
-  let navigation = [];
-  
-  if (isSuperAdmin()) {
-    // Super Admin vê tudo
-    navigation = [
-      { name: 'Gerenciar Empresas', href: createPageUrl('GerenciarEmpresas'), icon: Database },
-      { name: 'Dashboard', href: createPageUrl('Dashboard'), icon: LayoutDashboard },
-      { name: 'Clientes', href: createPageUrl('Clientes'), icon: Users },
-      { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
-      { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList },
-      { name: 'Meu Financeiro', href: createPageUrl('MeuFinanceiro'), icon: DollarSign },
-      { name: 'Preventivas Futuras', href: createPageUrl('PreventivasFuturas'), icon: ClipboardList },
-      { name: 'Histórico de Clientes', href: createPageUrl('HistoricoClientes'), icon: BarChart3 },
-      { name: 'Relatórios', href: createPageUrl('Relatorios'), icon: BarChart3 },
-      { name: 'Relatório Comissões', href: createPageUrl('RelatorioComissoes'), icon: DollarSign },
-      { name: 'Financeiro', href: createPageUrl('FinanceiroAdmin'), icon: DollarSign },
-      { name: 'Tabela de Serviços', href: createPageUrl('TabelaServicos'), icon: Database },
-      { name: 'Logs de Auditoria', href: createPageUrl('LogsAuditoria'), icon: Database },
-      { name: 'Gerenciar Backups', href: createPageUrl('GerenciarBackups'), icon: Database },
-      { name: 'Backup e Restaurar', href: createPageUrl('BackupRestaurer'), icon: Database },
-      { name: 'Usuários', href: createPageUrl('Usuarios'), icon: Users },
-      { name: 'Configurações', href: createPageUrl('Configuracoes'), icon: Settings },
-      { name: 'Suporte', href: createPageUrl('Suporte'), icon: MessageCircle },
-      { name: 'Preferências de Notificação', href: createPageUrl('PreferencesNotificacao'), icon: Bell },
-      { name: 'Sair', href: '#', icon: LogOut, action: () => base44.auth.logout() },
-    ];
-  } else if (currentUser?.tipo_usuario === 'tecnico') {
-    // Técnicos veem apenas o essencial
-    navigation = [
-      { name: 'Dashboard', href: createPageUrl('Dashboard'), icon: LayoutDashboard },
-      { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
-      { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList },
-      { name: 'Meu Financeiro', href: createPageUrl('MeuFinanceiro'), icon: DollarSign },
-      { name: 'Preventivas Futuras', href: createPageUrl('PreventivasFuturas'), icon: ClipboardList },
-      { name: 'Suporte', href: createPageUrl('Suporte'), icon: MessageCircle },
-      { name: 'Preferências de Notificação', href: createPageUrl('PreferencesNotificacao'), icon: Bell },
-      { name: 'Sair', href: '#', icon: LogOut, action: () => base44.auth.logout() },
-    ];
-  } else {
-    // Admins normais veem tudo exceto gerenciar empresas
-    navigation = [
-      { name: 'Dashboard', href: createPageUrl('Dashboard'), icon: LayoutDashboard },
-      { name: 'Clientes', href: createPageUrl('Clientes'), icon: Users },
-      { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
-      { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList },
-      { name: 'Meu Financeiro', href: createPageUrl('MeuFinanceiro'), icon: DollarSign },
-      { name: 'Preventivas Futuras', href: createPageUrl('PreventivasFuturas'), icon: ClipboardList },
-      { name: 'Histórico de Clientes', href: createPageUrl('HistoricoClientes'), icon: BarChart3 },
-      { name: 'Relatórios', href: createPageUrl('Relatorios'), icon: BarChart3 },
-      { name: 'Relatório Comissões', href: createPageUrl('RelatorioComissoes'), icon: DollarSign },
-      { name: 'Financeiro', href: createPageUrl('FinanceiroAdmin'), icon: DollarSign },
-      { name: 'Tabela de Serviços', href: createPageUrl('TabelaServicos'), icon: Database },
-      { name: 'Logs de Auditoria', href: createPageUrl('LogsAuditoria'), icon: Database },
-      { name: 'Gerenciar Backups', href: createPageUrl('GerenciarBackups'), icon: Database },
-      { name: 'Backup e Restaurar', href: createPageUrl('BackupRestaurer'), icon: Database },
-      { name: 'Usuários', href: createPageUrl('Usuarios'), icon: Users },
-      { name: 'Configurações', href: createPageUrl('Configuracoes'), icon: Settings },
-      { name: 'Suporte', href: createPageUrl('Suporte'), icon: MessageCircle },
-      { name: 'Preferências de Notificação', href: createPageUrl('PreferencesNotificacao'), icon: Bell },
-      { name: 'Sair', href: '#', icon: LogOut, action: () => base44.auth.logout() },
-    ];
-  }
+  const baseNavigation = [
+  { name: 'Dashboard', href: createPageUrl('Dashboard'), icon: LayoutDashboard },
+  { name: 'Clientes', href: createPageUrl('Clientes'), icon: Users },
+  { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
+  { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList },
+  { name: 'Meu Financeiro', href: createPageUrl('MeuFinanceiro'), icon: DollarSign }];
+
+
+  const preventivasNavigation = [
+  { name: 'Preventivas Futuras', href: createPageUrl('PreventivasFuturas'), icon: ClipboardList },
+  { name: 'Histórico de Clientes', href: createPageUrl('HistoricoClientes'), icon: BarChart3 }];
+
+
+  const superAdminNavigation = [
+  { name: 'Gerenciar Empresas', href: createPageUrl('GerenciarEmpresas'), icon: Database }];
+
+
+  const adminNavigation = [
+  { name: 'Relatórios', href: createPageUrl('Relatorios'), icon: BarChart3 },
+  { name: 'Financeiro', href: createPageUrl('FinanceiroAdmin'), icon: DollarSign },
+  { name: 'Tabela de Serviços', href: createPageUrl('TabelaServicos'), icon: Database },
+  { name: 'Backup e Restaurar', href: createPageUrl('BackupRestaurer'), icon: Database },
+  { name: 'Usuários', href: createPageUrl('Usuarios'), icon: Users },
+  { name: 'Configurações', href: createPageUrl('Configuracoes'), icon: Settings },
+  { name: 'Suporte', href: createPageUrl('Suporte'), icon: MessageCircle }];
+
+
+  const allUsersNavigation = [
+  { name: 'Preferências de Notificação', href: createPageUrl('PreferencesNotificacao'), icon: Bell },
+  { name: 'Sair', href: '#', icon: LogOut, action: () => base44.auth.logout() }];
+
+
+  const navigation = isSuperAdmin() ?
+  [...superAdminNavigation, ...baseNavigation, ...preventivasNavigation, ...adminNavigation, ...allUsersNavigation] :
+  currentUser?.tipo_usuario === 'tecnico' ?
+  [...baseNavigation, ...preventivasNavigation] :
+  [...baseNavigation, ...preventivasNavigation, ...adminNavigation, ...allUsersNavigation];
 
   const isActive = (href) => {
     return location.pathname === new URL(href, window.location.origin).pathname;

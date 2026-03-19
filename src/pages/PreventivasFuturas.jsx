@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Phone, MapPin, Calendar, MessageCircle, Navigation, Search, Loader2, Clock, Wrench, Share2, Eye, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Phone, MapPin, Calendar, MessageCircle, Navigation, Search, Loader2, Clock, Wrench, Share2, Eye, Plus, Trash2 } from 'lucide-react';
 import { usePermissions } from '../components/auth/PermissionGuard';
 import { 
   Table,
@@ -26,13 +26,10 @@ import { format, differenceInDays, addMonths, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ServicoForm from '../components/servicos/ServicoForm';
 import { Label } from '@/components/ui/label';
-import { TableSkeleton } from '@/components/LoadingSkeleton';
 
 export default function PreventivasFuturasPage() {
   const { isAdmin } = usePermissions();
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(15);
   const [selectedItem, setSelectedItem] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
   const [showServicoForm, setShowServicoForm] = useState(false);
@@ -160,16 +157,6 @@ export default function PreventivasFuturasPage() {
       const daysB = b.status?.days ?? 999;
       return daysA - daysB;
     });
-
-  // Paginação
-  const totalPages = Math.ceil(todosItens.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedItens = todosItens.slice(startIndex, endIndex);
-
-  React.useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
 
   const isLoading = loadingClientes || loadingServicos;
 
@@ -316,40 +303,10 @@ export default function PreventivasFuturasPage() {
       </div>
 
       {isLoading ? (
-        <TableSkeleton rows={10} />
-      ) : (
-        <>
-          {todosItens.length > 0 && (
-            <div className="bg-white rounded-lg p-4 border border-gray-200 flex items-center justify-between">
-              <p className="text-sm text-gray-600">
-                Mostrando <span className="font-medium">{startIndex + 1}</span> a <span className="font-medium">{Math.min(endIndex, todosItens.length)}</span> de <span className="font-medium">{todosItens.length}</span> manutenções
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="border-gray-200"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <span className="text-sm text-gray-600">
-                  Página {currentPage} de {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="border-gray-200"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-          {todosItens.length === 0 ? (
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        </div>
+      ) : todosItens.length === 0 ? (
         <div className="text-center py-12 rounded-xl border-2 border-dashed border-gray-200 bg-white">
           <p className="text-gray-400">
             {searchTerm 
@@ -501,8 +458,6 @@ export default function PreventivasFuturasPage() {
             </Table>
           </div>
         </div>
-          )}
-        </>
       )}
 
       {/* Modal de Detalhes */}

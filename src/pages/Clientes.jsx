@@ -17,9 +17,7 @@ import {
   Users, 
   Filter,
   X,
-  CloudUpload,
-  ChevronLeft,
-  ChevronRight
+  CloudUpload
 } from 'lucide-react';
 
 import ClienteForm from '@/components/clientes/ClienteForm';
@@ -31,20 +29,13 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import { useEmpresa } from '@/components/auth/EmpresaGuard';
-import { TableSkeleton } from '@/components/LoadingSkeleton';
-import NoPermission from '@/components/NoPermission';
-import { useNavigate } from 'react-router-dom';
 
 export default function Clientes() {
   const queryClient = useQueryClient();
   const { hasPermission, isAdmin } = usePermissions();
   const { filterByEmpresa, currentEmpresa } = useEmpresa();
-  const navigate = useNavigate();
   
-  const [user, setUser] = React.useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(20);
   const [formOpen, setFormOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -52,33 +43,12 @@ export default function Clientes() {
   const [historicoOpen, setHistoricoOpen] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState(null);
   const [atendimentoFormOpen, setAtendimentoFormOpen] = useState(false);
-  const [exportandoDrive, setExportandoDrive] = useState(false);
-  
-  React.useEffect(() => {
-    const checkUser = async () => {
-      try {
-        const u = await base44.auth.me();
-        setUser(u);
-        if (u?.role !== 'admin') {
-          navigate('/Dashboard');
-        }
-      } catch {
-        navigate('/Dashboard');
-      }
-    };
-    checkUser();
-  }, [navigate]);
 
   const { data: clientes = [], isLoading } = useQuery({
     queryKey: ['clientes'],
     queryFn: async () => {
       const allClientes = await base44.entities.Cliente.list('-created_date');
-      // Temporariamente retornando todos os clientes para debug
-      console.log('Total de clientes no banco:', allClientes.length);
-      console.log('Empresa atual:', currentEmpresa);
-      const filtered = filterByEmpresa(allClientes);
-      console.log('Clientes após filtro de empresa:', filtered.length);
-      return filtered;
+      return filterByEmpresa(allClientes);
     },
   });
 
@@ -88,26 +58,7 @@ export default function Clientes() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data) => {
-      const cliente = await base44.entities.Cliente.create(data);
-      
-      // Log de auditoria
-      try {
-        const user = await base44.auth.me();
-        await base44.entities.LogAuditoria.create({
-          usuario_email: user.email,
-          usuario_nome: user.full_name,
-          acao: 'criar_cliente',
-          entidade: 'Cliente',
-          entidade_id: cliente.id,
-          dados_depois: JSON.stringify(cliente),
-          observacao: `Cliente ${data.nome} cadastrado`,
-          sucesso: true
-        });
-      } catch {}
-      
-      return cliente;
-    },
+    mutationFn: (data) => base44.entities.Cliente.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
       setFormOpen(false);
@@ -128,25 +79,7 @@ export default function Clientes() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id) => {
-      const cliente = clientes.find(c => c.id === id);
-      await base44.entities.Cliente.delete(id);
-      
-      // Log de auditoria
-      try {
-        const user = await base44.auth.me();
-        await base44.entities.LogAuditoria.create({
-          usuario_email: user.email,
-          usuario_nome: user.full_name,
-          acao: 'excluir_cliente',
-          entidade: 'Cliente',
-          entidade_id: id,
-          dados_antes: JSON.stringify(cliente),
-          observacao: `Cliente ${cliente?.nome} excluído`,
-          sucesso: true
-        });
-      } catch {}
-    },
+    mutationFn: (id) => base44.entities.Cliente.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
       setDeleteDialogOpen(false);
@@ -213,20 +146,11 @@ export default function Clientes() {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setCurrentPage(1);
   };
 
   const hasActiveFilters = searchTerm !== '';
 
-  // Paginação
-  const totalPages = Math.ceil(filteredClientes.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedClientes = filteredClientes.slice(startIndex, endIndex);
-
-  React.useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
+  const [exportandoDrive, setExportandoDrive] = useState(false);
 
   const handleExportarDrive = async () => {
     setExportandoDrive(true);
@@ -246,12 +170,6 @@ export default function Clientes() {
       setExportandoDrive(false);
     }
   };
-  
-  if (!user) {
-    return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div></div>;
-  }
-  
-  if (user.role !== 'admin') return <NoPermission />;
 
   return (
     <div className="space-y-6">
@@ -313,40 +231,8 @@ export default function Clientes() {
       </div>
 
       {isLoading ? (
-        <TableSkeleton rows={8} />
-      ) : (
-        <>
-          {filteredClientes.length > 0 && (
-            <div className="bg-white rounded-lg p-4 border border-gray-200 flex items-center justify-between">
-              <p className="text-sm text-gray-600">
-                Mostrando <span className="font-medium">{startIndex + 1}</span> a <span className="font-medium">{Math.min(endIndex, filteredClientes.length)}</span> de <span className="font-medium">{filteredClientes.length}</span> clientes
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="border-gray-200"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <span className="text-sm text-gray-600">
-                  Página {currentPage} de {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="border-gray-200"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-          {filteredClientes.length === 0 ? (
+        <LoadingSpinner text="Carregando clientes..." />
+      ) : filteredClientes.length === 0 ? (
         <EmptyState 
           title={hasActiveFilters ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado'}
           description={hasActiveFilters 
@@ -357,16 +243,14 @@ export default function Clientes() {
           action={!hasActiveFilters ? () => { setEditingCliente(null); setFormOpen(true); } : null}
           actionLabel="Cadastrar Cliente"
         />
-          ) : (
-            <ClientesTable
-              clientes={paginatedClientes}
+      ) : (
+        <ClientesTable
+          clientes={filteredClientes}
           onEdit={(isAdmin || hasPermission('clientes_editar')) ? handleEdit : undefined}
           onDelete={(isAdmin || hasPermission('clientes_deletar')) ? handleDelete : undefined}
           onViewHistory={handleViewHistory}
           isAdmin={isAdmin}
         />
-          )}
-        </>
       )}
 
       <ClienteForm

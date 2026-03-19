@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,13 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Download, Upload, Database, Loader2, CheckCircle, AlertCircle, FileJson, RefreshCw, Cloud } from 'lucide-react';
+import { Download, Upload, Database, Loader2, CheckCircle, AlertCircle, FileJson, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import NoPermission from '../components/NoPermission';
 import { usePermissions } from '../components/auth/PermissionGuard';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { formatDateTime } from '@/lib/utils/formatters';
 
 // Todas as entidades exportáveis e seus rótulos
 const ENTIDADES = [
@@ -36,25 +34,7 @@ export default function BackupRestaurerPage() {
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(null); // { current, total, label }
   const [importResult, setImportResult] = useState(null);
-  const [selectedBackupId, setSelectedBackupId] = useState(null);
-  const [restoringFromDrive, setRestoringFromDrive] = useState(false);
   const queryClient = useQueryClient();
-
-  // Buscar backups do Google Drive
-  const { data: backups = [] } = useQuery({
-    queryKey: ['backups-drive'],
-    queryFn: () => base44.entities.BackupIncremental.list('-data_backup', 20),
-    enabled: isAdmin,
-  });
-
-  // Verificar se veio de um link direto
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const backupId = urlParams.get('backup_id');
-    if (backupId) {
-      setSelectedBackupId(backupId);
-    }
-  }, []);
 
   // Buscar contagens de todas as entidades
   const queries = ENTIDADES.map(e => {
@@ -112,72 +92,6 @@ export default function BackupRestaurerPage() {
       toast.error('Erro ao exportar backup: ' + error.message);
     } finally {
       setExporting(false);
-    }
-  };
-
-  const handleRestoreFromDrive = async (backupRecord) => {
-    if (!backupRecord?.arquivo_drive_id) {
-      toast.error('Backup inválido');
-      return;
-    }
-
-    setRestoringFromDrive(true);
-    setImportResult(null);
-    const result = {};
-
-    try {
-      toast.info('Baixando backup do Google Drive...');
-      
-      // Buscar arquivo do Drive via backend
-      const response = await fetch(backupRecord.arquivo_drive_url);
-      if (!response.ok) throw new Error('Erro ao baixar backup do Drive');
-      
-      const text = await response.text();
-      const backup = JSON.parse(text);
-
-      if (!backup.data) {
-        throw new Error('Formato de backup inválido');
-      }
-
-      const entidadesParaImportar = ENTIDADES.filter(
-        e => e.entity !== 'User'
-      );
-
-      toast.info('Iniciando restauração...');
-
-      for (let i = 0; i < entidadesParaImportar.length; i++) {
-        const e = entidadesParaImportar[i];
-        setImportProgress({ current: i + 1, total: entidadesParaImportar.length, label: e.label });
-
-        const records = backup.data[e.key];
-        if (!records || records.length === 0) {
-          result[e.label] = 0;
-          continue;
-        }
-
-        const cleaned = records.map(({ id, created_date, updated_date, created_by, ...rest }) => rest);
-
-        const BATCH = 50;
-        let count = 0;
-        for (let j = 0; j < cleaned.length; j += BATCH) {
-          const batch = cleaned.slice(j, j + BATCH);
-          await base44.entities[e.entity].bulkCreate(batch);
-          count += batch.length;
-        }
-        result[e.label] = count;
-      }
-
-      queryClient.invalidateQueries();
-      setImportResult(result);
-      setSelectedBackupId(null);
-
-      const total = Object.values(result).reduce((a, b) => a + b, 0);
-      toast.success(`Backup restaurado com sucesso! ${total} registros importados.`);
-    } catch (error) {
-      toast.error('Erro ao restaurar backup: ' + error.message);
-    } finally {
-      setRestoringFromDrive(false);
-      setImportProgress(null);
     }
   };
 
@@ -314,97 +228,12 @@ export default function BackupRestaurerPage() {
         </CardContent>
       </Card>
 
-      {/* Restaurar do Google Drive */}
-      <Card className="border border-blue-800/40" style={{backgroundColor: '#243447'}}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-white">
-            <Cloud className="w-5 h-5 text-blue-400" />
-            Restaurar do Google Drive
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-blue-300/80">
-            Selecione um backup automático do Google Drive para restaurar.
-          </p>
-          
-          {backups.length === 0 ? (
-            <div className="text-center py-8 text-blue-300/60">
-              Nenhum backup disponível no Google Drive
-            </div>
-          ) : (
-            <div className="border border-blue-800/40 rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow style={{ backgroundColor: '#1e3a8a' }}>
-                    <TableHead className="text-white">Data</TableHead>
-                    <TableHead className="text-white">Registros</TableHead>
-                    <TableHead className="text-white">Status</TableHead>
-                    <TableHead className="text-white">Ação</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {backups.filter(b => b.status === 'sucesso').map((backup) => (
-                    <TableRow 
-                      key={backup.id}
-                      className={selectedBackupId === backup.id ? 'bg-blue-900/40' : 'hover:bg-blue-900/20'}
-                    >
-                      <TableCell className="text-blue-200">
-                        {formatDateTime(backup.data_backup)}
-                      </TableCell>
-                      <TableCell className="text-blue-200">
-                        {backup.total_registros || 0}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className="bg-green-100 text-green-700">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Sucesso
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          onClick={() => handleRestoreFromDrive(backup)}
-                          disabled={restoringFromDrive}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          {restoringFromDrive ? (
-                            <><Loader2 className="w-4 h-4 mr-1 animate-spin" />Restaurando...</>
-                          ) : (
-                            <><RefreshCw className="w-4 h-4 mr-1" />Restaurar</>
-                          )}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-
-          {/* Progresso da restauração do Drive */}
-          {restoringFromDrive && importProgress && (
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm text-blue-200">
-                <span>Restaurando: <strong>{importProgress.label}</strong></span>
-                <span>{importProgress.current}/{importProgress.total}</span>
-              </div>
-              <div className="w-full bg-blue-900/40 rounded-full h-2">
-                <div
-                  className="bg-gradient-to-r from-green-500 to-emerald-400 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
-                />
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Importar Arquivo Local */}
+      {/* Importar */}
       <Card className="border border-blue-800/40" style={{backgroundColor: '#243447'}}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-white">
             <Upload className="w-5 h-5 text-green-400" />
-            Importar Arquivo Local
+            Importar Backup
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">

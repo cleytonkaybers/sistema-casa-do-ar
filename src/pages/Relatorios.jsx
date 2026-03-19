@@ -7,7 +7,6 @@ import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 import NoPermission from '../components/NoPermission';
 import { usePermissions } from '../components/auth/PermissionGuard';
-import { useNavigate } from 'react-router-dom';
 
 const TIPOS_SERVICO = [
   "Limpeza de 9k", "Limpeza de 12k", "Limpeza de 18k", "Limpeza de 22 a 24k",
@@ -52,22 +51,7 @@ const COLORS = ['#06b6d4', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899', '#6b7280'
 
 export default function RelatóriosPage() {
   const { isAdmin } = usePermissions();
-  const navigate = useNavigate();
   const today = new Date();
-  
-  React.useEffect(() => {
-    const checkAdmin = async () => {
-      try {
-        const user = await base44.auth.me();
-        if (user?.role !== 'admin') {
-          navigate('/Dashboard');
-        }
-      } catch {
-        navigate('/Dashboard');
-      }
-    };
-    checkAdmin();
-  }, [navigate]);
 
   const [periodoSelecionado, setPeriodoSelecionado] = useState(0);
   const [customStart, setCustomStart] = useState(format(startOfMonth(today), 'yyyy-MM-dd'));
