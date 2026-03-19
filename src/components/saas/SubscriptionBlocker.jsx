@@ -17,7 +17,13 @@ export function SubscriptionBlocker({ children }) {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
 
-        if (currentUser?.company_id) {
+        // Se o usuário não tem company_id, permitir acesso (sistema legado ou admin)
+        if (!currentUser?.company_id) {
+          setLoading(false);
+          return;
+        }
+
+        try {
           const empresas = await base44.entities.EmpresaSaaS.filter({
             company_id: currentUser.company_id
           });
@@ -43,9 +49,13 @@ export function SubscriptionBlocker({ children }) {
               }
             }
           }
+        } catch (empresaError) {
+          // Se a entidade EmpresaSaaS não existir ou houver erro, permitir acesso
+          console.log('EmpresaSaaS não encontrada - permitindo acesso');
         }
       } catch (error) {
         console.error('Erro ao verificar assinatura:', error);
+        // Em caso de erro, permitir acesso para não bloquear o usuário
       } finally {
         setLoading(false);
       }
