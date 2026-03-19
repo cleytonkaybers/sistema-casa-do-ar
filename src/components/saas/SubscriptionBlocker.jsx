@@ -157,7 +157,7 @@ function SubscriptionBlockedScreen({ empresa }) {
               onClick={() => {
                 localStorage.removeItem('base44_token');
                 sessionStorage.removeItem('base44_token');
-                window.location.replace('/');
+                base44.auth.logout();
               }}
               className="w-full h-12 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors"
             >

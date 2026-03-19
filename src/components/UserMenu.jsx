@@ -48,7 +48,7 @@ export default function UserMenu({ user }) {
               onClick={() => {
                 localStorage.removeItem('base44_token');
                 sessionStorage.removeItem('base44_token');
-                window.location.replace('/');
+                base44.auth.logout();
               }}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-red-300 hover:bg-red-500/20 transition-colors text-sm">
 

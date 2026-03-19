@@ -65,9 +65,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('base44_token');
     sessionStorage.removeItem('base44_token');
-    setUser(null);
-    setIsAuthenticated(false);
-    window.location.replace('/');
+    base44.auth.logout();
   };
 
   const navigateToLogin = () => {

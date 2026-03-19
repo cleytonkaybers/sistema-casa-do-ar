@@ -80,7 +80,7 @@ function LayoutContent({ children }) {
   const handleLogout = () => {
     localStorage.removeItem('base44_token');
     sessionStorage.removeItem('base44_token');
-    window.location.replace('/');
+    base44.auth.logout();
   };
 
   if (isSuperAdmin()) {
