@@ -124,8 +124,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   const navigateToLogin = () => {
+    // Prevent infinite redirect loops by checking current URL
+    const currentUrl = window.location.href;
+    if (currentUrl.includes('/login')) {
+      console.warn('Already on login page, skipping redirect');
+      return;
+    }
     // Use the SDK's redirectToLogin method
-    base44.auth.redirectToLogin(window.location.href);
+    base44.auth.redirectToLogin(window.location.pathname);
   };
 
   return (

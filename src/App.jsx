@@ -46,9 +46,20 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      // Redirect to login automatically
-      navigateToLogin();
-      return null;
+      // Redirect to login automatically - but only once
+      React.useEffect(() => {
+        if (!window.location.href.includes('/login')) {
+          navigateToLogin();
+        }
+      }, []);
+      return (
+        <div className="fixed inset-0 flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Redirecionando para login...</p>
+          </div>
+        </div>
+      );
     }
   }
 
