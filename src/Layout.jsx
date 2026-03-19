@@ -48,20 +48,26 @@ function LayoutContent({ children }) {
 
   React.useEffect(() => {
     const loadData = async () => {
+      const token = localStorage.getItem('base44_token');
+      if (!token) {
+        setUser(null);
+        return;
+      }
+
       try {
         const u = await base44.auth.me();
         setUser(u);
         
-        // Só carregar settings se estiver autenticado
         try {
           const result = await base44.entities.CompanySettings.list();
           if (result.length > 0) setCompanySettings(result[0]);
         } catch (err) {
-          console.log('Erro ao carregar CompanySettings');
+          // Ignorar erro silenciosamente
         }
       } catch (error) {
         setUser(null);
-        console.log('Usuário não autenticado no layout');
+        localStorage.removeItem('base44_token');
+        sessionStorage.removeItem('base44_token');
       }
     };
     
