@@ -42,12 +42,11 @@ function LayoutContent({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const { currentUser, currentEmpresa, isSuperAdmin, isAdminEmpresa } = useEmpresa();
+  const { user } = useAuth();
 
-  const [user, setUser] = useState(null);
   const [companySettings, setCompanySettings] = useState({ company_name: 'Casa do Ar', company_icon: 'Snowflake' });
 
   React.useEffect(() => {
-    base44.auth.me().then((u) => setUser(u)).catch(() => setUser(null));
     base44.entities.CompanySettings.list().then((result) => {
       if (result.length > 0) setCompanySettings(result[0]);
     }).catch(() => {});
