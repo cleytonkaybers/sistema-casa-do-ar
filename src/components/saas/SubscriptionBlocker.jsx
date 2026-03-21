@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { base44 } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext';
 import { AlertCircle, Clock, CreditCard, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
@@ -12,47 +13,11 @@ export function SubscriptionBlocker({ children }) {
   const [bloqueado, setBloqueado] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!authUser) { setLoading(false); return; }
     async function verificarAssinatura() {
       try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-
-        if (currentUser?.company_id) {
-          const empresas = await base44.entities.EmpresaSaaS.filter({
-            company_id: currentUser.company_id
-          });
-
-          if (empresas.length > 0) {
-            const emp = empresas[0];
-            setEmpresa(emp);
-
-            // Verificar se está vencida
-            if (emp.status_assinatura === 'vencida' || emp.bloqueada) {
-              setBloqueado(true);
-            } else if (emp.status_assinatura === 'trial') {
-              // Validar trial
-              const agora = new Date();
-              const fimTrial = new Date(emp.data_fim_trial);
-              if (agora > fimTrial) {
-                // Atualizar para vencida
-                await base44.entities.EmpresaSaaS.update(emp.id, {
-                  status_assinatura: 'vencida'
-                });
-                setBloqueado(true);
-                setEmpresa({...emp, status_assinatura: 'vencida'});
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Erro ao verificar assinatura:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    verificarAssinatura();
-  }, []);
+        if (authUser?.company_id) {
 
   if (loading) {
     return (
