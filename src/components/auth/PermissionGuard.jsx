@@ -1,26 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import React from 'react';
 import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/lib/AuthContext';
 
 export function usePermissions() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoading: loading } = useAuth();
 
-  useEffect(() => {
-    async function loadUser() {
-      try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-      } catch (error) {
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadUser();
-  }, []);
-
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin';  
   
   const hasPermission = (permission) => {
     if (isAdmin) return true;

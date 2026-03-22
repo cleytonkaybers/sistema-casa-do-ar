@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/lib/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -34,6 +35,7 @@ const formatPhone = (phone) => {
 
 export default function Dashboard() {
   const [filtroServicos, setFiltroServicos] = useState('mes');
+  const { user: currentUser } = useAuth();
   
   const { data: clientes = [], isLoading } = useQuery({
     queryKey: ['clientes'],
@@ -53,11 +55,6 @@ export default function Dashboard() {
   const { data: equipes = [] } = useQuery({
     queryKey: ['equipes'],
     queryFn: () => base44.entities.Equipe.list(),
-  });
-
-  const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => base44.auth.me(),
   });
 
   const { data: usuarios = [] } = useQuery({
