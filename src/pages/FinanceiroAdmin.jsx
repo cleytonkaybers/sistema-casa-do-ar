@@ -557,7 +557,11 @@ export default function FinanceiroAdmin() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pagamentos.map(pag => (
+                {pagamentos.filter(pag => {
+                  if (!pag.created_date) return false;
+                  const dataPag = new Date(pag.created_date);
+                  return dataPag >= inicioSemanaAtual && dataPag <= fimSemanaAtual;
+                }).map(pag => (
                   <TableRow key={pag.id}>
                     <TableCell>
                       <div>
