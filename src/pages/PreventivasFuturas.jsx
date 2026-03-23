@@ -50,6 +50,11 @@ export default function PreventivasFuturasPage() {
     queryFn: () => base44.entities.Servico.list('-created_date'),
   });
 
+  const { data: equipes = [] } = useQuery({
+    queryKey: ['equipes'],
+    queryFn: () => base44.entities.Equipe.list(),
+  });
+
   const formatPhone = (phone) => {
     if (!phone) return '';
     const cleaned = phone.replace(/\D/g, '');
@@ -177,17 +182,15 @@ export default function PreventivasFuturasPage() {
     mutationFn: async (servicoData) => {
       const servico = await base44.entities.Servico.create(servicoData);
       
-      // Atualizar cliente com nova data de manutenção (180 dias)
-      const clientes = await base44.entities.Cliente.list();
-      const clienteExistente = clientes.find(c => 
+      // Remover preventiva do cliente (será regenerada ao concluir o serviço)
+      const todosClientes = await base44.entities.Cliente.list();
+      const clienteExistente = todosClientes.find(c => 
         c.telefone?.replace(/\D/g, '') === servicoData.telefone?.replace(/\D/g, '')
       );
       
       if (clienteExistente) {
-        const novaDataManutencao = format(addDays(new Date(), 180), 'yyyy-MM-dd');
         await base44.entities.Cliente.update(clienteExistente.id, {
-          proxima_manutencao: novaDataManutencao,
-          ultima_manutencao: format(new Date(), 'yyyy-MM-dd')
+          proxima_manutencao: null
         });
       }
       
@@ -198,7 +201,7 @@ export default function PreventivasFuturasPage() {
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
       setShowServicoForm(false);
       setSelectedItem(null);
-      toast.success('Serviço agendado e manutenção atualizada!');
+      toast.success('Serviço agendado! Preventiva será gerada ao concluir.');
     },
   });
 
@@ -691,6 +694,8 @@ export default function PreventivasFuturasPage() {
           onSave={handleSaveServico}
           servico={null}
           isLoading={createServicoMutation.isPending}
+          equipes={equipes}
+          isAdmin={true}
           prefilledData={{
             cliente_nome: selectedItem.tipo === 'cliente' ? selectedItem.nome : selectedItem.cliente_nome,
             telefone: selectedItem.telefone,
