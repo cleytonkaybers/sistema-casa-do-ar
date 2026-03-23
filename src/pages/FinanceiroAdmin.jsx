@@ -313,7 +313,10 @@ export default function FinanceiroAdmin() {
          <CardHeader className="flex items-center justify-between">
            <CardTitle>Gestão de Créditos</CardTitle>
            <Button onClick={() => setShowPDFModal(true)} size="sm" className="gap-2">
-         </CardHeader>
+             <Download className="w-4 h-4" />
+             Gerar PDF
+           </Button>
+           </CardHeader>
          <CardContent className="space-y-4">
            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
              <div className="space-y-2">
