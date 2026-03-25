@@ -265,6 +265,46 @@ export default function ServicosPage() {
               detalhes: JSON.stringify(detalhesCompletos),
             });
           }).catch(() => {}),
+
+        // Gerar comissões automaticamente ao concluir
+        (async () => {
+          if (!servicoSnapshot.gerar_comissao || !servicoSnapshot.equipe_id || !servicoSnapshot.valor || servicoSnapshot.comissao_gerada) return;
+          try {
+            const tecnicos = await base44.entities.TecnicoFinanceiro.filter({ equipe_id: servicoSnapshot.equipe_id });
+            if (!tecnicos || tecnicos.length === 0) return;
+            const valorTotal = servicoSnapshot.valor;
+            const valorComissaoTecnico = valorTotal * 0.15;
+            await Promise.all(tecnicos.map(async (tec) => {
+              await base44.entities.LancamentoFinanceiro.create({
+                servico_id: servicoSnapshot.id,
+                equipe_id: servicoSnapshot.equipe_id,
+                equipe_nome: servicoSnapshot.equipe_nome || '',
+                tecnico_id: tec.tecnico_id,
+                tecnico_nome: tec.tecnico_nome,
+                cliente_nome: servicoSnapshot.cliente_nome,
+                tipo_servico: servicoSnapshot.tipo_servico,
+                valor_total_servico: valorTotal,
+                percentual_equipe: 30,
+                valor_comissao_equipe: valorTotal * 0.3,
+                percentual_tecnico: 15,
+                valor_comissao_tecnico: valorComissaoTecnico,
+                status: 'pendente',
+                data_geracao: agora,
+                usuario_geracao: user?.email,
+              });
+              await base44.entities.TecnicoFinanceiro.update(tec.id, {
+                credito_pendente: (tec.credito_pendente || 0) + valorComissaoTecnico,
+                total_ganho: (tec.total_ganho || 0) + valorComissaoTecnico,
+                data_ultima_atualizacao: agora,
+              });
+            }));
+            await base44.entities.Servico.update(servicoSnapshot.id, { comissao_gerada: true });
+            queryClient.invalidateQueries({ queryKey: ['lancamentosFinanceiros'] });
+            queryClient.invalidateQueries({ queryKey: ['tecnicosFinanceiros'] });
+          } catch (e) {
+            console.error('Erro ao gerar comissões:', e);
+          }
+        })(),
       ]).then(() => {
         queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
         queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
