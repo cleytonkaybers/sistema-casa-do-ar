@@ -248,18 +248,22 @@ export default function FinanceiroAdmin() {
     return true;
   });
 
-  // Técnicos que ainda têm crédito pendente real (considerando pagamentos já feitos)
-  const tecnicosComPendente = new Set(
-    filteredTecnicos.filter(t => (t.credito_pendente || 0) > 0).map(t => t.tecnico_id)
-  );
+  // Débitos de semanas anteriores por técnico
+  const tecnicosComDebitoAnterior = tecnicos
+    .filter(t => !filtroEquipe || t.equipe_id === filtroEquipe)
+    .map(t => {
+      const comissoesAnteriores = lancamentos
+        .filter(l => l.tecnico_id === t.tecnico_id && l.data_geracao && new Date(l.data_geracao) < inicioSemanaAtual)
+        .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
-  const pagamentosAtrasados = lancamentos.filter(l => {
-    if (l.status !== 'pendente') return false;
-    if (!tecnicosComPendente.has(l.tecnico_id)) return false;
-    const dataLancamento = new Date(l.data_geracao);
-    const diasPassados = Math.floor((agora - dataLancamento) / (1000 * 60 * 60 * 24));
-    return diasPassados > 7;
-  });
+      const pagamentosAnteriores = pagamentos
+        .filter(p => p.tecnico_id === t.tecnico_id && p.status === 'Confirmado' && p.created_date && new Date(p.created_date) < inicioSemanaAtual)
+        .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
+
+      const debito = Math.max(0, comissoesAnteriores - pagamentosAnteriores);
+      return { ...t, debito_anterior: debito };
+    })
+    .filter(t => t.debito_anterior > 0.01);
 
   // Totais baseados nos valores recalculados da semana
   const totalPendente = filteredTecnicos.reduce((sum, t) => sum + (t.credito_pendente || 0), 0);
@@ -417,28 +421,34 @@ export default function FinanceiroAdmin() {
         </CardContent>
       </Card>
 
-      {pagamentosAtrasados.length > 0 && (
-        <Card className="border-red-200 bg-red-50">
+      {tecnicosComDebitoAnterior.length > 0 && (
+        <Card className="border-orange-200 bg-orange-50">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-700"><AlertCircle className="w-5 h-5" /> Pagamentos em Atraso</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-orange-700"><AlertCircle className="w-5 h-5" /> Débitos de Semanas Anteriores</CardTitle>
           </CardHeader>
           <CardContent>
+            <p className="text-sm text-orange-600 mb-3">Técnicos com saldo não quitado de semanas anteriores:</p>
             <div className="space-y-2">
-              {pagamentosAtrasados.map(pag => {
-                const diasAtraso = Math.floor((agora - new Date(pag.data_geracao)) / (1000 * 60 * 60 * 24));
-                return (
-                  <div key={pag.id} className="flex justify-between items-center p-3 bg-white rounded border border-red-200">
-                    <div>
-                      <p className="font-medium">{pag.tecnico_nome}</p>
-                      <p className="text-sm text-gray-600">{pag.cliente_nome} - {pag.tipo_servico}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-red-600">R$ {pag.valor_comissao_tecnico.toFixed(2)}</p>
-                      <p className="text-xs text-red-500">{diasAtraso} dias em atraso</p>
-                    </div>
+              {tecnicosComDebitoAnterior.map(tec => (
+                <div key={tec.id} className="flex justify-between items-center p-3 bg-white rounded border border-orange-200">
+                  <div>
+                    <p className="font-medium">{tec.tecnico_nome}</p>
+                    <p className="text-xs text-gray-500">{tec.equipe_nome}</p>
                   </div>
-                );
-              })}
+                  <div className="flex items-center gap-3">
+                    <p className="font-bold text-orange-600">R$ {tec.debito_anterior.toFixed(2)}</p>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setTecnicoSelecionado({ ...tec, credito_pendente: tec.debito_anterior });
+                        setShowModalPagamento(true);
+                      }}
+                    >
+                      Pagar
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
