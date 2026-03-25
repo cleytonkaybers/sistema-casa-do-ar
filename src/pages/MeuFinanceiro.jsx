@@ -118,7 +118,7 @@ export default function MeuFinanceiro() {
   });
 
   // Totais semanais
-  const totalPendente = comissoesPendentes.reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
+  const totalPendente = comissoesFiltradas.reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
 
 
 
