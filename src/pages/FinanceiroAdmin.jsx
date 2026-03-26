@@ -463,6 +463,7 @@ export default function FinanceiroAdmin() {
              <Table>
                <TableHeader>
                  <TableRow>
+                   <TableHead>Data/Hora Conclusão</TableHead>
                    <TableHead>Equipe</TableHead>
                    <TableHead>Técnico</TableHead>
                    <TableHead>Cliente</TableHead>
@@ -480,6 +481,14 @@ export default function FinanceiroAdmin() {
                      : 0;
                    return (
                      <TableRow key={lanc.id}>
+                       <TableCell className="text-sm text-gray-600 whitespace-nowrap">
+                         {lanc.data_geracao ? (
+                           <>
+                             <div>{format(parseISO(lanc.data_geracao), 'dd/MM/yyyy', { locale: ptBR })}</div>
+                             <div className="text-xs text-gray-400">{format(parseISO(lanc.data_geracao), 'HH:mm', { locale: ptBR })}</div>
+                           </>
+                         ) : '-'}
+                       </TableCell>
                        <TableCell className="font-medium">{lanc.equipe_nome}</TableCell>
                        <TableCell className="text-sm">{lanc.tecnico_nome}</TableCell>
                        <TableCell className="text-sm">{lanc.cliente_nome}</TableCell>
