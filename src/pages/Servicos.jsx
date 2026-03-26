@@ -407,11 +407,8 @@ export default function ServicosPage() {
       return matchSearch;
     }
 
-    // Serviços agendados/reagendados: mostrar apenas os de hoje em diante
-    if (s.data_programada) {
-      const dataServico = startOfDay(parseISO(s.data_programada));
-      if (isBefore(dataServico, today)) return false;
-    }
+    // Serviços agendados/reagendados: mostrar os de hoje em diante E os em atraso (ainda não concluídos)
+    // Serviços em atraso ficam visíveis até serem concluídos ou reagendados
 
     const matchSearch = s.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                        s.telefone?.includes(searchTerm);

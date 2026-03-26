@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import { Phone, MapPin, Calendar, Pencil, Trash2, MessageCircle, Navigation, Clock, DollarSign, Share2, CreditCard, CheckCircle, Pause, Play, CalendarClock, Eye, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -93,10 +94,22 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
   const statusConfig = getStatusConfig(servico.status || 'aberto');
   const StatusIcon = statusConfig.icon;
 
+  const today = startOfDay(new Date());
+  const diasAtraso = servico.data_programada && servico.status !== 'concluido'
+    ? differenceInDays(today, startOfDay(parseISO(servico.data_programada)))
+    : 0;
+  const isAtrasadoGrave = diasAtraso >= 2;
+
   if (compact) {
     return (
-      <div className="space-y-3">
-        <div className="flex items-start justify-between gap-2">
+      <div className={`space-y-3 ${isAtrasadoGrave ? 'rounded-lg border-2 border-red-400 bg-red-50 p-1' : ''}`}>
+        {isAtrasadoGrave && (
+          <div className="flex items-center gap-1.5 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md mb-1 animate-pulse">
+            <AlertTriangle className="w-3 h-3" />
+            ATRASO DE {diasAtraso} {diasAtraso === 1 ? 'DIA' : 'DIAS'}
+          </div>
+        )}
+      <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <h4 className="font-semibold text-gray-800 break-words">{servico.cliente_nome}</h4>
             <p className="text-xs text-gray-500 mt-0.5">{servico.tipo_servico}</p>
@@ -250,9 +263,19 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
   }
 
   return (
-    <Card className="group hover:shadow-md transition-all duration-300 border border-gray-200 shadow-sm bg-white">
+    <Card className={`group hover:shadow-md transition-all duration-300 shadow-sm ${
+      isAtrasadoGrave
+        ? 'border-2 border-red-500 bg-red-50'
+        : 'border border-gray-200 bg-white'
+    }`}>
       <CardContent className="p-0">
-        <div className="p-4 border-b border-gray-100" style={{background: 'linear-gradient(135deg, #eff6ff, #fefce8)'}}>
+        {isAtrasadoGrave && (
+          <div className="flex items-center gap-2 bg-red-600 text-white text-xs font-bold px-4 py-1.5">
+            <AlertTriangle className="w-4 h-4 animate-pulse" />
+            ⚠ SERVIÇO EM ATRASO — {diasAtraso} {diasAtraso === 1 ? 'DIA' : 'DIAS'} — REQUER ATENÇÃO
+          </div>
+        )}
+        <div className="p-4 border-b border-gray-100" style={{background: isAtrasadoGrave ? 'linear-gradient(135deg, #fef2f2, #fee2e2)' : 'linear-gradient(135deg, #eff6ff, #fefce8)'}}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">
               <h3 className="font-semibold text-lg text-gray-800">{servico.cliente_nome}</h3>
