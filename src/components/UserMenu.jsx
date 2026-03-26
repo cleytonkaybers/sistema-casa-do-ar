@@ -1,10 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { LogOut, User, ChevronDown } from 'lucide-react';
+import { LogOut, User, ChevronDown, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function UserMenu({ user }) {
   const [open, setOpen] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true);
+    }
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setInstallPrompt(null);
+      setIsInstalled(true);
+    }
+    setOpen(false);
+  };
 
   return (
     <div className="relative">
@@ -33,6 +58,14 @@ export default function UserMenu({ user }) {
             </div>
             
             <div className="p-2 space-y-2">
+              {!isInstalled && (
+                <button
+                onClick={handleInstall}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-green-300 hover:bg-green-500/20 transition-colors text-sm">
+                  <Smartphone className="w-4 h-4" />
+                  Instalar App
+                </button>
+              )}
               <button
               onClick={() => {
                 setOpen(false);
