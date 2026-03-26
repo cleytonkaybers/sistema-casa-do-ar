@@ -71,10 +71,11 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
   };
 
   const handleSelectCliente = (cliente) => {
+    const telefoneNormalizado = cliente.telefone ? normalizePhone(cliente.telefone) : '+55 ';
     setFormData(prev => ({
       ...prev,
       cliente_nome: cliente.nome || '',
-      telefone: cliente.telefone || '',
+      telefone: telefoneNormalizado,
       cpf: cliente.cpf || '',
       endereco: cliente.endereco || '',
       latitude: cliente.latitude || null,
@@ -89,7 +90,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
   const [formData, setFormData] = useState({
     cliente_nome: '',
     cpf: '',
-    telefone: '',
+    telefone: '+55 ',
     endereco: '',
     latitude: null,
     longitude: null,
@@ -113,7 +114,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
       setFormData({
         cliente_nome: servico.cliente_nome || '',
         cpf: servico.cpf || '',
-        telefone: servico.telefone || '',
+        telefone: servico.telefone || '+55 ',
         endereco: servico.endereco || '',
         latitude: servico.latitude || null,
         longitude: servico.longitude || null,
@@ -131,7 +132,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
       const novoFormData = {
         cliente_nome: prefilledData.cliente_nome || '',
         cpf: prefilledData.cpf || '',
-        telefone: prefilledData.telefone || '',
+        telefone: prefilledData.telefone ? normalizePhone(prefilledData.telefone) : '+55 ',
         endereco: prefilledData.endereco || '',
         latitude: prefilledData.latitude || null,
         longitude: prefilledData.longitude || null,
@@ -150,7 +151,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
       const novoFormData = {
         cliente_nome: '',
         cpf: '',
-        telefone: '',
+        telefone: '+55 ',
         endereco: '',
         latitude: null,
         longitude: null,
@@ -193,8 +194,22 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
     return formatted;
   };
 
+  const normalizePhone = (value) => {
+    const cleaned = value.replace(/\D/g, '');
+    if (!cleaned) return '+55 ';
+    // Se não começa com 55, adiciona o prefixo
+    const withPrefix = cleaned.startsWith('55') ? cleaned : '55' + cleaned;
+    return formatPhoneInput(withPrefix);
+  };
+
   const handlePhoneChange = (e) => {
-    const formatted = formatPhoneInput(e.target.value);
+    const cleaned = e.target.value.replace(/\D/g, '');
+    if (!cleaned) {
+      setFormData({ ...formData, telefone: '+55 ' });
+      return;
+    }
+    const withPrefix = cleaned.startsWith('55') ? cleaned : '55' + cleaned;
+    const formatted = formatPhoneInput(withPrefix);
     setFormData({ ...formData, telefone: formatted });
   };
 
