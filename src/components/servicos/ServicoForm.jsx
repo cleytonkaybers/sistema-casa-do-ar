@@ -580,9 +580,19 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                     >
                       <Minus className="w-4 h-4" />
                     </Button>
-                    <div className="w-12 text-center font-semibold text-lg">
-                      {item.quantidade}
-                    </div>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={99}
+                      value={item.quantidade}
+                      onChange={(e) => {
+                        const newTipos = [...formData.tipos_servico];
+                        const v = Math.max(1, Math.min(99, parseInt(e.target.value) || 1));
+                        newTipos[index] = { ...newTipos[index], quantidade: v };
+                        setFormData({ ...formData, tipos_servico: newTipos });
+                      }}
+                      className="w-14 text-center font-bold text-base px-1"
+                    />
                     <Button
                       type="button"
                       variant="outline"
@@ -590,11 +600,11 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                       className="h-10 w-10 touch-manipulation"
                       onClick={() => {
                         const newTipos = [...formData.tipos_servico];
-                        const novaQtd = Math.min(10, (parseInt(item.quantidade) || 1) + 1);
+                        const novaQtd = Math.min(99, (parseInt(item.quantidade) || 1) + 1);
                         newTipos[index] = { ...newTipos[index], quantidade: novaQtd };
                         setFormData({ ...formData, tipos_servico: newTipos });
                       }}
-                      disabled={item.quantidade >= 10}
+                      disabled={item.quantidade >= 99}
                     >
                       <Plus className="w-4 h-4" />
                     </Button>
@@ -615,15 +625,26 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                   )}
                 </div>
               ))}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setFormData({ ...formData, tipos_servico: [...formData.tipos_servico, { tipo: 'Limpeza de 9k', quantidade: 1 }] })}
-                className="w-full border-dashed"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Adicionar outro tipo
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setFormData({ ...formData, tipos_servico: [...formData.tipos_servico, { tipo: servicosFiltrados[0] || 'Limpeza de 9k', quantidade: 1 }] })}
+                  className="flex-1 border-dashed"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Adicionar tipo de serviço
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setFormData({ ...formData, tipos_servico: [...formData.tipos_servico, { tipo: 'Outro tipo de serviço', quantidade: 1 }] })}
+                  className="border-dashed text-gray-500"
+                  title="Adicionar serviço personalizado"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </div>
 
