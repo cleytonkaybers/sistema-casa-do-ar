@@ -655,8 +655,8 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
               </button>
             </>
           )}
-          <button onClick={() => onDelete(pag.id)} className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors" title="Excluir">
-            <Trash2 className="w-4 h-4" />
+          <button onClick={() => onDelete(pag.id)} className="p-1.5 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors" title="Excluir">
+            <Trash2 className="w-4 h-4 text-red-500" />
           </button>
           </div>
           </td>
@@ -747,8 +747,8 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
                 <button onClick={() => onHistorico(p)} className="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 border border-gray-200">
                   <History className="w-4 h-4" />
                 </button>
-                <button onClick={() => onDelete(p.id)} className="p-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 border border-gray-200">
-                  <Trash2 className="w-4 h-4" />
+                <button onClick={() => onDelete(p.id)} className="p-2 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 border border-red-200">
+                  <Trash2 className="w-4 h-4 text-red-500" />
                 </button>
                 {!isPago && (
                   <>
