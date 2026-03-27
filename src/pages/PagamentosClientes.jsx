@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import RelatorioClientesPagamentoModal from '@/components/financeiro/RelatorioClientesPagamentoModal';
 import { Button } from '@/components/ui/button';
@@ -686,7 +687,21 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
 }
 
 export default function PagamentosClientes() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Bloquear acesso para não-admins
+  const isAdmin = user?.role === 'admin';
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Acesso Negado</h1>
+          <p className="text-gray-500">Esta página é restrita a administradores.</p>
+        </div>
+      </div>
+    );
+  }
 
   const criandoIds = useRef(new Set());
 
