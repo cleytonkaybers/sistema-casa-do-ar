@@ -253,15 +253,29 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
 
   const removerParcela = (idx) => setParcelas(prev => prev.filter((_, i) => i !== idx));
 
+  const isValidDate = (dateStr) => {
+    try {
+      const date = new Date(dateStr + 'T12:00:00');
+      return !isNaN(date.getTime());
+    } catch {
+      return false;
+    }
+  };
+
   const handleSave = async () => {
     if (!todosPrecosDefinidos) return toast.error('Preços não definidos. Use o botão 🏷️ Preços primeiro.');
+    if (dataPagamentoAgendado && !isValidDate(dataPagamentoAgendado)) return toast.error('Data inválida');
     const v = parseFloat((valorRegistrar || '').replace(',', '.'));
     if (!v || v <= 0) return toast.error('Informe um valor válido');
     if (v > saldo + 0.01) return toast.error(`Valor maior que o saldo (${formatCurrency(saldo)})`);
     setLoading(true);
     const obsCompleta = [metodoPagamento, obs].filter(Boolean).join(' | ');
-    await onSave(pagamento, v, obsCompleta, parcelas, precosGrupo);
+    await onSave(pagamento, v, obsCompleta, parcelas, precosGrupo, dataPagamentoAgendado);
     setLoading(false);
+    setValorRegistrar('');
+    setObs('');
+    setParcelas([]);
+    setDataPagamentoAgendado('');
     onClose();
   };
 
@@ -289,6 +303,12 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
                 <div><p className="text-xs text-gray-400">Saldo</p><p className="font-bold text-red-600 text-sm">{formatCurrency(Math.max(0, saldo))}</p></div>
               </div>
             </div>
+          </div>
+
+          <div>
+            <label className="text-xs sm:text-sm font-medium text-gray-700 mb-1.5 block">📅 Data de Agendamento (opcional)</label>
+            <Input type="date" value={dataPagamentoAgendado} onChange={e => setDataPagamentoAgendado(e.target.value)} className="h-10 text-sm" />
+            {dataPagamentoAgendado && <p className="text-xs text-gray-400 mt-1">Será notificado em {format(new Date(dataPagamentoAgendado + 'T12:00:00'), 'dd/MM/yyyy')}</p>}
           </div>
 
           <div>
@@ -562,14 +582,28 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   const isParcial = pag.status === 'parcial';
   const pct = pag.valor_total > 0 ? Math.min(100, Math.round(((pag.valor_pago || 0) / pag.valor_total) * 100)) : 0;
   const temPrecoDefinido = pag.valor_total > 0;
+  
+  // Verifica se chegou a data de agendamento
+  const dataAgendada = pag.data_pagamento_agendado ? parseISO(pag.data_pagamento_agendado) : null;
+  const hoje = new Date();
+  const chegoDataAgendada = dataAgendada && isAfter(hoje, dataAgendada) && !isPago;
 
   return (
-    <div className={`border rounded-lg transition-all ${expandido ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200 hover:border-gray-300'}`}>
+    <div className={`border rounded-lg transition-all ${
+      chegoDataAgendada 
+        ? 'border-orange-400 bg-orange-50 shadow-md shadow-orange-200' 
+        : expandido 
+        ? 'border-blue-300 bg-blue-50/30' 
+        : 'border-gray-200 hover:border-gray-300'
+    }`}>
       {/* Linha principal compacta */}
       <div onClick={() => setExpandido(!expandido)} className={`flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${expandido ? 'bg-white border-b border-blue-200' : 'hover:bg-gray-50/50'}`}>
         {/* Avatar + Cliente - mobile stacked */}
         <div className="flex items-center gap-2 flex-1 min-w-0 w-full sm:w-auto">
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${isPago ? 'bg-green-500' : isParcial ? 'bg-amber-500' : 'bg-blue-500'}`}>
+          {chegoDataAgendada && <span className="text-lg flex-shrink-0 animate-pulse" title="Data de agendamento chegou!">🔔</span>}
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
+            chegoDataAgendada ? 'bg-orange-500' : isPago ? 'bg-green-500' : isParcial ? 'bg-amber-500' : 'bg-blue-500'
+          }`}>
             {pag.cliente_nome?.charAt(0).toUpperCase() || '?'}
           </div>
           <div className="min-w-0 flex-1">
@@ -858,7 +892,7 @@ function PagamentosClientesContent() {
     setPrecosSyncKey(k => k + 1);
   };
 
-  const handleRegistrarPagamento = async (pag, valor, obs, parcelas = [], precosGrupo = {}) => {
+  const handleRegistrarPagamento = async (pag, valor, obs, parcelas = [], precosGrupo = {}, dataPagamentoAgendado = '') => {
     const records = pag._records?.length > 1 ? pag._records : [pag];
     let remaining = valor;
     const dataStr = format(new Date(), "dd/MM/yyyy HH:mm");
@@ -902,6 +936,7 @@ function PagamentosClientesContent() {
           status: isQuitado ? 'pago' : 'parcial',
           historico_pagamentos: novoHistorico,
           data_pagamento_completo: isQuitado ? new Date().toISOString() : undefined,
+          data_pagamento_agendado: dataPagamentoAgendado || undefined,
         },
       });
     }
