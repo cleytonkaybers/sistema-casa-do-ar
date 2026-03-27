@@ -242,6 +242,11 @@ export default function PagamentosClientes() {
     queryFn: () => base44.entities.Atendimento.list('-data_conclusao'),
   });
 
+  const { data: servicosConcluidos = [] } = useQuery({
+    queryKey: ['servicos-concluidos-pag'],
+    queryFn: () => base44.entities.Servico.filter({ status: 'concluido' }, '-data_conclusao'),
+  });
+
   const { data: pagamentos = [], isLoading } = useQuery({
     queryKey: ['pagamentos-clientes'],
     queryFn: () => base44.entities.PagamentoCliente.list('-data_conclusao'),
@@ -257,12 +262,37 @@ export default function PagamentosClientes() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] }),
   });
 
-  // Sincronizar atendimentos concluídos que ainda não têm registro de pagamento
-  React.useEffect(() => {
-    if (!atendimentos.length || isLoading) return;
-    const idsRegistrados = new Set(pagamentos.map(p => p.atendimento_id));
-    const novos = atendimentos.filter(a => !idsRegistrados.has(a.id));
-    novos.forEach(a => {
+  // Sincronizar apenas serviços/atendimentos DA SEMANA ATUAL que ainda não têm registro de pagamento
+  // Valores são independentes - não sincronizam com outras páginas
+  useEffect(() => {
+    if (isLoading) return;
+    const idsRegistrados = new Set(pagamentos.map(p => p.atendimento_id).filter(Boolean));
+    const servicosIdsRegistrados = new Set(pagamentos.map(p => p.servico_id).filter(Boolean));
+
+    // Atendimentos da semana atual
+    const atendimentosSemana = atendimentos.filter(a => {
+      if (idsRegistrados.has(a.id)) return false;
+      if (!a.data_conclusao && !a.created_date) return false;
+      try {
+        const data = parseISO(a.data_conclusao || a.created_date);
+        return isWithinInterval(data, { start: inicioSemana, end: fimSemana });
+      } catch { return false; }
+    });
+
+    // Serviços concluídos da semana que não vieram de atendimentos
+    const servicosSemana = servicosConcluidos.filter(s => {
+      if (servicosIdsRegistrados.has(s.id)) return false;
+      // Evitar duplicar se já tem atendimento para esse serviço
+      if (atendimentos.some(a => a.servico_id === s.id)) return false;
+      const dataRef = s.data_conclusao || s.updated_date || s.created_date;
+      if (!dataRef) return false;
+      try {
+        const data = parseISO(dataRef);
+        return isWithinInterval(data, { start: inicioSemana, end: fimSemana });
+      } catch { return false; }
+    });
+
+    atendimentosSemana.forEach(a => {
       createMutation.mutate({
         atendimento_id: a.id,
         servico_id: a.servico_id || '',
@@ -277,7 +307,23 @@ export default function PagamentosClientes() {
         historico_pagamentos: [],
       });
     });
-  }, [atendimentos, pagamentos, isLoading]);
+
+    servicosSemana.forEach(s => {
+      createMutation.mutate({
+        atendimento_id: '',
+        servico_id: s.id,
+        cliente_nome: s.cliente_nome || '',
+        telefone: s.telefone || '',
+        tipo_servico: s.tipo_servico || '',
+        data_conclusao: s.data_conclusao || s.updated_date || s.created_date,
+        valor_total: s.valor || 0,
+        valor_pago: 0,
+        status: 'pendente',
+        equipe_nome: s.equipe_nome || '',
+        historico_pagamentos: [],
+      });
+    });
+  }, [atendimentos, servicosConcluidos, pagamentos, isLoading]);
 
   const handleRegistrarPagamento = async (pag, valor, obs) => {
     const novoPago = (pag.valor_pago || 0) + valor;
