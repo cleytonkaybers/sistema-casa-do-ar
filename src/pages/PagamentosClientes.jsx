@@ -390,6 +390,12 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
 
       {/* Serviço */}
       <td className="px-4 py-3">
+        {pag._records?.some(r => r.valor_total === 0) && (
+          <div className="flex items-center gap-1 text-xs text-amber-600 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-2 py-1 mb-1">
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+            Defina o preço do cliente
+          </div>
+        )}
         <p className="text-sm text-gray-700 leading-tight">{pag._tipoResumido || pag.tipo_servico}</p>
         <p className="text-xs text-gray-400 mt-0.5">
           {pag.data_conclusao ? format(parseISO(pag.data_conclusao), "dd/MM/yy HH:mm", { locale: ptBR }) : '-'}
@@ -411,9 +417,11 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
       {/* Valor total */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-1.5">
-          <span className="font-semibold text-gray-800 text-sm">{formatCurrency(pag.valor_total)}</span>
+          <span className={`font-semibold text-sm ${pag.valor_total === 0 ? 'text-amber-500' : 'text-gray-800'}`}>
+            {pag.valor_total === 0 ? 'A definir' : formatCurrency(pag.valor_total)}
+          </span>
           {!isPago && (
-            <button onClick={() => onEditarValor(pag)} className="text-gray-300 hover:text-blue-500 transition-colors" title="Editar valor">
+            <button onClick={() => onEditarValor(pag)} className={`transition-colors ${pag.valor_total === 0 ? 'text-amber-400 hover:text-amber-600' : 'text-gray-300 hover:text-blue-500'}`} title="Definir preço">
               <Pencil className="w-3 h-3" />
             </button>
           )}
@@ -512,6 +520,11 @@ function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete
                 <div>
                   <p className="font-semibold text-gray-800">{p.cliente_nome}</p>
                   <p className="text-xs text-gray-500">{p._tipoResumido || p.tipo_servico}</p>
+                  {p._records?.some(r => r.valor_total === 0) && (
+                    <div className="flex items-center gap-1 text-xs text-amber-600 font-semibold mt-0.5">
+                      <AlertCircle className="w-3 h-3" /> Defina o preço
+                    </div>
+                  )}
                   {p.equipe_nome && <p className="text-xs text-blue-600">👷 {p.equipe_nome}</p>}
                 </div>
                 <div className="text-right">
@@ -649,7 +662,7 @@ export default function PagamentosClientes() {
         telefone: a.telefone || '',
         tipo_servico: a.tipo_servico || '',
         data_conclusao: a.data_conclusao || a.created_date,
-        valor_total: a.valor || 0,
+        valor_total: 0, // preço isolado — admin deve definir manualmente
         valor_pago: 0,
         status: 'pendente',
         equipe_nome: a.equipe_nome || '',
