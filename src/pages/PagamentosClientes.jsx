@@ -1166,6 +1166,11 @@ function PagamentosClientesContent() {
   const totalSemPreco = pagsSemPreco.reduce((s, p) => s + ((p.valor_total || 0) - (p.valor_pago || 0)), 0);
   const totalAgendadosAtrasados = pagsAgendadosAtrasados.reduce((s, p) => s + ((p.valor_total || 0) - (p.valor_pago || 0)), 0);
 
+  // Detectar serviços com preço padrão (1.0) que precisam ajuste
+  const pagsComPrecoDefault = useMemo(() =>
+    pagamentos.filter(p => p.valor_total === 1.0 && p.status !== 'pago' && !TIPOS_IGNORADOS.includes(p.tipo_servico))
+  , [pagamentos]);
+
   // Recebido na semana: todos os pagamentos (incluindo já pagos) dentro da semana
   const todosPagsSemana = useMemo(() => pagamentos.filter(p => {
     if (!p.data_conclusao) return false;
@@ -1252,6 +1257,29 @@ function PagamentosClientesContent() {
           ))}
         </div>
       </div>
+
+      {/* Alerta Global: Preços padrão detectados */}
+      {pagsComPrecoDefault.length > 0 && (
+        <div className="border-2 border-red-400 bg-red-50 rounded-lg p-4 flex items-start gap-3 animate-pulse">
+          <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5 animate-bounce" />
+          <div className="flex-1">
+            <p className="font-bold text-red-800 text-base mb-1">⚠️ {pagsComPrecoDefault.length} serviços com preço padrão detectado!</p>
+            <p className="text-red-700 text-sm mb-2">Os seguintes clientes possuem serviços com preço de R$ 1,00 que precisam ajuste:</p>
+            <div className="flex flex-wrap gap-2">
+              {pagsComPrecoDefault.slice(0, 5).map(p => (
+                <span key={p.id} className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-semibold">
+                  {p.cliente_nome}
+                </span>
+              ))}
+              {pagsComPrecoDefault.length > 5 && (
+                <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-semibold">
+                  +{pagsComPrecoDefault.length - 5} mais
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Aba: Semana Atual */}
       {abaAtiva === 'semana' && (
