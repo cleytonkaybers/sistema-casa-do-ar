@@ -765,7 +765,7 @@ export default function PagamentosClientes() {
     if (isLoading || !atendimentos.length) return;
     const idsRegistrados = new Set(pagamentos.map(p => p.atendimento_id).filter(Boolean));
 
-    const TIPOS_IGNORADOS = ['Ver defeito', 'Outro tipo de serviço'];
+    const TIPOS_IGNORADOS = ['Ver defeito', 'Verificar defeito', 'Outro tipo de serviço'];
 
     const novos = atendimentos.filter(a => {
       if (idsRegistrados.has(a.id)) return false;
