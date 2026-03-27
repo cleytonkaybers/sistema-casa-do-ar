@@ -961,7 +961,7 @@ export default function PagamentosClientes() {
   const pagsFiltrados = useMemo(() =>
     pagamentos.filter(p =>
       (!searchTerm || p.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase())) &&
-      !TIPOS_SEM_COBRANCA.includes(p.tipo_servico)
+      !TIPOS_IGNORADOS.includes(p.tipo_servico)
     )
   , [pagamentos, searchTerm]);
 
