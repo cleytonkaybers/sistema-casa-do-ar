@@ -32,6 +32,18 @@ const getWhatsApp = (phone) => {
 const TIPOS_IGNORADOS = ['Ver defeito', 'Verificar defeito', 'Outro tipo de serviço', 'Serviço avulso'];
 const calcularSaldo = (total, pago) => (total || 0) - (pago || 0);
 
+// Conta ocorrências de cada serviço e retorna string com multiplicadores
+function resumirServicos(records) {
+  const counts = {};
+  records.forEach(r => {
+    const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
+    tipos.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+  });
+  return Object.entries(counts)
+    .map(([tipo, qtd]) => qtd > 1 ? `${tipo} x${qtd}` : tipo)
+    .join(' + ');
+}
+
 // Agrupa pagamentos do mesmo cliente (toda a semana = uma linha)
 function groupPagamentos(lista) {
   const groups = {};
