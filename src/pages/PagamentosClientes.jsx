@@ -551,10 +551,10 @@ function HistoricoModal({ open, onClose, pagamento }) {
 function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco }) {
   const records = pag._records || [pag];
   const saldo = (pag.valor_total || 0) - (pag.valor_pago || 0);
-  const isPago = pag.status === 'pago';
+  const temPrecoDefinido = pag.valor_total > 0.01;
+  const isPago = pag.status === 'pago' && temPrecoDefinido;
   const isParcial = pag.status === 'parcial';
   const pct = pag.valor_total > 0 ? Math.min(100, Math.round(((pag.valor_pago || 0) / pag.valor_total) * 100)) : 0;
-  const temPrecoDefinido = pag.valor_total > 0;
 
   return (
     <tr className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${isPago ? 'bg-green-50/40' : ''}`}>
