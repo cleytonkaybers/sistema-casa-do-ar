@@ -29,18 +29,8 @@ const getWhatsApp = (phone) => {
   const n = phone.replace(/\D/g, '');
   return `https://wa.me/55${n}`;
 };
-
-// Conta ocorrências de cada serviço e retorna string com multiplicadores
-function resumirServicos(records) {
-  const counts = {};
-  records.forEach(r => {
-    const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-    tipos.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
-  });
-  return Object.entries(counts)
-    .map(([tipo, qtd]) => qtd > 1 ? `${tipo} x${qtd}` : tipo)
-    .join(' + ');
-}
+const TIPOS_IGNORADOS = ['Ver defeito', 'Verificar defeito', 'Outro tipo de serviço', 'Serviço avulso'];
+const calcularSaldo = (total, pago) => (total || 0) - (pago || 0);
 
 // Agrupa pagamentos do mesmo cliente (toda a semana = uma linha)
 function groupPagamentos(lista) {
@@ -58,9 +48,7 @@ function groupPagamentos(lista) {
   });
   return Object.values(groups).map(g => {
     const saldo = (g.valor_total || 0) - (g.valor_pago || 0);
-    let status = 'pendente';
-    if (saldo <= 0.01) status = 'pago';
-    else if ((g.valor_pago || 0) > 0) status = 'parcial';
+    const status = saldo <= 0.01 ? 'pago' : (g.valor_pago || 0) > 0 ? 'parcial' : 'pendente';
     return { ...g, status, _tipoResumido: resumirServicos(g._records) };
   });
 }
@@ -550,7 +538,7 @@ function HistoricoModal({ open, onClose, pagamento }) {
 // Linha da tabela
 function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco }) {
   const records = pag._records || [pag];
-  const saldo = (pag.valor_total || 0) - (pag.valor_pago || 0);
+  const saldo = calcularSaldo(pag.valor_total, pag.valor_pago);
   const isPago = pag.status === 'pago';
   const isParcial = pag.status === 'parcial';
   const pct = pag.valor_total > 0 ? Math.min(100, Math.round(((pag.valor_pago || 0) / pag.valor_total) * 100)) : 0;
@@ -835,7 +823,7 @@ export default function PagamentosClientes() {
     if (isLoading || !atendimentos.length) return;
     const idsRegistrados = new Set(pagamentos.map(p => p.atendimento_id).filter(Boolean));
 
-    const TIPOS_IGNORADOS = ['Ver defeito', 'Verificar defeito', 'Outro tipo de serviço', 'Serviço avulso'];
+    // TIPOS_IGNORADOS moved to top-level const
 
     const novos = atendimentos.filter(a => {
       if (idsRegistrados.has(a.id)) return false;
@@ -859,7 +847,7 @@ export default function PagamentosClientes() {
       const debitosAtrasados = pagamentos.filter(p => {
         const pNomeNormalizado = (p.cliente_nome || '').trim().toLowerCase();
         const pTelefoneLimpo = (p.telefone || '').replace(/\D/g, '');
-        const debitoPendente = (p.valor_total || 0) - (p.valor_pago || 0);
+        const debitoPendente = calcularSaldo(p.valor_total, p.valor_pago);
         
         // Verificar se é mesmo cliente e tem débito pendente
         if (pNomeNormalizado !== nomeNormalizado) return false;
@@ -933,7 +921,7 @@ export default function PagamentosClientes() {
 
     for (const rec of recordsAtualizados) {
       if (remaining <= 0.01) break;
-      const recSaldo = (rec.valor_total || 0) - (rec.valor_pago || 0);
+      const recSaldo = calcularSaldo(rec.valor_total, rec.valor_pago);
       if (recSaldo <= 0.01) continue;
       const toPay = Math.min(remaining, recSaldo);
       remaining -= toPay;
@@ -968,7 +956,7 @@ export default function PagamentosClientes() {
     toast.success('Valor atualizado!');
   };
 
-  const TIPOS_SEM_COBRANCA = ['Ver defeito', 'Outro tipo de serviço'];
+  // TIPOS_SEM_COBRANCA is now consolidated with TIPOS_IGNORADOS at top
 
   const pagsFiltrados = useMemo(() =>
     pagamentos.filter(p =>
