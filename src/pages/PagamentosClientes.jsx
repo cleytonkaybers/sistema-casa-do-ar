@@ -844,6 +844,32 @@ export default function PagamentosClientes() {
 
     novos.forEach(a => {
       criandoIds.current.add(a.id); // marca como em criação
+      
+      // Procurar débitos atrasados do mesmo cliente (fora da semana atual)
+      const nomeNormalizado = (a.cliente_nome || '').trim().toLowerCase();
+      const telefoneLimpo = (a.telefone || '').replace(/\D/g, '');
+      
+      const debitosAtrasados = pagamentos.filter(p => {
+        const pNomeNormalizado = (p.cliente_nome || '').trim().toLowerCase();
+        const pTelefoneLimpo = (p.telefone || '').replace(/\D/g, '');
+        const debitoPendente = (p.valor_total || 0) - (p.valor_pago || 0);
+        
+        // Verificar se é mesmo cliente e tem débito pendente
+        if (pNomeNormalizado !== nomeNormalizado) return false;
+        if (telefoneLimpo && pTelefoneLimpo && telefoneLimpo !== pTelefoneLimpo) return false;
+        if (debitoPendente <= 0.01) return false;
+        
+        // Ignorar serviços da semana atual
+        if (p.data_conclusao) {
+          try {
+            if (isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana })) return false;
+          } catch {}
+        }
+        return true;
+      });
+      
+      const debitoTotal = debitosAtrasados.reduce((sum, p) => sum + ((p.valor_total || 0) - (p.valor_pago || 0)), 0);
+      
       createMutation.mutate({
         atendimento_id: a.id,
         servico_id: a.servico_id || '',
@@ -851,11 +877,16 @@ export default function PagamentosClientes() {
         telefone: a.telefone || '',
         tipo_servico: a.tipo_servico || '',
         data_conclusao: a.data_conclusao || a.created_date,
-        valor_total: 0, // preço isolado — admin deve definir manualmente
+        valor_total: debitoTotal > 0 ? debitoTotal : 0,
         valor_pago: 0,
         status: 'pendente',
         equipe_nome: a.equipe_nome || '',
-        historico_pagamentos: [],
+        historico_pagamentos: debitoTotal > 0 ? [{
+          valor: debitoTotal,
+          data: format(new Date(), 'dd/MM/yyyy HH:mm'),
+          observacao: '🔗 Débitos anteriores consolidados',
+          consolidado: true
+        }] : [],
       });
     });
   }, [atendimentos, pagamentos, isLoading]);
