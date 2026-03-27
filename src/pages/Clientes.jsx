@@ -169,14 +169,19 @@ export default function Clientes() {
   const filteredClientes = useMemo(() => {
     if (!searchTerm.trim()) return clientes;
     
-    const searchLower = searchTerm.toLowerCase().trim();
+    const searchTerms = searchTerm.toLowerCase().trim().split(/\s+/).filter(Boolean);
     const searchNumeros = searchTerm.replace(/\D/g, '');
     
     return clientes.filter(cliente => {
       const nomeLower = (cliente.nome || '').toLowerCase();
       const telefoneLimpo = (cliente.telefone || '').replace(/\D/g, '');
       
-      return nomeLower.includes(searchLower) || telefoneLimpo.includes(searchNumeros);
+      // Match se contém a busca completa OU se contém qualquer uma das palavras
+      const matchNome = nomeLower.includes(searchTerm.toLowerCase()) || 
+                        searchTerms.some(term => nomeLower.includes(term));
+      const matchTelefone = telefoneLimpo.includes(searchNumeros);
+      
+      return matchNome || matchTelefone;
     });
   }, [clientes, searchTerm]);
 
