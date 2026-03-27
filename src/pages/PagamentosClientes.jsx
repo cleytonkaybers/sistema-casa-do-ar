@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
+import TechnicianAccessBlock from '@/components/TechnicianAccessBlock';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import RelatorioClientesPagamentoModal from '@/components/financeiro/RelatorioClientesPagamentoModal';
 import { Button } from '@/components/ui/button';
@@ -687,6 +688,14 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
 }
 
 export default function PagamentosClientes() {
+  return (
+    <TechnicianAccessBlock>
+      <PagamentosClientesContent />
+    </TechnicianAccessBlock>
+  );
+}
+
+function PagamentosClientesContent() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 

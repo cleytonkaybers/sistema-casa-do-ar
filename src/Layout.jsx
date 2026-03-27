@@ -81,16 +81,12 @@ function LayoutContent({ children }) {
       { name: 'Preferências de Notificação', href: createPageUrl('PreferencesNotificacao'), icon: Bell },
       { name: 'Sair', href: '#', icon: LogOut, action: () => base44.auth.logout() },
     ];
-  } else if (currentUser?.tipo_usuario === 'tecnico') {
-    // Técnicos veem apenas o essencial
+  } else if (currentUser?.tipo_usuario === 'tecnico' || user?.role === 'user') {
+    // Técnicos veem APENAS Serviços, Atendimentos, Meu Financeiro e Sair
     navigation = [
-      { name: 'Dashboard', href: createPageUrl('Dashboard'), icon: LayoutDashboard },
       { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
       { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList },
       { name: 'Meu Financeiro', href: createPageUrl('MeuFinanceiro'), icon: DollarSign },
-      { name: 'Preventivas Futuras', href: createPageUrl('PreventivasFuturas'), icon: ClipboardList },
-      { name: 'Suporte', href: createPageUrl('Suporte'), icon: MessageCircle },
-      { name: 'Preferências de Notificação', href: createPageUrl('PreferencesNotificacao'), icon: Bell },
       { name: 'Sair', href: '#', icon: LogOut, action: () => base44.auth.logout() },
     ];
   } else {
