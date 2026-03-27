@@ -688,7 +688,7 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
 export default function PagamentosClientes() {
   const queryClient = useQueryClient();
 
-  const criandoIds = React.useRef(new Set());
+  const criandoIds = useRef(new Set());
 
   const [searchTerm, setSearchTerm] = useState('');
   const [pagarModal, setPagarModal] = useState(null);
