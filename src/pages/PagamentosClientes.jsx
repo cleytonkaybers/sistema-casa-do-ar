@@ -70,17 +70,15 @@ function PagamentoModal({ open, onClose, pagamento, onSave }) {
   const [novoValorParcela, setNovoValorParcela] = useState('');
   const [precosGrupo, setPrecosGrupo] = useState({});
 
-  // Agrupa _records por tipo_servico
+  // Agrupa TODOS os serviços individuais (split por '+') de todos os records
   const servicosGrupos = useMemo(() => {
     const records = pagamento?._records || (pagamento ? [pagamento] : []);
-    const groups = {};
+    const counts = {};
     records.forEach(r => {
-      const tipo = r.tipo_servico || 'Sem tipo';
-      if (!groups[tipo]) groups[tipo] = { tipo, qtd: 0, registros: [] };
-      groups[tipo].qtd += 1;
-      groups[tipo].registros.push(r);
+      const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
+      tipos.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
     });
-    return Object.values(groups);
+    return Object.entries(counts).map(([tipo, qtd]) => ({ tipo, qtd }));
   }, [pagamento]);
 
   useEffect(() => {
@@ -89,20 +87,16 @@ function PagamentoModal({ open, onClose, pagamento, onSave }) {
       setParcelas([]);
       setNovaData('');
       setNovoValorParcela('');
-      // Inicializa preços com valor existente dividido por qtd (ou 0 se não definido)
-      const inicial = {};
+      // Inicializa preços: split por '+' em todos os records
       const records = pagamento?._records || (pagamento ? [pagamento] : []);
-      const groups = {};
+      const counts = {};
       records.forEach(r => {
-        const tipo = r.tipo_servico || 'Sem tipo';
-        if (!groups[tipo]) groups[tipo] = { qtd: 0, valorTotal: 0 };
-        groups[tipo].qtd += 1;
-        groups[tipo].valorTotal += r.valor_total || 0;
+        const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
+        tipos.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
       });
-      Object.entries(groups).forEach(([tipo, g]) => {
-        const unitario = g.valorTotal > 0 ? g.valorTotal / g.qtd : 0;
-        inicial[tipo] = String(unitario > 0 ? unitario.toFixed(2) : '');
-      });
+      // Preços sempre zerados — admin define manualmente
+      const inicial = {};
+      Object.keys(counts).forEach(tipo => { inicial[tipo] = ''; });
       setPrecosGrupo(inicial);
     }
   }, [open, pagamento]);
@@ -112,7 +106,7 @@ function PagamentoModal({ open, onClose, pagamento, onSave }) {
     return s + preco * g.qtd;
   }, 0);
 
-  const totalPago = pagamento?._records?.reduce((s, r) => s + (r.valor_pago || 0), 0) || (pagamento?.valor_pago || 0);
+  const totalPago = (pagamento?._records || (pagamento ? [pagamento] : [])).reduce((s, r) => s + (r.valor_pago || 0), 0);
   const saldo = totalDefinido - totalPago;
 
   const totalAgendado = parcelas.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
@@ -762,10 +756,19 @@ export default function PagamentosClientes() {
     let remaining = valor;
     const dataStr = format(new Date(), "dd/MM/yyyy HH:mm");
 
+    // Calcula o valor de cada record baseado nos preços unitários dos serviços
+    const calcularValorRecord = (rec) => {
+      const tipos = (rec.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
+      const total = tipos.reduce((sum, t) => {
+        const preco = parseFloat((precosGrupo[t] || '').replace(',', '.')) || 0;
+        return sum + preco;
+      }, 0);
+      return total > 0 ? total : rec.valor_total;
+    };
+
     // Atualiza preços individuais primeiro
     for (const rec of records) {
-      const tipo = rec.tipo_servico || 'Sem tipo';
-      const novoPreco = parseFloat((precosGrupo[tipo] || '').replace(',', '.')) || 0;
+      const novoPreco = calcularValorRecord(rec);
       if (novoPreco > 0 && novoPreco !== rec.valor_total) {
         await updateMutation.mutateAsync({ id: rec.id, data: { valor_total: novoPreco } });
       }
@@ -773,8 +776,7 @@ export default function PagamentosClientes() {
 
     // Re-calcula saldos com preços atualizados
     const recordsAtualizados = records.map(rec => {
-      const tipo = rec.tipo_servico || 'Sem tipo';
-      const novoPreco = parseFloat((precosGrupo[tipo] || '').replace(',', '.')) || 0;
+      const novoPreco = calcularValorRecord(rec);
       return { ...rec, valor_total: novoPreco > 0 ? novoPreco : rec.valor_total };
     });
 
