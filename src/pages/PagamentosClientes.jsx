@@ -113,7 +113,7 @@ function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], on
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle className="flex items-center gap-2"><Tag className="w-5 h-5 text-blue-600" /> Definir Preços — {pagamento?.cliente_nome}</DialogTitle></DialogHeader>
         <div className="space-y-3 py-2">
           <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Preço unitário por serviço</p>
@@ -267,7 +267,7 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Registrar Pagamento</DialogTitle></DialogHeader>
         <div className="space-y-4 py-2">
           {/* Resumo do cliente */}
@@ -292,29 +292,33 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-1.5 block">Valor a registrar agora (R$)</label>
-            <Input placeholder="0,00" value={valorRegistrar} onChange={e => setValorRegistrar(e.target.value)} className="h-12 text-lg font-semibold" autoFocus />
-            {saldo > 0.01 && (
-              <button onClick={() => setValorRegistrar(saldo.toFixed(2).replace('.', ','))} className="text-xs text-blue-600 mt-1.5 underline">
-                Preencher valor total restante ({formatCurrency(Math.max(0, saldo))})
-              </button>
-            )}
+           <label className="text-xs sm:text-sm font-medium text-gray-700 mb-1.5 block">Valor a registrar (R$)</label>
+           <Input placeholder="0,00" value={valorRegistrar} onChange={e => setValorRegistrar(e.target.value)} className="h-11 sm:h-12 text-base sm:text-lg font-semibold" autoFocus />
+           {saldo > 0.01 && (
+             <button onClick={() => setValorRegistrar(saldo.toFixed(2).replace('.', ','))} className="text-xs text-blue-600 mt-2 underline">
+               Preencher total ({formatCurrency(Math.max(0, saldo))})
+             </button>
+           )}
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-2 block">Método de pagamento</label>
-            <div className="grid grid-cols-2 gap-2">
-              {['PIX', 'Dinheiro', 'Cartão de Crédito', 'Cartão de Débito', 'Máquina de Cartão', 'Transferência'].map(m => (
-                <button key={m} type="button" onClick={() => setMetodoPagamento(prev => prev === m ? '' : m)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
-                    metodoPagamento === m ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
-                  }`}>
-                  <span className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${metodoPagamento === m ? 'border-white bg-white' : 'border-gray-300'}`}>
-                    {metodoPagamento === m && <span className="w-2 h-2 rounded-sm bg-blue-600 block" />}
-                  </span>
-                  {m}
-                </button>
-              ))}
+           <label className="text-xs sm:text-sm font-medium text-gray-700 mb-2 block">Método de pagamento</label>
+           <div className="grid grid-cols-2 gap-1.5">
+             {['PIX', 'Dinheiro', 'Crédito', 'Débito', 'Máquina', 'Transferência'].map(m => {
+               const mapLabel = { 'Crédito': 'Cartão de Crédito', 'Débito': 'Cartão de Débito', 'Máquina': 'Máquina de Cartão' };
+               const fullLabel = mapLabel[m] || m;
+               return (
+                 <button key={m} type="button" onClick={() => setMetodoPagamento(prev => prev === fullLabel ? '' : fullLabel)}
+                   className={`flex items-center gap-2 px-2 sm:px-3 py-2 rounded-lg border text-xs sm:text-sm font-medium transition-all ${
+                     metodoPagamento === fullLabel ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
+                   }`}>
+                   <span className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${metodoPagamento === fullLabel ? 'border-white bg-white' : 'border-gray-300'}`}>
+                     {metodoPagamento === fullLabel && <span className="w-2 h-2 rounded-sm bg-blue-600 block" />}
+                   </span>
+                   {m}
+                 </button>
+               );
+             })}
             </div>
           </div>
 
@@ -379,7 +383,7 @@ function EditarValorModal({ open, onClose, pagamento, onSave }) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-sm w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Editar Valor do Serviço</DialogTitle></DialogHeader>
         <div className="py-3 space-y-3">
           <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">{pagamento?.cliente_nome} — {pagamento?.tipo_servico}</p>
@@ -420,7 +424,7 @@ function DetalhesClienteModal({ open, onClose, pagamento }) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-lg w-[95vw] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Eye className="w-5 h-5 text-blue-600" />
@@ -490,7 +494,7 @@ function HistoricoModal({ open, onClose, pagamento }) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Histórico — {pagamento?.cliente_nome}</DialogTitle></DialogHeader>
         <div className="space-y-4 py-2">
           <p className="text-sm text-gray-500">{pagamento?.tipo_servico}</p>
@@ -1019,55 +1023,55 @@ function PagamentosClientesContent() {
 
   return (
     <div className="space-y-5">
-      {/* Header com resumo - mobile otimizado */}
+      {/* Header com resumo */}
       <div className="rounded-2xl p-4 sm:p-5" style={{ backgroundColor: '#1e3a8a' }}>
         <div className="flex flex-col gap-4">
           <div>
             <h1 className="text-lg sm:text-2xl font-bold text-white">Pagamentos dos Clientes</h1>
-            <p className="text-blue-200/80 text-xs sm:text-sm mt-1 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5" />
-              Semana: {format(inicioSemana, "dd/MM", { locale: ptBR })} – {format(fimSemana, "dd/MM/yyyy", { locale: ptBR })}
+            <p className="text-blue-200/80 text-xs sm:text-sm mt-1 flex items-center gap-1.5 flex-wrap">
+              <Calendar className="w-4 h-4 flex-shrink-0" />
+              <span>Semana: {format(inicioSemana, "dd/MM", { locale: ptBR })} – {format(fimSemana, "dd/MM/yyyy", { locale: ptBR })}</span>
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:gap-3">
-            <div className="bg-white/10 rounded-lg px-2 py-2.5 sm:px-3 text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+            <div className="bg-white/10 rounded-lg px-2 sm:px-3 py-2 text-center">
               <p className="text-white font-bold text-sm sm:text-lg">{formatCurrency(totalMes).replace('R$', '').trim()}</p>
-              <p className="text-blue-200 text-xs">Faturado no Mês</p>
+              <p className="text-blue-200 text-xs">Faturado Mês</p>
             </div>
-            <div className="bg-green-500/20 rounded-lg px-2 py-2.5 sm:px-3 text-center">
+            <div className="bg-green-500/20 rounded-lg px-2 sm:px-3 py-2 text-center">
               <p className="text-green-300 font-bold text-sm sm:text-lg">{formatCurrency(totalPagoMes).replace('R$', '').trim()}</p>
-              <p className="text-blue-200 text-xs">Recebido no Mês</p>
+              <p className="text-blue-200 text-xs">Recebido Mês</p>
             </div>
-            <div className="bg-white/10 rounded-lg px-2 py-2.5 sm:px-3 text-center">
+            <div className="bg-white/10 rounded-lg px-2 sm:px-3 py-2 text-center">
               <p className="text-white font-bold text-sm sm:text-lg">{formatCurrency(totalSemana).replace('R$', '').trim()}</p>
-              <p className="text-blue-200 text-xs">Faturado na Semana</p>
+              <p className="text-blue-200 text-xs">Faturado Sem.</p>
             </div>
-            <div className="bg-green-500/20 rounded-lg px-2 py-2.5 sm:px-3 text-center">
+            <div className="bg-green-500/20 rounded-lg px-2 sm:px-3 py-2 text-center">
               <p className="text-green-300 font-bold text-sm sm:text-lg">{formatCurrency(totalPagoSemana).replace('R$', '').trim()}</p>
-              <p className="text-blue-200 text-xs">Recebido na Semana</p>
+              <p className="text-blue-200 text-xs">Recebido Sem.</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Busca + Abas - mobile otimizado */}
+      {/* Busca + Abas */}
       <div className="flex flex-col gap-3">
-        <div className="relative">
+        <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input placeholder="Buscar cliente..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9 h-10 bg-white border-gray-200 text-sm" />
+          <Input placeholder="Buscar cliente..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9 h-10 bg-white border-gray-200 w-full" />
           {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-4 h-4 text-gray-400" /></button>}
         </div>
         <Button onClick={() => setAbrirRelatorio(true)} variant="outline" className="gap-2 w-full sm:w-auto">
           📄 Gerar PDF
         </Button>
-        <div className="flex gap-2 border border-gray-200 rounded-xl overflow-x-auto bg-white shadow-sm">
+        <div className="flex border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
           {abas.map(a => (
             <button key={a.key} onClick={() => setAbaAtiva(a.key)}
-              className={`flex-1 px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1 transition-colors whitespace-nowrap ${abaAtiva === a.key ? 'text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+              className={`flex-1 px-2 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1 sm:gap-2 transition-colors ${abaAtiva === a.key ? 'text-white' : 'text-gray-500 hover:bg-gray-50'}`}
               style={abaAtiva === a.key ? { backgroundColor: '#1e3a8a' } : {}}>
-              {a.label}
+              <span className="truncate">{a.label}</span>
               {a.count !== null && (
-                <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${abaAtiva === a.key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                <span className={`text-xs px-1 sm:px-1.5 py-0.5 rounded-full font-bold flex-shrink-0 ${abaAtiva === a.key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>
                   {a.count}
                 </span>
               )}
@@ -1144,9 +1148,9 @@ function PagamentosClientesContent() {
             <div className="flex items-center gap-2 text-gray-700 font-semibold mb-3">
               <Filter className="w-4 h-4 text-blue-600" /> Filtros
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="flex flex-col gap-3">
               <Select value={relFiltro} onValueChange={setRelFiltro}>
-                <SelectTrigger className="h-10 bg-white"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-10 bg-white w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="semana">Semana Atual</SelectItem>
                   <SelectItem value="mes">Mês Atual</SelectItem>
@@ -1156,30 +1160,30 @@ function PagamentosClientesContent() {
               </Select>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input placeholder="Filtrar por cliente..." value={relCliente} onChange={e => setRelCliente(e.target.value)} className="pl-9 h-10 bg-white" />
+                <Input placeholder="Filtrar cliente..." value={relCliente} onChange={e => setRelCliente(e.target.value)} className="pl-9 h-10 bg-white w-full" />
               </div>
             </div>
             {relFiltro === 'personalizado' && (
-              <div className="grid grid-cols-2 gap-3 mt-3">
-                <div><label className="text-xs text-gray-500 mb-1 block">Data início</label><Input type="date" value={relDataInicio} onChange={e => setRelDataInicio(e.target.value)} className="h-10" /></div>
-                <div><label className="text-xs text-gray-500 mb-1 block">Data fim</label><Input type="date" value={relDataFim} onChange={e => setRelDataFim(e.target.value)} className="h-10" /></div>
+              <div className="flex flex-col gap-3 mt-3">
+                <div><label className="text-xs text-gray-500 mb-1 block">Data início</label><Input type="date" value={relDataInicio} onChange={e => setRelDataInicio(e.target.value)} className="h-10 w-full" /></div>
+                <div><label className="text-xs text-gray-500 mb-1 block">Data fim</label><Input type="date" value={relDataFim} onChange={e => setRelDataFim(e.target.value)} className="h-10 w-full" /></div>
               </div>
             )}
           </div>
 
-          {/* Resumo - mobile otimizado */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-           {[
-             { label: 'Total Faturado', value: totalRel, color: 'border-gray-200 bg-white text-gray-800' },
-             { label: 'Total Recebido', value: totalPagoRel, color: 'border-green-200 bg-green-50 text-green-700' },
-             { label: 'Total em Débito', value: totalRel - totalPagoRel, color: 'border-red-200 bg-red-50 text-red-700' },
-           ].map(item => (
-             <div key={item.label} className={`rounded-lg sm:rounded-xl border p-3 sm:p-4 text-center ${item.color}`}>
-               <p className="text-xs text-gray-500 mb-1">{item.label}</p>
-               <p className="font-bold text-sm sm:text-base">{formatCurrency(item.value)}</p>
-               <p className="text-xs text-gray-400 mt-0.5">{pagsRelatorio.length} registros</p>
-             </div>
-           ))}
+          {/* Resumo */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {[
+              { label: 'Faturado', value: totalRel, color: 'border-gray-200 bg-white text-gray-800' },
+              { label: 'Recebido', value: totalPagoRel, color: 'border-green-200 bg-green-50 text-green-700' },
+              { label: 'Débito', value: totalRel - totalPagoRel, color: 'border-red-200 bg-red-50 text-red-700' },
+            ].map(item => (
+              <div key={item.label} className={`rounded-lg border p-3 text-center ${item.color}`}>
+                <p className="text-xs text-gray-500 mb-0.5">{item.label}</p>
+                <p className="font-bold text-sm">{formatCurrency(item.value)}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{pagsRelatorio.length} reg</p>
+              </div>
+            ))}
           </div>
 
           <TabelaPagamentos
