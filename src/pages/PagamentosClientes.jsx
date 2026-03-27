@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import CompromissoClientePDF from '@/components/financeiro/CompromissoClientePDF';
 import {
@@ -178,6 +178,7 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
   const [novaData, setNovaData] = useState('');
   const [novoValorParcela, setNovoValorParcela] = useState('');
   const [valorRegistrar, setValorRegistrar] = useState('');
+  const [dataPagamentoAgendado, setDataPagamentoAgendado] = useState('');
   // Preços salvos (somente leitura neste modal)
   const [precosGrupo, setPrecosGrupo] = useState({});
 
@@ -694,6 +695,17 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
           {pag._records && pag._records.length > 1 && (
             <div className="text-xs text-gray-600">
               <span className="font-medium">Serviços: {pag._records.length} registros</span>
+            </div>
+          )}
+          {chegoDataAgendada && (
+            <div className="flex items-center gap-2 text-xs text-orange-700 bg-orange-100 border border-orange-300 rounded px-3 py-2 font-semibold">
+              <span>🔔 COBRAR HOJE! ({format(dataAgendada, 'dd/MM/yyyy')})</span>
+            </div>
+          )}
+          {pag.data_pagamento_agendado && !chegoDataAgendada && (
+            <div className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-3 py-2">
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Agendado para: {format(dataAgendada, 'dd/MM/yyyy')}</span>
             </div>
           )}
           {!isPago && temPrecoDefinido && (
