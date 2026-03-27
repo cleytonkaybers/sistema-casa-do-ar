@@ -1320,29 +1320,7 @@ function PagamentosClientesContent() {
             </div>
           )}
 
-          {/* SEÇÃO 4: Serviços pagos da semana */}
-          {pagsPagos.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  Pagos desta Semana
-                </h2>
-                <span className="text-sm font-semibold text-green-600">{pagsPagos.length} pagos</span>
-              </div>
-              <TabelaPagamentos
-                lista={pagsPagos}
-                onPagar={setPagarModal}
-                onDefinirPreco={setPrecosModal}
-                onEditarValor={setEditarModal}
-                onHistorico={setHistoricoModal}
-                onDetalhes={setDetalhesModal}
-                onAgendarData={setAgendarDataModal}
-                onDelete={(id) => deleteMutation.mutate(id)}
-                emptyMsg="Nenhum serviço pago esta semana"
-              />
-            </div>
-          )}
+          {/* SEÇÃO 4: Serviços pagos não aparecem aqui - apenas no histórico/relatório */}
         </div>
       )}
 
