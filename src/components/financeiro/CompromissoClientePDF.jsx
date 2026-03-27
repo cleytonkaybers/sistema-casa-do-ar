@@ -32,7 +32,7 @@ export default function CompromissoClientePDF({ isOpen, onClose, pagamento = nul
       // Cabeçalho com logo/marca
       doc.setFontSize(16);
       doc.setTextColor(30, 58, 138);
-      doc.text('COMPROMISSO DE PAGAMENTO', margin, yPos);
+      doc.text('RECIBO DE QUITAÇÃO', margin, yPos);
       yPos += 8;
 
       doc.setDrawColor(30, 58, 138);
@@ -50,31 +50,51 @@ export default function CompromissoClientePDF({ isOpen, onClose, pagamento = nul
       doc.text(`Data do Documento: ${new Date().toLocaleDateString('pt-BR')}`, margin, yPos);
       yPos += 10;
 
-      // Seção de serviços
+      // Seção de serviços - Agrupar serviços iguais
       doc.setFontSize(12);
       doc.setTextColor(30, 58, 138);
       doc.text('SERVIÇOS REALIZADOS', margin, yPos);
       yPos += 6;
 
+      // Agrupar e contar serviços
+      const servicosAgrupados = {};
+      records.forEach(r => {
+        const chave = r.tipo_servico;
+        if (!servicosAgrupados[chave]) {
+          servicosAgrupados[chave] = { tipo: r.tipo_servico, quantidade: 0, valor_unitario: r.valor_total || 0, equipe: r.equipe_nome };
+        }
+        servicosAgrupados[chave].quantidade += 1;
+      });
+
       doc.setFontSize(9);
       doc.setTextColor(0, 0, 0);
-      records.forEach((r, idx) => {
+      let servicoIdx = 1;
+      Object.values(servicosAgrupados).forEach((srv) => {
         if (yPos > pageHeight - 40) {
           doc.addPage();
           yPos = margin;
         }
-        const dataFormatada = r.data_conclusao ? new Date(r.data_conclusao).toLocaleDateString('pt-BR') : '—';
-        doc.text(`${idx + 1}. ${r.tipo_servico} — ${dataFormatada}`, margin + 2, yPos);
+        const totalServiço = srv.valor_unitario * srv.quantidade;
+        doc.text(`${servicoIdx}. ${srv.tipo}`, margin + 2, yPos);
         yPos += 5;
-        if (r.equipe_nome) {
-          doc.setTextColor(100, 100, 100);
-          doc.text(`    Equipe: ${r.equipe_nome}`, margin + 2, yPos);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`    Quantidade: ${srv.quantidade}x | Valor Unitário: ${formatCurrency(srv.valor_unitario)} | Subtotal: ${formatCurrency(totalServiço)}`, margin + 2, yPos);
+        yPos += 4;
+        if (srv.equipe) {
+          doc.text(`    Equipe: ${srv.equipe}`, margin + 2, yPos);
           yPos += 4;
-          doc.setTextColor(0, 0, 0);
         }
-        doc.text(`    Valor: ${formatCurrency(r.valor_total || 0)}`, margin + 2, yPos);
-        yPos += 6;
+        doc.setTextColor(0, 0, 0);
+        yPos += 2;
+        servicoIdx += 1;
       });
+
+      // Linha de total de serviços
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(30, 58, 138);
+      doc.text(`Valor Total dos Serviços: ${formatCurrency(totalValor)}`, margin + 2, yPos);
+      doc.setFont(undefined, 'normal');
+      yPos += 6;
 
       yPos += 4;
 
@@ -93,10 +113,11 @@ export default function CompromissoClientePDF({ isOpen, onClose, pagamento = nul
 
       resumoLinhas.forEach(linha => {
         doc.setTextColor(0, 0, 0);
-        if (linha.destaque && saldoRestante > 0.01) {
+        // Destacar pendente em vermelho apenas se houver saldo
+        if (linha.label === 'Saldo Pendente' && saldoRestante > 0.01) {
           doc.setTextColor(200, 0, 0);
           doc.setFont(undefined, 'bold');
-        } else if (linha.destaque) {
+        } else if (linha.label === 'Total Pago' && totalPago > 0.01) {
           doc.setFont(undefined, 'bold');
         }
         doc.text(`${linha.label}:`, margin, yPos);
