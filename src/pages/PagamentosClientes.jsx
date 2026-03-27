@@ -1056,9 +1056,9 @@ function PagamentosClientesContent() {
     )
   , [pagamentos, searchTerm]);
 
-  // 1. TODOS os serviços da semana (pendentes, parciais, agendados, pagos)
+  // 1. TODOS os serviços da semana (pendentes, agendados, parciais, pagos)
   const pagsSemana = useMemo(() => {
-    const statusOrder = { 'pendente': 0, 'agendado': 1, 'pago': 2, 'parcial': 1.5 };
+    const statusOrder = { 'pendente': 0, 'agendado': 1, 'parcial': 2, 'pago': 3 };
     const filtrados = pagsFiltrados
       .filter(p => {
         if (!p.data_conclusao) return false;
