@@ -712,8 +712,9 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
                  Preço
                </button>
                {pag.telefone && (
-                 <a href={getWhatsApp(pag.telefone)} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded bg-green-100 hover:bg-green-200 text-green-600 hover:text-green-700 flex-shrink-0" title="WhatsApp">
+                 <a href={getWhatsApp(pag.telefone)} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold text-xs flex items-center gap-1.5 flex-shrink-0 shadow-md hover:shadow-lg transition-all flex-shrink-0" title="WhatsApp" rel="noopener noreferrer">
                    <MessageCircle className="w-4 h-4" />
+                   <span className="hidden sm:inline">WhatsApp</span>
                  </a>
                )}
                <button onClick={() => onAgendarData(pag)} className="px-2 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded font-semibold whitespace-nowrap flex items-center gap-1">
