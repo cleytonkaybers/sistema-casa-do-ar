@@ -547,8 +547,9 @@ function HistoricoModal({ open, onClose, pagamento }) {
   );
 }
 
-// Linha da tabela
+// Card compacto estilo tabela com expansão
 function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco }) {
+  const [expandido, setExpandido] = useState(false);
   const records = pag._records || [pag];
   const saldo = calcularSaldo(pag.valor_total, pag.valor_pago);
   const isPago = pag.status === 'pago';
@@ -557,218 +558,131 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   const temPrecoDefinido = pag.valor_total > 0;
 
   return (
-    <tr className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${isPago ? 'bg-green-50/40' : ''}`}>
-      {/* Cliente */}
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-3">
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0 ${isPago ? 'bg-green-500' : isParcial ? 'bg-amber-500' : 'bg-blue-500'}`}>
+    <div className={`border rounded-lg transition-all ${expandido ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200 hover:border-gray-300'}`}>
+      {/* Linha principal compacta */}
+      <div onClick={() => setExpandido(!expandido)} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${expandido ? 'bg-white border-b border-blue-200' : 'hover:bg-gray-50/50'}`}>
+        {/* Avatar + Cliente */}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${isPago ? 'bg-green-500' : isParcial ? 'bg-amber-500' : 'bg-blue-500'}`}>
             {pag.cliente_nome?.charAt(0).toUpperCase() || '?'}
           </div>
-          <div>
-            <p className="font-semibold text-gray-800 text-sm leading-tight">{pag.cliente_nome}</p>
-            {pag.equipe_nome && <p className="text-xs text-blue-600">👷 {pag.equipe_nome}</p>}
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-sm text-gray-800 truncate">{pag.cliente_nome}</p>
+            <p className="text-xs text-gray-500 truncate">{pag._tipoResumido || pag.tipo_servico}</p>
           </div>
         </div>
-      </td>
 
-      {/* Serviço */}
-      <td className="px-4 py-3">
-        {pag._records?.some(r => r.valor_total === 0) && (
-          <div className="flex items-center gap-1 text-xs text-amber-600 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-2 py-1 mb-1">
-            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-            Defina o preço do cliente
-          </div>
-        )}
-        <p className="text-sm text-gray-700 leading-tight">{pag._tipoResumido || pag.tipo_servico}</p>
-        <p className="text-xs text-gray-400 mt-0.5">
-          {pag.data_conclusao ? format(parseISO(pag.data_conclusao), "dd/MM/yy HH:mm", { locale: ptBR }) : '-'}
-        </p>
-      </td>
-
-      {/* WhatsApp */}
-      <td className="px-4 py-3">
-        {pag.telefone ? (
-          <a href={getWhatsApp(pag.telefone)} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors">
-            <MessageCircle className="w-3.5 h-3.5" />
-            <span className="hidden xl:inline">{formatPhone(pag.telefone)}</span>
-            <span className="xl:hidden">WhatsApp</span>
-          </a>
-        ) : <span className="text-xs text-gray-400">—</span>}
-      </td>
-
-      {/* Valor total */}
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-1.5">
-          <span className={`font-semibold text-sm ${pag.valor_total === 0 ? 'text-amber-500' : 'text-gray-800'}`}>
-            {pag.valor_total === 0 ? 'A definir' : formatCurrency(pag.valor_total)}
-          </span>
-          {!isPago && (
-            <button onClick={() => onEditarValor(pag)} className={`transition-colors ${pag.valor_total === 0 ? 'text-amber-400 hover:text-amber-600' : 'text-gray-300 hover:text-blue-500'}`} title="Definir preço">
-              <Pencil className="w-3 h-3" />
-            </button>
-          )}
+        {/* Valor */}
+        <div className="text-right flex-shrink-0">
+          <p className={`font-semibold text-sm ${pag.valor_total === 0 ? 'text-amber-500' : 'text-gray-800'}`}>
+            {pag.valor_total === 0 ? 'A def.' : formatCurrency(pag.valor_total).replace('R$', '').trim()}
+          </p>
         </div>
-      </td>
 
-      {/* Status / Progresso */}
-      <td className="px-4 py-3">
-        <div className="space-y-1.5 min-w-[110px]">
-          <div className="flex items-center justify-between">
-            {isPago
-              ? <Badge className="bg-green-100 text-green-700 border border-green-200 text-xs px-2">✓ Pago</Badge>
-              : isParcial
-              ? <Badge className="bg-amber-100 text-amber-700 border border-amber-200 text-xs px-2">Parcial</Badge>
-              : temPrecoDefinido ? <Badge className="bg-red-100 text-red-700 border border-red-200 text-xs px-2">Pendente</Badge> : <Badge className="bg-yellow-100 text-yellow-700 border border-yellow-200 text-xs px-2">Sem preço</Badge>
-            }
-            <span className="text-xs text-gray-400">{pct}%</span>
-          </div>
+        {/* Status badge */}
+        <div className="flex-shrink-0">
+          {isPago
+            ? <Badge className="bg-green-100 text-green-700 border border-green-200 text-xs">✓ Pago</Badge>
+            : isParcial
+            ? <Badge className="bg-amber-100 text-amber-700 border border-amber-200 text-xs">Parcial</Badge>
+            : temPrecoDefinido ? <Badge className="bg-red-100 text-red-700 border border-red-200 text-xs">Pendente</Badge> : <Badge className="bg-yellow-100 text-yellow-700 border border-yellow-200 text-xs">Sem preço</Badge>
+          }
+        </div>
+
+        {/* Progresso */}
+        <div className="w-16 flex-shrink-0">
           <div className="w-full bg-gray-200 rounded-full h-1.5">
             <div className={`h-1.5 rounded-full transition-all ${isPago ? 'bg-green-500' : isParcial ? 'bg-amber-500' : 'bg-red-400'}`}
               style={{ width: `${pct}%` }} />
           </div>
-          {!isPago && temPrecoDefinido && <p className="text-xs text-red-600 font-semibold">Deve: {formatCurrency(saldo)}</p>}
-          {!isPago && !temPrecoDefinido && <p className="text-xs text-yellow-600 font-semibold">Defina o preço primeiro</p>}
+          <p className="text-xs text-gray-400 text-right mt-0.5">{pct}%</p>
         </div>
-      </td>
 
-      {/* Ações */}
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <button onClick={() => onDetalhes(pag)} className="p-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors" title="Ver detalhes">
+        {/* Botões ação compactos */}
+        <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+          <button onClick={() => onDetalhes(pag)} className="p-1.5 rounded text-gray-400 hover:text-purple-600 hover:bg-purple-50" title="Detalhes">
             <Eye className="w-4 h-4" />
           </button>
-          <button onClick={() => onHistorico(pag)} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Histórico">
+          <button onClick={() => onHistorico(pag)} className="p-1.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Histórico">
             <History className="w-4 h-4" />
           </button>
           {!isPago && (
             <>
-              <button onClick={() => onDefinirPreco(pag)}
-                className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors">
-                <Tag className="w-3.5 h-3.5" />
+              <button onClick={() => onDefinirPreco(pag)} className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold">
                 Preço
               </button>
-              <button onClick={() => onPagar(pag)}
-                className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors">
-                <DollarSign className="w-3.5 h-3.5" />
+              <button onClick={() => onPagar(pag)} className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded font-semibold">
                 Pagar
               </button>
             </>
           )}
-          <button onClick={() => onDelete(pag.id)} className="p-1.5 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors" title="Excluir">
-            <Trash2 className="w-4 h-4 text-red-500" />
+          <button onClick={() => onDelete(pag.id)} className="p-1.5 rounded text-red-500 hover:bg-red-50" title="Excluir">
+            <Trash2 className="w-4 h-4" />
           </button>
+        </div>
+      </div>
+
+      {/* Painel expandível com detalhes */}
+      {expandido && (
+        <div className="px-4 py-3 bg-white border-t border-blue-200 space-y-3">
+          {/* Detalhes do cliente */}
+          {pag.telefone && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Contato:</span>
+              <a href={getWhatsApp(pag.telefone)} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:text-green-700 font-medium flex items-center gap-1">
+                <MessageCircle className="w-3.5 h-3.5" />
+                {formatPhone(pag.telefone)}
+              </a>
+            </div>
+          )}
+          {pag.equipe_nome && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Equipe:</span>
+              <span className="text-gray-800 font-medium">👷 {pag.equipe_nome}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600">Data:</span>
+            <span className="text-gray-800 font-medium">
+              {pag.data_conclusao ? format(parseISO(pag.data_conclusao), "dd/MM/yyyy HH:mm", { locale: ptBR }) : '-'}
+            </span>
           </div>
-          </td>
-          </tr>
-      );
+          {pag._records && pag._records.length > 1 && (
+            <div className="text-sm text-gray-600">
+              <span className="font-medium">Serviços: {pag._records.length} registros</span>
+            </div>
+          )}
+          {!isPago && temPrecoDefinido && (
+            <div className="flex items-center justify-between text-sm bg-red-50 border border-red-200 rounded px-3 py-2">
+              <span className="text-red-700 font-semibold">Saldo devido:</span>
+              <span className="text-red-700 font-bold text-base">{formatCurrency(saldo)}</span>
+            </div>
+          )}
+          {pag._records?.some(r => r.valor_total === 0) && (
+            <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>Defina o preço para registrar pagamento</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
       }
 
       function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, emptyMsg }) {
-      return (
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-      {/* Desktop table */}
-      <div className="hidden md:block overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr style={{ backgroundColor: '#1e3a8a' }}>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Cliente</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Serviço / Data</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Contato</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Valor</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Status</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lista.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-14 text-gray-400">
-                <Clock className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">{emptyMsg}</p>
-              </td></tr>
-            ) : lista.map(p => (
-              <LinhaTabela key={p.id} pag={p} onPagar={onPagar} onEditarValor={onEditarValor} onHistorico={onHistorico} onDelete={onDelete} onDetalhes={onDetalhes} onDefinirPreco={onDefinirPreco} />
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Mobile cards */}
-      <div className="md:hidden divide-y divide-gray-100">
-        {lista.length === 0 ? (
-          <div className="text-center py-14 text-gray-400">
-            <Clock className="w-10 h-10 mx-auto mb-2 opacity-30" />
-            <p className="text-sm">{emptyMsg}</p>
-          </div>
-        ) : lista.map(p => {
-          const saldo = (p.valor_total || 0) - (p.valor_pago || 0);
-          const isPago = p.status === 'pago';
-          const isParcial = p.status === 'parcial';
-          const pct = p.valor_total > 0 ? Math.min(100, Math.round(((p.valor_pago || 0) / p.valor_total) * 100)) : 0;
-          return (
-            <div key={p.id} className={`p-4 ${isPago ? 'bg-green-50/30' : ''}`}>
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div>
-                  <p className="font-semibold text-gray-800">{p.cliente_nome}</p>
-                  <p className="text-xs text-gray-500">{p._tipoResumido || p.tipo_servico}</p>
-                  {p._records?.some(r => r.valor_total === 0) && (
-                    <div className="flex items-center gap-1 text-xs text-amber-600 font-semibold mt-0.5">
-                      <AlertCircle className="w-3 h-3" /> Defina o preço
-                    </div>
-                  )}
-                  {p.equipe_nome && <p className="text-xs text-blue-600">👷 {p.equipe_nome}</p>}
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-gray-800">{formatCurrency(p.valor_total)}</p>
-                  {!isPago && <p className="text-xs text-red-600 font-semibold">Deve: {formatCurrency(saldo)}</p>}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="flex-1 bg-gray-200 rounded-full h-1.5">
-                  <div className={`h-1.5 rounded-full ${isPago ? 'bg-green-500' : isParcial ? 'bg-amber-500' : 'bg-red-400'}`} style={{ width: `${pct}%` }} />
-                </div>
-                {isPago
-                  ? <Badge className="bg-green-100 text-green-700 border border-green-200 text-xs">✓ Pago</Badge>
-                  : isParcial
-                  ? <Badge className="bg-amber-100 text-amber-700 border border-amber-200 text-xs">Parcial</Badge>
-                  : <Badge className="bg-red-100 text-red-700 border border-red-200 text-xs">Pendente</Badge>
-                }
-              </div>
-              <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
-                {p.telefone && (
-                  <a href={getWhatsApp(p.telefone)} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1 px-3 h-9 bg-green-600 text-white text-xs font-medium rounded-lg">
-                    <MessageCircle className="w-3.5 h-3.5" />
-                  </a>
-                )}
-                <button onClick={() => onDetalhes(p)} className="p-2 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 border border-gray-200" title="Ver detalhes">
-                  <Eye className="w-4 h-4" />
-                </button>
-                <button onClick={() => onHistorico(p)} className="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 border border-gray-200">
-                  <History className="w-4 h-4" />
-                </button>
-                <button onClick={() => onDelete(p.id)} className="p-2 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 border border-red-200">
-                  <Trash2 className="w-4 h-4 text-red-500" />
-                </button>
-                {!isPago && (
-                  <>
-                    <button onClick={() => onDefinirPreco(p)} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors">
-                      <Tag className="w-3.5 h-3.5" />
-                      Preço
-                    </button>
-                    <button onClick={() => onPagar(p)}
-                      className="flex-1 flex items-center justify-center gap-1.5 h-9 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg">
-                      <DollarSign className="w-3.5 h-3.5" /> Registrar Pagamento
-                    </button>
-                  </>
-                )}
-              </div>
+        return (
+        <div className="space-y-2">
+          {lista.length === 0 ? (
+            <div className="text-center py-14 text-gray-400 bg-white rounded-lg border border-gray-200">
+              <Clock className="w-10 h-10 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">{emptyMsg}</p>
             </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+          ) : lista.map(p => (
+            <LinhaTabela key={p.id} pag={p} onPagar={onPagar} onEditarValor={onEditarValor} onHistorico={onHistorico} onDelete={onDelete} onDetalhes={onDetalhes} onDefinirPreco={onDefinirPreco} />
+          ))}
+        </div>
+      );
 }
 
 export default function PagamentosClientes() {
