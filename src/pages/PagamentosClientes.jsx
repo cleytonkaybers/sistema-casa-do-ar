@@ -48,9 +48,10 @@ function groupPagamentos(lista) {
   lista.forEach(p => {
     const key = (p.cliente_nome || '').trim().toLowerCase();
     if (!groups[key]) {
-      groups[key] = { ...p, _records: [p] };
+      groups[key] = { ...p, _records: p._records || [p] };
     } else {
-      groups[key]._records.push(p);
+      const novoRecords = p._records || [p];
+      groups[key]._records = [...(groups[key]._records || [groups[key]]), ...novoRecords];
       groups[key].valor_total = (groups[key].valor_total || 0) + (p.valor_total || 0);
       groups[key].valor_pago = (groups[key].valor_pago || 0) + (p.valor_pago || 0);
     }
@@ -548,10 +549,12 @@ function HistoricoModal({ open, onClose, pagamento }) {
 
 // Linha da tabela
 function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco }) {
+  const records = pag._records || [pag];
   const saldo = (pag.valor_total || 0) - (pag.valor_pago || 0);
   const isPago = pag.status === 'pago';
   const isParcial = pag.status === 'parcial';
   const pct = pag.valor_total > 0 ? Math.min(100, Math.round(((pag.valor_pago || 0) / pag.valor_total) * 100)) : 0;
+  const temPrecoDefinido = pag.valor_total > 0;
 
   return (
     <tr className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${isPago ? 'bg-green-50/40' : ''}`}>
@@ -616,7 +619,7 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
               ? <Badge className="bg-green-100 text-green-700 border border-green-200 text-xs px-2">✓ Pago</Badge>
               : isParcial
               ? <Badge className="bg-amber-100 text-amber-700 border border-amber-200 text-xs px-2">Parcial</Badge>
-              : <Badge className="bg-red-100 text-red-700 border border-red-200 text-xs px-2">Pendente</Badge>
+              : temPrecoDefinido ? <Badge className="bg-red-100 text-red-700 border border-red-200 text-xs px-2">Pendente</Badge> : <Badge className="bg-yellow-100 text-yellow-700 border border-yellow-200 text-xs px-2">Sem preço</Badge>
             }
             <span className="text-xs text-gray-400">{pct}%</span>
           </div>
@@ -624,36 +627,8 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
             <div className={`h-1.5 rounded-full transition-all ${isPago ? 'bg-green-500' : isParcial ? 'bg-amber-500' : 'bg-red-400'}`}
               style={{ width: `${pct}%` }} />
           </div>
-          {!isPago && <p className="text-xs text-red-600 font-semibold">Deve: {formatCurrency(saldo)}</p>}
-        </div>
-      </td>
-
-      {/* Ações */}
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-1.5">
-          <button onClick={() => onDetalhes(pag)} className="p-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors" title="Ver detalhes">
-            <Eye className="w-4 h-4" />
-          </button>
-          <button onClick={() => onHistorico(pag)} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Histórico">
-            <History className="w-4 h-4" />
-          </button>
-          {!isPago && (
-            <>
-              <button onClick={() => onDefinirPreco(pag)}
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-700 text-xs font-semibold rounded-lg transition-colors border border-amber-300" title="Definir preços">
-                <Tag className="w-3.5 h-3.5" />
-                Preços
-              </button>
-              <button onClick={() => onPagar(pag)}
-                className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors">
-                <DollarSign className="w-3.5 h-3.5" />
-                Pagar
-              </button>
-            </>
-          )}
-          <button onClick={() => onDelete(pag.id)} className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors" title="Excluir">
-            <Trash2 className="w-4 h-4" />
-          </button>
+          {!isPago && temPrecoDefinido && <p className="text-xs text-red-600 font-semibold">Deve: {formatCurrency(saldo)}</p>}
+          {!isPago && !temPrecoDefinido && <p className="text-xs text-yellow-600 font-semibold">Defina o preço primeiro</p>}
         </div>
       </td>
     </tr>
