@@ -11,7 +11,7 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInter
 import { ptBR } from 'date-fns/locale';
 import {
   Search, DollarSign, CheckCircle2, AlertCircle, Calendar,
-  MessageCircle, Filter, X, Pencil,
+  MessageCircle, Filter, X, Pencil, Tag,
   Clock, History, Trash2, Eye
 } from 'lucide-react';
 
@@ -62,16 +62,11 @@ function groupPagamentos(lista) {
   });
 }
 
-function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [] }) {
-  const [obs, setObs] = useState('');
-  const [metodoPagamento, setMetodoPagamento] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [parcelas, setParcelas] = useState([]);
-  const [novaData, setNovaData] = useState('');
-  const [novoValorParcela, setNovoValorParcela] = useState('');
+// Modal exclusivo para DEFINIR PREÇOS
+function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], onSave }) {
   const [precosGrupo, setPrecosGrupo] = useState({});
+  const [loading, setLoading] = useState(false);
 
-  // Agrupa TODOS os serviços individuais (split por '+') de todos os records
   const servicosGrupos = useMemo(() => {
     const records = pagamento?._records || (pagamento ? [pagamento] : []);
     const counts = {};
@@ -83,41 +78,122 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
   }, [pagamento]);
 
   useEffect(() => {
-    if (open) {
-      setObs('');
-      setMetodoPagamento('');
-      setParcelas([]);
-      setNovaData('');
-      setNovoValorParcela('');
-      // Inicializa preços: split por '+' em todos os records
-      const records = pagamento?._records || (pagamento ? [pagamento] : []);
-      const counts = {};
-      records.forEach(r => {
-        const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-        tipos.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
-      });
-      // Busca registros frescos do banco para este cliente (pelo atendimento_id)
-      const idsAtendimento = new Set(records.map(r => r.atendimento_id || r.id).filter(Boolean));
-      const recordsFrescos = pagamentosAtuais.filter(p =>
-        idsAtendimento.has(p.atendimento_id) || idsAtendimento.has(p.id)
-      );
-      const fonteRecords = recordsFrescos.length > 0 ? recordsFrescos : records;
+    if (!open || !pagamento) return;
+    const records = pagamento._records || [pagamento];
+    // Busca records mais frescos
+    const idsAtend = new Set(records.map(r => r.atendimento_id || r.id).filter(Boolean));
+    const frescos = pagamentosAtuais.filter(p => idsAtend.has(p.atendimento_id) || idsAtend.has(p.id));
+    const fonte = frescos.length > 0 ? frescos : records;
 
-      // Pré-preenche com valor salvo: para cada tipo, busca o primeiro record com valor_total > 0
-      const inicial = {};
-      Object.keys(counts).forEach(tipo => { inicial[tipo] = ''; });
-      Object.keys(counts).forEach(tipo => {
-        const recComValor = fonteRecords.find(r => {
-          const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-          return tipos.length === 1 && tipos[0] === tipo && (r.valor_total || 0) > 0;
-        });
-        if (recComValor) {
-          inicial[tipo] = Number(recComValor.valor_total).toFixed(2).replace('.', ',');
-        }
+    const inicial = {};
+    servicosGrupos.forEach(({ tipo }) => {
+      const rec = fonte.find(r => {
+        const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
+        return tipos.length === 1 && tipos[0] === tipo && (r.valor_total || 0) > 0;
       });
-      setPrecosGrupo(inicial);
+      inicial[tipo] = rec ? Number(rec.valor_total).toFixed(2).replace('.', ',') : '';
+    });
+    setPrecosGrupo(inicial);
+  }, [open, pagamento, pagamentosAtuais]);
+
+  const handleSave = async () => {
+    if (Object.values(precosGrupo).every(v => !parseFloat((v || '').replace(',', '.')))) {
+      return toast.error('Defina ao menos um preço');
     }
-  }, [open, pagamento]);
+    setLoading(true);
+    await onSave(pagamento, precosGrupo);
+    setLoading(false);
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle className="flex items-center gap-2"><Tag className="w-5 h-5 text-blue-600" /> Definir Preços — {pagamento?.cliente_nome}</DialogTitle></DialogHeader>
+        <div className="space-y-3 py-2">
+          <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Preço unitário por serviço</p>
+          {servicosGrupos.map(g => {
+            const preco = precosGrupo[g.tipo] || '';
+            const precoNum = parseFloat(preco.replace(',', '.')) || 0;
+            return (
+              <div key={g.tipo} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
+                <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{g.qtd}</span>
+                <span className="flex-1 text-sm text-gray-700 font-medium">{g.tipo}</span>
+                <span className="text-xs text-gray-400">R$</span>
+                <Input
+                  placeholder="0,00"
+                  value={preco}
+                  onChange={e => setPrecosGrupo(prev => ({ ...prev, [g.tipo]: e.target.value }))}
+                  className={`w-28 h-9 text-sm text-right font-semibold ${precoNum === 0 ? 'border-amber-300 bg-amber-50' : 'border-green-300 bg-green-50'}`}
+                  autoFocus={g === servicosGrupos[0]}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
+            {loading ? 'Salvando...' : '💾 Salvar Preços'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Modal exclusivo para REGISTRAR PAGAMENTO
+function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [] }) {
+  const [obs, setObs] = useState('');
+  const [metodoPagamento, setMetodoPagamento] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [parcelas, setParcelas] = useState([]);
+  const [novaData, setNovaData] = useState('');
+  const [novoValorParcela, setNovoValorParcela] = useState('');
+  const [valorRegistrar, setValorRegistrar] = useState('');
+  // Preços salvos (somente leitura neste modal)
+  const [precosGrupo, setPrecosGrupo] = useState({});
+
+  const servicosGrupos = useMemo(() => {
+    const records = pagamento?._records || (pagamento ? [pagamento] : []);
+    const counts = {};
+    records.forEach(r => {
+      const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
+      tipos.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+    });
+    return Object.entries(counts).map(([tipo, qtd]) => ({ tipo, qtd }));
+  }, [pagamento]);
+
+  useEffect(() => {
+    if (!open) return;
+    setObs('');
+    setMetodoPagamento('');
+    setParcelas([]);
+    setNovaData('');
+    setNovoValorParcela('');
+    setValorRegistrar('');
+
+    // Busca preços dos records mais frescos
+    const records = pagamento?._records || (pagamento ? [pagamento] : []);
+    const idsAtend = new Set(records.map(r => r.atendimento_id || r.id).filter(Boolean));
+    const frescos = pagamentosAtuais.filter(p => idsAtend.has(p.atendimento_id) || idsAtend.has(p.id));
+    const fonte = frescos.length > 0 ? frescos : records;
+
+    const inicial = {};
+    const counts = {};
+    records.forEach(r => {
+      const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
+      tipos.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+    });
+    Object.keys(counts).forEach(tipo => {
+      const rec = fonte.find(r => {
+        const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
+        return tipos.length === 1 && tipos[0] === tipo && (r.valor_total || 0) > 0;
+      });
+      inicial[tipo] = rec ? Number(rec.valor_total).toFixed(2).replace('.', ',') : '';
+    });
+    setPrecosGrupo(inicial);
+  }, [open, pagamento, pagamentosAtuais]);
 
   const totalDefinido = servicosGrupos.reduce((s, g) => {
     const preco = parseFloat((precosGrupo[g.tipo] || '').replace(',', '.')) || 0;
@@ -126,13 +202,10 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
 
   const totalPago = (pagamento?._records || (pagamento ? [pagamento] : [])).reduce((s, r) => s + (r.valor_pago || 0), 0);
   const saldo = totalDefinido - totalPago;
-
   const totalAgendado = parcelas.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
-  const [valorRegistrar, setValorRegistrar] = useState('');
   const valorAtualNum = parseFloat((valorRegistrar || '').replace(',', '.')) || 0;
   const saldoRestante = saldo - valorAtualNum - totalAgendado;
-
-  useEffect(() => { if (open) setValorRegistrar(''); }, [open]);
+  const todosPrecosDefinidos = servicosGrupos.every(g => parseFloat((precosGrupo[g.tipo] || '').replace(',', '.')) > 0);
 
   const adicionarParcela = () => {
     if (!novaData) return toast.error('Informe a data da parcela');
@@ -146,9 +219,9 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
   const removerParcela = (idx) => setParcelas(prev => prev.filter((_, i) => i !== idx));
 
   const handleSave = async () => {
+    if (!todosPrecosDefinidos) return toast.error('Preços não definidos. Use o botão 🏷️ Preços primeiro.');
     const v = parseFloat((valorRegistrar || '').replace(',', '.'));
     if (!v || v <= 0) return toast.error('Informe um valor válido');
-    if (saldo < 0.01 && totalDefinido === 0) return toast.error('Defina os preços dos serviços primeiro');
     if (v > saldo + 0.01) return toast.error(`Valor maior que o saldo (${formatCurrency(saldo)})`);
     setLoading(true);
     const obsCompleta = [metodoPagamento, obs].filter(Boolean).join(' | ');
@@ -157,60 +230,40 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
     onClose();
   };
 
-  const todosPrecosDefinidos = servicosGrupos.every(g => {
-    const preco = parseFloat((precosGrupo[g.tipo] || '').replace(',', '.')) || 0;
-    return preco > 0;
-  });
-
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Registrar Pagamento</DialogTitle></DialogHeader>
         <div className="space-y-4 py-2">
-          {/* Cabeçalho do cliente */}
+          {/* Resumo do cliente e preços salvos (readonly) */}
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
             <p className="font-bold text-gray-800 text-base mb-3">{pagamento?.cliente_nome}</p>
-
-            {/* Serviços agrupados com preço por tipo */}
-            <div className="space-y-2 mb-3">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Serviços — defina o preço unitário</p>
+            <div className="space-y-1.5 mb-3">
               {servicosGrupos.map(g => {
-                const preco = precosGrupo[g.tipo] || '';
-                const precoNum = parseFloat(preco.replace(',', '.')) || 0;
-                const subtotal = precoNum * g.qtd;
+                const preco = parseFloat((precosGrupo[g.tipo] || '').replace(',', '.')) || 0;
                 return (
                   <div key={g.tipo} className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2">
                     <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{g.qtd}</span>
-                    <span className="flex-1 text-sm text-gray-700 font-medium leading-tight">{g.tipo}</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-gray-400">R$</span>
-                      <Input
-                        placeholder="0,00"
-                        value={preco}
-                        onChange={e => setPrecosGrupo(prev => ({ ...prev, [g.tipo]: e.target.value }))}
-                        className={`w-24 h-8 text-sm text-right font-semibold ${precoNum === 0 ? 'border-amber-300 bg-amber-50' : ''}`}
-                      />
-                      {g.qtd > 1 && precoNum > 0 && (
-                        <span className="text-xs text-gray-400 min-w-[60px] text-right">{formatCurrency(subtotal)}</span>
-                      )}
-                    </div>
+                    <span className="flex-1 text-sm text-gray-700 font-medium">{g.tipo}</span>
+                    <span className={`font-semibold text-sm ${preco === 0 ? 'text-amber-500' : 'text-gray-800'}`}>
+                      {preco === 0 ? <span className="text-xs text-amber-600">⚠️ Sem preço</span> : formatCurrency(preco * g.qtd)}
+                    </span>
                   </div>
                 );
               })}
-              {!todosPrecosDefinidos && (
-                <div className="flex items-center gap-1.5 text-xs text-amber-600 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
-                  <AlertCircle className="w-3.5 h-3.5" /> Defina o preço de cada serviço acima
-                </div>
-              )}
             </div>
-
-            {/* Totais */}
-            <div className="grid grid-cols-3 gap-2 pt-3 border-t border-gray-200 text-center">
+            {!todosPrecosDefinidos && (
+              <div className="flex items-center gap-1.5 text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <AlertCircle className="w-3.5 h-3.5" /> Defina os preços usando o botão 🏷️ Preços antes de pagar
+              </div>
+            )}
+            <div className="grid grid-cols-3 gap-2 pt-3 border-t border-gray-200 text-center mt-3">
               <div><p className="text-xs text-gray-400">Total</p><p className="font-bold text-gray-800 text-sm">{totalDefinido > 0 ? formatCurrency(totalDefinido) : <span className="text-amber-500 text-xs">A definir</span>}</p></div>
               <div><p className="text-xs text-gray-400">Pago</p><p className="font-bold text-green-600 text-sm">{formatCurrency(totalPago)}</p></div>
               <div><p className="text-xs text-gray-400">Saldo</p><p className="font-bold text-red-600 text-sm">{formatCurrency(Math.max(0, saldo))}</p></div>
             </div>
           </div>
+
           <div>
             <label className="text-sm font-medium text-gray-700 mb-1.5 block">Valor a registrar agora (R$)</label>
             <Input placeholder="0,00" value={valorRegistrar} onChange={e => setValorRegistrar(e.target.value)} className="h-12 text-lg font-semibold" autoFocus />
@@ -220,24 +273,16 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
               </button>
             )}
           </div>
-          {/* Método de pagamento */}
+
           <div>
             <label className="text-sm font-medium text-gray-700 mb-2 block">Método de pagamento</label>
             <div className="grid grid-cols-2 gap-2">
               {['PIX', 'Dinheiro', 'Cartão de Crédito', 'Cartão de Débito', 'Máquina de Cartão', 'Transferência'].map(m => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMetodoPagamento(prev => prev === m ? '' : m)}
+                <button key={m} type="button" onClick={() => setMetodoPagamento(prev => prev === m ? '' : m)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
-                    metodoPagamento === m
-                      ? 'bg-blue-600 border-blue-600 text-white'
-                      : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
-                  }`}
-                >
-                  <span className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                    metodoPagamento === m ? 'border-white bg-white' : 'border-gray-300'
+                    metodoPagamento === m ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
                   }`}>
+                  <span className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${metodoPagamento === m ? 'border-white bg-white' : 'border-gray-300'}`}>
                     {metodoPagamento === m && <span className="w-2 h-2 rounded-sm bg-blue-600 block" />}
                   </span>
                   {m}
@@ -251,10 +296,8 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
             <Input placeholder="Ex: referência, número do comprovante..." value={obs} onChange={e => setObs(e.target.value)} />
           </div>
 
-          {/* Parcelas futuras */}
           <div className="border border-blue-100 rounded-xl p-3 bg-blue-50/40 space-y-3">
             <p className="text-sm font-semibold text-blue-800">📅 Parcelas Futuras (agendadas)</p>
-
             {parcelas.length > 0 && (
               <div className="space-y-1.5">
                 {parcelas.map((p, i) => (
@@ -265,9 +308,7 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
                       <span className="text-xs text-gray-400">—</span>
                       <span className="text-sm font-semibold text-blue-700">{formatCurrency(p.valor)}</span>
                     </div>
-                    <button onClick={() => removerParcela(i)} className="text-gray-300 hover:text-red-500 transition-colors">
-                      <X className="w-4 h-4" />
-                    </button>
+                    <button onClick={() => removerParcela(i)} className="text-gray-300 hover:text-red-500"><X className="w-4 h-4" /></button>
                   </div>
                 ))}
                 <div className="flex justify-between text-xs font-semibold px-1 pt-1">
@@ -276,43 +317,16 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
                 </div>
               </div>
             )}
-
             <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">Data da parcela</label>
-                <Input type="date" value={novaData} onChange={e => setNovaData(e.target.value)} className="h-9 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">Valor (R$)</label>
-                <Input placeholder="0,00" value={novoValorParcela} onChange={e => setNovoValorParcela(e.target.value)} className="h-9 text-sm" />
-              </div>
+              <div><label className="text-xs text-gray-500 mb-1 block">Data da parcela</label><Input type="date" value={novaData} onChange={e => setNovaData(e.target.value)} className="h-9 text-sm" /></div>
+              <div><label className="text-xs text-gray-500 mb-1 block">Valor (R$)</label><Input placeholder="0,00" value={novoValorParcela} onChange={e => setNovoValorParcela(e.target.value)} className="h-9 text-sm" /></div>
             </div>
-            <Button variant="outline" size="sm" onClick={adicionarParcela} className="w-full text-blue-700 border-blue-200 hover:bg-blue-100">
-              + Adicionar parcela futura
-            </Button>
+            <Button variant="outline" size="sm" onClick={adicionarParcela} className="w-full text-blue-700 border-blue-200 hover:bg-blue-100">+ Adicionar parcela futura</Button>
           </div>
         </div>
-        <DialogFooter className="flex-col sm:flex-row gap-2">
-          <div className="flex-1 flex justify-start">
-            <Button
-              variant="outline"
-              onClick={async () => {
-                if (Object.values(precosGrupo).every(v => !parseFloat((v || '').replace(',', '.')))) {
-                  return toast.error('Defina ao menos um preço antes de salvar');
-                }
-                setLoading(true);
-                await onSave(pagamento, 0, '', [], precosGrupo, true);
-                setLoading(false);
-                onClose();
-              }}
-              disabled={loading}
-              className="text-blue-700 border-blue-200 hover:bg-blue-50 text-sm"
-            >
-              💾 Salvar preços
-            </Button>
-          </div>
+        <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={loading || !parseFloat((valorRegistrar || '').replace(',', '.')) || saldo <= 0 || !metodoPagamento} className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed">
+          <Button onClick={handleSave} disabled={loading || !parseFloat((valorRegistrar || '').replace(',', '.')) || saldo <= 0 || !metodoPagamento || !todosPrecosDefinidos} className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50">
             {loading ? 'Salvando...' : '✓ Confirmar Pagamento'}
           </Button>
         </DialogFooter>
@@ -509,7 +523,7 @@ function HistoricoModal({ open, onClose, pagamento }) {
 }
 
 // Linha da tabela
-function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes }) {
+function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco }) {
   const saldo = (pag.valor_total || 0) - (pag.valor_pago || 0);
   const isPago = pag.status === 'pago';
   const isParcial = pag.status === 'parcial';
@@ -600,11 +614,18 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
             <History className="w-4 h-4" />
           </button>
           {!isPago && (
-            <button onClick={() => onPagar(pag)}
-              className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors">
-              <DollarSign className="w-3.5 h-3.5" />
-              Pagar
-            </button>
+            <>
+              <button onClick={() => onDefinirPreco(pag)}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-700 text-xs font-semibold rounded-lg transition-colors border border-amber-300" title="Definir preços">
+                <Tag className="w-3.5 h-3.5" />
+                Preços
+              </button>
+              <button onClick={() => onPagar(pag)}
+                className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors">
+                <DollarSign className="w-3.5 h-3.5" />
+                Pagar
+              </button>
+            </>
           )}
           <button onClick={() => onDelete(pag.id)} className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors" title="Excluir">
             <Trash2 className="w-4 h-4" />
@@ -615,7 +636,7 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   );
 }
 
-function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, emptyMsg }) {
+function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, emptyMsg }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
       {/* Desktop table */}
@@ -638,7 +659,7 @@ function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete
                 <p className="text-sm">{emptyMsg}</p>
               </td></tr>
             ) : lista.map(p => (
-              <LinhaTabela key={p.id} pag={p} onPagar={onPagar} onEditarValor={onEditarValor} onHistorico={onHistorico} onDelete={onDelete} onDetalhes={onDetalhes} />
+              <LinhaTabela key={p.id} pag={p} onPagar={onPagar} onEditarValor={onEditarValor} onHistorico={onHistorico} onDelete={onDelete} onDetalhes={onDetalhes} onDefinirPreco={onDefinirPreco} />
             ))}
           </tbody>
         </table>
@@ -703,8 +724,8 @@ function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete
                 </button>
                 {!isPago && (
                   <>
-                    <button onClick={() => onEditarValor(p)} className="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 border border-gray-200">
-                      <Pencil className="w-4 h-4" />
+                    <button onClick={() => onDefinirPreco(p)} className="p-2 rounded-lg text-amber-600 hover:text-amber-800 hover:bg-amber-50 border border-amber-200" title="Definir preços">
+                      <Tag className="w-4 h-4" />
                     </button>
                     <button onClick={() => onPagar(p)}
                       className="flex-1 flex items-center justify-center gap-1.5 h-9 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg">
@@ -728,6 +749,7 @@ export default function PagamentosClientes() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [pagarModal, setPagarModal] = useState(null);
+  const [precosModal, setPrecosModal] = useState(null);
   const [editarModal, setEditarModal] = useState(null);
   const [historicoModal, setHistoricoModal] = useState(null);
   const [detalhesModal, setDetalhesModal] = useState(null);
@@ -813,12 +835,23 @@ export default function PagamentosClientes() {
     });
   }, [atendimentos, pagamentos, isLoading]);
 
-  const handleRegistrarPagamento = async (pag, valor, obs, parcelas = [], precosGrupo = {}, apenasPrecos = false) => {
+  const handleSalvarPrecos = async (pag, precosGrupo) => {
+    const records = pag._records?.length > 1 ? pag._records : [pag];
+    for (const rec of records) {
+      const tipos = (rec.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
+      const novoPreco = tipos.reduce((sum, t) => sum + (parseFloat((precosGrupo[t] || '').replace(',', '.')) || 0), 0);
+      if (novoPreco > 0 && novoPreco !== rec.valor_total) {
+        await updateMutation.mutateAsync({ id: rec.id, data: { valor_total: novoPreco } });
+      }
+    }
+    toast.success('💾 Preços salvos com sucesso!');
+  };
+
+  const handleRegistrarPagamento = async (pag, valor, obs, parcelas = [], precosGrupo = {}) => {
     const records = pag._records?.length > 1 ? pag._records : [pag];
     let remaining = valor;
     const dataStr = format(new Date(), "dd/MM/yyyy HH:mm");
 
-    // Calcula o valor de cada record baseado nos preços unitários dos serviços
     const calcularValorRecord = (rec) => {
       const tipos = (rec.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
       const total = tipos.reduce((sum, t) => {
@@ -828,20 +861,6 @@ export default function PagamentosClientes() {
       return total > 0 ? total : rec.valor_total;
     };
 
-    // Atualiza preços individuais primeiro
-    for (const rec of records) {
-      const novoPreco = calcularValorRecord(rec);
-      if (novoPreco > 0 && novoPreco !== rec.valor_total) {
-        await updateMutation.mutateAsync({ id: rec.id, data: { valor_total: novoPreco } });
-      }
-    }
-
-    if (apenasPrecos) {
-      toast.success('💾 Preços salvos com sucesso!');
-      return;
-    }
-
-    // Re-calcula saldos com preços atualizados
     const recordsAtualizados = records.map(rec => {
       const novoPreco = calcularValorRecord(rec);
       return { ...rec, valor_total: novoPreco > 0 ? novoPreco : rec.valor_total };
@@ -1035,6 +1054,7 @@ export default function PagamentosClientes() {
           <TabelaPagamentos
             lista={pagsSemana}
             onPagar={setPagarModal}
+            onDefinirPreco={setPrecosModal}
             onEditarValor={setEditarModal}
             onHistorico={setHistoricoModal}
             onDetalhes={setDetalhesModal}
@@ -1054,6 +1074,7 @@ export default function PagamentosClientes() {
             <TabelaPagamentos
               lista={pagsDebito}
               onPagar={setPagarModal}
+              onDefinirPreco={setPrecosModal}
               onEditarValor={setEditarModal}
               onHistorico={setHistoricoModal}
               onDetalhes={setDetalhesModal}
@@ -1113,6 +1134,7 @@ export default function PagamentosClientes() {
           <TabelaPagamentos
             lista={pagsRelatorio}
             onPagar={setPagarModal}
+            onDefinirPreco={setPrecosModal}
             onEditarValor={setEditarModal}
             onHistorico={setHistoricoModal}
             onDetalhes={setDetalhesModal}
@@ -1122,6 +1144,7 @@ export default function PagamentosClientes() {
         </div>
       )}
 
+      <DefinirPrecoModal open={!!precosModal} onClose={() => setPrecosModal(null)} pagamento={precosModal} pagamentosAtuais={pagamentos} onSave={handleSalvarPrecos} />
       <PagamentoModal open={!!pagarModal} onClose={() => setPagarModal(null)} pagamento={pagarModal} onSave={handleRegistrarPagamento} pagamentosAtuais={pagamentos} />
       <EditarValorModal open={!!editarModal} onClose={() => setEditarModal(null)} pagamento={editarModal} onSave={handleEditarValor} />
       <HistoricoModal open={!!historicoModal} onClose={() => setHistoricoModal(null)} pagamento={historicoModal} />
