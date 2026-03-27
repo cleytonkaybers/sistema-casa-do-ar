@@ -82,8 +82,9 @@ function LayoutContent({ children }) {
       { name: 'Sair', href: '#', icon: LogOut, action: () => base44.auth.logout() },
     ];
   } else if (currentUser?.tipo_usuario === 'tecnico' || user?.role === 'user') {
-    // Técnicos veem APENAS Serviços, Atendimentos, Preventivas Futuras, Meu Financeiro e Sair
+    // Técnicos veem Dashboard, Serviços, Atendimentos, Preventivas Futuras, Meu Financeiro e Sair
     navigation = [
+      { name: 'Dashboard', href: createPageUrl('Dashboard'), icon: LayoutDashboard },
       { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
       { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList },
       { name: 'Preventivas Futuras', href: createPageUrl('PreventivasFuturas'), icon: ClipboardList },
