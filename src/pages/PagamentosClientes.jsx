@@ -296,7 +296,7 @@ function PagamentoModal({ open, onClose, pagamento, onSave }) {
             </Button>
           </div>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white">
+          <Button onClick={handleSave} disabled={loading || !parseFloat((valorRegistrar || '').replace(',', '.')) || saldo <= 0} className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed">
             {loading ? 'Salvando...' : '✓ Confirmar Pagamento'}
           </Button>
         </DialogFooter>
