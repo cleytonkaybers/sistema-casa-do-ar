@@ -169,11 +169,11 @@ export default function ClientesTable({
                           </DropdownMenuItem>
                         )}
                         {onDelete && (
-                          <DropdownMenuItem 
-                            onClick={() => onDelete(cliente)}
-                            className="flex items-center gap-2 cursor-pointer text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4" />
+                           <DropdownMenuItem 
+                             onClick={() => onDelete(cliente)}
+                             className="flex items-center gap-2 cursor-pointer text-red-600"
+                           >
+                             <Trash2 className="w-4 h-4 text-red-600" />
                             Deletar
                           </DropdownMenuItem>
                         )}
