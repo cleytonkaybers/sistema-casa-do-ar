@@ -115,21 +115,43 @@ function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], on
           {servicosGrupos.map(g => {
             const preco = precosGrupo[g.tipo] || '';
             const precoNum = parseFloat(preco.replace(',', '.')) || 0;
+            const totalLinha = precoNum * g.qtd;
             return (
-              <div key={g.tipo} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
-                <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{g.qtd}</span>
-                <span className="flex-1 text-sm text-gray-700 font-medium">{g.tipo}</span>
-                <span className="text-xs text-gray-400">R$</span>
-                <Input
-                  placeholder="0,00"
-                  value={preco}
-                  onChange={e => setPrecosGrupo(prev => ({ ...prev, [g.tipo]: e.target.value }))}
-                  className={`w-28 h-9 text-sm text-right font-semibold ${precoNum === 0 ? 'border-amber-300 bg-amber-50' : 'border-green-300 bg-green-50'}`}
-                  autoFocus={g === servicosGrupos[0]}
-                />
+              <div key={g.tipo} className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{g.qtd}</span>
+                  <span className="flex-1 text-sm text-gray-700 font-medium">{g.tipo}</span>
+                  <span className="text-xs text-gray-400">R$</span>
+                  <Input
+                    placeholder="0,00"
+                    value={preco}
+                    onChange={e => setPrecosGrupo(prev => ({ ...prev, [g.tipo]: e.target.value }))}
+                    className={`w-28 h-9 text-sm text-right font-semibold ${precoNum === 0 ? 'border-amber-300 bg-amber-50' : 'border-green-300 bg-green-50'}`}
+                    autoFocus={g === servicosGrupos[0]}
+                  />
+                </div>
+                {g.qtd > 1 && (
+                  <div className="flex justify-end text-xs text-gray-500">
+                    {g.qtd} × {formatCurrency(precoNum)} = <span className="font-semibold text-gray-700 ml-1">{formatCurrency(totalLinha)}</span>
+                  </div>
+                )}
               </div>
             );
           })}
+          {servicosGrupos.length > 0 && (() => {
+            const totalGeral = servicosGrupos.reduce((s, g) => {
+              const p = parseFloat((precosGrupo[g.tipo] || '').replace(',', '.')) || 0;
+              return s + p * g.qtd;
+            }, 0);
+            return (
+              <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 mt-1">
+                <span className="text-sm font-bold text-blue-800">Total Geral</span>
+                <span className={`text-base font-bold ${totalGeral > 0 ? 'text-blue-700' : 'text-amber-500'}`}>
+                  {totalGeral > 0 ? formatCurrency(totalGeral) : 'A definir'}
+                </span>
+              </div>
+            );
+          })()}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
