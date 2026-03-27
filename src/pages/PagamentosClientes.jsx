@@ -1062,9 +1062,8 @@ function PagamentosClientesContent() {
   const pagsAgendados = useMemo(() => {
     const filtrados = pagsFiltrados
       .filter(p => {
-        if (p.status === 'pago' || p.status === 'agendado') return p.status === 'agendado';
-        if (!p.data_pagamento_agendado) return false;
-        return true;
+        if (p.status === 'pago') return false;
+        return p.status === 'agendado' || (p.data_pagamento_agendado && p.status !== 'pago');
       })
       .sort((a, b) => {
         const da = a.data_pagamento_agendado ? new Date(a.data_pagamento_agendado) : new Date(0);
