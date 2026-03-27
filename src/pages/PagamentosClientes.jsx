@@ -888,16 +888,17 @@ export default function PagamentosClientes() {
   }, [pagsFiltrados, inicioSemana, fimSemana]);
 
   // Todos os pendentes/parciais, ordenados por data mais próxima primeiro
-  const [mostrarAntigos, setMostrarAntigos] = useState(false);
   const dataCorte = new Date('2026-03-23T00:00:00');
 
   const pagsDebito = useMemo(() => {
     const filtrados = pagsFiltrados
       .filter(p => {
         if (p.status === 'pago') return false;
-        if (!mostrarAntigos && p.data_conclusao) {
+        if (p.data_conclusao) {
           try { if (parseISO(p.data_conclusao) < dataCorte) return false; }
           catch {}
+        } else {
+          return false; // sem data, ignorar
         }
         return true;
       })
@@ -907,7 +908,7 @@ export default function PagamentosClientes() {
         return db - da;
       });
     return groupPagamentos(filtrados);
-  }, [pagsFiltrados, mostrarAntigos]);
+  }, [pagsFiltrados, dataCorte]);
 
   const pagsRelatorio = useMemo(() => {
     let inicio, fim;
@@ -1011,14 +1012,7 @@ export default function PagamentosClientes() {
                 <AlertCircle className="w-4 h-4 text-red-500" />
                 Pagamentos Pendentes (mais recentes primeiro)
               </h2>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setMostrarAntigos(v => !v)}
-                  className="text-xs text-blue-600 underline hover:text-blue-800 transition-colors">
-                  {mostrarAntigos ? 'Ocultar anteriores a 23/03' : 'Mostrar anteriores a 23/03'}
-                </button>
-                <span className="text-sm font-bold text-red-600">{formatCurrency(totalDebitoGeral)} em aberto</span>
-              </div>
+              <span className="text-sm font-bold text-red-600">{formatCurrency(totalDebitoGeral)} em aberto</span>
             </div>
             <TabelaPagamentos
               lista={pagsDebito}
