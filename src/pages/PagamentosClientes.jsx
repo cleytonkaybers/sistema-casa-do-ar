@@ -248,7 +248,25 @@ function PagamentoModal({ open, onClose, pagamento, onSave }) {
             </Button>
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <div className="flex-1 flex justify-start">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (Object.values(precosGrupo).every(v => !parseFloat((v || '').replace(',', '.')))) {
+                  return toast.error('Defina ao menos um preço antes de salvar');
+                }
+                setLoading(true);
+                await onSave(pagamento, 0, '', [], precosGrupo, true);
+                setLoading(false);
+                onClose();
+              }}
+              disabled={loading}
+              className="text-blue-700 border-blue-200 hover:bg-blue-50 text-sm"
+            >
+              💾 Salvar preços
+            </Button>
+          </div>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button onClick={handleSave} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white">
             {loading ? 'Salvando...' : '✓ Confirmar Pagamento'}
@@ -751,7 +769,7 @@ export default function PagamentosClientes() {
     });
   }, [atendimentos, pagamentos, isLoading]);
 
-  const handleRegistrarPagamento = async (pag, valor, obs, parcelas = [], precosGrupo = {}) => {
+  const handleRegistrarPagamento = async (pag, valor, obs, parcelas = [], precosGrupo = {}, apenasPrecos = false) => {
     const records = pag._records?.length > 1 ? pag._records : [pag];
     let remaining = valor;
     const dataStr = format(new Date(), "dd/MM/yyyy HH:mm");
@@ -772,6 +790,11 @@ export default function PagamentosClientes() {
       if (novoPreco > 0 && novoPreco !== rec.valor_total) {
         await updateMutation.mutateAsync({ id: rec.id, data: { valor_total: novoPreco } });
       }
+    }
+
+    if (apenasPrecos) {
+      toast.success('💾 Preços salvos com sucesso!');
+      return;
     }
 
     // Re-calcula saldos com preços atualizados
