@@ -323,10 +323,16 @@ export default function FinanceiroAdmin() {
       <Card>
          <CardHeader className="flex items-center justify-between">
            <CardTitle>Gestão de Créditos</CardTitle>
-           <Button onClick={() => setShowPDFModal(true)} size="sm" className="gap-2">
-             <Download className="w-4 h-4" />
-             Gerar PDF
-           </Button>
+           <div className="flex gap-2">
+             <Button 
+               onClick={() => setShowPDFModal(true)} 
+               size="sm" 
+               className="gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+             >
+               <Download className="w-4 h-4" />
+               Gerar PDF
+             </Button>
+           </div>
            </CardHeader>
          <CardContent className="space-y-4">
            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
