@@ -542,16 +542,26 @@ export default function PagamentosClientes() {
   }, [pagsFiltrados, inicioSemana, fimSemana]);
 
   // Todos os pendentes/parciais, ordenados por data mais próxima primeiro
+  const [mostrarAntigos, setMostrarAntigos] = useState(false);
+  const dataCorte = new Date('2026-03-23T00:00:00');
+
   const pagsDebito = useMemo(() => {
     const filtrados = pagsFiltrados
-      .filter(p => p.status !== 'pago')
+      .filter(p => {
+        if (p.status === 'pago') return false;
+        if (!mostrarAntigos && p.data_conclusao) {
+          try { if (parseISO(p.data_conclusao) < dataCorte) return false; }
+          catch {}
+        }
+        return true;
+      })
       .sort((a, b) => {
         const da = a.data_conclusao ? new Date(a.data_conclusao) : new Date(0);
         const db = b.data_conclusao ? new Date(b.data_conclusao) : new Date(0);
         return db - da;
       });
     return groupPagamentos(filtrados);
-  }, [pagsFiltrados]);
+  }, [pagsFiltrados, mostrarAntigos]);
 
   const pagsRelatorio = useMemo(() => {
     let inicio, fim;
@@ -649,12 +659,19 @@ export default function PagamentosClientes() {
 
           {/* Seção inferior: todos os pendentes ordenados por proximidade */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-red-500" />
                 Pagamentos Pendentes (mais recentes primeiro)
               </h2>
-              <span className="text-sm font-bold text-red-600">{formatCurrency(totalDebitoGeral)} em aberto</span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setMostrarAntigos(v => !v)}
+                  className="text-xs text-blue-600 underline hover:text-blue-800 transition-colors">
+                  {mostrarAntigos ? 'Ocultar anteriores a 23/03' : 'Mostrar anteriores a 23/03'}
+                </button>
+                <span className="text-sm font-bold text-red-600">{formatCurrency(totalDebitoGeral)} em aberto</span>
+              </div>
             </div>
             <TabelaPagamentos
               lista={pagsDebito}
