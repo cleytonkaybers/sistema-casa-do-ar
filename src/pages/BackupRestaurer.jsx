@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Download, Upload, Database, Loader2, CheckCircle, AlertCircle, FileJson, RefreshCw, Cloud, FileText } from 'lucide-react';
+import { Download, Upload, Database, Loader2, CheckCircle, AlertCircle, FileJson, RefreshCw, Cloud, FileText, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import NoPermission from '../components/NoPermission';
@@ -43,6 +43,8 @@ export default function BackupRestaurerPage() {
   const [importResult, setImportResult] = useState(null);
   const [selectedBackupId, setSelectedBackupId] = useState(null);
   const [restoringFromDrive, setRestoringFromDrive] = useState(false);
+  const [limpando, setLimpando] = useState(false);
+  const [diasRetencao, setDiasRetencao] = useState(7);
   const queryClient = useQueryClient();
 
   // Buscar backups do Google Drive
@@ -117,6 +119,32 @@ export default function BackupRestaurerPage() {
       toast.error('Erro ao exportar backup: ' + error.message);
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleLimparBackups = async () => {
+    if (!window.confirm(`Remover todos os backups com mais de ${diasRetencao} dias?\n\nEsta ação não pode ser desfeita.`)) {
+      return;
+    }
+
+    setLimpando(true);
+    try {
+      const response = await base44.functions.invoke('limparBackupsAntigos', { dias_retencao: diasRetencao });
+      
+      if (response.data.status === 'success') {
+        toast.success(
+          `${response.data.total_removidos} backup(s) removido(s) com sucesso!`
+        );
+        // Recarregar lista de backups
+        setLoadingBackups(true);
+        setTimeout(() => setLoadingBackups(false), 1000);
+      } else {
+        toast.error(response.data.message || 'Erro ao limpar backups');
+      }
+    } catch (error) {
+      toast.error('Erro ao limpar backups: ' + error.message);
+    } finally {
+      setLimpando(false);
     }
   };
 
@@ -402,10 +430,60 @@ export default function BackupRestaurerPage() {
               )}
             </Button>
           </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+          </Card>
 
-      {/* Restaurar do Google Drive */}
+          {/* Limpeza de Backups Antigos */}
+          <Card className="border border-red-800/40" style={{backgroundColor: '#243447'}}>
+          <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-white">
+            <Trash2 className="w-5 h-5 text-red-400" />
+            Limpeza de Backups Antigos
+          </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+          <p className="text-blue-300/80">
+            Remove automaticamente backups antigos do Google Drive para economizar espaço de armazenamento.
+          </p>
+          <div className="bg-red-900/20 border border-red-700/40 rounded-lg p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-red-200 mb-2">
+                  Remover backups com mais de:
+                </label>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="number"
+                    min="1"
+                    max="30"
+                    value={diasRetencao}
+                    onChange={(e) => setDiasRetencao(parseInt(e.target.value) || 7)}
+                    className="w-20 px-3 py-2 border border-red-700/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    style={{backgroundColor: 'rgba(30,64,175,0.2)'}}
+                  />
+                  <span className="text-red-200 font-medium">dias</span>
+                </div>
+              </div>
+              <Button
+                onClick={handleLimparBackups}
+                disabled={limpando}
+                className="h-12 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 font-semibold whitespace-nowrap"
+              >
+                {limpando ? (
+                  <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Limpando...</>
+                ) : (
+                  <><Trash2 className="w-5 h-5 mr-2" />LIMPAR</>
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-red-300/70 mt-3">
+              ⚠️ Esta ação removerá permanentemente os arquivos do Google Drive. Use com cuidado.
+            </p>
+          </div>
+          </CardContent>
+          </Card>
+
+          {/* Restaurar do Google Drive */}
       <Card className="border border-blue-800/40" style={{backgroundColor: '#243447'}}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-white">
