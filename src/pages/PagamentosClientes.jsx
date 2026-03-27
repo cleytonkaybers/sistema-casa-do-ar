@@ -1063,27 +1063,6 @@ export default function PagamentosClientes() {
             emptyMsg="Nenhum serviço pendente esta semana"
           />
 
-          {/* Seção inferior: todos os pendentes ordenados por proximidade */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-500" />
-                Pagamentos Pendentes (mais recentes primeiro)
-              </h2>
-              <span className="text-sm font-bold text-red-600">{formatCurrency(totalDebitoGeral)} em aberto</span>
-            </div>
-            <TabelaPagamentos
-              lista={pagsDebito}
-              onPagar={setPagarModal}
-              onDefinirPreco={setPrecosModal}
-              onEditarValor={setEditarModal}
-              onHistorico={setHistoricoModal}
-              onDetalhes={setDetalhesModal}
-              onDelete={(id) => deleteMutation.mutate(id)}
-              emptyMsg="Nenhum pagamento pendente!"
-            />
-          </div>
-
           {/* Serviços pagos da semana atual */}
           {pagsPagos.length > 0 && (
             <div className="space-y-3">
@@ -1105,6 +1084,27 @@ export default function PagamentosClientes() {
               />
             </div>
           )}
+
+          {/* Seção inferior: todos os pendentes ordenados por proximidade */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                Pagamentos Pendentes (mais recentes primeiro)
+              </h2>
+              <span className="text-sm font-bold text-red-600">{formatCurrency(totalDebitoGeral)} em aberto</span>
+            </div>
+            <TabelaPagamentos
+              lista={pagsDebito}
+              onPagar={setPagarModal}
+              onDefinirPreco={setPrecosModal}
+              onEditarValor={setEditarModal}
+              onHistorico={setHistoricoModal}
+              onDetalhes={setDetalhesModal}
+              onDelete={(id) => deleteMutation.mutate(id)}
+              emptyMsg="Nenhum pagamento pendente!"
+            />
+          </div>
         </div>
       )}
 
