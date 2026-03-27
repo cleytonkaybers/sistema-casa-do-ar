@@ -1059,11 +1059,27 @@ function PagamentosClientesContent() {
     return groupPagamentos(filtrados);
   }, [pagsFiltrados, inicioSemana, fimSemana]);
 
+  const pagsAgendados = useMemo(() => {
+    const filtrados = pagsFiltrados
+      .filter(p => {
+        if (p.status === 'pago') return false;
+        if (!p.data_pagamento_agendado) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        const da = a.data_pagamento_agendado ? new Date(a.data_pagamento_agendado) : new Date(0);
+        const db = b.data_pagamento_agendado ? new Date(b.data_pagamento_agendado) : new Date(0);
+        return da - db;
+      });
+    return groupPagamentos(filtrados);
+  }, [pagsFiltrados]);
+
   const pagsDebito = useMemo(() => {
     const filtrados = pagsFiltrados
       .filter(p => {
         if (p.status === 'pago') return false;
         if (!p.data_conclusao) return false;
+        if (p.data_pagamento_agendado) return false;
         try {
           const dataConc = parseISO(p.data_conclusao);
           // Excluir da semana atual (deve ficar apenas em pagsSemana)
@@ -1220,6 +1236,29 @@ function PagamentosClientesContent() {
                 onAgendarData={setAgendarDataModal}
                 onDelete={(id) => deleteMutation.mutate(id)}
                 emptyMsg="Nenhum serviço pago esta semana"
+              />
+            </div>
+          )}
+
+          {/* Seção: Pagamentos Agendados */}
+          {pagsAgendados.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-purple-600" />
+                  Pagamentos Agendados
+                </h2>
+              </div>
+              <TabelaPagamentos
+                lista={pagsAgendados}
+                onPagar={setPagarModal}
+                onDefinirPreco={setPrecosModal}
+                onEditarValor={setEditarModal}
+                onHistorico={setHistoricoModal}
+                onDetalhes={setDetalhesModal}
+                onAgendarData={setAgendarDataModal}
+                onDelete={(id) => deleteMutation.mutate(id)}
+                emptyMsg="Nenhum pagamento agendado"
               />
             </div>
           )}
