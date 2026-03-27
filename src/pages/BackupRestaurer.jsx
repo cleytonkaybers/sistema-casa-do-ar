@@ -120,117 +120,74 @@ export default function BackupRestaurerPage() {
     }
   };
 
-  const handleExportWord = async () => {
+  const handleExportTxt = async () => {
     setExporting(true);
     try {
-      const dataObj = {};
-      for (const e of ENTIDADES) {
+      // Entidades críticas para backup em TXT
+      const entidadesCriticas = [
+        { key: 'manutencaoPreventiva', entity: 'ManutencaoPreventiva', label: 'Futuras Preventivas' },
+        { key: 'lancamentosFinanceiros', entity: 'LancamentoFinanceiro', label: 'Financeiro' },
+        { key: 'pagamentosClientes', entity: 'PagamentoCliente', label: 'Pagamento de Clientes' },
+      ];
+
+      let txtContent = `BACKUP CRÍTICO - CASA DO AR\n`;
+      txtContent += `Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}\n`;
+      txtContent += `${'='.repeat(80)}\n\n`;
+
+      let totalRecs = 0;
+
+      // Exportar cada entidade crítica
+      for (const e of entidadesCriticas) {
         const records = await base44.entities[e.entity].list();
-        dataObj[e.key] = records;
+        totalRecs += records.length;
+
+        txtContent += `\n${e.label.toUpperCase()} (${records.length} registros)\n`;
+        txtContent += `${'-'.repeat(80)}\n`;
+
+        if (records.length === 0) {
+          txtContent += 'Nenhum registro encontrado.\n';
+          continue;
+        }
+
+        // Cabeçalho com campos
+        const keys = Object.keys(records[0]).filter(k => !['id', 'created_by', 'created_date', 'updated_date'].includes(k));
+        txtContent += keys.join(' | ') + '\n';
+        txtContent += `${'-'.repeat(80)}\n`;
+
+        // Dados
+        records.forEach(rec => {
+          const row = keys.map(k => {
+            let val = rec[k];
+            if (typeof val === 'object' && val !== null) {
+              val = JSON.stringify(val).substring(0, 30);
+            }
+            if (val === null || val === undefined) val = '-';
+            return String(val).substring(0, 40).replace(/\n/g, ' ');
+          }).join(' | ');
+          txtContent += row + '\n';
+        });
+
+        txtContent += '\n';
       }
 
-      // Gerar XML estruturado compatível com Word (.doc)
-      let totalRecs = 0;
-      ENTIDADES.forEach(e => {
-        const count = dataObj[e.key]?.length || 0;
-        totalRecs += count;
-      });
+      txtContent += `\n${'='.repeat(80)}\n`;
+      txtContent += `TOTAL DE REGISTROS: ${totalRecs}\n`;
+      txtContent += `Arquivo de backup para recuperação de dados críticos.\n`;
 
-      const doc = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Word.Document"?>
-<html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-<meta name="ProgId" content="Word.Document">
-<meta name="Generator" content="Casa do Ar Backup">
-<meta charset="utf-8">
-<title>Backup Completo - Casa do Ar</title>
-<style>
-* { margin: 0; padding: 0; }
-body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.4; padding: 0.5in; }
-h1 { font-size: 20pt; font-weight: bold; color: #1e3a8a; margin: 10pt 0; border-bottom: 2pt solid #1e3a8a; padding-bottom: 10pt; }
-h2 { font-size: 13pt; font-weight: bold; color: #1e3a8a; margin: 15pt 0 8pt 0; }
-p { font-size: 10pt; margin: 5pt 0; }
-table { border-collapse: collapse; width: 100%; margin: 10pt 0; page-break-inside: avoid; }
-th { background-color: #1e3a8a; color: white; padding: 5pt; text-align: left; font-weight: bold; border: 1pt solid #333; font-size: 9pt; }
-td { border: 1pt solid #ccc; padding: 4pt; font-size: 8.5pt; }
-tbody tr:nth-child(odd) { background-color: #f5f5f5; }
-.summary { background-color: #e3f2fd; padding: 10pt; margin: 10pt 0; border-left: 4pt solid #1e3a8a; }
-.summary-item { display: block; margin: 3pt 0; font-size: 10pt; }
-.summary-item strong { color: #059669; }
-</style>
-</head>
-<body>
-<h1>Backup Completo - Casa do Ar</h1>
-<p><strong>Gerado em:</strong> ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}</p>
-
-<div class="summary">
-<h3 style="color: #1e3a8a; margin: 0 0 8pt 0; font-size: 12pt;">Resumo do Backup</h3>
-`;
-
-      // Resumo com contagem
-      ENTIDADES.forEach(e => {
-        const count = dataObj[e.key]?.length || 0;
-        if (count > 0) {
-          doc += `<div class="summary-item"><strong>${e.label}:</strong> ${count} registros</div>`;
-        }
-      });
-      doc += `<div class="summary-item" style="margin-top: 8pt; border-top: 1pt solid #1e3a8a; padding-top: 5pt;"><strong style="font-size: 11pt; color: #d97706;">TOTAL: ${totalRecs} registros</strong></div>
-</div>
-`;
-
-      // Dados por entidade
-      ENTIDADES.forEach(e => {
-        const records = dataObj[e.key] || [];
-        if (records.length === 0) return;
-
-        doc += `<h2>${e.label} (${records.length} registros)</h2>`;
-        
-        if (records.length > 0) {
-          const allKeys = Object.keys(records[0]).filter(k => !['id', 'created_by', 'created_date', 'updated_date'].includes(k));
-          const keys = allKeys.slice(0, 8); // Limita a 8 colunas
-          
-          doc += `<table><thead><tr>`;
-          keys.forEach(k => {
-            const displayName = k.replace(/_/g, ' ').trim().substring(0, 12);
-            doc += `<th>${displayName}</th>`;
-          });
-          doc += `</tr></thead><tbody>`;
-          
-          // Limita a 50 registros por entidade para não ficar muito grande
-          records.slice(0, 50).forEach(rec => {
-            doc += `<tr>`;
-            keys.forEach(k => {
-              let val = rec[k];
-              if (typeof val === 'object' && val !== null) {
-                val = JSON.stringify(val).substring(0, 20);
-              }
-              if (val === null || val === undefined) val = '-';
-              const displayVal = String(val).substring(0, 40);
-              doc += `<td>${displayVal.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`;
-            });
-            doc += `</tr>`;
-          });
-          doc += `</tbody></table>
-`;
-        }
-      });
-
-      doc += `</body></html>`;
-
-      // Exportar com MIME type correto para Word
-      const blob = new Blob([doc], { type: 'application/vnd.ms-word' });
+      // Exportar como TXT
+      const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `backup_casa_do_ar_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.doc`;
+      link.download = `backup_critico_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.txt`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      toast.success(`Backup Word exportado com ${totalRecs} registros!`);
+      toast.success(`Backup TXT crítico exportado com ${totalRecs} registros!`);
     } catch (error) {
-      toast.error('Erro ao exportar Word: ' + error.message);
+      toast.error('Erro ao exportar TXT: ' + error.message);
     } finally {
       setExporting(false);
     }
@@ -434,14 +391,14 @@ tbody tr:nth-child(odd) { background-color: #f5f5f5; }
               )}
             </Button>
             <Button
-              onClick={handleExportWord}
+              onClick={handleExportTxt}
               disabled={exporting}
               className="h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 font-semibold"
             >
               {exporting ? (
                 <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Exportando...</>
               ) : (
-                <><FileText className="w-5 h-5 mr-2" />WORD ({totalRegistros} registros)</>
+                <><FileText className="w-5 h-5 mr-2" />BACKUP CRÍTICO (TXT)</>
               )}
             </Button>
           </div>
