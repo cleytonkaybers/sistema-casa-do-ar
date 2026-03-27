@@ -929,7 +929,14 @@ export default function PagamentosClientes() {
   }, [pagamentos, relFiltro, relDataInicio, relDataFim, relCliente, inicioSemana, fimSemana]);
 
   const totalSemana = pagsSemana.reduce((s, p) => s + (p.valor_total || 0), 0);
-  const totalPagoSemana = pagsSemana.reduce((s, p) => s + (p.valor_pago || 0), 0);
+
+  // Recebido na semana: todos os pagamentos (incluindo já pagos) dentro da semana
+  const todosPagsSemana = useMemo(() => pagamentos.filter(p => {
+    if (!p.data_conclusao) return false;
+    try { return isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana }); }
+    catch { return false; }
+  }), [pagamentos, inicioSemana, fimSemana]);
+  const totalPagoSemana = todosPagsSemana.reduce((s, p) => s + (p.valor_pago || 0), 0);
   const totalDebitoGeral = pagsDebito.reduce((s, p) => s + ((p.valor_total || 0) - (p.valor_pago || 0)), 0);
 
   const inicioMes = startOfMonth(hoje);
