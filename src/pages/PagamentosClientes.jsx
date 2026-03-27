@@ -675,6 +675,8 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
               ? <Badge className="bg-green-100 text-green-700 border border-green-200 text-xs">✓ Pago</Badge>
               : isParcial
               ? <Badge className="bg-amber-100 text-amber-700 border border-amber-200 text-xs">Parcial</Badge>
+              : pag.data_pagamento_agendado
+              ? <Badge className="bg-purple-100 text-purple-700 border border-purple-200 text-xs">📅 Agendado</Badge>
               : temPrecoDefinido ? <Badge className="bg-red-100 text-red-700 border border-red-200 text-xs">Pendente</Badge> : <Badge className="bg-yellow-100 text-yellow-700 border border-yellow-200 text-xs">Sem preço</Badge>
             }
           </div>
