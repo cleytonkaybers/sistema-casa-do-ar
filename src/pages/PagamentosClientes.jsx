@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import RelatorioClientesPagamentoModal from '@/components/financeiro/RelatorioClientesPagamentoModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -777,6 +778,7 @@ export default function PagamentosClientes() {
   const [detalhesModal, setDetalhesModal] = useState(null);
   const [abaAtiva, setAbaAtiva] = useState('semana');
   const [precosSyncKey, setPrecosSyncKey] = useState(0);
+  const [abrirRelatorio, setAbrirRelatorio] = useState(false);
 
   // Relatórios
   const [relFiltro, setRelFiltro] = useState('semana');
@@ -1055,6 +1057,9 @@ export default function PagamentosClientes() {
           <Input placeholder="Buscar cliente..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9 h-10 bg-white border-gray-200" />
           {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-4 h-4 text-gray-400" /></button>}
         </div>
+        <Button onClick={() => setAbrirRelatorio(true)} variant="outline" className="gap-2">
+          📄 Gerar PDF
+        </Button>
         <div className="flex border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
           {abas.map(a => (
             <button key={a.key} onClick={() => setAbaAtiva(a.key)}
@@ -1173,6 +1178,7 @@ export default function PagamentosClientes() {
       <EditarValorModal open={!!editarModal} onClose={() => setEditarModal(null)} pagamento={editarModal} onSave={handleEditarValor} />
       <HistoricoModal open={!!historicoModal} onClose={() => setHistoricoModal(null)} pagamento={historicoModal} />
       <DetalhesClienteModal open={!!detalhesModal} onClose={() => setDetalhesModal(null)} pagamento={detalhesModal} />
+      <RelatorioClientesPagamentoModal isOpen={abrirRelatorio} onClose={() => setAbrirRelatorio(false)} pagamentos={pagamentos} servicos={servicosConcluidos} />
     </div>
   );
 }
