@@ -64,6 +64,7 @@ function groupPagamentos(lista) {
 
 function PagamentoModal({ open, onClose, pagamento, onSave }) {
   const [obs, setObs] = useState('');
+  const [metodoPagamento, setMetodoPagamento] = useState('');
   const [loading, setLoading] = useState(false);
   const [parcelas, setParcelas] = useState([]);
   const [novaData, setNovaData] = useState('');
@@ -84,6 +85,7 @@ function PagamentoModal({ open, onClose, pagamento, onSave }) {
   useEffect(() => {
     if (open) {
       setObs('');
+      setMetodoPagamento('');
       setParcelas([]);
       setNovaData('');
       setNovoValorParcela('');
@@ -133,8 +135,8 @@ function PagamentoModal({ open, onClose, pagamento, onSave }) {
     if (saldo < 0.01 && totalDefinido === 0) return toast.error('Defina os preços dos serviços primeiro');
     if (v > saldo + 0.01) return toast.error(`Valor maior que o saldo (${formatCurrency(saldo)})`);
     setLoading(true);
-    // Passa os preços unitários definidos para o onSave processar
-    await onSave(pagamento, v, obs, parcelas, precosGrupo);
+    const obsCompleta = [metodoPagamento, obs].filter(Boolean).join(' | ');
+    await onSave(pagamento, v, obsCompleta, parcelas, precosGrupo);
     setLoading(false);
     onClose();
   };
@@ -202,9 +204,35 @@ function PagamentoModal({ open, onClose, pagamento, onSave }) {
               </button>
             )}
           </div>
+          {/* Método de pagamento */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-2 block">Método de pagamento</label>
+            <div className="grid grid-cols-2 gap-2">
+              {['PIX', 'Dinheiro', 'Cartão de Crédito', 'Cartão de Débito', 'Máquina de Cartão', 'Transferência'].map(m => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMetodoPagamento(prev => prev === m ? '' : m)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+                    metodoPagamento === m
+                      ? 'bg-blue-600 border-blue-600 text-white'
+                      : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
+                  }`}
+                >
+                  <span className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                    metodoPagamento === m ? 'border-white bg-white' : 'border-gray-300'
+                  }`}>
+                    {metodoPagamento === m && <span className="w-2 h-2 rounded-sm bg-blue-600 block" />}
+                  </span>
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div>
             <label className="text-sm font-medium text-gray-700 mb-1.5 block">Observação (opcional)</label>
-            <Input placeholder="Ex: PIX, dinheiro, cartão..." value={obs} onChange={e => setObs(e.target.value)} />
+            <Input placeholder="Ex: referência, número do comprovante..." value={obs} onChange={e => setObs(e.target.value)} />
           </div>
 
           {/* Parcelas futuras */}
