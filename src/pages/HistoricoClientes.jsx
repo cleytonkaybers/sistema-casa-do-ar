@@ -156,8 +156,8 @@ export default function HistoricoClientes() {
       {/* Modal de Detalhes */}
       {clienteSelecionado && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <CardHeader className="bg-gradient-to-r from-slate-800 to-slate-900 text-white sticky top-0 flex items-center justify-between">
+          <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto border-0 shadow-2xl" style={{backgroundColor: '#243447'}}>
+            <CardHeader className="bg-gradient-to-r from-blue-900 to-blue-800 text-white sticky top-0 flex items-center justify-between" style={{backgroundColor: '#1e3a8a'}}>
               <div>
                 <CardTitle className="text-2xl">Detalhes de Manutenção - {clienteSelecionado}</CardTitle>
               </div>
@@ -247,42 +247,42 @@ export default function HistoricoClientes() {
       )}
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-800">📋 Histórico de Clientes</h1>
-        <p className="text-gray-500 mt-1">Garantia e proteção - Histórico completo de técnicos, serviços e datas</p>
+        <h1 className="text-3xl font-bold text-white">📋 Histórico de Clientes</h1>
+        <p className="text-blue-300/70 mt-1">Garantia e proteção - Histórico completo de técnicos, serviços e datas</p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
+        <Card className="border-blue-800/40 shadow-lg" style={{backgroundColor: '#243447'}}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total de Serviços</p>
-                <p className="text-2xl font-bold text-blue-600">{totalServiços}</p>
+                <p className="text-sm text-blue-300/70">Total de Serviços</p>
+                <p className="text-2xl font-bold text-yellow-400 mt-2">{totalServiços}</p>
               </div>
               <CheckCircle2 className="w-8 h-8 text-blue-400" />
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+        <Card className="border-blue-800/40 shadow-lg" style={{backgroundColor: '#243447'}}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Valor Total</p>
-                <p className="text-2xl font-bold text-green-600">R$ {totalValor.toLocaleString('pt-BR')}</p>
+                <p className="text-sm text-blue-300/70">Valor Total</p>
+                <p className="text-2xl font-bold text-green-400 mt-2">R$ {totalValor.toLocaleString('pt-BR')}</p>
               </div>
               <DollarSign className="w-8 h-8 text-green-400" />
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
+        <Card className="border-blue-800/40 shadow-lg" style={{backgroundColor: '#243447'}}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Clientes</p>
-                <p className="text-2xl font-bold text-purple-600">{Object.keys(clientesAgrupados).length}</p>
+                <p className="text-sm text-blue-300/70">Clientes</p>
+                <p className="text-2xl font-bold text-amber-400 mt-2">{Object.keys(clientesAgrupados).length}</p>
               </div>
-              <User className="w-8 h-8 text-purple-400" />
+              <User className="w-8 h-8 text-amber-400" />
             </div>
           </CardContent>
         </Card>
@@ -291,17 +291,18 @@ export default function HistoricoClientes() {
       {/* Search e Botão Download */}
       <div className="flex gap-4 flex-col sm:flex-row">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-400/50" />
           <Input
             placeholder="Buscar por cliente ou serviço..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 h-11 bg-white border-gray-200"
+            className="pl-10 h-11 border-blue-800/50 text-white placeholder:text-blue-300/50"
+            style={{backgroundColor: 'rgba(30,64,175,0.2)'}}
           />
         </div>
         <Button
           onClick={() => gerarPDFTodos(clientesAgrupados)}
-          className="bg-green-600 hover:bg-green-700 whitespace-nowrap gap-2"
+          className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 whitespace-nowrap gap-2"
         >
           <FileText className="w-4 h-4" />
           Baixar Todos
@@ -310,9 +311,9 @@ export default function HistoricoClientes() {
 
       {/* Paginação */}
       {clientesArray.length > 0 && (
-        <div className="bg-white rounded-lg p-4 border border-gray-200 flex items-center justify-between">
-          <p className="text-sm text-gray-600">
-            Mostrando <span className="font-medium">{startIndex + 1}</span> a <span className="font-medium">{Math.min(endIndex, clientesArray.length)}</span> de <span className="font-medium">{clientesArray.length}</span> clientes
+        <div className="rounded-lg p-4 border border-blue-800/40 flex items-center justify-between" style={{backgroundColor: '#243447'}}>
+          <p className="text-sm text-blue-300/80">
+            Mostrando <span className="font-medium text-white">{startIndex + 1}</span> a <span className="font-medium text-white">{Math.min(endIndex, clientesArray.length)}</span> de <span className="font-medium text-white">{clientesArray.length}</span> clientes
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -320,11 +321,11 @@ export default function HistoricoClientes() {
               size="sm"
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="border-gray-200"
+              className="border-blue-800/50 text-blue-300 hover:bg-blue-900/50"
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-blue-300/80">
               Página {currentPage} de {totalPages}
             </span>
             <Button
@@ -332,7 +333,7 @@ export default function HistoricoClientes() {
               size="sm"
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="border-gray-200"
+              className="border-blue-800/50 text-blue-300 hover:bg-blue-900/50"
             >
               <ChevronRight className="w-4 h-4" />
             </Button>
@@ -343,29 +344,29 @@ export default function HistoricoClientes() {
       {/* Cliente Cards */}
       <div className="space-y-6">
         {clientesArray.length === 0 ? (
-          <Card className="bg-white border-0 shadow-md">
+          <Card className="border-0 shadow-md" style={{backgroundColor: '#243447'}}>
             <CardContent className="p-8 text-center">
-              <p className="text-gray-500">Nenhum histórico encontrado</p>
+              <p className="text-blue-300/70">Nenhum histórico encontrado</p>
             </CardContent>
           </Card>
         ) : (
           paginatedClientes.map((cliente) => {
             const itens = clientesAgrupados[cliente];
             return (
-            <Card key={cliente} className="bg-white border-0 shadow-lg hover:shadow-xl transition-shadow overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-slate-800 to-slate-900 text-white">
+            <Card key={cliente} className="border-0 shadow-lg hover:shadow-xl transition-shadow overflow-hidden" style={{backgroundColor: '#243447'}}>
+              <CardHeader className="text-white" style={{backgroundColor: '#1e3a8a'}}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 flex-1">
-                    <div className="w-12 h-12 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-lg">
+                    <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-lg flex items-center justify-center text-white font-bold text-lg">
                       {cliente?.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <CardTitle className="text-lg">{cliente}</CardTitle>
-                      <p className="text-sm text-slate-300 mt-1">{itens.length} serviço(s) registrado(s) | Total: R$ {itens.reduce((sum, item) => sum + (item.valor || 0), 0).toLocaleString('pt-BR')}</p>
+                      <CardTitle className="text-lg text-white">{cliente}</CardTitle>
+                      <p className="text-sm text-blue-300/70 mt-1">{itens.length} serviço(s) registrado(s) | Total: R$ {itens.reduce((sum, item) => sum + (item.valor || 0), 0).toLocaleString('pt-BR')}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge className="bg-cyan-500 text-white border-0">{itens.length}</Badge>
+                    <Badge className="bg-yellow-500 text-white border-0">{itens.length}</Badge>
                     <Button
                       onClick={() => setClienteSelecionado(cliente)}
                       size="sm"
@@ -417,58 +418,58 @@ export default function HistoricoClientes() {
                         </div>
 
                         {/* Content */}
-                        <div className="flex-1 bg-gray-50 rounded-lg p-4 border border-gray-100">
-                          <div className="flex items-start justify-between mb-3">
-                            <div>
-                              <h4 className="font-semibold text-gray-800">{item.descricao}</h4>
-                              <Badge className={`${statusCores[item.status]} border text-xs mt-2`}>
-                                {item.status}
-                              </Badge>
-                            </div>
-                            {item.valor && (
-                              <span className="font-bold text-green-600">
-                                R$ {item.valor.toLocaleString('pt-BR')}
-                              </span>
-                            )}
-                          </div>
+                               <div className="flex-1 rounded-lg p-4 border border-blue-800/40" style={{backgroundColor: 'rgba(30,64,175,0.15)'}}>
+                                 <div className="flex items-start justify-between mb-3">
+                                   <div>
+                                     <h4 className="font-semibold text-white">{item.descricao}</h4>
+                                     <Badge className={`${statusCores[item.status]} border text-xs mt-2`}>
+                                       {item.status}
+                                     </Badge>
+                                   </div>
+                                   {item.valor && (
+                                     <span className="font-bold text-green-400">
+                                       R$ {item.valor.toLocaleString('pt-BR')}
+                                     </span>
+                                   )}
+                                 </div>
 
-                          <div className="space-y-2 text-sm text-gray-600">
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4 text-blue-500" />
-                              <span><strong>Data do Serviço:</strong> {format(new Date(item.data), 'dd/MM/yyyy', { locale: ptBR })}</span>
-                            </div>
+                                 <div className="space-y-2 text-sm text-blue-300/80">
+                                   <div className="flex items-center gap-2">
+                                     <Calendar className="w-4 h-4 text-blue-400" />
+                                     <span><strong>Data do Serviço:</strong> {format(new Date(item.data), 'dd/MM/yyyy', { locale: ptBR })}</span>
+                                   </div>
 
-                            {item.data_atualizacao && (
-                              <div className="flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-purple-500" />
-                                <span><strong>Última Atualização:</strong> {format(new Date(item.data_atualizacao), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR })}</span>
-                              </div>
-                            )}
+                                   {item.data_atualizacao && (
+                                     <div className="flex items-center gap-2">
+                                       <Clock className="w-4 h-4 text-purple-400" />
+                                       <span><strong>Última Atualização:</strong> {format(new Date(item.data_atualizacao), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR })}</span>
+                                     </div>
+                                   )}
 
-                            {item.usuario && (
-                              <div className="flex items-center gap-2">
-                                <User className="w-4 h-4 text-orange-500" />
-                                <span><strong>Técnico:</strong> {item.usuario}</span>
-                              </div>
-                            )}
-                          </div>
+                                   {item.usuario && (
+                                     <div className="flex items-center gap-2">
+                                       <User className="w-4 h-4 text-amber-400" />
+                                       <span><strong>Técnico:</strong> {item.usuario}</span>
+                                     </div>
+                                   )}
+                                 </div>
 
-                          <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between">
-                            <Badge className="text-xs bg-blue-100 text-blue-700 border-blue-300">
-                              {item.tipo}
-                            </Badge>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(item)}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50 h-7 px-2"
-                              disabled={deleteMutation.isPending}
-                            >
-                              <Trash2 className="w-3.5 h-3.5 mr-1" />
-                              Excluir
-                            </Button>
-                          </div>
-                        </div>
+                                 <div className="mt-3 pt-3 border-t border-blue-800/40 flex items-center justify-between">
+                                   <Badge className="text-xs bg-blue-900/50 text-blue-200 border-blue-700/50">
+                                     {item.tipo}
+                                   </Badge>
+                                   <Button
+                                     variant="ghost"
+                                     size="sm"
+                                     onClick={() => handleDelete(item)}
+                                     className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-7 px-2"
+                                     disabled={deleteMutation.isPending}
+                                   >
+                                     <Trash2 className="w-3.5 h-3.5 mr-1" />
+                                     Excluir
+                                   </Button>
+                                 </div>
+                               </div>
                       </div>
                     </div>
                   ))}
