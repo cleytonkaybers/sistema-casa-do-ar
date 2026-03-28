@@ -196,7 +196,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
   };
 
   const handlePhoneChange = (e) => {
-    setFormData({ ...formData, telefone: formatPhoneInput(e.target.value) });
+    setFormData({ ...formData, telefone: stripAndFormatPhone(e.target.value) });
   };
 
   const formatCPF = (value) => {

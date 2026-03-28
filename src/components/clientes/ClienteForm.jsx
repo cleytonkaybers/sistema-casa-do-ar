@@ -110,8 +110,7 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
   };
 
   const handlePhoneChange = (e) => {
-    const formatted = formatPhoneInput(e.target.value);
-    setFormData({ ...formData, telefone: formatted });
+    setFormData({ ...formData, telefone: stripAndFormat(e.target.value) });
   };
 
   const handleCPFChange = (e) => {
