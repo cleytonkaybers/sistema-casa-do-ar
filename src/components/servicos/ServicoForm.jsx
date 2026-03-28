@@ -413,8 +413,15 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
       Array(parseInt(item.quantidade) || 1).fill(item.tipo)
     );
 
+    // Garantir +55 no telefone ao salvar
+    const telLimpo = (formData.telefone || '').replace(/\D/g, '');
+    const telefoneFinal = telLimpo
+      ? (telLimpo.startsWith('55') && telLimpo.length > 11 ? '+' + telLimpo : '+55' + telLimpo)
+      : '';
+
     const dataToSave = {
       ...formData,
+      telefone: telefoneFinal,
       tipo_servico: tiposExpandidos.join(' + '),
       dia_semana: diaSemana,
       valor: formData.valor ? parseFloat(formData.valor) : 0,
@@ -501,8 +508,9 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                 id="telefone"
                 value={formData.telefone}
                 onChange={handlePhoneChange}
+                placeholder="92 99999-1234"
                 required
-                maxLength={18}
+                maxLength={14}
               />
             </div>
           </div>
