@@ -48,7 +48,7 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
       setFormData({
         nome: cliente.nome || '',
         cpf: cliente.cpf || '',
-        telefone: cliente.telefone || '',
+        telefone: stripAndFormat(cliente.telefone || ''),
         endereco: cliente.endereco || '',
         latitude: cliente.latitude || null,
         longitude: cliente.longitude || null,
@@ -73,23 +73,21 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
     }
   }, [cliente, open, currentUser?.empresa_id]);
 
+  // Formata só DDD + número, sem +55
   const formatPhoneInput = (value) => {
     const cleaned = value.replace(/\D/g, '');
-    let formatted = cleaned;
-    
-    // Formato com código do país: +55 66 98121-4583
-    if (cleaned.length > 0) {
-      if (cleaned.length <= 2) {
-        formatted = `+${cleaned}`;
-      } else if (cleaned.length <= 4) {
-        formatted = `+${cleaned.slice(0, 2)} ${cleaned.slice(2)}`;
-      } else if (cleaned.length <= 9) {
-        formatted = `+${cleaned.slice(0, 2)} ${cleaned.slice(2, 4)} ${cleaned.slice(4)}`;
-      } else {
-        formatted = `+${cleaned.slice(0, 2)} ${cleaned.slice(2, 4)} ${cleaned.slice(4, 9)}-${cleaned.slice(9, 13)}`;
-      }
-    }
-    return formatted;
+    if (!cleaned) return '';
+    if (cleaned.length <= 2) return cleaned;
+    if (cleaned.length <= 6) return `${cleaned.slice(0, 2)} ${cleaned.slice(2)}`;
+    if (cleaned.length <= 10) return `${cleaned.slice(0, 2)} ${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
+    return `${cleaned.slice(0, 2)} ${cleaned.slice(2, 7)}-${cleaned.slice(7, 11)}`;
+  };
+
+  // Remove +55 e formata para exibição
+  const stripAndFormat = (value) => {
+    let cleaned = (value || '').replace(/\D/g, '');
+    if (cleaned.startsWith('55') && cleaned.length > 11) cleaned = cleaned.slice(2);
+    return formatPhoneInput(cleaned);
   };
 
   const formatCPFInput = (value) => {
@@ -134,7 +132,12 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(formData);
+    // Adicionar +55 ao salvar se não tiver
+    const telLimpo = (formData.telefone || '').replace(/\D/g, '');
+    const telefoneFinal = telLimpo
+      ? (telLimpo.startsWith('55') && telLimpo.length > 11 ? '+' + telLimpo : '+55' + telLimpo)
+      : '';
+    onSave({ ...formData, telefone: telefoneFinal });
   };
 
   // Função para buscar dados de localização a partir de um link do Google Maps, coordenadas ou endereço
@@ -359,18 +362,9 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
         const nome = contact.name?.[0] || '';
         let telefone = contact.tel?.[0] || '';
         
-        // Formata o telefone
+        // Formata o telefone (sem +55)
         if (telefone) {
-          telefone = telefone.replace(/\D/g, '');
-          // Remove o código do país se existir (55 Brasil)
-          if (telefone.startsWith('55') && telefone.length > 11) {
-            telefone = telefone.slice(2);
-          }
-          // Adiciona +55 formatado
-          if (telefone.length === 11 || telefone.length === 10) {
-            telefone = '55' + telefone;
-          }
-          telefone = formatPhoneInput(telefone);
+          telefone = stripAndFormat(telefone);
         }
         
         // Tenta extrair endereço
@@ -483,10 +477,10 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
                 id="telefone"
                 value={formData.telefone}
                 onChange={handlePhoneChange}
-                placeholder="(00) 00000-0000"
+                placeholder="92 99999-1234"
                 required
                 className="h-11"
-                maxLength={18}
+                maxLength={14}
               />
             </div>
           </div>
