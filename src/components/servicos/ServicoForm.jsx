@@ -15,6 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 
 export default function ServicoForm({ open, onClose, onSave, servico, isLoading, prefilledData, equipes = [], currentUserEquipeId = null, isAdmin = false }) {
   const [loadingLocation, setLoadingLocation] = useState(false);
+  const [loadingContacts, setLoadingContacts] = useState(false);
   const [clienteSearch, setClienteSearch] = useState('');
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
   const [servicoSearch, setServicoSearch] = useState('');
@@ -177,6 +178,15 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
       setFormData(prev => ({ ...prev, valor: valorCalculado }));
     }
   }, [formData.tipos_servico, tiposServicoValores]);
+
+  // Parseia tipo_servico string para array de {tipo, quantidade}
+  const parseTiposServico = (tipoServicoStr) => {
+    if (!tipoServicoStr) return [{ tipo: 'Limpeza de 9k', quantidade: 1 }];
+    const partes = tipoServicoStr.split(' + ').filter(Boolean);
+    const contagem = {};
+    partes.forEach(p => { contagem[p] = (contagem[p] || 0) + 1; });
+    return Object.entries(contagem).map(([tipo, quantidade]) => ({ tipo, quantidade }));
+  };
 
   // Formata DDD + número sem +55
   const formatPhoneInput = (value) => {
