@@ -18,7 +18,10 @@ import {
   Clock,
   CheckCircle2,
   Plus,
-  Filter
+  Filter,
+  Tag,
+  Bell,
+  DollarSign
 } from 'lucide-react';
 import { format, differenceInDays, startOfMonth, endOfMonth, isWithinInterval, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -75,6 +78,27 @@ export default function Dashboard() {
   const { data: pagamentosTecnicos = [] } = useQuery({
     queryKey: ['pagamentosTecnicos'],
     queryFn: () => base44.entities.PagamentoTecnico.list(),
+  });
+
+  const { data: pagamentosClientes = [] } = useQuery({
+    queryKey: ['pagamentos-clientes-dash'],
+    queryFn: () => base44.entities.PagamentoCliente.list('-data_conclusao'),
+    enabled: currentUser?.role === 'admin',
+  });
+
+  // Cards de alerta para admin
+  const TIPOS_IGNORADOS = ['Ver defeito', 'Verificar defeito', 'Outro tipo de serviço', 'Serviço avulso'];
+  const semPrecificacao = pagamentosClientes.filter(p =>
+    p.status !== 'pago' && (p.valor_total === 0 || p.valor_total === 1) && !TIPOS_IGNORADOS.includes(p.tipo_servico)
+  );
+  const cobrarHoje = pagamentosClientes.filter(p => {
+    if (p.status === 'pago') return false;
+    if (!p.data_pagamento_agendado) return false;
+    const hoje = new Date();
+    const agendado = new Date(p.data_pagamento_agendado + 'T12:00:00');
+    return agendado.getDate() === hoje.getDate() &&
+      agendado.getMonth() === hoje.getMonth() &&
+      agendado.getFullYear() === hoje.getFullYear();
   });
 
   // Estatísticas
@@ -225,6 +249,65 @@ export default function Dashboard() {
           </Button>
         </Link>
       </div>
+
+      {/* Cards de Alerta Admin: Precificação e Cobranças do Dia */}
+      {currentUser?.role === 'admin' && (semPrecificacao.length > 0 || cobrarHoje.length > 0) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Card: Serviços sem preço */}
+          {semPrecificacao.length > 0 && (
+            <Link to={createPageUrl('PagamentosClientes')}>
+              <div className="rounded-2xl p-4 border-2 border-amber-400 bg-amber-50 hover:bg-amber-100 transition-all cursor-pointer">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center flex-shrink-0">
+                    <Tag className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-amber-800 text-sm">Serviços sem precificação</p>
+                      <span className="bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{semPrecificacao.length}</span>
+                    </div>
+                    <p className="text-xs text-amber-700 mt-1">Clientes aguardando definição de preço</p>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {semPrecificacao.slice(0, 3).map(p => (
+                        <span key={p.id} className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-medium truncate max-w-[120px]">{p.cliente_nome}</span>
+                      ))}
+                      {semPrecificacao.length > 3 && <span className="text-xs text-amber-600 font-semibold">+{semPrecificacao.length - 3} mais</span>}
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-amber-600 flex-shrink-0 mt-1" />
+                </div>
+              </div>
+            </Link>
+          )}
+
+          {/* Card: Cobrar hoje */}
+          {cobrarHoje.length > 0 && (
+            <Link to={createPageUrl('PagamentosClientes')}>
+              <div className="rounded-2xl p-4 border-2 border-orange-400 bg-orange-50 hover:bg-orange-100 transition-all cursor-pointer animate-pulse">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center flex-shrink-0">
+                    <Bell className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-orange-800 text-sm">🔔 Cobrar hoje!</p>
+                      <span className="bg-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{cobrarHoje.length}</span>
+                    </div>
+                    <p className="text-xs text-orange-700 mt-1">Pagamentos agendados para hoje</p>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {cobrarHoje.slice(0, 3).map(p => (
+                        <span key={p.id} className="text-xs bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full font-medium truncate max-w-[120px]">{p.cliente_nome}</span>
+                      ))}
+                      {cobrarHoje.length > 3 && <span className="text-xs text-orange-600 font-semibold">+{cobrarHoje.length - 3} mais</span>}
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-orange-600 flex-shrink-0 mt-1" />
+                </div>
+              </div>
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* Serviços Diários por Equipe */}
       {servicosPorEquipe.length > 0 && (
