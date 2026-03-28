@@ -71,11 +71,15 @@ const desenharTabela = (doc, colunas, larguras, linhas) => {
   }
 
   let x = margemEsq;
+  // Resetar para branco antes de cada linha de dados
+  doc.setFillColor(255, 255, 255);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont(undefined, 'normal');
   linha.forEach((celula, i) => {
-    // Usar apenas borda (sem fill) para garantir fundo branco
-    doc.rect(x, y, larguras[i], alturaAtual, 'S');
+    doc.setFillColor(255, 255, 255);
     doc.setTextColor(0, 0, 0);
-    const linhasTexto = doc.splitTextToSize(celula, larguras[i] - 4);
+    doc.rect(x, y, larguras[i], alturaAtual, 'FD');
+    const linhasTexto = doc.splitTextToSize(String(celula), larguras[i] - 4);
     doc.text(linhasTexto, x + 2, y + 5);
     x += larguras[i];
   });
