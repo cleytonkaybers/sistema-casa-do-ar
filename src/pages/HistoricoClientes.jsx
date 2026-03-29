@@ -59,7 +59,9 @@ export default function HistoricoClientes() {
   });
 
   const historico = [
-    ...servicos.map(s => ({
+    ...servicos
+      .filter(s => s.status === 'concluido')
+      .map(s => ({
       id: `s-${s.id}`,
       tipo: 'Serviço',
       cliente: s.cliente_nome,
@@ -70,7 +72,9 @@ export default function HistoricoClientes() {
       usuario: s.usuario_atualizacao_status,
       data_atualizacao: s.data_atualizacao_status
     })),
-    ...atendimentos.map(a => ({
+    ...atendimentos
+      .filter(a => a.status === 'concluido' || a.status === 'Concluído')
+      .map(a => ({
       id: `a-${a.id}`,
       tipo: 'Atendimento',
       cliente: a.cliente_nome,
