@@ -218,21 +218,15 @@ function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], on
 
     const inicial = {};
     servicosGrupos.forEach(({ tipo }) => {
-      // Busca um record que contenha esse tipo e tenha valor definido (> 1, que é o default)
+      // Só pre-preenche se encontrar um record com EXATAMENTE esse tipo único e valor > 1
       const rec = records.find(r => {
         const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-        return tipos.includes(tipo) && (r.valor_total || 0) > 1;
+        return tipos.length === 1 && tipos[0] === tipo && (r.valor_total || 0) > 1;
       });
-      if (rec) {
-        const tipos = (rec.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-        const valorIndividual = rec.valor_total / tipos.length;
-        inicial[tipo] = Number(valorIndividual).toFixed(2).replace('.', ',');
-      } else {
-        inicial[tipo] = '';
-      }
+      inicial[tipo] = rec ? Number(rec.valor_total).toFixed(2).replace('.', ',') : '';
     });
     setPrecosGrupo(inicial);
-  }, [open, pagamento]);
+  }, [open, pagamento?.id]);
 
   const handleSave = async () => {
     if (Object.values(precosGrupo).every(v => !parseFloat((v || '').replace(',', '.')))) {
