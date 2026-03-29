@@ -69,6 +69,7 @@ export default function HistoricoClientes() {
       data: s.data_programada,
       status: s.status,
       valor: s.valor,
+      equipe_nome: s.equipe_nome || '',
       usuario: s.usuario_atualizacao_status,
       data_atualizacao: s.data_atualizacao_status
     })),
@@ -82,6 +83,7 @@ export default function HistoricoClientes() {
       data: a.data_atendimento,
       status: a.status,
       valor: a.valor,
+      equipe_nome: a.equipe_nome || '',
       usuario: a.usuario_atualizacao_status,
       data_atualizacao: a.data_atualizacao_status
     }))
