@@ -5,10 +5,51 @@
     <link rel="icon" type="image/svg+xml" href="https://base44.com/logo_v2.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="manifest" href="/manifest.json" />
-    <title>Base44 APP</title>
+    <title>Casa do Ar Climatização</title>
+    <style>
+      body { margin: 0; background-color: #000000; }
+      #splash-screen {
+        position: fixed;
+        inset: 0;
+        background-color: #000000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        transition: opacity 0.5s ease;
+      }
+      #splash-screen img {
+        width: 80%;
+        max-width: 340px;
+        object-fit: contain;
+      }
+      #splash-screen.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
   </head>
   <body>
+    <div id="splash-screen">
+      <img src="https://media.base44.com/images/public/698ea42a04e403662faedcb4/20ff2fc9c_logocasadoar.jpg" alt="Casa do Ar Climatização" />
+    </div>
     <div id="root"></div>
+    <script>
+      window.__hideSplash = function() {
+        var splash = document.getElementById('splash-screen');
+        if (splash) {
+          splash.classList.add('fade-out');
+          setTimeout(function() { if (splash.parentNode) splash.parentNode.removeChild(splash); }, 600);
+        }
+      };
+      // Mínimo 2 segundos de splash
+      window.__splashTimerDone = false;
+      window.__appMounted = false;
+      setTimeout(function() {
+        window.__splashTimerDone = true;
+        if (window.__appMounted) window.__hideSplash();
+      }, 2000);
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
