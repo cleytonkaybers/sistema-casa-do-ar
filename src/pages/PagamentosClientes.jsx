@@ -215,21 +215,24 @@ function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], on
   useEffect(() => {
     if (!open || !pagamento) return;
     const records = pagamento._records || [pagamento];
-    // Busca records mais frescos
-    const idsAtend = new Set(records.map(r => r.atendimento_id || r.id).filter(Boolean));
-    const frescos = pagamentosAtuais.filter(p => idsAtend.has(p.atendimento_id) || idsAtend.has(p.id));
-    const fonte = frescos.length > 0 ? frescos : records;
 
     const inicial = {};
     servicosGrupos.forEach(({ tipo }) => {
-      const rec = fonte.find(r => {
+      // Busca um record que contenha esse tipo e tenha valor definido (> 1, que é o default)
+      const rec = records.find(r => {
         const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-        return tipos.length === 1 && tipos[0] === tipo && (r.valor_total || 0) > 0;
+        return tipos.includes(tipo) && (r.valor_total || 0) > 1;
       });
-      inicial[tipo] = rec ? Number(rec.valor_total).toFixed(2).replace('.', ',') : '';
+      if (rec) {
+        const tipos = (rec.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
+        const valorIndividual = rec.valor_total / tipos.length;
+        inicial[tipo] = Number(valorIndividual).toFixed(2).replace('.', ',');
+      } else {
+        inicial[tipo] = '';
+      }
     });
     setPrecosGrupo(inicial);
-  }, [open, pagamento, pagamentosAtuais]);
+  }, [open, pagamento]);
 
   const handleSave = async () => {
     if (Object.values(precosGrupo).every(v => !parseFloat((v || '').replace(',', '.')))) {
