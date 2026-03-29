@@ -244,13 +244,23 @@ function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], on
     onClose();
   };
 
+  const inputRefs = useRef([]);
+  const handleKeyDown = (e, idx) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const next = inputRefs.current[idx + 1];
+      if (next) next.focus();
+      else handleSave();
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-md w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle className="flex items-center gap-2"><Tag className="w-5 h-5 text-blue-600" /> Definir Preços — {pagamento?.cliente_nome}</DialogTitle></DialogHeader>
         <div className="space-y-3 py-2">
-          <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Preço unitário por serviço</p>
-          {servicosGrupos.map(g => {
+          <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Preço unitário • pressione Enter para avançar</p>
+          {servicosGrupos.map((g, idx) => {
             const preco = precosGrupo[g.tipo] || '';
             const precoNum = parseFloat(preco.replace(',', '.')) || 0;
             const totalLinha = precoNum * g.qtd;
@@ -261,18 +271,21 @@ function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], on
                   <span className="flex-1 text-sm text-gray-700 font-medium">{g.tipo}</span>
                   <span className="text-xs text-gray-400">R$</span>
                   <Input
+                    ref={el => { inputRefs.current[idx] = el; }}
                     placeholder="0,00"
                     value={preco}
                     onChange={e => setPrecosGrupo(prev => ({ ...prev, [g.tipo]: e.target.value }))}
+                    onKeyDown={e => handleKeyDown(e, idx)}
                     className={`w-28 h-9 text-sm text-right font-semibold ${precoNum === 0 ? 'border-amber-300 bg-amber-50' : 'border-green-300 bg-green-50'}`}
-                    autoFocus={g === servicosGrupos[0]}
+                    autoFocus={idx === 0}
                   />
                 </div>
-                {g.qtd > 1 && (
-                  <div className="flex justify-end text-xs text-gray-500">
-                    {g.qtd} × {formatCurrency(precoNum)} = <span className="font-semibold text-gray-700 ml-1">{formatCurrency(totalLinha)}</span>
-                  </div>
-                )}
+                <div className="flex justify-between text-xs text-gray-500">
+                  {precoNum > 0
+                    ? <><span>{g.qtd} × {formatCurrency(precoNum)}</span><span className="font-semibold text-gray-700">= {formatCurrency(totalLinha)}</span></>
+                    : <span className="text-amber-500">Digite o valor unitário e pressione Enter</span>
+                  }
+                </div>
               </div>
             );
           })}
