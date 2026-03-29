@@ -370,14 +370,15 @@ export default function HistoricoClientes() {
                       </thead>
                       <tbody>
                         {(() => {
-                          // Agrupa por tipo de serviço + valor
+                          // Agrupa apenas por tipo de serviço
                           const grouped = {};
                           itens.forEach(item => {
-                            const key = `${item.descricao}||${item.valor}`;
+                            const key = item.descricao;
                             if (!grouped[key]) {
-                              grouped[key] = { ...item, qty: 0 };
+                              grouped[key] = { ...item, qty: 0, totalValor: 0 };
                             }
                             grouped[key].qty += 1;
+                            grouped[key].totalValor += (item.valor || 0);
                           });
                           return Object.values(grouped).map((g, idx) => (
                             <tr key={idx} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
@@ -397,7 +398,7 @@ export default function HistoricoClientes() {
                                 {g.valor ? `R$ ${g.valor.toLocaleString('pt-BR')}` : '—'}
                               </td>
                               <td className="px-4 py-3 text-right font-bold text-green-700">
-                                {g.valor ? `R$ ${(g.valor * g.qty).toLocaleString('pt-BR')}` : '—'}
+                                {g.totalValor ? `R$ ${g.totalValor.toLocaleString('pt-BR')}` : '—'}
                               </td>
                             </tr>
                           ));
