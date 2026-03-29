@@ -803,6 +803,167 @@ function HistoricoModal({ open, onClose, pagamento }) {
   );
 }
 
+// Card compacto estilo tabela com expansão
+function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData }) {
+  const [expandido, setExpandido] = useState(false);
+  const records = pag._records || [pag];
+  const saldo = calcularSaldo(pag.valor_total, pag.valor_pago);
+  const isPago = pag.status === 'pago';
+  const isParcial = pag.status === 'parcial';
+  const pct = pag.valor_total > 0 ? Math.min(100, Math.round(((pag.valor_pago || 0) / pag.valor_total) * 100)) : 0;
+  const temPrecoDefinido = pag.valor_total > 0;
+  const dataAgendada = pag.data_pagamento_agendado ? parseISO(pag.data_pagamento_agendado) : null;
+  const hoje = new Date();
+  const chegoDataAgendada = dataAgendada && isAfter(hoje, dataAgendada) && !isPago;
+
+  return (
+    <div className={`border rounded-lg transition-all ${
+      chegoDataAgendada
+        ? 'border-orange-400 bg-orange-50 shadow-md shadow-orange-200'
+        : expandido
+        ? 'border-blue-300 bg-blue-50/30'
+        : 'border-gray-200 hover:border-gray-300'
+    }`}>
+      <div onClick={() => setExpandido(!expandido)} className={`flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${expandido ? 'bg-white border-b border-blue-200' : 'hover:bg-gray-50/50'}`}>
+        <div className="flex items-center gap-2 flex-1 min-w-0 w-full sm:w-auto">
+          {chegoDataAgendada && <span className="text-lg flex-shrink-0 animate-pulse" title="Data de agendamento chegou!">🔔</span>}
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
+            chegoDataAgendada ? 'bg-orange-500' : isPago ? 'bg-green-500' : isParcial ? 'bg-amber-500' : 'bg-blue-500'
+          }`}>
+            {pag.cliente_nome?.charAt(0).toUpperCase() || '?'}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-semibold text-sm text-gray-800">{pag.cliente_nome}</p>
+              {pag.data_pagamento_agendado && (
+                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded font-semibold flex-shrink-0">
+                  {format(new Date(pag.data_pagamento_agendado + 'T12:00:00'), 'dd/MM')}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 truncate">{pag._tipoResumido || pag.tipo_servico}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between w-full sm:w-auto gap-3">
+          <div className="text-left flex-shrink-0">
+            <p className="text-xs text-gray-400">Valor</p>
+            <p className={`font-semibold text-sm ${pag.valor_total === 0 ? 'text-amber-500' : 'text-gray-800'}`}>
+              {pag.valor_total === 0 ? 'A def.' : formatCurrency(pag.valor_total).replace('R$', '').trim()}
+            </p>
+          </div>
+          <div className="flex-shrink-0">
+            {isPago
+              ? <Badge className="bg-green-100 text-green-700 border border-green-200 text-xs">✓ Pago</Badge>
+              : isParcial
+              ? <Badge className="bg-amber-100 text-amber-700 border border-amber-200 text-xs">Parcial</Badge>
+              : pag.data_pagamento_agendado
+              ? <Badge className="bg-purple-100 text-purple-700 border border-purple-200 text-xs">📅 Agendado</Badge>
+              : temPrecoDefinido ? <Badge className="bg-red-100 text-red-700 border border-red-200 text-xs">Pendente</Badge> : <Badge className="bg-yellow-100 text-yellow-700 border border-yellow-200 text-xs">Sem preço</Badge>
+            }
+          </div>
+        </div>
+
+        <div className="w-full sm:w-16 flex-shrink-0">
+          <div className="w-full bg-gray-200 rounded-full h-1.5">
+            <div className={`h-1.5 rounded-full transition-all ${isPago ? 'bg-green-500' : isParcial ? 'bg-amber-500' : 'bg-red-400'}`}
+              style={{ width: `${pct}%` }} />
+          </div>
+          <p className="text-xs text-gray-400 text-right mt-0.5">{pct}%</p>
+        </div>
+
+        <div className="flex items-center gap-1 flex-shrink-0 overflow-x-auto" onClick={(e) => e.stopPropagation()}>
+          <button onClick={() => onDetalhes(pag)} className="p-1.5 rounded text-gray-400 hover:text-purple-600 hover:bg-purple-50 flex-shrink-0" title="Detalhes">
+            <Eye className="w-4 h-4" />
+          </button>
+          <button onClick={() => gerarPDFCobranca(pag)} className="p-1.5 rounded text-gray-400 hover:text-green-700 hover:bg-green-50 flex-shrink-0" title="PDF para cliente">
+            <FileDown className="w-4 h-4" />
+          </button>
+          <button onClick={() => onHistorico(pag)} className="p-1.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 flex-shrink-0" title="Histórico">
+            <History className="w-4 h-4" />
+          </button>
+          {!isPago && (
+            <>
+              <button onClick={() => onDefinirPreco(pag)} className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold whitespace-nowrap">
+                Preço
+              </button>
+              {pag.telefone && (
+                <a href={getWhatsApp(pag.telefone)} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold text-xs flex items-center gap-1.5 flex-shrink-0 shadow-md hover:shadow-lg transition-all" title="WhatsApp">
+                  <MessageCircle className="w-4 h-4" />
+                  <span className="hidden sm:inline">WhatsApp</span>
+                </a>
+              )}
+              <button onClick={() => onAgendarData(pag)} className="px-2 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded font-semibold whitespace-nowrap flex items-center gap-1">
+                <Calendar className="w-3 h-3" /> Agendar
+              </button>
+              <button onClick={() => onPagar(pag)} className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded font-semibold whitespace-nowrap">
+                Pagar
+              </button>
+            </>
+          )}
+          <button onClick={() => onDelete(pag.id)} className="p-1.5 rounded text-red-500 hover:bg-red-50 flex-shrink-0" title="Excluir">
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {expandido && (
+        <div className="px-4 py-3 bg-white border-t border-blue-200 space-y-2 text-sm">
+          {pag.telefone && (
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-gray-600">Contato:</span>
+              <a href={getWhatsApp(pag.telefone)} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:text-green-700 font-medium flex items-center gap-1">
+                <MessageCircle className="w-3.5 h-3.5" />
+                {formatPhone(pag.telefone)}
+              </a>
+            </div>
+          )}
+          {pag.equipe_nome && (
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-gray-600">Equipe:</span>
+              <span className="text-gray-800 font-medium">👷 {pag.equipe_nome}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="text-gray-600">Data:</span>
+            <span className="text-gray-800 font-medium text-xs">
+              {pag.data_conclusao ? format(parseISO(pag.data_conclusao), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '-'}
+            </span>
+          </div>
+          {pag._records && pag._records.length > 1 && (
+            <div className="text-xs text-gray-600">
+              <span className="font-medium">Serviços: {pag._records.length} registros</span>
+            </div>
+          )}
+          {chegoDataAgendada && (
+            <div className="flex items-center gap-2 text-xs text-orange-700 bg-orange-100 border border-orange-300 rounded px-3 py-2 font-semibold">
+              <span>🔔 COBRAR HOJE! ({format(dataAgendada, 'dd/MM/yyyy')})</span>
+            </div>
+          )}
+          {pag.data_pagamento_agendado && !chegoDataAgendada && (
+            <div className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-3 py-2">
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Agendado para: {format(dataAgendada, 'dd/MM/yyyy')}</span>
+            </div>
+          )}
+          {!isPago && temPrecoDefinido && (
+            <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded px-3 py-2">
+              <span className="text-red-700 font-semibold text-xs">Saldo devido:</span>
+              <span className="text-red-700 font-bold">{formatCurrency(saldo)}</span>
+            </div>
+          )}
+          {!temPrecoDefinido && (
+            <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 font-semibold animate-pulse">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 animate-bounce" />
+              <span>🚨 CRÍTICO: Defina o preço deste serviço antes de aceitar pagamento!</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData, emptyMsg }) {
   return (
     <div className="space-y-2">
