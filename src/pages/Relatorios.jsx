@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, TrendingUp, DollarSign, CheckCircle, Clock, Filter, BarChart2, List } from 'lucide-react';
+import { Loader2, TrendingUp, DollarSign, CheckCircle, Clock, Filter, BarChart2, List, BookOpen } from 'lucide-react';
+import NotionExportModal from '../components/relatorios/NotionExportModal';
 import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 import NoPermission from '../components/NoPermission';
@@ -76,6 +77,7 @@ export default function RelatóriosPage() {
   const [filtroTipoEspecifico, setFiltroTipoEspecifico] = useState('todos');
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [viewMode, setViewMode] = useState('resumo'); // 'resumo' | 'detalhado'
+  const [notionModal, setNotionModal] = useState(false);
 
   const dateRange = useMemo(() => {
     if (periodoSelecionado === 5) {
@@ -162,6 +164,9 @@ export default function RelatóriosPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <button onClick={() => setNotionModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border border-gray-600 bg-gray-800 text-gray-200 hover:bg-gray-700 transition-all">
+            <BookOpen className="w-4 h-4" /> Notion
+          </button>
           <button onClick={() => setViewMode('resumo')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-all ${viewMode === 'resumo' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-600 text-gray-300'}`}>
             <BarChart2 className="w-4 h-4" /> Resumo
           </button>
@@ -430,6 +435,7 @@ export default function RelatóriosPage() {
           )}
         </>
       )}
+      <NotionExportModal open={notionModal} onClose={() => setNotionModal(false)} />
     </div>
   );
 }
