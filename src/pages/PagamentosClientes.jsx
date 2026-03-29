@@ -1155,9 +1155,11 @@ function PagamentosClientesContent() {
     const records = pag._records?.length > 1 ? pag._records : [pag];
     for (const rec of records) {
       const tipos = (rec.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-      const novoPreco = tipos.reduce((sum, t) => sum + (parseFloat((precosGrupo[t] || '').replace(',', '.')) || 0), 0);
-      if (novoPreco > 0 && novoPreco !== rec.valor_total) {
-        // Quando define preço, retorna para pendente se não tiver nada agendado
+      const novoPreco = tipos.reduce((sum, t) => {
+        const val = parseFloat((precosGrupo[t] || '').replace(',', '.')) || 0;
+        return sum + val;
+      }, 0);
+      if (novoPreco > 0) {
         const novoStatus = rec.data_pagamento_agendado ? 'agendado' : 'pendente';
         await updateMutation.mutateAsync({ id: rec.id, data: { valor_total: novoPreco, status: novoStatus } });
       }
