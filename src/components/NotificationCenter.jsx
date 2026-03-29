@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, X, CheckCircle2, Loader2 } from 'lucide-react';
+import { Bell, X, CheckCircle2, Loader2, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -84,19 +84,24 @@ export default function NotificationCenter() {
             key={notif.id}
             className={cn(
               "p-4 hover:bg-gray-50 transition-colors",
-              !notif.lida && "bg-blue-50"
+              !notif.lida && notif.tipo === 'pagamento_agendado' ? 'bg-orange-50' : !notif.lida ? 'bg-blue-50' : ''
             )}>
 
                   <div className="flex items-start justify-between gap-3 mb-2">
+                    {notif.tipo === 'pagamento_agendado' && (
+                      <div className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <DollarSign className="w-4 h-4 text-orange-600" />
+                      </div>
+                    )}
                     <div className="flex-1">
-                      <p className="font-semibold text-gray-900 text-sm">{notif.titulo}</p>
+                      <p className={`font-semibold text-sm ${notif.tipo === 'pagamento_agendado' ? 'text-orange-800' : 'text-gray-900'}`}>{notif.titulo}</p>
                       <p className="text-gray-600 text-xs mt-1">{notif.mensagem}</p>
                       {notif.cliente_nome &&
                 <p className="text-gray-500 text-xs mt-2">Cliente: {notif.cliente_nome}</p>
                 }
                     </div>
                     {!notif.lida &&
-              <div className="w-2 h-2 bg-blue-500 rounded-full mt-1" />
+              <div className={`w-2 h-2 rounded-full mt-1 ${notif.tipo === 'pagamento_agendado' ? 'bg-orange-500' : 'bg-blue-500'}`} />
               }
                   </div>
 

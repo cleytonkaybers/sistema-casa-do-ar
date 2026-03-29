@@ -1,0 +1,47 @@
+{
+  "name": "Notificacao",
+  "type": "object",
+  "properties": {
+    "usuario_email": {
+      "type": "string",
+      "description": "Email do usu\u00e1rio que deve receber a notifica\u00e7\u00e3o"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "atendimento_criado",
+        "atendimento_atualizado",
+        "atendimento_concluido",
+        "pagamento_agendado"
+      ],
+      "description": "Tipo de notifica\u00e7\u00e3o"
+    },
+    "titulo": {
+      "type": "string",
+      "description": "T\u00edtulo da notifica\u00e7\u00e3o"
+    },
+    "mensagem": {
+      "type": "string",
+      "description": "Mensagem da notifica\u00e7\u00e3o"
+    },
+    "atendimento_id": {
+      "type": "string",
+      "description": "ID do atendimento relacionado"
+    },
+    "cliente_nome": {
+      "type": "string",
+      "description": "Nome do cliente para refer\u00eancia"
+    },
+    "lida": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se a notifica\u00e7\u00e3o foi lida"
+    }
+  },
+  "required": [
+    "usuario_email",
+    "tipo",
+    "titulo",
+    "mensagem"
+  ]
+}
