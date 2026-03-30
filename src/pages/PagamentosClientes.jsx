@@ -1353,56 +1353,35 @@ function PagamentosClientesContent() {
     });
   }, [pagsFiltrados, inicioSemana, fimSemana]);
 
-  // 2. Serviços SEM preço ou que ficaram de uma semana para outra (atrasados)
-  const pagsSemPreco = useMemo(() => {
-    const filtrados = pagsFiltrados
-      .filter(p => {
-        if (p.status === 'pago' || p.status === 'agendado') return false; // Excluir agendados daqui
-        // Incluir: sem preço OU (tem preço mas é atrasado)
-        const temPreco = p.valor_total > 0;
-        const isAtrasado = p.data_conclusao ? !isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana }) : false;
-        const naoAgendado = !p.data_pagamento_agendado;
-        return !temPreco || (isAtrasado && naoAgendado);
-      })
-      .sort((a, b) => {
-        const da = a.data_conclusao ? new Date(a.data_conclusao) : new Date(0);
-        const db = b.data_conclusao ? new Date(b.data_conclusao) : new Date(0);
-        return db - da;
-      });
-    return groupPagamentos(filtrados);
-  }, [pagsFiltrados, inicioSemana, fimSemana]);
-
-  // 3. Pagamentos AGENDADOS e ATRASADOS (incluindo pendentes/agendados de semanas anteriores)
-  const pagsAgendadosAtrasados = useMemo(() => {
+  // 2. PENDÊNCIAS: tudo não-pago fora da semana atual + agendados + parciais — sem duplicar ids já na semana
+  const pagsPendencias = useMemo(() => {
+    const idsNaSemana = new Set(pagsSemana.flatMap(p => (p._records || [p]).map(r => r.id)));
     const filtrados = pagsFiltrados
       .filter(p => {
         if (p.status === 'pago') return false;
-        
-        // Incluir: status agendado OU serviços antigos (pendentes/agendados fora da semana atual) que não foram pagos
-        if (p.status === 'agendado') return true;
-        
-        // Incluir serviços de semanas anteriores que estão pendentes/agendados (nunca pagos)
-        if (p.status !== 'pendente') return false;
-        
-        if (!p.data_conclusao) return false;
+        if (idsNaSemana.has(p.id)) return false;
+        // Incluir: agendados, parciais, sem preço, ou pendentes de semanas anteriores
+        if (p.status === 'agendado' || p.status === 'parcial') return true;
+        if (!p.valor_total || p.valor_total <= 1) return true; // sem preço definido
+        if (!p.data_conclusao) return true;
         try {
-          const estaForaSemanaBuscada = !isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana });
-          const temSaldoPendente = (p.valor_total || 0) - (p.valor_pago || 0) > 0.01;
-          return estaForaSemanaBuscada && temSaldoPendente;
-        } catch {
-          return false;
-        }
+          const foraSemanAtual = !isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana });
+          return foraSemanAtual && ((p.valor_total || 0) - (p.valor_pago || 0)) > 0.01;
+        } catch { return false; }
       })
       .sort((a, b) => {
-        // Ordenar: por data de agendamento (se houver), depois por data de conclusão
+        const prioridade = { agendado: 0, parcial: 1, pendente: 2 };
+        const pa = prioridade[a.status] ?? 3;
+        const pb = prioridade[b.status] ?? 3;
+        if (pa !== pb) return pa - pb;
         const da = a.data_pagamento_agendado ? new Date(a.data_pagamento_agendado) : (a.data_conclusao ? new Date(a.data_conclusao) : new Date(0));
         const db = b.data_pagamento_agendado ? new Date(b.data_pagamento_agendado) : (b.data_conclusao ? new Date(b.data_conclusao) : new Date(0));
         return da - db;
       });
     return groupPagamentos(filtrados);
-  }, [pagsFiltrados, inicioSemana, fimSemana]);
+  }, [pagsFiltrados, pagsSemana, inicioSemana, fimSemana]);
 
-  // 4. Serviços pagos da semana atual
+  // 3. Serviços pagos da semana atual
   const pagsPagos = useMemo(() => {
     const filtrados = pagsFiltrados
       .filter(p => {
@@ -1440,8 +1419,7 @@ function PagamentosClientesContent() {
   }, [pagamentos, relFiltro, relDataInicio, relDataFim, relCliente, inicioSemana, fimSemana]);
 
   const totalSemana = pagsSemana.reduce((s, p) => s + (p.valor_total || 0), 0);
-  const totalSemPreco = pagsSemPreco.reduce((s, p) => s + ((p.valor_total || 0) - (p.valor_pago || 0)), 0);
-  const totalAgendadosAtrasados = pagsAgendadosAtrasados.reduce((s, p) => s + ((p.valor_total || 0) - (p.valor_pago || 0)), 0);
+  const totalPendencias = pagsPendencias.reduce((s, p) => s + Math.max(0, (p.valor_total || 0) - (p.valor_pago || 0)), 0);
 
   // Detectar serviços com preço padrão (1.0) que precisam ajuste
   const pagsComPrecoDefault = useMemo(() =>
@@ -1470,7 +1448,7 @@ function PagamentosClientesContent() {
   const totalPagoRel = pagsRelatorio.reduce((s, p) => s + (p.valor_pago || 0), 0);
 
   const abas = [
-    { key: 'semana', label: 'Semana Atual', count: pagsSemana.length },
+    { key: 'semana', label: 'Semana Atual', count: pagsSemana.length + pagsPendencias.length },
     { key: 'relatorio', label: 'Histórico / Relatórios', count: null },
   ];
 
@@ -1617,18 +1595,21 @@ function PagamentosClientesContent() {
             />
           </div>
 
-          {/* SEÇÃO 2: Sem preço ou atrasados */}
-          {pagsSemPreco.length > 0 && (
-            <div ref={secaoSemPrecoRef} className={`space-y-3 rounded-2xl p-3 transition-all ${highlightSecao === 'sempreco' ? 'bg-amber-50 border-2 border-amber-400' : ''}`}>
+          {/* SEÇÃO 2: Pendências unificadas (atrasados + agendados + parciais + sem preço) */}
+          {pagsPendencias.length > 0 && (
+            <div ref={secaoSemPrecoRef} className={`space-y-3 rounded-2xl p-3 transition-all ${highlightSecao === 'sempreco' || highlightSecao === 'cobrar' ? 'bg-amber-50 border-2 border-amber-400' : 'bg-orange-50/40 border border-orange-200'}`}>
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-amber-600" />
-                  Sem Preço ou Atrasados
+                  <AlertCircle className="w-4 h-4 text-orange-500" />
+                  Pendências (Atrasados, Agendados, Parciais)
                 </h2>
-                <span className="text-sm font-semibold text-amber-600">{pagsSemPreco.length} itens</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-orange-600 font-semibold">{formatCurrency(totalPendencias)} a receber</span>
+                  <span className="text-sm font-semibold text-orange-600">{pagsPendencias.length} itens</span>
+                </div>
               </div>
               <TabelaPagamentos
-                lista={pagsSemPreco}
+                lista={pagsPendencias}
                 onPagar={setPagarModal}
                 onDefinirPreco={setPrecosModal}
                 onEditarValor={setEditarModal}
@@ -1636,31 +1617,7 @@ function PagamentosClientesContent() {
                 onDetalhes={setDetalhesModal}
                 onAgendarData={setAgendarDataModal}
                 onDelete={(id) => deleteMutation.mutate(id)}
-                emptyMsg="Nenhum serviço sem preço"
-              />
-            </div>
-          )}
-
-          {/* SEÇÃO 3: Pagamentos agendados e atrasados */}
-          {pagsAgendadosAtrasados.length > 0 && (
-            <div ref={secaoCobrarRef} className={`space-y-3 rounded-2xl p-3 transition-all ${highlightSecao === 'cobrar' ? 'bg-orange-50 border-2 border-orange-400' : ''}`}>
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-purple-600" />
-                  Agendados e Atrasados
-                </h2>
-                <span className="text-sm font-semibold text-purple-600">{pagsAgendadosAtrasados.length} itens</span>
-              </div>
-              <TabelaPagamentos
-                lista={pagsAgendadosAtrasados}
-                onPagar={setPagarModal}
-                onDefinirPreco={setPrecosModal}
-                onEditarValor={setEditarModal}
-                onHistorico={setHistoricoModal}
-                onDetalhes={setDetalhesModal}
-                onAgendarData={setAgendarDataModal}
-                onDelete={(id) => deleteMutation.mutate(id)}
-                emptyMsg="Nenhum pagamento agendado"
+                emptyMsg="Nenhuma pendência encontrada"
               />
             </div>
           )}
