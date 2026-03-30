@@ -1435,13 +1435,27 @@ function PagamentosClientesContent() {
     pagamentos.filter(p => p.valor_total === 1.0 && p.status !== 'pago' && !TIPOS_IGNORADOS.includes(p.tipo_servico))
   , [pagamentos]);
 
-  // Recebido na semana: todos os pagamentos (incluindo já pagos) dentro da semana
-  const todosPagsSemana = useMemo(() => pagamentos.filter(p => {
-    if (!p.data_conclusao) return false;
-    try { return isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana }); }
-    catch { return false; }
-  }), [pagamentos, inicioSemana, fimSemana]);
-  const totalPagoSemana = todosPagsSemana.reduce((s, p) => s + (p.valor_pago || 0), 0);
+  // Recebido na semana: soma as entradas do historico_pagamentos cuja DATA cai dentro da semana atual
+  const totalPagoSemana = useMemo(() => {
+    const parseHistData = (d) => {
+      if (!d) return null;
+      // formato: "dd/MM/yyyy HH:mm" ou "dd/MM/yyyy"
+      const parte = d.split(' ')[0].split('/');
+      if (parte.length === 3) return new Date(`${parte[2]}-${parte[1]}-${parte[0]}T12:00:00`);
+      return null;
+    };
+    let total = 0;
+    pagamentos.forEach(p => {
+      (p.historico_pagamentos || []).forEach(h => {
+        if (h.agendada || h.consolidado) return; // ignora parcelas futuras e consolidados
+        const d = parseHistData(h.data);
+        if (d && isWithinInterval(d, { start: inicioSemana, end: fimSemana })) {
+          total += h.valor || 0;
+        }
+      });
+    });
+    return total;
+  }, [pagamentos, inicioSemana, fimSemana]);
 
 
   const inicioMes = startOfMonth(hoje);
