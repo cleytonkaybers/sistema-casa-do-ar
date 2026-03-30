@@ -876,7 +876,7 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
               )}
               {isParcial && proximaParcelaAgendada && (
                 <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-semibold flex-shrink-0">
-                  📅 {proximaParcelaAgendada.data.split(' ')[0]}
+                  📅 {proximaParcelaAgendada.data.split(' ')[0].split('/').slice(0,2).join('/')}
                 </span>
               )}
             </div>
