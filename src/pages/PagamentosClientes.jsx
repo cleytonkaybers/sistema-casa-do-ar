@@ -1052,12 +1052,16 @@ function PagamentosClientesContent() {
   const [precosSyncKey, setPrecosSyncKey] = useState(0);
   const [abrirRelatorio, setAbrirRelatorio] = useState(false);
   const [compartilharModal, setCompartilharModal] = useState(null);
-  const [exportFiltro, setExportFiltro] = useState('todos'); // todos | pendente | parcial | agendado
+  const [exportFiltros, setExportFiltros] = useState(['pendente', 'parcial', 'agendado']);
+
+  const toggleExportFiltro = (status) => {
+    setExportFiltros(prev =>
+      prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+    );
+  };
 
   const exportarExcel = () => {
-    const statusFiltros = exportFiltro === 'todos'
-      ? ['pendente', 'parcial', 'agendado']
-      : [exportFiltro];
+    const statusFiltros = exportFiltros.length === 0 ? ['pendente', 'parcial', 'agendado'] : exportFiltros;
 
     const lista = pagamentos.filter(p =>
       statusFiltros.includes(p.status) &&
@@ -1080,7 +1084,6 @@ function PagamentosClientesContent() {
       agrupado[key].valor_total += p.valor_total || 0;
       agrupado[key].valor_pago += p.valor_pago || 0;
       if (p.data_pagamento_agendado) agrupado[key].datas_agendadas.push(p.data_pagamento_agendado);
-      // prioridade de status: pago > parcial > agendado > pendente
       const prioridade = { pendente: 0, agendado: 1, parcial: 2, pago: 3 };
       if ((prioridade[p.status] || 0) > (prioridade[agrupado[key].status] || 0)) {
         agrupado[key].status = p.status;
@@ -1103,7 +1106,7 @@ function PagamentosClientesContent() {
     ws['!cols'] = [{ wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 22 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Pagamentos Clientes');
-    const label = exportFiltro === 'todos' ? 'pendentes_parciais_agendados' : exportFiltro;
+    const label = statusFiltros.join('_');
     XLSX.writeFile(wb, `pagamentos_clientes_${label}_${format(new Date(), 'dd-MM-yyyy')}.xlsx`);
   };
 
@@ -1517,17 +1520,30 @@ function PagamentosClientesContent() {
           <Button onClick={() => setAbrirRelatorio(true)} variant="outline" className="gap-2">
             📄 Gerar PDF
           </Button>
-          <div className="flex gap-1 items-center">
-            <select
-              value={exportFiltro}
-              onChange={e => setExportFiltro(e.target.value)}
-              className="h-9 text-sm border border-gray-200 rounded-lg px-2 bg-white text-gray-700">
-              <option value="todos">Todos em aberto</option>
-              <option value="pendente">Pendentes</option>
-              <option value="parcial">Pagamento Parcial</option>
-              <option value="agendado">Agendados</option>
-            </select>
-            <Button onClick={exportarExcel} className="gap-1.5 h-9 text-sm rounded-xl" style={{ backgroundColor: '#22c55e', color: '#fff' }}>
+          <div className="flex flex-wrap gap-2 items-center">
+            {[
+              { key: 'pendente', label: 'Pendentes', color: 'text-red-700 bg-red-50 border-red-200' },
+              { key: 'parcial', label: 'Parcial', color: 'text-amber-700 bg-amber-50 border-amber-200' },
+              { key: 'agendado', label: 'Agendados', color: 'text-purple-700 bg-purple-50 border-purple-200' },
+            ].map(({ key, label, color }) => {
+              const ativo = exportFiltros.includes(key);
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => toggleExportFiltro(key)}
+                  className={`flex items-center gap-1.5 h-9 px-3 rounded-lg border text-xs font-semibold transition-all ${ativo ? color : 'text-gray-400 bg-white border-gray-200 hover:border-gray-300'}`}
+                >
+                  <span className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                    ativo ? 'border-current bg-current' : 'border-gray-300'
+                  }`}>
+                    {ativo && <X className="w-2.5 h-2.5 text-white" />}
+                  </span>
+                  {label}
+                </button>
+              );
+            })}
+            <Button onClick={exportarExcel} disabled={exportFiltros.length === 0} className="gap-1.5 h-9 text-sm rounded-xl" style={{ backgroundColor: '#22c55e', color: '#fff' }}>
               📅 Excel
             </Button>
           </div>
