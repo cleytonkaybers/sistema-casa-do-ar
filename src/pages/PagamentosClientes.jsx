@@ -1435,24 +1435,42 @@ function PagamentosClientesContent() {
     pagamentos.filter(p => p.valor_total === 1.0 && p.status !== 'pago' && !TIPOS_IGNORADOS.includes(p.tipo_servico))
   , [pagamentos]);
 
-  // Recebido na semana: soma as entradas do historico_pagamentos cuja DATA cai dentro da semana atual
+  // Recebido na semana: soma via historico_pagamentos (data real do recebimento)
+  // Fallback: se o registro tem valor_pago mas historico vazio, usa updated_date ou data_pagamento_completo
   const totalPagoSemana = useMemo(() => {
     const parseHistData = (d) => {
       if (!d) return null;
-      // formato: "dd/MM/yyyy HH:mm" ou "dd/MM/yyyy"
+      // formato "dd/MM/yyyy HH:mm" ou "dd/MM/yyyy"
       const parte = d.split(' ')[0].split('/');
       if (parte.length === 3) return new Date(`${parte[2]}-${parte[1]}-${parte[0]}T12:00:00`);
       return null;
     };
+    const isNaSemana = (d) => {
+      try { return d && isWithinInterval(d, { start: inicioSemana, end: fimSemana }); }
+      catch { return false; }
+    };
+
     let total = 0;
+    const contabilizados = new Set(); // evita double-count
+
     pagamentos.forEach(p => {
-      (p.historico_pagamentos || []).forEach(h => {
-        if (h.agendada || h.consolidado) return; // ignora parcelas futuras e consolidados
-        const d = parseHistData(h.data);
-        if (d && isWithinInterval(d, { start: inicioSemana, end: fimSemana })) {
-          total += h.valor || 0;
+      const hist = (p.historico_pagamentos || []).filter(h => !h.agendada && !h.consolidado);
+      if (hist.length > 0) {
+        // Método primário: somar entradas do histórico que caem na semana
+        hist.forEach(h => {
+          const d = parseHistData(h.data);
+          if (isNaSemana(d)) total += h.valor || 0;
+        });
+      } else if ((p.valor_pago || 0) > 0) {
+        // Fallback: sem histórico, verifica se a data do pagamento completo ou updated_date está na semana
+        const dataRef = p.data_pagamento_completo || p.updated_date;
+        let d = null;
+        try { d = dataRef ? parseISO(dataRef) : null; } catch {}
+        if (isNaSemana(d) && !contabilizados.has(p.id)) {
+          total += p.valor_pago || 0;
+          contabilizados.add(p.id);
         }
-      });
+      }
     });
     return total;
   }, [pagamentos, inicioSemana, fimSemana]);
