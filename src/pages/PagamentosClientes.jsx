@@ -854,7 +854,12 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
               <p className="font-semibold text-sm text-gray-800">{pag.cliente_nome}</p>
               {pag.data_pagamento_agendado && (
                 <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded font-semibold flex-shrink-0">
-                  {format(new Date(pag.data_pagamento_agendado + 'T12:00:00'), 'dd/MM')}
+                  📅 {format(new Date(pag.data_pagamento_agendado + 'T12:00:00'), 'dd/MM')}
+                </span>
+              )}
+              {isParcial && !pag.data_pagamento_agendado && pag.data_conclusao && (
+                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-semibold flex-shrink-0">
+                  {format(parseISO(pag.data_conclusao), 'dd/MM')}
                 </span>
               )}
             </div>
