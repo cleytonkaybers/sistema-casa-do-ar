@@ -1333,41 +1333,37 @@ function PagamentosClientesContent() {
     )
   , [pagamentos, searchTerm]);
 
-  // 1. TODOS os serviços da semana (APENAS DA SEMANA ATUAL: seg-dom)
+  // 1. Serviços da semana atual NÃO pagos (pagos somem da view principal)
   const pagsSemana = useMemo(() => {
     const statusOrder = { 'pendente': 0, 'agendado': 1, 'parcial': 2, 'pago': 3 };
     const filtrados = pagsFiltrados
       .filter(p => {
+        if (p.status === 'pago') return false; // pagos somem da view
         if (!p.data_conclusao) return false;
-        // Mostrar APENAS serviços que foram concluídos NESTA semana (seg-dom)
         try { return isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana }); }
         catch { return false; }
       });
     const agrupados = groupPagamentos(filtrados);
-    // Ordenar: preços não definidos SEMPRE no topo
     return agrupados.sort((a, b) => {
       const aTemPreco = a.valor_total > 0;
       const bTemPreco = b.valor_total > 0;
-      if (aTemPreco !== bTemPreco) return aTemPreco ? 1 : -1; // sem preço primeiro
+      if (aTemPreco !== bTemPreco) return aTemPreco ? 1 : -1;
       return (statusOrder[a.status] || 4) - (statusOrder[b.status] || 4);
     });
   }, [pagsFiltrados, inicioSemana, fimSemana]);
 
-  // 2. PENDÊNCIAS: tudo não-pago fora da semana atual + agendados + parciais — sem duplicar ids já na semana
+  // 2. PENDÊNCIAS: apenas itens de semanas ANTERIORES com saldo em aberto
   const pagsPendencias = useMemo(() => {
-    const idsNaSemana = new Set(pagsSemana.flatMap(p => (p._records || [p]).map(r => r.id)));
     const filtrados = pagsFiltrados
       .filter(p => {
         if (p.status === 'pago') return false;
-        if (idsNaSemana.has(p.id)) return false;
-        // Incluir: agendados, parciais, sem preço, ou pendentes de semanas anteriores
-        if (p.status === 'agendado' || p.status === 'parcial') return true;
-        if (!p.valor_total || p.valor_total <= 1) return true; // sem preço definido
-        if (!p.data_conclusao) return true;
-        try {
-          const foraSemanAtual = !isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana });
-          return foraSemanAtual && ((p.valor_total || 0) - (p.valor_pago || 0)) > 0.01;
-        } catch { return false; }
+        if (p.data_conclusao) {
+          try {
+            if (isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana })) return false;
+          } catch {}
+        }
+        const saldo = (p.valor_total || 0) - (p.valor_pago || 0);
+        return saldo > 0.01 || !p.valor_total || p.valor_total <= 1;
       })
       .sort((a, b) => {
         const prioridade = { agendado: 0, parcial: 1, pendente: 2 };
@@ -1379,26 +1375,7 @@ function PagamentosClientesContent() {
         return da - db;
       });
     return groupPagamentos(filtrados);
-  }, [pagsFiltrados, pagsSemana, inicioSemana, fimSemana]);
-
-  // 3. Serviços pagos da semana atual
-  const pagsPagos = useMemo(() => {
-    const filtrados = pagsFiltrados
-      .filter(p => {
-        if (p.status !== 'pago') return false;
-        if (!p.data_conclusao) return false;
-        try { return isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana }); }
-        catch { return false; }
-      })
-      .sort((a, b) => {
-        const da = a.data_conclusao ? new Date(a.data_conclusao) : new Date(0);
-        const db = b.data_conclusao ? new Date(b.data_conclusao) : new Date(0);
-        return db - da;
-      });
-    return groupPagamentos(filtrados);
   }, [pagsFiltrados, inicioSemana, fimSemana]);
-
-
 
   const pagsRelatorio = useMemo(() => {
     let inicio, fim;
@@ -1622,29 +1599,7 @@ function PagamentosClientesContent() {
             </div>
           )}
 
-          {/* SEÇÃO 4: Serviços pagos da semana ATUAL */}
-          {pagsPagos.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  Pagos desta Semana
-                </h2>
-                <span className="text-sm font-semibold text-green-600">{pagsPagos.length} pagos</span>
-              </div>
-              <TabelaPagamentos
-                lista={pagsPagos}
-                onPagar={setPagarModal}
-                onDefinirPreco={setPrecosModal}
-                onEditarValor={setEditarModal}
-                onHistorico={setHistoricoModal}
-                onDetalhes={setDetalhesModal}
-                onAgendarData={setAgendarDataModal}
-                onDelete={(id) => deleteMutation.mutate(id)}
-                emptyMsg="Nenhum serviço pago esta semana"
-              />
-            </div>
-          )}
+
         </div>
       )}
 
