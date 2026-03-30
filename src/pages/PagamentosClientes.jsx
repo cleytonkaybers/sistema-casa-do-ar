@@ -194,7 +194,9 @@ function groupPagamentos(lista) {
   return Object.values(groups).map(g => {
     const saldo = (g.valor_total || 0) - (g.valor_pago || 0);
     const status = saldo <= 0.01 ? 'pago' : (g.valor_pago || 0) > 0 ? 'parcial' : 'pendente';
-    return { ...g, status, _tipoResumido: resumirServicos(g._records) };
+    // Mescla historico_pagamentos de todos os records
+    const historicoMesclado = g._records.flatMap(r => r.historico_pagamentos || []);
+    return { ...g, status, historico_pagamentos: historicoMesclado, _tipoResumido: resumirServicos(g._records) };
   });
 }
 
