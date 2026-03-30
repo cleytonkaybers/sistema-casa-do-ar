@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
+import * as XLSX from 'xlsx';
 import TechnicianAccessBlock from '@/components/TechnicianAccessBlock';
 import jsPDF from 'jspdf';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -1051,6 +1052,60 @@ function PagamentosClientesContent() {
   const [precosSyncKey, setPrecosSyncKey] = useState(0);
   const [abrirRelatorio, setAbrirRelatorio] = useState(false);
   const [compartilharModal, setCompartilharModal] = useState(null);
+  const [exportFiltro, setExportFiltro] = useState('todos'); // todos | pendente | parcial | agendado
+
+  const exportarExcel = () => {
+    const statusFiltros = exportFiltro === 'todos'
+      ? ['pendente', 'parcial', 'agendado']
+      : [exportFiltro];
+
+    const lista = pagamentos.filter(p =>
+      statusFiltros.includes(p.status) &&
+      !TIPOS_IGNORADOS.includes(p.tipo_servico)
+    );
+
+    const agrupado = {};
+    lista.forEach(p => {
+      const key = (p.cliente_nome || '').trim().toLowerCase();
+      if (!agrupado[key]) {
+        agrupado[key] = {
+          cliente_nome: p.cliente_nome,
+          telefone: p.telefone,
+          valor_total: 0,
+          valor_pago: 0,
+          datas_agendadas: [],
+          status: p.status,
+        };
+      }
+      agrupado[key].valor_total += p.valor_total || 0;
+      agrupado[key].valor_pago += p.valor_pago || 0;
+      if (p.data_pagamento_agendado) agrupado[key].datas_agendadas.push(p.data_pagamento_agendado);
+      // prioridade de status: pago > parcial > agendado > pendente
+      const prioridade = { pendente: 0, agendado: 1, parcial: 2, pago: 3 };
+      if ((prioridade[p.status] || 0) > (prioridade[agrupado[key].status] || 0)) {
+        agrupado[key].status = p.status;
+      }
+    });
+
+    const rows = Object.values(agrupado).map(c => ({
+      'Cliente': c.cliente_nome || '',
+      'Telefone': c.telefone ? c.telefone.replace(/\D/g, '').replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3') : '',
+      'Total (R$)': parseFloat(c.valor_total.toFixed(2)),
+      'Pago (R$)': parseFloat(c.valor_pago.toFixed(2)),
+      'Pendente (R$)': parseFloat(Math.max(0, c.valor_total - c.valor_pago).toFixed(2)),
+      'Status': c.status,
+      'Datas Agendadas': c.datas_agendadas.join(', ') || '-',
+    }));
+
+    rows.sort((a, b) => b['Pendente (R$)'] - a['Pendente (R$)']);
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{ wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 22 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Pagamentos Clientes');
+    const label = exportFiltro === 'todos' ? 'pendentes_parciais_agendados' : exportFiltro;
+    XLSX.writeFile(wb, `pagamentos_clientes_${label}_${format(new Date(), 'dd-MM-yyyy')}.xlsx`);
+  };
 
   // Relatórios
   const [relFiltro, setRelFiltro] = useState('semana');
@@ -1458,9 +1513,25 @@ function PagamentosClientesContent() {
           <Input placeholder="Buscar cliente..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9 h-10 bg-white border-gray-200 w-full" />
           {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-4 h-4 text-gray-400" /></button>}
         </div>
-        <Button onClick={() => setAbrirRelatorio(true)} variant="outline" className="gap-2 w-full sm:w-auto">
-          📄 Gerar PDF
-        </Button>
+        <div className="flex flex-wrap gap-2 items-center">
+          <Button onClick={() => setAbrirRelatorio(true)} variant="outline" className="gap-2">
+            📄 Gerar PDF
+          </Button>
+          <div className="flex gap-1 items-center">
+            <select
+              value={exportFiltro}
+              onChange={e => setExportFiltro(e.target.value)}
+              className="h-9 text-sm border border-gray-200 rounded-lg px-2 bg-white text-gray-700">
+              <option value="todos">Todos em aberto</option>
+              <option value="pendente">Pendentes</option>
+              <option value="parcial">Pagamento Parcial</option>
+              <option value="agendado">Agendados</option>
+            </select>
+            <Button onClick={exportarExcel} className="gap-1.5 h-9 text-sm rounded-xl" style={{ backgroundColor: '#22c55e', color: '#fff' }}>
+              📅 Excel
+            </Button>
+          </div>
+        </div>
         <div className="flex border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
           {abas.map(a => (
             <button key={a.key} onClick={() => setAbaAtiva(a.key)}
