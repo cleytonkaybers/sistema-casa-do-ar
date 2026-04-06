@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import EmprestimosTable from '@/components/cheques/EmprestimosTable';
-import { isValid } from 'date-fns';
+import { base44 } from '@/api/base44Client';
+import { format, parseISO, isToday, isPast, differenceInDays, isTomorrow, isValid } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Trash2, CheckCircle, XCircle, Bell, AlertTriangle, Clock, DollarSign } from 'lucide-react';
 
 function calcDebitoEmprestimo(e) {
   if (!e.valor_principal || !e.percentual_mes || !e.data_emprestimo) return e.valor_principal || 0;
@@ -10,13 +16,6 @@ function calcDebitoEmprestimo(e) {
   const taxaDiaria = e.percentual_mes / 100 / 30;
   return Math.max(0, e.valor_principal * Math.pow(1 + taxaDiaria, dias) - (e.total_abatido || 0));
 }
-import { base44 } from '@/api/base44Client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { format, parseISO, isToday, isPast, differenceInDays, isTomorrow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { Plus, Trash2, CheckCircle, XCircle, Bell, AlertTriangle, Clock, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Dialog,
