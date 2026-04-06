@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DollarSign, TrendingUp, CheckCircle2, Clock, FileText } from 'lucide-react';
-import { format, parseISO, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, subMonths, isValid } from 'date-fns';
+import { format, parseISO, startOfWeek, endOfWeek, subWeeks, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -24,27 +24,16 @@ function parseDateSafe(str) {
 
 export default function MeuFinanceiro() {
   const { user } = useAuth();
-  const [periodoFiltro, setPeriodoFiltro] = useState('mes_atual');
+  const [periodoFiltro, setPeriodoFiltro] = useState('atual');
 
   const hoje = new Date();
   const getRange = (periodo) => {
-    if (periodo === 'mes_atual') {
-      return {
-        inicio: format(startOfMonth(hoje), 'yyyy-MM-dd'),
-        fim: format(endOfMonth(hoje), 'yyyy-MM-dd'),
-      };
-    } else if (periodo === 'mes_anterior') {
-      const mes = subMonths(hoje, 1);
-      return {
-        inicio: format(startOfMonth(mes), 'yyyy-MM-dd'),
-        fim: format(endOfMonth(mes), 'yyyy-MM-dd'),
-      };
-    } else if (periodo === 'semana_atual') {
+    if (periodo === 'atual') {
       return {
         inicio: format(startOfWeek(hoje, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
         fim: format(endOfWeek(hoje, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
       };
-    } else if (periodo === 'semana_anterior') {
+    } else if (periodo === 'anterior') {
       const sem = subWeeks(hoje, 1);
       return {
         inicio: format(startOfWeek(sem, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
@@ -110,10 +99,8 @@ export default function MeuFinanceiro() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="mes_atual">Mês Atual</SelectItem>
-            <SelectItem value="mes_anterior">Mês Anterior</SelectItem>
-            <SelectItem value="semana_atual">Semana Atual</SelectItem>
-            <SelectItem value="semana_anterior">Semana Anterior</SelectItem>
+            <SelectItem value="atual">Semana Atual</SelectItem>
+            <SelectItem value="anterior">Semana Anterior</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -222,8 +209,8 @@ export default function MeuFinanceiro() {
         <CardContent>
           {loadingPagamentos ? (
             <p className="text-center text-gray-500 py-4">Carregando...</p>
-          ) : pagamentosPeriodo.length === 0 ? (
-            <p className="text-center text-gray-500 text-sm py-4">Nenhum pagamento neste período</p>
+          ) : meusPagamentos.length === 0 ? (
+            <p className="text-center text-gray-500 text-sm py-4">Nenhum pagamento registrado ainda</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -236,7 +223,7 @@ export default function MeuFinanceiro() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pagamentosPeriodo.map(p => {
+                  {meusPagamentos.map(p => {
                     const data = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date);
                     return (
                       <TableRow key={p.id}>
