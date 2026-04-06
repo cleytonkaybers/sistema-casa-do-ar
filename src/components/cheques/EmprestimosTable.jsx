@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Trash2, MinusCircle, TrendingUp, ChevronDown, ChevronRight, Clock, CheckCircle2, Pencil } from 'lucide-react';
+import { Plus, Trash2, MinusCircle, TrendingUp, ChevronDown, ChevronRight, Clock, CheckCircle2, Pencil, PlusCircle } from 'lucide-react';
 import { differenceInDays, parseISO, isValid, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -64,6 +64,9 @@ export default function EmprestimosTable() {
   const [valorAbatimento, setValorAbatimento] = useState('');
   const [obsAbatimento, setObsAbatimento] = useState('');
   const [expandedId, setExpandedId] = useState(null);
+  const [aporteModal, setAporteModal] = useState(null);
+  const [valorAporte, setValorAporte] = useState('');
+  const [obsAporte, setObsAporte] = useState('');
 
   const { data: emprestimos = [], isLoading } = useQuery({
     queryKey: ['emprestimos'],
@@ -129,6 +132,37 @@ export default function EmprestimosTable() {
       toast.success('Empréstimo reativado!');
     },
   });
+
+  const aporteMutation = useMutation({
+    mutationFn: ({ id, novoValor, historico }) =>
+      base44.entities.Emprestimo.update(id, { valor_principal: novoValor, historico_pagamentos: historico }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['emprestimos'] });
+      setAporteModal(null);
+      setValorAporte('');
+      setObsAporte('');
+      toast.success('Aporte registrado!');
+    },
+  });
+
+  const handleAporte = () => {
+    const val = parseFloat(valorAporte);
+    if (!val || val <= 0) { toast.error('Informe um valor válido'); return; }
+    const debitoAtual = calcularDebitoAtual(aporteModal);
+    const novoValor = (aporteModal.valor_principal || 0) + val;
+    const historico = [
+      ...(aporteModal.historico_pagamentos || []),
+      {
+        data: new Date().toISOString(),
+        tipo: 'aporte',
+        valor: val,
+        debito_antes: debitoAtual,
+        debito_depois: debitoAtual + val,
+        observacao: obsAporte || '',
+      }
+    ];
+    aporteMutation.mutate({ id: aporteModal.id, novoValor, historico });
+  };
 
   const handleReativar = (e) => {
     const historico = [
@@ -230,9 +264,10 @@ export default function EmprestimosTable() {
   const quitados = emprestimos.filter(e => e.status === 'quitado');
 
   const TIPO_CONFIG = {
-    criacao:    { label: 'Criação',    color: 'bg-blue-100 text-blue-700' },
-    abatimento: { label: 'Pagamento',  color: 'bg-green-100 text-green-700' },
-    quitacao:   { label: 'Quitação',   color: 'bg-purple-100 text-purple-700' },
+    criacao:    { label: 'Criação',      color: 'bg-blue-100 text-blue-700' },
+    abatimento: { label: 'Pagamento',    color: 'bg-green-100 text-green-700' },
+    quitacao:   { label: 'Quitação',     color: 'bg-purple-100 text-purple-700' },
+    aporte:     { label: 'Novo Aporte',  color: 'bg-orange-100 text-orange-700' },
   };
 
   const renderRow = (e, isQuitado = false) => {
@@ -286,6 +321,11 @@ export default function EmprestimosTable() {
                   onClick={() => { setAbatimentoModal(e); setValorAbatimento(''); setObsAbatimento(''); }}
                   className="text-green-600 hover:text-green-800 hover:bg-green-50">
                   <MinusCircle className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="icon" title="Adicionar crédito ao cliente"
+                  onClick={() => { setAporteModal(e); setValorAporte(''); setObsAporte(''); }}
+                  className="text-orange-500 hover:text-orange-700 hover:bg-orange-50">
+                  <PlusCircle className="w-4 h-4" />
                 </Button>
                 <Button variant="ghost" size="sm"
                   onClick={() => handleQuitar(e)}
@@ -370,6 +410,8 @@ export default function EmprestimosTable() {
                                 ? <CheckCircle2 className="w-4 h-4 text-purple-500" />
                                 : h.tipo === 'abatimento'
                                 ? <MinusCircle className="w-4 h-4 text-green-500" />
+                                : h.tipo === 'aporte'
+                                ? <PlusCircle className="w-4 h-4 text-orange-500" />
                                 : <Plus className="w-4 h-4 text-blue-400" />}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -377,7 +419,12 @@ export default function EmprestimosTable() {
                                 <Badge className={`text-xs ${cfg.color}`}>{cfg.label}</Badge>
                                 <span className="text-xs text-gray-400">{formatDateTime(h.data)}</span>
                                 {h.valor > 0 && (
-                                  <span className={`text-xs font-semibold ${h.tipo === 'criacao' ? 'text-blue-600' : 'text-green-700'}`}>
+                                  <span className={`text-xs font-semibold ${
+                                    h.tipo === 'criacao' ? 'text-blue-600'
+                                    : h.tipo === 'aporte' ? 'text-orange-600'
+                                    : h.tipo === 'abatimento' || h.tipo === 'quitacao' ? 'text-green-700'
+                                    : 'text-gray-700'
+                                  }`}>
                                     {h.tipo === 'abatimento' || h.tipo === 'quitacao' ? '−' : '+'}{formatMoney(h.valor)}
                                   </span>
                                 )}
@@ -499,6 +546,41 @@ export default function EmprestimosTable() {
               <Button variant="outline" onClick={() => setShowForm(false)} className="flex-1">Cancelar</Button>
               <Button onClick={handleSave} disabled={createMutation.isPending || updateMutation.isPending} className="flex-1 bg-purple-600 hover:bg-purple-700">
                 {(createMutation.isPending || updateMutation.isPending) ? 'Salvando...' : 'Salvar'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Aporte */}
+      <Dialog open={!!aporteModal} onOpenChange={() => setAporteModal(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Adicionar Crédito — {aporteModal?.cliente_nome}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
+              <p className="text-xs text-gray-500">Débito atual</p>
+              <p className="text-lg font-bold text-orange-600">{aporteModal ? formatMoney(calcularDebitoAtual(aporteModal)) : '-'}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700">Valor adicional emprestado *</label>
+              <Input type="number" value={valorAporte} onChange={e => setValorAporte(e.target.value)} placeholder="0,00" />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700">Observação</label>
+              <Input value={obsAporte} onChange={e => setObsAporte(e.target.value)} placeholder="Ex: cliente pediu mais R$500" />
+            </div>
+            {valorAporte && parseFloat(valorAporte) > 0 && aporteModal && (
+              <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-sm">
+                <p className="text-gray-500 text-xs">Novo débito após aporte</p>
+                <p className="font-bold text-orange-700">{formatMoney(calcularDebitoAtual(aporteModal) + parseFloat(valorAporte))}</p>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setAporteModal(null)} className="flex-1">Cancelar</Button>
+              <Button onClick={handleAporte} disabled={aporteMutation.isPending} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white">
+                {aporteMutation.isPending ? 'Salvando...' : 'Confirmar Aporte'}
               </Button>
             </div>
           </div>
