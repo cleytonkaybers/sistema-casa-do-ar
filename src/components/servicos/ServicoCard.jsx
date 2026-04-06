@@ -24,9 +24,9 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
     return phone;
   };
 
-  const getWhatsAppLink = (phone) => {
+  const openWhatsApp = (phone) => {
     const cleaned = phone?.replace(/\D/g, '') || '';
-    return `https://wa.me/55${cleaned}`;
+    window.open(`https://wa.me/55${cleaned}`, '_blank');
   };
 
   const getGoogleMapsLink = () => {
@@ -178,15 +178,13 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
         </div>
 
         <div className="flex gap-2 pt-2 border-t border-gray-100">
-          <a
-            href={getWhatsAppLink(servico.telefone)}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={() => openWhatsApp(servico.telefone)}
             className="flex items-center justify-center w-10 h-10 rounded-lg transition-opacity hover:opacity-80 bg-green-50 border border-green-200"
             title="WhatsApp"
           >
             <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" className="w-6 h-6" />
-          </a>
+          </button>
           <button
             onClick={() => setShowDetalhes(true)}
             className="flex items-center justify-center gap-1.5 flex-1 h-10 bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs font-semibold rounded-lg transition-colors"
@@ -306,15 +304,13 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
               <Phone className="w-4 h-4 text-blue-400" />
               <span className="font-medium text-sm">{formatPhone(servico.telefone)}</span>
             </div>
-            <a
-              href={getWhatsAppLink(servico.telefone)}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => openWhatsApp(servico.telefone)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-lg transition-colors"
             >
               <MessageCircle className="w-4 h-4" />
               <span className="hidden sm:inline">WhatsApp</span>
-            </a>
+            </button>
           </div>
 
           {servico.cpf && (
