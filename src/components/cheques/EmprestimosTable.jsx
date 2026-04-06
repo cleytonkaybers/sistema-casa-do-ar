@@ -199,6 +199,14 @@ export default function EmprestimosTable() {
               {e.cliente_nome}
             </button>
           </td>
+          <td className="px-3 py-3">
+            {(() => {
+              const ganho = (e.total_abatido || 0) - e.valor_principal;
+              return ganho > 0
+                ? <span className="font-bold text-emerald-600">{formatMoney(ganho)}</span>
+                : <span className="text-xs text-gray-400">—</span>;
+            })()}
+          </td>
           <td className="px-3 py-3 text-gray-600">{formatMoney(e.valor_principal)}</td>
           <td className="px-3 py-3 text-sm text-gray-500">{formatDate(e.data_emprestimo)}</td>
           <td className="px-3 py-3">
@@ -243,7 +251,7 @@ export default function EmprestimosTable() {
         {/* Linha expandida - detalhes */}
         {isExpanded && (
           <tr>
-            <td colSpan={8} className="bg-gray-50 border-b border-gray-200 px-6 py-4">
+            <td colSpan={9} className="bg-gray-50 border-b border-gray-200 px-6 py-4">
               <div className="space-y-4">
                 {/* Resumo do empréstimo */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -347,7 +355,7 @@ export default function EmprestimosTable() {
           <table className="w-full text-sm">
             <thead>
               <tr style={{ backgroundColor: '#6d28d9' }}>
-                {['Cliente', 'Valor Emprestado', 'Data', '% a.m.', 'Débito Atual + Juros', 'Total Abatido', 'Venc. Estimado', 'Ações'].map(h => (
+                {['Cliente', 'Total Ganho', 'Valor Emprestado', 'Data', '% a.m.', 'Débito Atual + Juros', 'Total Abatido', 'Venc. Estimado', 'Ações'].map(h => (
                   <th key={h} className="text-left px-3 py-2.5 text-white text-xs font-semibold uppercase">{h}</th>
                 ))}
               </tr>
@@ -366,11 +374,11 @@ export default function EmprestimosTable() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-100">
-                  {['Cliente', 'Valor Emprestado', 'Data', '% a.m.', 'Débito Final', 'Total Pago', 'Venc. Estimado', 'Status'].map(h => (
-                    <th key={h} className="text-left px-3 py-2 text-gray-500 text-xs font-semibold uppercase">{h}</th>
-                  ))}
-                </tr>
-              </thead>
+                  {['Cliente', 'Total Ganho', 'Valor Emprestado', 'Data', '% a.m.', 'Débito Final', 'Total Pago', 'Venc. Estimado', 'Status'].map(h => (
+                  <th key={h} className="text-left px-3 py-2 text-gray-500 text-xs font-semibold uppercase">{h}</th>
+                ))}
+              </tr>
+            </thead>
               <tbody>
                 {quitados.map(e => renderRow(e, true))}
               </tbody>
