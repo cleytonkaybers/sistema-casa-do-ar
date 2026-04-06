@@ -42,13 +42,10 @@
           setTimeout(function() { if (splash.parentNode) splash.parentNode.removeChild(splash); }, 600);
         }
       };
-      // Mínimo 2 segundos de splash
-      window.__splashTimerDone = false;
-      window.__appMounted = false;
+      // Splash some após no máximo 3 segundos, independente do app
       setTimeout(function() {
-        window.__splashTimerDone = true;
-        if (window.__appMounted) window.__hideSplash();
-      }, 2000);
+        window.__hideSplash();
+      }, 3000);
     </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
