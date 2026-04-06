@@ -334,7 +334,7 @@ export default function Atendimentos() {
                   <TableHead className="text-white">Cliente</TableHead>
                   <TableHead className="text-white">Data Conclusão</TableHead>
                   <TableHead className="text-white">Tipo de Serviço</TableHead>
-                  <TableHead className="text-white">Valor</TableHead>
+                  {isAdmin && <TableHead className="text-white">Valor</TableHead>}
                   <TableHead className="text-white">Concluído por</TableHead>
                   <TableHead className="text-right text-white">Ações</TableHead>
                 </TableRow>
@@ -365,11 +365,13 @@ export default function Atendimentos() {
                         {atendimento.tipo_servico}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <span className="font-medium text-green-600">
-                        {formatCurrency(atendimento.valor)}
-                      </span>
-                    </TableCell>
+                    {isAdmin && (
+                      <TableCell>
+                        <span className="font-medium text-green-600">
+                          {formatCurrency(atendimento.valor)}
+                        </span>
+                      </TableCell>
+                    )}
                     <TableCell>
                       <div className="text-xs text-gray-600">
                         {(() => {
@@ -425,7 +427,7 @@ export default function Atendimentos() {
                       <Calendar className="w-4 h-4 text-green-400" />
                       {formatDate(atendimento.data_conclusao || atendimento.data_atendimento)}
                     </div>
-                    <span className="font-medium text-green-600">{formatCurrency(atendimento.valor)}</span>
+                    {isAdmin && <span className="font-medium text-green-600">{formatCurrency(atendimento.valor)}</span>}
                   </div>
                   {atendimento.observacoes_conclusao && (
                     <p className="text-sm text-gray-500 border border-gray-100 p-2 rounded-lg mb-3 line-clamp-2 bg-gray-50">
