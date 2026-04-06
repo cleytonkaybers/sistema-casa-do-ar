@@ -161,7 +161,9 @@ export default function Cheques() {
     return null;
   };
 
-  const pendentes = cheques.filter(c => c.status === 'pendente');
+  const pendentes = cheques
+    .filter(c => c.status === 'pendente')
+    .sort((a, b) => new Date(a.data_compensacao) - new Date(b.data_compensacao));
   const outros = cheques.filter(c => c.status !== 'pendente');
   const totalPendente = pendentes.reduce((acc, c) => acc + (c.valor || 0), 0);
   const totalEmprestimosAtivos = emprestimos
