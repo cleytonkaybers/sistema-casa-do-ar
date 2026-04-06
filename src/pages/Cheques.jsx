@@ -59,8 +59,12 @@ export default function Cheques() {
 
   const loadCheques = async () => {
     setLoading(true);
-    const data = await base44.entities.Cheque.list('-data_compensacao');
+    const [data, empData] = await Promise.all([
+      base44.entities.Cheque.list('-data_compensacao'),
+      base44.entities.Emprestimo.list('-data_emprestimo'),
+    ]);
     setCheques(data);
+    setEmprestimos(empData);
     verificarAlertas(data);
     setLoading(false);
   };
@@ -90,7 +94,6 @@ export default function Cheques() {
 
   useEffect(() => {
     loadCheques();
-    base44.entities.Emprestimo.list().then(setEmprestimos).catch(() => {});
   }, []);
 
   const openEdit = (cheque) => {
