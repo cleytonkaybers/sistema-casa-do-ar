@@ -136,8 +136,7 @@ export default function BackupRestaurerPage() {
           `${response.data.total_removidos} backup(s) removido(s) com sucesso!`
         );
         // Recarregar lista de backups
-        setLoadingBackups(true);
-        setTimeout(() => setLoadingBackups(false), 1000);
+        queryClient.invalidateQueries({ queryKey: ['backups-drive'] });
       } else {
         toast.error(response.data.message || 'Erro ao limpar backups');
       }

@@ -1043,16 +1043,6 @@ function PagamentosClientesContent() {
 
   // Bloquear acesso para não-admins
   const isAdmin = user?.role === 'admin';
-  if (!isAdmin) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Acesso Negado</h1>
-          <p className="text-gray-500">Esta página é restrita a administradores.</p>
-        </div>
-      </div>
-    );
-  }
 
   const criandoIds = useRef(new Set());
   const secaoSemPrecoRef = useRef(null);
@@ -1286,11 +1276,6 @@ function PagamentosClientesContent() {
     let remaining = valor;
     const dataStr = format(new Date(), "dd/MM/yyyy HH:mm");
     // Se registrou pagamento sem agendar data, manter como pendente até quitar
-    const novoStatus = (novoPago) => {
-      const isQuitado = novoPago >= (rec.valor_total || 0) - 0.01;
-      if (isQuitado) return 'pago';
-      return dataPagamentoAgendado ? 'agendado' : 'parcial';
-    };
 
     const calcularValorRecord = (rec) => {
       const tipos = (rec.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
@@ -1494,6 +1479,17 @@ function PagamentosClientesContent() {
   ];
 
 
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Acesso Negado</h1>
+          <p className="text-gray-500">Esta página é restrita a administradores.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">

@@ -222,24 +222,7 @@ export default function Atendimentos() {
     setCompartilharOpen(true);
   };
 
-  const handleVerHistorico = (atendimento) => {
-    if (atendimento.origem === 'servico') {
-      setSelectedServicoId(atendimento.servico_id);
-      setHistoricoOpen(true);
-    } else {
-      const servicoRelacionado = servicos.find(s => 
-        s.cliente_nome?.trim().toLowerCase() === atendimento.cliente_nome?.trim().toLowerCase() &&
-        s.status === 'concluido'
-      );
-      
-      if (servicoRelacionado) {
-        setSelectedServicoId(servicoRelacionado.id);
-        setHistoricoOpen(true);
-      } else {
-        toast.info('Nenhum histórico de status disponível para este atendimento');
-      }
-    }
-  };
+
 
   return (
     <div className="space-y-6">

@@ -433,22 +433,19 @@ export default function ServicosPage() {
     return acc;
   }, {});
 
+  const parseHorario = (h) => {
+    if (!h) return Infinity;
+    const [hh, mm] = h.split(':').map(Number);
+    return (hh || 0) * 60 + (mm || 0);
+  };
+
   Object.keys(servicosPorDia).forEach(dia => {
     servicosPorDia[dia].sort((a, b) => {
       const dateA = new Date(a.data_programada);
       const dateB = new Date(b.data_programada);
-      
       if (dateA < dateB) return -1;
       if (dateA > dateB) return 1;
-      
-      if (a.horario && !b.horario) return -1;
-      if (!a.horario && b.horario) return 1;
-      
-      if (a.horario && b.horario) {
-        return a.horario.localeCompare(b.horario);
-      }
-      
-      return 0;
+      return parseHorario(a.horario) - parseHorario(b.horario);
     });
   });
 
