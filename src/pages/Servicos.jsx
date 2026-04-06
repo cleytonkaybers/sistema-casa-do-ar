@@ -440,13 +440,7 @@ export default function ServicosPage() {
   };
 
   Object.keys(servicosPorDia).forEach(dia => {
-    servicosPorDia[dia].sort((a, b) => {
-      const dateA = new Date(a.data_programada);
-      const dateB = new Date(b.data_programada);
-      if (dateA < dateB) return -1;
-      if (dateA > dateB) return 1;
-      return parseHorario(a.horario) - parseHorario(b.horario);
-    });
+    servicosPorDia[dia].sort((a, b) => parseHorario(a.horario) - parseHorario(b.horario));
   });
 
   const diasDaSemana = [
