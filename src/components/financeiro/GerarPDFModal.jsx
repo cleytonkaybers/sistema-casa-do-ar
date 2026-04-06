@@ -151,8 +151,7 @@ export default function GerarPDFModal({ open, onClose, equipes, tecnicos, lancam
         doc.text('Técnico', 42, y);
         doc.text('Cliente', 82, y);
         doc.text('Tipo de Serviço', 122, y);
-        doc.text('Vlr Serviço', 158, y);
-        doc.text('Comissão', 180, y);
+        doc.text('Valor Ganho', 172, y);
         y += 4;
         doc.setDrawColor(200);
         doc.line(20, y, 190, y);
@@ -168,10 +167,9 @@ export default function GerarPDFModal({ open, onClose, equipes, tecnicos, lancam
           doc.text(dataStr, 20, y);
           doc.text((l.tecnico_nome || '').substring(0, 18), 42, y);
           doc.text((l.cliente_nome || '').substring(0, 18), 82, y);
-          doc.text((l.tipo_servico || '').substring(0, 17), 122, y);
-          doc.text(`R$ ${(l.valor_total_servico || 0).toFixed(2)}`, 158, y);
+          doc.text((l.tipo_servico || '').substring(0, 22), 122, y);
           doc.setTextColor(0, 140, 0);
-          doc.text(`R$ ${(l.valor_comissao_tecnico || 0).toFixed(2)}`, 180, y);
+          doc.text(`R$ ${(l.valor_comissao_tecnico || 0).toFixed(2)}`, 172, y);
           doc.setTextColor(0);
           totalServicos += l.valor_total_servico || 0;
           totalComissoes += l.valor_comissao_tecnico || 0;
@@ -186,9 +184,8 @@ export default function GerarPDFModal({ open, onClose, equipes, tecnicos, lancam
         doc.setFontSize(8.5);
         doc.setFont(undefined, 'bold');
         doc.text('Total', 122, y);
-        doc.text(`R$ ${totalServicos.toFixed(2)}`, 158, y);
         doc.setTextColor(0, 140, 0);
-        doc.text(`R$ ${totalComissoes.toFixed(2)}`, 180, y);
+        doc.text(`R$ ${totalComissoes.toFixed(2)}`, 172, y);
         doc.setTextColor(0);
         doc.setFont(undefined, 'normal');
         y += 10;
