@@ -1,0 +1,52 @@
+{
+  "name": "Emprestimo",
+  "type": "object",
+  "properties": {
+    "cliente_nome": {
+      "type": "string",
+      "description": "Nome do cliente"
+    },
+    "valor_principal": {
+      "type": "number",
+      "description": "Valor emprestado"
+    },
+    "data_emprestimo": {
+      "type": "string",
+      "format": "date",
+      "description": "Data em que o empr\u00e9stimo foi feito"
+    },
+    "percentual_mes": {
+      "type": "number",
+      "description": "Juros em % ao m\u00eas"
+    },
+    "data_estimada_recebimento": {
+      "type": "string",
+      "format": "date",
+      "description": "Data estimada para receber o pagamento"
+    },
+    "total_abatido": {
+      "type": "number",
+      "default": 0,
+      "description": "Total j\u00e1 abatido do d\u00e9bito"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ativo",
+        "quitado"
+      ],
+      "default": "ativo",
+      "description": "Status do empr\u00e9stimo"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es"
+    }
+  },
+  "required": [
+    "cliente_nome",
+    "valor_principal",
+    "data_emprestimo",
+    "percentual_mes"
+  ]
+}

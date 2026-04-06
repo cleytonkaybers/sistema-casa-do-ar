@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import EmprestimosTable from '@/components/cheques/EmprestimosTable';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -262,6 +263,11 @@ export default function Cheques() {
           <p className="text-sm">Clique em "Novo Cheque" para começar</p>
         </div>
       )}
+
+      {/* Empréstimos com Juros */}
+      <div className="border-t border-gray-200 pt-6">
+        <EmprestimosTable />
+      </div>
 
       {/* Modal Form */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
