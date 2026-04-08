@@ -3,13 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, Loader2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { CheckCircle, Loader2, DollarSign } from 'lucide-react';
 
 export default function ConclusaoModal({ open, onClose, onConfirm, servico, isLoading }) {
   const [observacoes, setObservacoes] = useState('');
+  const [pagouDinheiro, setPagouDinheiro] = useState(false);
 
   const handleConfirm = () => {
-    onConfirm(observacoes);
+    onConfirm(observacoes, pagouDinheiro);
+    setPagouDinheiro(false);
+    setObservacoes('');
   };
 
   return (
@@ -47,6 +51,19 @@ export default function ConclusaoModal({ open, onClose, onConfirm, servico, isLo
             <p className="text-xs text-gray-500 mt-1">
               Estas informações serão salvas no serviço e incluídas no compartilhamento.
             </p>
+          </div>
+
+          <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-lg p-3">
+            <Checkbox
+              id="pagou-dinheiro"
+              checked={pagouDinheiro}
+              onCheckedChange={setPagouDinheiro}
+              className="border-green-500 data-[state=checked]:bg-green-600"
+            />
+            <label htmlFor="pagou-dinheiro" className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-green-800">
+              <DollarSign className="w-4 h-4 text-green-600" />
+              Cliente pagou em dinheiro
+            </label>
           </div>
         </div>
 

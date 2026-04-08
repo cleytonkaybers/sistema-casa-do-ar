@@ -170,7 +170,7 @@ export default function ServicosPage() {
     }
   };
 
-  const handleConfirmarConclusao = async (observacoes) => {
+  const handleConfirmarConclusao = async (observacoes, pagouDinheiro = false) => {
     if (!servicoParaConcluir) return;
 
     const servicoSnapshot = { ...servicoParaConcluir };
@@ -200,6 +200,27 @@ export default function ServicosPage() {
       setShowCompartilharModal(true);
       queryClient.invalidateQueries({ queryKey: ['servicos'] });
       toast.success(servicoSnapshot.sem_registro_cliente ? 'Serviço avulso concluído! 🎉' : 'Serviço concluído! 🎉');
+
+      // Notificar ADMs se cliente pagou em dinheiro
+      if (pagouDinheiro) {
+        try {
+          const admins = await base44.entities.User.filter({ role: 'admin' });
+          await Promise.all(admins.map(admin =>
+            base44.entities.Notificacao.create({
+              usuario_email: admin.email,
+              tipo: 'pagamento_agendado',
+              titulo: '💵 Pagamento em Dinheiro',
+              mensagem: `Cliente ${servicoSnapshot.cliente_nome} pagou em dinheiro o serviço "${servicoSnapshot.tipo_servico}"${servicoSnapshot.valor ? ` (R$ ${servicoSnapshot.valor.toFixed(2)})` : ''}. Atualize em Pagamentos dos Clientes.`,
+              atendimento_id: servicoSnapshot.id,
+              cliente_nome: servicoSnapshot.cliente_nome,
+              lida: false,
+            })
+          ));
+          toast.success('💵 ADM notificado sobre pagamento em dinheiro!');
+        } catch (e) {
+          console.error('Erro ao notificar ADM:', e);
+        }
+      }
 
       // "Ver defeito" não gera atendimento, comissões nem preventiva
       const isVerDefeito = servicoSnapshot.tipo_servico === 'Ver defeito';
