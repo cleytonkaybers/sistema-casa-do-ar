@@ -18,7 +18,7 @@ import CompromissoClientePDF from '@/components/financeiro/CompromissoClientePDF
 import {
   Search, DollarSign, CheckCircle2, AlertCircle, Calendar,
   MessageCircle, Filter, X, Pencil, Tag,
-  Clock, History, Trash2, Eye, Check, FileDown
+  Clock, History, Trash2, Eye, Check, FileDown, AlertTriangle
 } from 'lucide-react';
 
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
@@ -823,7 +823,7 @@ function HistoricoModal({ open, onClose, pagamento }) {
 }
 
 // Card compacto estilo tabela com expansão
-function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData }) {
+function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData, alertaDinheiro, onDismissAlerta }) {
   const [expandido, setExpandido] = useState(false);
   const records = pag._records || [pag];
   const saldo = calcularSaldo(pag.valor_total, pag.valor_pago);
@@ -871,15 +871,25 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
     }`}>
       <div onClick={() => setExpandido(!expandido)} className={`flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${expandido ? 'bg-white border-b border-blue-200' : 'hover:bg-gray-50/50'}`}>
         <div className="flex items-center gap-2 flex-1 min-w-0 w-full sm:w-auto">
-          {chegoDataAgendada && <span className="text-lg flex-shrink-0 animate-pulse" title="Data de agendamento chegou!">🔔</span>}
+        {chegoDataAgendada && <span className="text-lg flex-shrink-0 animate-pulse" title="Data de agendamento chegou!">🔔</span>}
           <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
             chegoDataAgendada ? 'bg-orange-500' : isPago ? 'bg-green-500' : isParcial ? 'bg-amber-500' : 'bg-blue-500'
           }`}>
             {pag.cliente_nome?.charAt(0).toUpperCase() || '?'}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-semibold text-sm text-gray-800">{pag.cliente_nome}</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            {alertaDinheiro && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onDismissAlerta(alertaDinheiro); }}
+                className="flex items-center gap-1 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold text-xs px-2 py-1 rounded-lg border-2 border-yellow-500 shadow-md animate-pulse flex-shrink-0"
+                title="Clique para confirmar visualização: cliente pagou em dinheiro"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                💵 DINHEIRO — confirmar
+              </button>
+            )}
+            <p className="font-semibold text-sm text-gray-800">{pag.cliente_nome}</p>
               {pag.data_pagamento_agendado && (
                 <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded font-semibold flex-shrink-0">
                   📅 {format(new Date(pag.data_pagamento_agendado + 'T12:00:00'), 'dd/MM')}
@@ -1014,7 +1024,7 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   );
 }
 
-function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData, emptyMsg }) {
+function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData, emptyMsg, alertasDinheiro = [], onDismissAlerta }) {
   return (
     <div className="space-y-2">
       {lista.length === 0 ? (
@@ -1022,9 +1032,12 @@ function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete
           <Clock className="w-10 h-10 mx-auto mb-2 opacity-30" />
           <p className="text-sm">{emptyMsg}</p>
         </div>
-      ) : lista.map(p => (
-        <LinhaTabela key={p.id} pag={p} onPagar={onPagar} onEditarValor={onEditarValor} onHistorico={onHistorico} onDelete={onDelete} onDetalhes={onDetalhes} onDefinirPreco={onDefinirPreco} onAgendarData={onAgendarData} />
-      ))}
+      ) : lista.map(p => {
+        const alertaDinheiro = alertasDinheiro.find(n => n.cliente_nome?.trim().toLowerCase() === (p.cliente_nome || '').trim().toLowerCase() && !n.lida);
+        return (
+          <LinhaTabela key={p.id} pag={p} onPagar={onPagar} onEditarValor={onEditarValor} onHistorico={onHistorico} onDelete={onDelete} onDetalhes={onDetalhes} onDefinirPreco={onDefinirPreco} onAgendarData={onAgendarData} alertaDinheiro={alertaDinheiro} onDismissAlerta={onDismissAlerta} />
+        );
+      })}
     </div>
   );
 }
@@ -1067,6 +1080,18 @@ function PagamentosClientesContent() {
       return () => clearTimeout(timer);
     }
   }, []);
+
+  const { data: notificacoesDinheiro = [], refetch: refetchNotif } = useQuery({
+    queryKey: ['notif-dinheiro'],
+    queryFn: () => base44.entities.Notificacao.filter({ tipo: 'pagamento_agendado', lida: false }),
+  });
+  const alertasDinheiro = notificacoesDinheiro.filter(n => n.titulo?.includes('Pagamento em Dinheiro') || n.titulo?.includes('💵'));
+
+  const handleDismissAlerta = async (notif) => {
+    await base44.entities.Notificacao.update(notif.id, { lida: true });
+    refetchNotif();
+    toast.success('✅ Pagamento em dinheiro confirmado!');
+  };
 
   const [pagarModal, setPagarModal] = useState(null);
   const [precosModal, setPrecosModal] = useState(null);
@@ -1647,6 +1672,8 @@ function PagamentosClientesContent() {
               onDetalhes={setDetalhesModal}
               onAgendarData={setAgendarDataModal}
               onDelete={handleDelete}
+              alertasDinheiro={alertasDinheiro}
+              onDismissAlerta={handleDismissAlerta}
               emptyMsg="Nenhum serviço nesta semana"
             />
           </div>
@@ -1673,6 +1700,8 @@ function PagamentosClientesContent() {
                 onDetalhes={setDetalhesModal}
                 onAgendarData={setAgendarDataModal}
                 onDelete={handleDelete}
+                alertasDinheiro={alertasDinheiro}
+                onDismissAlerta={handleDismissAlerta}
                 emptyMsg="Nenhuma pendência encontrada"
               />
             </div>
