@@ -107,8 +107,8 @@ export default function MeuFinanceiro() {
       </div>
 
       {/* Cards de Resumo */}
-      <div className={`grid grid-cols-1 gap-4 ${isAdmin ? 'md:grid-cols-3' : ''}`}>
-        {isAdmin && <Card>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Clock className="w-4 h-4 text-orange-500" /> Comissões Pendentes
@@ -118,7 +118,7 @@ export default function MeuFinanceiro() {
             <div className="text-2xl font-bold text-orange-600">{formatMoney(totalPendente)}</div>
             <p className="text-xs text-gray-500 mt-1">{comissoesPeriodo.filter(c => c.status === 'pendente').length} serviço(s)</p>
           </CardContent>
-        </Card>}
+        </Card>
 
         <Card>
           <CardHeader className="pb-3">
@@ -132,7 +132,7 @@ export default function MeuFinanceiro() {
           </CardContent>
         </Card>
 
-        {isAdmin && <Card>
+        <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-blue-500" /> Total Ganho no Período
@@ -142,11 +142,11 @@ export default function MeuFinanceiro() {
             <div className="text-2xl font-bold text-blue-600">{formatMoney(totalGanho)}</div>
             <p className="text-xs text-gray-500 mt-1">{comissoesPeriodo.length} serviço(s) concluído(s)</p>
           </CardContent>
-        </Card>}
+        </Card>
       </div>
 
       {/* Comissões por Serviço */}
-      {isAdmin && <Card>
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="w-4 h-4" /> Comissões por Serviço
@@ -198,9 +198,9 @@ export default function MeuFinanceiro() {
             </div>
           )}
         </CardContent>
-        </Card>}
+      </Card>
 
-        {/* Pagamentos Recebidos */}
+      {/* Pagamentos Recebidos */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
