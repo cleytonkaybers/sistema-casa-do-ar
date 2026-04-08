@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { startOfWeek, endOfWeek } from 'date-fns';
 import { base44 } from '@/api/base44Client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -34,21 +35,36 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
     queryFn: () => base44.entities.PagamentoTecnico.list()
   });
 
-  // Recalcular credito_pendente, credito_pago e total_ganho dinamicamente
+  // Filtrar pela semana atual (igual à tela de Gestão de Créditos)
+  const agora = new Date();
+  const inicioSemana = startOfWeek(agora, { weekStartsOn: 1 });
+  const fimSemana = endOfWeek(agora, { weekStartsOn: 1 });
+
+  // Recalcular credito_pendente dinamicamente pela semana atual
   const tecnicos = tecnicosRaw.map(t => {
-    const totalComissoes = todosLancamentos
-      .filter(l => l.tecnico_id === t.tecnico_id)
+    const totalComissoesSemana = todosLancamentos
+      .filter(l => {
+        if (l.tecnico_id !== t.tecnico_id) return false;
+        if (!l.data_geracao) return false;
+        const d = new Date(l.data_geracao);
+        return d >= inicioSemana && d <= fimSemana;
+      })
       .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
-    const totalPago = todosPagamentos
-      .filter(p => p.tecnico_id === t.tecnico_id && p.status === 'Confirmado')
+    const totalPagoSemana = todosPagamentos
+      .filter(p => {
+        if (p.tecnico_id !== t.tecnico_id || p.status !== 'Confirmado') return false;
+        if (!p.created_date) return false;
+        const d = new Date(p.created_date);
+        return d >= inicioSemana && d <= fimSemana;
+      })
       .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
     return {
       ...t,
-      credito_pendente: Math.max(0, totalComissoes - totalPago),
-      credito_pago: totalPago,
-      total_ganho: totalComissoes
+      credito_pendente: Math.max(0, totalComissoesSemana - totalPagoSemana),
+      credito_pago: totalPagoSemana,
+      total_ganho: totalComissoesSemana
     };
   });
 
