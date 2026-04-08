@@ -180,6 +180,9 @@ export default function ServicosPage() {
       const statusAnterior = servicoSnapshot.status || 'aberto';
       const agora = new Date().toISOString();
 
+      // "Ver defeito" / "Verificar defeito" não gera atendimento, comissões, histórico nem preventiva
+      const isVerDefeito = servicoSnapshot.tipo_servico === 'Ver defeito' || servicoSnapshot.tipo_servico === 'Verificar defeito';
+
       // 1. Atualizar serviço como concluído
       await updateMutation.mutateAsync({ 
         id: servicoSnapshot.id,
@@ -203,15 +206,19 @@ export default function ServicosPage() {
 
       // Notificar ADMs se cliente pagou em dinheiro (não para serviços de verificação de defeito)
       if (pagouDinheiro && !isVerDefeito) {
+        try {
+          await base44.functions.invoke('notificarPagamentoDinheiro', {
+            cliente_nome: servicoSnapshot.cliente_nome,
+            tipo_servico: servicoSnapshot.tipo_servico,
+            valor: servicoSnapshot.valor,
+            atendimento_id: servicoSnapshot.id,
+          });
           toast.success('💵 ADM notificado sobre pagamento em dinheiro!');
           queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
         } catch (e) {
           console.error('Erro ao notificar ADM:', e);
         }
       }
-
-      // "Ver defeito" / "Verificar defeito" não gera atendimento, comissões, histórico nem preventiva
-      const isVerDefeito = servicoSnapshot.tipo_servico === 'Ver defeito' || servicoSnapshot.tipo_servico === 'Verificar defeito';
 
       // 3. Operações secundárias em background (não bloqueiam a UI)
       if (!isVerDefeito) Promise.all([
