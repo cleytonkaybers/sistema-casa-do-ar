@@ -12,7 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Shield, Search, User, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Shield, Search, User, Clock, AlertTriangle, CheckCircle2, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { formatDateTime } from '@/lib/utils/formatters';
 import { TableSkeleton } from '@/components/LoadingSkeleton';
 import { usePermissions } from '@/components/auth/PermissionGuard';
@@ -40,6 +41,33 @@ export default function LogsAuditoria() {
     checkAdmin();
   }, [navigate]);
   const [acaoFiltro, setAcaoFiltro] = useState('');
+  const [limpandoTeste, setLimpandoTeste] = useState(false);
+  const [resultadoLimpeza, setResultadoLimpeza] = useState(null);
+
+  const limparRegistrosTeste = async () => {
+    if (!window.confirm('Tem certeza que deseja excluir TODOS os registros com nome "Teste" de todas as entidades? Esta ação não pode ser desfeita.')) return;
+    setLimpandoTeste(true);
+    setResultadoLimpeza(null);
+    const entidades = [
+      { entity: base44.entities.Notificacao, campo: 'cliente_nome' },
+      { entity: base44.entities.Atendimento, campo: 'cliente_nome' },
+      { entity: base44.entities.PagamentoCliente, campo: 'cliente_nome' },
+      { entity: base44.entities.LancamentoFinanceiro, campo: 'cliente_nome' },
+      { entity: base44.entities.Servico, campo: 'cliente_nome' },
+      { entity: base44.entities.Cliente, campo: 'nome' },
+    ];
+    let totalExcluidos = 0;
+    for (const { entity, campo } of entidades) {
+      const registros = await entity.list();
+      const testes = registros.filter(r => r[campo]?.toLowerCase().includes('teste'));
+      for (const r of testes) {
+        await entity.delete(r.id);
+        totalExcluidos++;
+      }
+    }
+    setResultadoLimpeza(totalExcluidos);
+    setLimpandoTeste(false);
+  };
 
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ['logs-auditoria'],
@@ -99,14 +127,30 @@ export default function LogsAuditoria() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-          <Shield className="w-8 h-8 text-blue-600" />
-          Logs de Auditoria
-        </h1>
-        <p className="text-gray-500 mt-1">
-          Registro completo de todas as ações críticas do sistema
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
+            <Shield className="w-8 h-8 text-blue-600" />
+            Logs de Auditoria
+          </h1>
+          <p className="text-gray-500 mt-1">
+            Registro completo de todas as ações críticas do sistema
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <Button
+            variant="destructive"
+            onClick={limparRegistrosTeste}
+            disabled={limpandoTeste}
+            className="flex items-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            {limpandoTeste ? 'Limpando...' : 'Limpar Registros "Teste"'}
+          </Button>
+          {resultadoLimpeza !== null && (
+            <p className="text-sm text-green-600 font-medium">{resultadoLimpeza} registro(s) excluído(s) com sucesso.</p>
+          )}
+        </div>
       </div>
 
       {/* Filtros */}
