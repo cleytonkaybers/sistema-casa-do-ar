@@ -117,6 +117,7 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
             <Select value={tecnicoSelecionado?.id || ''} onValueChange={(id) => {
               const tecnico = tecnicos.find(t => t.id === id);
               setTecnicoSelecionado(tecnico);
+              if (tecnico) setValorPago(tecnico.credito_pendente.toFixed(2));
             }}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecionar técnico..." />
