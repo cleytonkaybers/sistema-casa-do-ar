@@ -951,7 +951,7 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
               </button>
             </>
           )}
-          <button onClick={() => onDelete(pag.id)} className="p-1.5 rounded text-red-500 hover:bg-red-50 flex-shrink-0" title="Excluir">
+          <button onClick={() => onDelete(pag)} className="p-1.5 rounded text-red-500 hover:bg-red-50 flex-shrink-0" title="Excluir">
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
@@ -1175,14 +1175,26 @@ function PagamentosClientesContent() {
     },
   });
 
-  const handleDelete = (id) => {
-    const pag = pagamentos.find(p => p.id === id);
-    if (pag?.atendimento_id) {
-      deletedAtendimentoIds.current.add(pag.atendimento_id);
+  const handleDelete = (pag) => {
+    // Pega todos os records do grupo (pode ser agrupado com múltiplos)
+    const records = pag._records?.length > 0 ? pag._records : [pag];
+    const atendIdsToBlock = [];
+
+    records.forEach(rec => {
+      const atendId = rec.atendimento_id || rec.id;
+      if (atendId) {
+        deletedAtendimentoIds.current.add(atendId);
+        atendIdsToBlock.push(atendId);
+      }
+      // Deleta cada record individual
+      if (rec.id) deleteMutation.mutate(rec.id);
+    });
+
+    // Persiste no localStorage
+    if (atendIdsToBlock.length > 0) {
       const existing = JSON.parse(localStorage.getItem('pag_deleted_atend_ids') || '[]');
-      localStorage.setItem('pag_deleted_atend_ids', JSON.stringify([...new Set([...existing, pag.atendimento_id])]));
+      localStorage.setItem('pag_deleted_atend_ids', JSON.stringify([...new Set([...existing, ...atendIdsToBlock])]));
     }
-    deleteMutation.mutate(id);
   };
 
   const hoje = new Date();
