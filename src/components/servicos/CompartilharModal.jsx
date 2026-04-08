@@ -73,12 +73,7 @@ export default function CompartilharModal({ open, onClose, servico, isConclusao 
   const linkCompartilhamento = encodeURIComponent(mensagem);
 
   const handleWhatsApp = () => {
-    const phone = servico.telefone ? servico.telefone.replace(/\D/g, '') : '';
-    const phoneWithCountry = phone && !phone.startsWith('55') ? `55${phone}` : phone;
-    const url = phoneWithCountry
-      ? `https://wa.me/${phoneWithCountry}?text=${linkCompartilhamento}`
-      : `https://wa.me/?text=${linkCompartilhamento}`;
-    window.open(url, '_blank');
+    window.open(`https://wa.me/?text=${linkCompartilhamento}`, '_blank');
   };
 
   const handleFacebook = () => {
