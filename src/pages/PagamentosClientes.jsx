@@ -1045,6 +1045,7 @@ function PagamentosClientesContent() {
   const isAdmin = user?.role === 'admin';
 
   const criandoIds = useRef(new Set());
+  const deletedAtendimentoIds = useRef(new Set());
   const secaoSemPrecoRef = useRef(null);
   const secaoCobrarRef = useRef(null);
 
@@ -1172,6 +1173,14 @@ function PagamentosClientesContent() {
     },
   });
 
+  const handleDelete = (id) => {
+    const pag = pagamentos.find(p => p.id === id);
+    if (pag?.atendimento_id) {
+      deletedAtendimentoIds.current.add(pag.atendimento_id);
+    }
+    deleteMutation.mutate(id);
+  };
+
   const hoje = new Date();
   const inicioSemana = startOfWeek(hoje, { weekStartsOn: 1 }); // segunda-feira
   const fimSemana = endOfWeek(hoje, { weekStartsOn: 1 }); // domingo
@@ -1185,6 +1194,7 @@ function PagamentosClientesContent() {
     const novos = atendimentos.filter(a => {
       if (idsRegistrados.has(a.id)) return false;
       if (criandoIds.current.has(a.id)) return false;
+      if (deletedAtendimentoIds.current.has(a.id)) return false;
       if (TIPOS_IGNORADOS.includes(a.tipo_servico)) return false;
       const dataRef = a.data_conclusao || a.created_date;
       if (!dataRef) return false;
@@ -1620,7 +1630,7 @@ function PagamentosClientesContent() {
               onHistorico={setHistoricoModal}
               onDetalhes={setDetalhesModal}
               onAgendarData={setAgendarDataModal}
-              onDelete={(id) => deleteMutation.mutate(id)}
+              onDelete={handleDelete}
               emptyMsg="Nenhum serviço nesta semana"
             />
           </div>
@@ -1646,7 +1656,7 @@ function PagamentosClientesContent() {
                 onHistorico={setHistoricoModal}
                 onDetalhes={setDetalhesModal}
                 onAgendarData={setAgendarDataModal}
-                onDelete={(id) => deleteMutation.mutate(id)}
+                onDelete={handleDelete}
                 emptyMsg="Nenhuma pendência encontrada"
               />
             </div>
@@ -1710,7 +1720,7 @@ function PagamentosClientesContent() {
             onHistorico={setHistoricoModal}
             onDetalhes={setDetalhesModal}
             onAgendarData={setAgendarDataModal}
-            onDelete={(id) => deleteMutation.mutate(id)}
+            onDelete={handleDelete}
             emptyMsg="Nenhum registro no período selecionado"
           />
         </div>
