@@ -1045,7 +1045,9 @@ function PagamentosClientesContent() {
   const isAdmin = user?.role === 'admin';
 
   const criandoIds = useRef(new Set());
-  const deletedAtendimentoIds = useRef(new Set());
+  const deletedAtendimentoIds = useRef(new Set(
+    JSON.parse(localStorage.getItem('pag_deleted_atend_ids') || '[]')
+  ));
   const secaoSemPrecoRef = useRef(null);
   const secaoCobrarRef = useRef(null);
 
@@ -1177,6 +1179,8 @@ function PagamentosClientesContent() {
     const pag = pagamentos.find(p => p.id === id);
     if (pag?.atendimento_id) {
       deletedAtendimentoIds.current.add(pag.atendimento_id);
+      const existing = JSON.parse(localStorage.getItem('pag_deleted_atend_ids') || '[]');
+      localStorage.setItem('pag_deleted_atend_ids', JSON.stringify([...new Set([...existing, pag.atendimento_id])]));
     }
     deleteMutation.mutate(id);
   };
