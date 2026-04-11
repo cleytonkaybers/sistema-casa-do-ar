@@ -127,7 +127,7 @@ function LayoutContent({ children }) {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen" style={{ backgroundColor: '#f0f4f8' }}>
+      <div className="min-h-screen" style={{ backgroundColor: '#f0f9ff' }}>
         {/* Backdrop mobile */}
         {sidebarOpen &&
         <div
@@ -140,18 +140,18 @@ function LayoutContent({ children }) {
         <aside className={`
           fixed top-0 left-0 z-50 h-full w-72 shadow-2xl transform transition-transform duration-300 ease-in-out
           lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        `} style={{ backgroundColor: '#1e3a8a' }}>
+        `} style={{ background: 'linear-gradient(180deg, #0d1b3e 0%, #1a3270 50%, #1e40af 100%)' }}>
           <div className="flex flex-col h-full">
 
             {/* Logo / empresa */}
-            <div className="flex items-center justify-between px-5 py-5 border-b border-white/10">
+            <div className="flex items-center justify-between px-5 py-5 border-b border-white/10" style={{ background: 'rgba(0,0,0,0.15)' }}>
               <Link
                 to={isAdminEmpresa() || isSuperAdmin() ? createPageUrl('Configuracoes') : '#'}
                 className="flex items-center gap-3 hover:opacity-90 transition-opacity">
 
                 {/* Logo box */}
-                <div className="w-20 h-20 rounded-2xl flex items-center justify-center overflow-hidden shadow-lg flex-shrink-0"
-                style={{ backgroundColor: '#F5C800' }}>
+                <div className="w-20 h-20 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0"
+                style={{ background: 'linear-gradient(135deg, #F5C800 0%, #f97316 100%)', boxShadow: '0 4px 15px rgba(245,200,0,0.4)' }}>
                   {companySettings.company_logo_url ?
                   <img
                     src={companySettings.company_logo_url}
@@ -167,11 +167,11 @@ function LayoutContent({ children }) {
                   <p className="font-bold text-white text-lg leading-tight">
                     {currentEmpresa?.nome || companySettings.company_name}
                   </p>
-                  <p className="text-xs font-medium" style={{ color: '#93c5fd' }}>
+                  <p className="text-xs font-medium" style={{ color: '#7dd3fc' }}>
                     {isSuperAdmin() ? 'Super Admin' : currentUser?.tipo_usuario === 'admin_empresa' ? 'Administrador' : 'Climatização'}
                   </p>
                   {user?.full_name &&
-                  <p className="text-xs font-semibold" style={{ color: '#FFF347' }}>{user.full_name}</p>
+                  <p className="text-xs font-semibold" style={{ color: '#fde68a' }}>{user.full_name}</p>
                   }
                 </div>
               </Link>
@@ -194,7 +194,7 @@ function LayoutContent({ children }) {
                     <button
                       key={item.name}
                       onClick={item.action}
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-200/70 hover:text-white hover:bg-white/10 transition-all">
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-200/60 hover:text-white hover:bg-white/10 transition-all duration-200">
 
                       <Icon className="w-5 h-5 flex-shrink-0" />
                       <span className="font-medium">{item.name}</span>
@@ -209,14 +209,14 @@ function LayoutContent({ children }) {
                     onClick={() => setSidebarOpen(false)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                     active ?
-                    'text-gray-900 font-bold shadow-lg' :
-                    'text-blue-100/80 hover:text-white hover:bg-white/10'}`
+                    'text-white font-semibold shadow-lg' :
+                    'text-blue-100/70 hover:text-white hover:bg-white/10'}`
                     }
-                    style={active ? { backgroundColor: '#f59e0b' } : {}}>
+                    style={active ? { background: 'linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%)', boxShadow: '0 4px 12px rgba(14,165,233,0.35)' } : {}}>
 
-                    <Icon className={`w-5 h-5 flex-shrink-0 ${active ? 'text-gray-900' : 'text-blue-200/60'}`} />
+                    <Icon className={`w-5 h-5 flex-shrink-0 ${active ? 'text-white' : 'text-blue-300/60'}`} />
                     <span className="font-medium flex-1">{item.name}</span>
-                    {active && <ChevronRight className="w-4 h-4 text-gray-900/70" />}
+                    {active && <ChevronRight className="w-4 h-4 text-white/70" />}
                   </Link>);
 
               })}
@@ -228,20 +228,20 @@ function LayoutContent({ children }) {
         <div className="lg:pl-72">
 
           {/* Top bar */}
-          <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
-            <div className="bg-[#1293e2] px-4 py-3 flex items-center justify-between lg:px-6">
+          <header className="sticky top-0 z-30 shadow-md">
+            <div className="px-4 py-3 flex items-center justify-between lg:px-6" style={{ background: 'linear-gradient(135deg, #0369a1 0%, #0284c7 60%, #0ea5e9 100%)' }}>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                  className="lg:hidden p-2 rounded-lg hover:bg-white/15 transition-colors">
 
-                  <Menu className="w-6 h-6 text-gray-700" />
+                  <Menu className="w-6 h-6 text-white" />
                 </button>
 
                 {/* Logo visível no mobile topbar */}
                 <div className="flex items-center gap-2 lg:hidden">
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center overflow-hidden shadow"
-                  style={{ backgroundColor: '#F5C800' }}>
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center overflow-hidden"
+                  style={{ background: 'linear-gradient(135deg, #F5C800 0%, #f97316 100%)', boxShadow: '0 2px 8px rgba(245,200,0,0.4)' }}>
                     {companySettings.company_logo_url ?
                     <img
                       src={companySettings.company_logo_url}
@@ -253,13 +253,13 @@ function LayoutContent({ children }) {
                     <LogoIcon className={`w-4 h-4 text-white ${companySettings.company_logo_url ? 'hidden' : ''}`} />
 
                   </div>
-                  <span className="font-bold text-gray-800">{currentEmpresa?.nome || companySettings.company_name}</span>
+                  <span className="font-bold text-white">{currentEmpresa?.nome || companySettings.company_name}</span>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => window.location.reload()} className="text-slate-50 p-2 rounded-lg hover:bg-gray-100 transition-colors hover:text-gray-700"
+                  onClick={() => window.location.reload()} className="text-white/80 p-2 rounded-lg hover:bg-white/15 transition-colors hover:text-white"
 
                   title="Atualizar">
 
