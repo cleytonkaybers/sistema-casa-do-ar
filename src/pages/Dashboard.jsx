@@ -378,15 +378,15 @@ export default function Dashboard() {
 
       {/* Cards do Admin */}
       {currentUser?.role === 'admin' && (
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
-          <div className="xl:col-span-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+          <div className="md:col-span-2 flex flex-col">
             <GanhosTecnicosAdminDashboard tecnicos={adminTecnicosSemana} />
           </div>
-          <div className="xl:col-span-1">
-            <ResumoMesAdminDashboard 
-              servicosConcluidos={atendimentosDoMes.length} 
-              receita={adminResumoMes.receita} 
-              despesas={adminResumoMes.despesas} 
+          <div className="md:col-span-1 flex flex-col">
+            <ResumoMesAdminDashboard
+              servicosConcluidos={atendimentosDoMes.length}
+              receita={adminResumoMes.receita}
+              despesas={adminResumoMes.despesas}
               comissoes={adminResumoMes.comissoes}
             />
           </div>

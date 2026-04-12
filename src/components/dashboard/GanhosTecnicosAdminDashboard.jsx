@@ -11,7 +11,7 @@ export default function GanhosTecnicosAdminDashboard({ tecnicos }) {
   const sortedTecnicos = [...tecnicos].sort((a, b) => b.credito_pendente - a.credito_pendente);
 
   return (
-    <Card className="bg-[#152236] border-white/5 shadow-sm hover:border-white/10 transition-all rounded-2xl h-full flex flex-col">
+    <Card className="bg-[#152236] border-white/5 shadow-sm hover:border-white/10 transition-all rounded-2xl flex-1 flex flex-col">
       <CardHeader className="pb-3 px-5 pt-5 border-b border-white/5 flex flex-row items-center justify-between">
         <CardTitle className="text-sm font-bold text-gray-200 tracking-wide flex items-center gap-2">
           <Users className="w-4 h-4 text-blue-400" />
