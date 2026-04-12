@@ -172,7 +172,10 @@ export const gerarPDFTodos = (clientesAgrupados) => {
   const colunas = ['Data', 'Equipe', 'Qtd', 'Serviço', 'Valor Unit.', 'Total'];
   const larguras = [25, 40, 12, 65, 25, 23];
 
-  Object.entries(clientesAgrupados).forEach(([cliente, itens]) => {
+  Object.entries(clientesAgrupados).forEach(([cliente, grupo]) => {
+    // grupo pode ser array (legado) ou objeto { nome, itens: [...], ... }
+    const itens = Array.isArray(grupo) ? grupo : (grupo.itens || []);
+
     if (y > pageHeight - 50) {
       doc.addPage();
       y = 15;
@@ -191,8 +194,8 @@ export const gerarPDFTodos = (clientesAgrupados) => {
     y += 5;
 
     const historicoItens = itens.map(item => ({
-      descricao: item.descricao || '',
-      data: item.data || '',
+      descricao: item.descricao || item.tipo_servico || '',
+      data: item.data || item.data_conclusao || item.data_atendimento || '',
       valor: item.valor || 0,
       equipe_nome: item.equipe_nome || item.usuario || '',
     }));
