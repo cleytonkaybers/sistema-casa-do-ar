@@ -117,7 +117,12 @@ export default function ServicosPage() {
       if (editingServico) {
         await updateMutation.mutateAsync({ id: editingServico.id, data });
       } else {
-        await createMutation.mutateAsync(data);
+        // Gerar número de OS automaticamente para novos serviços
+        const maxOs = servicos
+          .map(s => parseInt((s.os_numero || '').replace(/\D/g, '') || '0'))
+          .reduce((max, n) => Math.max(max, n), 0);
+        const os_numero = `OS-${String(maxOs + 1).padStart(4, '0')}`;
+        await createMutation.mutateAsync({ ...data, os_numero });
       }
     } catch (error) {
       console.error('Erro ao salvar:', error);
@@ -265,6 +270,7 @@ export default function ServicosPage() {
             };
             return base44.entities.Atendimento.create({
               servico_id: servicoSnapshot.id,
+              os_numero: servicoSnapshot.os_numero || '',
               cliente_nome: servicoSnapshot.cliente_nome,
               cpf: servicoSnapshot.cpf || '',
               telefone: servicoSnapshot.telefone || '',

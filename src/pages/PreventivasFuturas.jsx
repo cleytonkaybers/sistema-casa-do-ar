@@ -246,6 +246,18 @@ export default function PreventivasFuturasPage() {
     setShowServicoForm(true);
   };
 
+  const handleSaveServico = async (data) => {
+    try {
+      const maxOs = servicos
+        .map(s => parseInt((s.os_numero || '').replace(/\D/g, '') || '0'))
+        .reduce((max, n) => Math.max(max, n), 0);
+      const os_numero = `OS-${String(maxOs + 1).padStart(4, '0')}`;
+      await createServicoMutation.mutateAsync({ ...data, os_numero });
+    } catch (error) {
+      toast.error('Erro ao salvar serviço: ' + (error.message || 'Tente novamente'));
+    }
+  };
+
   const handleShare = async (item) => {
     const isCliente = item.tipo === 'cliente';
     const nome = isCliente ? item.nome : item.cliente_nome;

@@ -385,6 +385,11 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
           <DialogTitle className="text-white text-xl font-bold flex items-center gap-2">
             <span className="text-lg">📋</span>
             {servico ? 'Editar Serviço' : 'Novo Serviço'}
+            {servico?.os_numero && (
+              <span className="ml-2 text-xs font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded">
+                {servico.os_numero}
+              </span>
+            )}
           </DialogTitle>
         </DialogHeader>
 

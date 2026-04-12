@@ -57,6 +57,11 @@ export default function DetalhesModal({ open, onClose, atendimento }) {
               {atendimento.cliente_nome?.charAt(0).toUpperCase() || '?'}
             </div>
             <div className="flex-1">
+              {atendimento.os_numero && (
+                <span className="inline-block text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded mb-1">
+                  {atendimento.os_numero}
+                </span>
+              )}
               <p className="text-sm text-gray-500 flex items-center gap-1.5 mb-1">
                 <User className="w-3.5 h-3.5" /> Cliente
               </p>

@@ -118,7 +118,7 @@ export default function Atendimentos() {
         data: s.data_programada, horario: s.horario, status: s.status,
         equipe_nome: s.equipe_nome, valor: finalValor, descricao: s.descricao,
         latitude: s.latitude, longitude: s.longitude, endereco: s.endereco,
-        google_maps_link: s.google_maps_link
+        google_maps_link: s.google_maps_link, os_numero: s.os_numero || ''
       });
     });
 
@@ -139,7 +139,7 @@ export default function Atendimentos() {
         cliente_nome: a.cliente_nome, telefone: a.telefone, tipo_servico: a.tipo_servico,
         observacoes: a.observacoes_conclusao, servico_id: a.servico_id,
         latitude: a.latitude, longitude: a.longitude, endereco: a.endereco,
-        google_maps_link: a.google_maps_link
+        google_maps_link: a.google_maps_link, os_numero: a.os_numero || ''
       });
     });
 
@@ -371,18 +371,20 @@ export default function Atendimentos() {
                                   const dateKey = item.data || '';
                                   const equipeKey = item.equipe_nome || '';
                                   const groupKey = `${dateKey}||${equipeKey}`;
-                                  
+
                                   if (!byDate[groupKey]) {
                                     byDate[groupKey] = { data: dateKey, equipe: equipeKey, servicos: {} };
                                   }
-                                  
+
                                   const sKey = formatServiceText(item.tipo_servico || item.descricao || 'Serviço');
-                                  
-                                  if (!byDate[groupKey].servicos[sKey]) {
-                                    byDate[groupKey].servicos[sKey] = { descricao: sKey, qty: 0, valorUnit: item.valor || 0, totalValor: 0 };
+                                  const osKey = item.os_numero || '';
+                                  const uniqueKey = osKey ? `${osKey}||${sKey}` : `${sKey}||${dateKey}||${item.id}`;
+
+                                  if (!byDate[groupKey].servicos[uniqueKey]) {
+                                    byDate[groupKey].servicos[uniqueKey] = { descricao: sKey, qty: 0, valorUnit: item.valor || 0, totalValor: 0, os_numero: osKey };
                                   }
-                                  byDate[groupKey].servicos[sKey].qty += 1;
-                                  byDate[groupKey].servicos[sKey].totalValor += (item.valor || 0);
+                                  byDate[groupKey].servicos[uniqueKey].qty += 1;
+                                  byDate[groupKey].servicos[uniqueKey].totalValor += (item.valor || 0);
                                 });
 
                                 const sortedGroups = Object.values(byDate).sort((a, b) => new Date(b.data) - new Date(a.data));
@@ -407,7 +409,14 @@ export default function Atendimentos() {
                                         <td className="px-4 py-3 text-center align-middle">
                                           <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-500/20 text-blue-400 font-bold text-xs shadow-inner border border-blue-500/30">{s.qty}x</span>
                                         </td>
-                                        <td className="px-4 py-3 align-middle text-gray-300 pr-4">{s.descricao}</td>
+                                        <td className="px-4 py-3 align-middle text-gray-300 pr-4">
+                                          {s.os_numero && (
+                                            <span className="inline-block text-[10px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded mr-2">
+                                              {s.os_numero}
+                                            </span>
+                                          )}
+                                          {s.descricao}
+                                        </td>
                                         <td className="px-4 py-3 align-middle text-right text-gray-400 font-medium">
                                           {s.valorUnit ? `R$ ${s.valorUnit.toLocaleString('pt-BR')}` : '—'}
                                         </td>

@@ -112,6 +112,11 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
         )}
       <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
+            {servico.os_numero && (
+              <span className="inline-block text-[10px] font-bold text-blue-500 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded mb-1">
+                {servico.os_numero}
+              </span>
+            )}
             <h4 className="font-semibold text-gray-800 break-words">{servico.cliente_nome}</h4>
             <p className="text-xs text-gray-500 mt-0.5">{servico.tipo_servico}</p>
             <div className="flex items-center gap-1 mt-1.5 flex-wrap">
@@ -277,6 +282,11 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
         <div className="p-4 border-b border-gray-100" style={{background: isAtrasadoGrave ? 'linear-gradient(135deg, #fef2f2, #fee2e2)' : 'linear-gradient(135deg, #eff6ff, #fefce8)'}}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">
+              {servico.os_numero && (
+                <span className="inline-block text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded mb-1">
+                  {servico.os_numero}
+                </span>
+              )}
               <h3 className="font-semibold text-lg text-gray-800">{servico.cliente_nome}</h3>
               <div className="flex items-center gap-2 flex-wrap mt-1">
                 <Badge className="bg-blue-100 text-blue-700 border border-blue-200 text-xs">

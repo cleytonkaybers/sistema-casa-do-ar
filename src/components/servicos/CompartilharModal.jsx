@@ -40,9 +40,10 @@ export default function CompartilharModal({ open, onClose, servico, isConclusao 
     return phone;
   };
 
-  const mensagem = isConclusao 
+  const mensagem = isConclusao
     ? [
         `✅ *Serviço Concluído!*`,
+        servico.os_numero ? `🔢 *OS:* ${servico.os_numero}` : null,
         servico.equipe_nome ? `👷 *Equipe:* ${servico.equipe_nome}` : null,
         ``,
         `👤 *Cliente:* ${servico.cliente_nome}`,
@@ -57,6 +58,7 @@ export default function CompartilharModal({ open, onClose, servico, isConclusao 
       ].filter(l => l !== null).join('\n')
     : [
         `${statusEmoji} *${statusTexto}*`,
+        servico.os_numero ? `🔢 *OS:* ${servico.os_numero}` : null,
         ``,
         `👤 *Cliente:* ${servico.cliente_nome}`,
         servico.telefone ? `📞 *Telefone:* ${formatPhone(servico.telefone)}` : null,
