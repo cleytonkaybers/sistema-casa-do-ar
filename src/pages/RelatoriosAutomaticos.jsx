@@ -10,12 +10,18 @@ import ConfiguracaoRelatorioForm from '../components/relatorios/ConfiguracaoRela
 import RelatoriosHistorico from '../components/relatorios/RelatoriosHistorico';
 import GerarRelatorioManual from '../components/relatorios/GerarRelatorioManual';
 
+import { usePermissions } from '@/components/auth/PermissionGuard';
+import NoPermission from '@/components/NoPermission';
+
 export default function RelatoriosAutomaticosPage() {
+  const { isAdmin } = usePermissions();
   const [showForm, setShowForm] = useState(false);
   const [editingConfig, setEditingConfig] = useState(null);
   const [showHistorico, setShowHistorico] = useState(false);
   const [showGerarManual, setShowGerarManual] = useState(false);
   const queryClient = useQueryClient();
+
+  if (!isAdmin) return <NoPermission />;
 
   const { data: configuracoes = [], isLoading } = useQuery({
     queryKey: ['configuracoes-relatorio'],

@@ -825,6 +825,8 @@ function HistoricoModal({ open, onClose, pagamento }) {
 
 // Card compacto estilo tabela com expansão
 function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData, alertaDinheiro, onDismissAlerta }) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [expandido, setExpandido] = useState(false);
   const records = pag._records || [pag];
   const saldo = calcularSaldo(pag.valor_total, pag.valor_pago);
@@ -937,9 +939,11 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
           <button onClick={() => onDetalhes(pag)} className="p-1.5 rounded text-gray-400 hover:text-purple-600 hover:bg-purple-50 flex-shrink-0" title="Detalhes">
             <Eye className="w-4 h-4" />
           </button>
-          <button onClick={() => gerarPDFCobranca(pag)} className="p-1.5 rounded text-gray-400 hover:text-green-700 hover:bg-green-50 flex-shrink-0" title="PDF para cliente">
-            <FileDown className="w-4 h-4" />
-          </button>
+          {isAdmin && (
+            <button onClick={() => gerarPDFCobranca(pag)} className="p-1.5 rounded text-gray-400 hover:text-green-700 hover:bg-green-50 flex-shrink-0" title="PDF para cliente">
+              <FileDown className="w-4 h-4" />
+            </button>
+          )}
           <button onClick={() => onHistorico(pag)} className="p-1.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 flex-shrink-0" title="Histórico">
             <History className="w-4 h-4" />
           </button>
@@ -1600,9 +1604,11 @@ function PagamentosClientesContent() {
           {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-4 h-4 text-gray-400" /></button>}
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          <Button onClick={() => setAbrirRelatorio(true)} variant="outline" className="gap-2">
-            📄 Gerar PDF
-          </Button>
+          {isAdmin && (
+            <Button onClick={() => setAbrirRelatorio(true)} variant="outline" className="gap-2">
+              📄 Gerar PDF
+            </Button>
+          )}
           <div className="flex flex-wrap gap-2 items-center">
             {[
               { key: 'pendente', label: 'Pendentes', color: 'text-red-700 bg-red-50 border-red-200' },
