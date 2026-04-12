@@ -229,7 +229,7 @@ function LayoutContent({ children }) {
 
           {/* Top bar */}
           <header className="sticky top-0 z-30 shadow-md">
-            <div className="px-4 py-3 flex items-center justify-between lg:px-6" style={{ background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 60%, #f87171 100%)' }}>
+            <div className="px-4 py-3 flex items-center justify-between lg:px-6" style={{ background: 'linear-gradient(135deg, #0d1b3e 0%, #1a3270 60%, #1e40af 100%)' }}>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setSidebarOpen(true)}
