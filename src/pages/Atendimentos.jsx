@@ -1,11 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { usePermissions } from '@/components/auth/PermissionGuard';
-import TipoServicoDisplay from '@/components/TipoServicoDisplay';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -14,14 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -29,28 +20,27 @@ import { TableSkeleton } from '@/components/LoadingSkeleton';
 import { 
   Search, 
   ClipboardList, 
-  Filter,
-  Loader2,
+  Phone,
   Calendar,
-  Wrench,
-  DollarSign,
-  Trash2,
   X,
-  Info,
-  Share2,
-  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Eye
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
 
-import DeleteConfirmDialog from '@/components/clientes/DeleteConfirmDialog';
 import DetalhesModal from '@/components/atendimentos/DetalhesModal';
-import CompartilharModal from '@/components/servicos/CompartilharModal';
 
-const formatDate = (date) => {
-  if (!date) return '-';
-  try { return format(new Date(date), "dd/MM/yyyy", { locale: ptBR }); }
-  catch { return '-'; }
+const formatPhone = (phone) => {
+  if (!phone) return '';
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length === 11) {
+    return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
+  }
+  return phone;
 };
 
 export default function Atendimentos() {
@@ -60,85 +50,164 @@ export default function Atendimentos() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(30);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deletingAtendimento, setDeletingAtendimento] = useState(null);
+  const [itemsPerPage] = useState(10); // 10 clientes por página
+  const [expandedClients, setExpandedClients] = useState({});
   const [detalhesOpen, setDetalhesOpen] = useState(false);
   const [selectedAtendimento, setSelectedAtendimento] = useState(null);
-  const [compartilharOpen, setCompartilharOpen] = useState(false);
-  const [atendimentoCompartilhar, setAtendimentoCompartilhar] = useState(null);
 
-  const { data: atendimentos = [], isLoading } = useQuery({
+  const toggleClient = (clienteNome) => {
+    setExpandedClients(prev => ({
+      ...prev,
+      [clienteNome]: !prev[clienteNome]
+    }));
+  };
+
+  const { data: atendimentos = [], isLoading: loadA } = useQuery({
     queryKey: ['atendimentos'],
     queryFn: () => base44.entities.Atendimento.list('-data_atendimento'),
   });
 
-  const { data: usuarios = [], isLoading: isLoadingUsuarios } = useQuery({
-    queryKey: ['usuarios-atendimentos'],
-    queryFn: () => base44.entities.User.list(),
+  const { data: servicos = [], isLoading: loadS } = useQuery({
+    queryKey: ['servicos'],
+    queryFn: () => base44.entities.Servico.list('-data_programada'),
   });
 
-  const { data: servicos = [] } = useQuery({
-    queryKey: ['servicos-atendimentos'],
-    queryFn: () => base44.entities.Servico.list(),
+  const { data: pagamentos = [], isLoading: loadP } = useQuery({
+    queryKey: ['pagamentos-atendimentos'],
+    queryFn: () => base44.entities.PagamentoCliente.list(),
   });
 
-  const { data: clientes = [] } = useQuery({
-    queryKey: ['clientes-atendimentos'],
-    queryFn: () => base44.entities.Cliente.list(),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Atendimento.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
-      setDeleteDialogOpen(false);
-      setDeletingAtendimento(null);
-      toast.success('Atendimento excluído com sucesso!');
-    },
-    onError: () => toast.error('Erro ao excluir atendimento'),
-  });
-
-  const tiposServico = useMemo(() => {
-    const tiposSet = new Set(atendimentos.map(a => a.tipo_servico).filter(Boolean));
-    return Array.from(tiposSet).sort();
-  }, [atendimentos]);
+  const isLoading = loadA || loadS || loadP;
 
   const equipeIdUsuario = currentUser?.equipe_id || null;
 
-  const filteredAtendimentos = useMemo(() => {
-    if (loadingUser) return [];
+  // Process and group all history
+  const agrupadoPorCliente = useMemo(() => {
+    if (loadingUser) return {};
 
-    const filtered = atendimentos.filter(atendimento => {
+    const historicoUnificado = [];
+
+    // Adiciona Serviços (Agendados, Abertos, Reagendados, Andamento)
+    servicos.forEach(s => {
+      // Ignorar concluídos aqui pois os atendimentos que representam a conclusão de fato (no banco legado)
+      if (s.status === 'concluido') return; 
+
       if (!isAdmin) {
-        if (equipeIdUsuario) {
-          if (atendimento.equipe_id !== equipeIdUsuario) return false;
-        } else {
-          if (atendimento.equipe_id) return false;
-        }
+        if (equipeIdUsuario && s.equipe_id !== equipeIdUsuario) return;
+        if (!equipeIdUsuario && s.equipe_id) return;
       }
 
-      const matchesSearch = 
-        atendimento.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        atendimento.tipo_servico?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        atendimento.descricao?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesTipo = filterTipo === 'all' || atendimento.tipo_servico === filterTipo;
-      
-      return matchesSearch && matchesTipo;
+      historicoUnificado.push({
+        id: `s-${s.id}`,
+        originalId: s.id,
+        tipoObjeto: 'servico',
+        cliente_nome: s.cliente_nome,
+        telefone: s.telefone,
+        tipo_servico: s.tipo_servico,
+        data: s.data_programada,
+        horario: s.horario,
+        status: s.status, // agendado, aberto, reagendado
+        equipe_nome: s.equipe_nome,
+        valor: s.valor,
+        descricao: s.descricao
+      });
     });
 
-    return filtered.sort((a, b) => {
-      const dataA = new Date(a.data_conclusao || a.data_atendimento);
-      const dataB = new Date(b.data_conclusao || b.data_atendimento);
-      return dataB - dataA;
-    });
-  }, [atendimentos, searchTerm, filterTipo, isAdmin, equipeIdUsuario, loadingUser]);
+    // Adiciona Atendimentos (Concluídos)
+    atendimentos.forEach(a => {
+      if (!isAdmin) {
+        if (equipeIdUsuario && a.equipe_id !== equipeIdUsuario) return;
+        if (!equipeIdUsuario && a.equipe_id) return;
+      }
 
-  const handleDelete = (atendimento) => {
-    setDeletingAtendimento(atendimento);
-    setDeleteDialogOpen(true);
-  };
+      historicoUnificado.push({
+        id: `a-${a.id}`,
+        originalId: a.id,
+        tipoObjeto: 'atendimento',
+        cliente_nome: a.cliente_nome,
+        telefone: a.telefone,
+        tipo_servico: a.tipo_servico,
+        data: a.data_conclusao || a.data_atendimento,
+        horario: null,
+        status: 'concluido',
+        equipe_nome: a.equipe_nome,
+        valor: a.valor,
+        descricao: a.descricao,
+        observacoes: a.observacoes_conclusao,
+        servico_id: a.servico_id
+      });
+    });
+
+    // Agrupamento
+    const grupos = {};
+    historicoUnificado.forEach(item => {
+      const nome = item.cliente_nome?.trim() || 'Desconhecido';
+      if (!grupos[nome]) {
+        grupos[nome] = {
+          nome,
+          telefone: item.telefone,
+          itens: [],
+          stats: { concluidas: 0, concluidasValor: 0, pendentes: 0 },
+          ultimaData: null
+        };
+      }
+      
+      grupos[nome].itens.push(item);
+      
+      // Update statistics
+      if (item.status === 'concluido') {
+        grupos[nome].stats.concluidas++;
+        grupos[nome].stats.concluidasValor += (item.valor || 0);
+      } else {
+        grupos[nome].stats.pendentes++;
+      }
+
+      // Ultima OS Date tracking
+      const itemDate = new Date(item.data);
+      if (!isNaN(itemDate)) {
+        if (!grupos[nome].ultimaData || itemDate > grupos[nome].ultimaData) {
+          grupos[nome].ultimaData = itemDate;
+        }
+      }
+    });
+
+    // Filtros
+    const clientesFiltrados = {};
+    Object.values(grupos).forEach(grupo => {
+      // Filtrar itens pelo tipo (se houver)
+      if (filterTipo !== 'all') {
+        grupo.itens = grupo.itens.filter(i => i.tipo_servico === filterTipo);
+        if (grupo.itens.length === 0) return;
+        // recalculate stats
+        grupo.stats.concluidas = grupo.itens.filter(i => i.status === 'concluido').length;
+        grupo.stats.concluidasValor = grupo.itens.filter(i => i.status === 'concluido').reduce((acc, i) => acc + (i.valor || 0), 0);
+        grupo.stats.pendentes = grupo.itens.filter(i => i.status !== 'concluido').length;
+      }
+
+      // Filtrar pelo termo de busca
+      const searchLower = searchTerm.toLowerCase();
+      const matchNome = grupo.nome.toLowerCase().includes(searchLower);
+      const matchItens = grupo.itens.some(i => 
+        i.tipo_servico?.toLowerCase().includes(searchLower) || 
+        i.descricao?.toLowerCase().includes(searchLower)
+      );
+
+      if (matchNome || matchItens) {
+        // Ordenar os itens dentro do grupo da mais recente, para a mais antiga
+        grupo.itens.sort((a, b) => new Date(b.data || 0) - new Date(a.data || 0));
+        clientesFiltrados[grupo.nome] = grupo;
+      }
+    });
+
+    return clientesFiltrados;
+  }, [atendimentos, servicos, loadingUser, isAdmin, equipeIdUsuario, filterTipo, searchTerm]);
+
+  const tiposServico = useMemo(() => {
+    const tipos = new Set();
+    atendimentos.forEach(a => { if (a.tipo_servico) tipos.add(a.tipo_servico); });
+    servicos.forEach(a => { if (a.tipo_servico) tipos.add(a.tipo_servico); });
+    return Array.from(tipos).sort();
+  }, [atendimentos, servicos]);
 
   const clearFilters = () => {
     setSearchTerm('');
@@ -146,87 +215,71 @@ export default function Atendimentos() {
     setCurrentPage(1);
   };
 
+  const clientesArray = Object.values(agrupadoPorCliente).sort((a, b) => (b.ultimaData || 0) - (a.ultimaData || 0));
   const hasActiveFilters = searchTerm || filterTipo !== 'all';
-
-  const totalPages = Math.ceil(filteredAtendimentos.length / itemsPerPage);
+  const totalPages = Math.ceil(clientesArray.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const paginatedAtendimentos = filteredAtendimentos.slice(startIndex, endIndex);
+  const paginatedClientes = clientesArray.slice(startIndex, endIndex);
 
   React.useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, filterTipo]);
 
   const formatCurrency = (value) => {
-    if (!value) return '-';
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
+    if (!value) return 'R$ 0,00';
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
-  const handleVerDetalhes = (atendimento) => {
-    setSelectedAtendimento(atendimento);
+  const getStatusBadge = (status) => {
+    const s = status?.toLowerCase() || '';
+    if (s === 'concluido' || s === 'concluído') {
+      return <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold shadow-inner w- max text-[11px]">Concluída</Badge>;
+    }
+    if (s === 'faturada' || s === 'faturado') {
+      return <Badge className="bg-purple-500/10 text-purple-400 border border-purple-500/20 font-semibold shadow-inner w-max text-[11px]">Faturada</Badge>;
+    }
+    if (s === 'agendado' || s === 'reagendado') {
+      return <Badge className="bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold shadow-inner w-max text-[11px]">Agendada</Badge>;
+    }
+    return <Badge className="bg-gray-500/10 text-gray-400 border border-gray-500/20 font-semibold shadow-inner w-max text-[11px] capitalize">{status}</Badge>;
+  };
+
+  const handleVerDetalhes = (item) => {
+    // Como a modal de detalhes aceita objeto estilo Atendimento, passamos o necessário
+    setSelectedAtendimento(item);
     setDetalhesOpen(true);
   };
 
-  const handleCompartilhar = (atendimento) => {
-    let telefone = atendimento.telefone;
-    if (!telefone && atendimento.detalhes) {
-      try {
-        const det = typeof atendimento.detalhes === 'string' ? JSON.parse(atendimento.detalhes) : atendimento.detalhes;
-        telefone = det?.dados_ordem_servico?.telefone || '';
-      } catch {}
+  const getPagamentoStatus = (item) => {
+    if (item.status !== 'concluido') return null; // Apenas concluídos faturam
+    
+    // Busca na tabela de pagamentos o registro vinculado
+    let pag = null;
+    if (item.tipoObjeto === 'atendimento') {
+      pag = pagamentos.find(p => p.servico_id === item.servico_id || p.id === item.originalId); // Depende muito do mapeamento exato
+    } else {
+      pag = pagamentos.find(p => p.servico_id === item.originalId);
     }
-    if (!telefone && atendimento.servico_id) {
-      const servicoOrigem = servicos.find(s => s.id === atendimento.servico_id);
-      telefone = servicoOrigem?.telefone || '';
-    }
-    if (!telefone && atendimento.cliente_nome) {
-      const clienteMatch = clientes.find(c => 
-        c.nome?.trim().toLowerCase() === atendimento.cliente_nome?.trim().toLowerCase()
-      );
-      telefone = clienteMatch?.telefone || '';
+    
+    // Se não encontrar ou o valor foi 0 e não tinha tipo faturável... base44
+    if (!pag) {
+      if (item.valor === 0) return { label: 'Sem Preço', style: 'bg-red-500/10 text-red-500 border border-red-500/20' };
+      return { label: 'Aguardando', style: 'bg-gray-500/10 text-gray-400 border border-gray-500/20' };   
     }
 
-    let det = null;
-    if (atendimento.detalhes) {
-      try { det = typeof atendimento.detalhes === 'string' ? JSON.parse(atendimento.detalhes) : atendimento.detalhes; } catch {}
-    }
-    const servicoOrigem = atendimento.servico_id ? servicos.find(s => s.id === atendimento.servico_id) : null;
-
-    const get = (field) =>
-      atendimento[field] ||
-      det?.dados_ordem_servico?.[field] ||
-      servicoOrigem?.[field] ||
-      '';
-
-    setAtendimentoCompartilhar({
-      cliente_nome: atendimento.cliente_nome,
-      telefone: telefone || '',
-      tipo_servico: atendimento.tipo_servico,
-      data_programada: atendimento.data_atendimento || get('data_programada'),
-      horario: get('horario'),
-      endereco: get('endereco'),
-      valor: atendimento.valor || get('valor'),
-      descricao: get('descricao'),
-      observacoes_conclusao: get('observacoes_conclusao'),
-      equipe_nome: get('equipe_nome'),
-      status: 'concluido',
-    });
-    setCompartilharOpen(true);
+    if (pag.status === 'pago') return { label: 'Pago', style: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' };
+    return { label: 'Aguardando', style: 'bg-orange-500/10 text-orange-400 border border-orange-500/20' };
   };
-
-
 
   return (
     <div className="space-y-6 max-w-full overflow-hidden">
       {/* Header da Página */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-100 tracking-tight">Atendimentos</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-100 tracking-tight">Painel de Atendimentos</h1>
           <p className="text-gray-400 mt-1 flex items-center gap-2 text-sm">
-            Total Histórico: <span className="font-semibold text-gray-300">{atendimentos.length} concluídos</span>
+            Histórico completo e andamento agrupado por clientes
           </p>
         </div>
       </div>
@@ -236,7 +289,7 @@ export default function Atendimentos() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <Input
-            placeholder="Buscar por cliente ou descrição..."
+            placeholder="Buscar por cliente ou serviço..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9 bg-[#0d1826] border-white/10 text-gray-200 placeholder:text-gray-500 w-full h-11 rounded-xl"
@@ -275,7 +328,7 @@ export default function Atendimentos() {
         <>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-2">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest w-full sm:w-auto text-center sm:text-left">
-              Mostrando {startIndex + 1} a {Math.min(endIndex, filteredAtendimentos.length)} de {filteredAtendimentos.length}
+              Mostrando {startIndex + 1} a {Math.min(endIndex, clientesArray.length)} de {clientesArray.length} clientes
             </p>
             <div className="flex items-center justify-center gap-2 w-full sm:w-auto pb-4 sm:pb-0">
               <Button
@@ -283,7 +336,7 @@ export default function Atendimentos() {
                 size="sm"
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="bg-[#152236] border-white/10 text-gray-300 hover:bg-white/5"
+                className="bg-[#152236] border-white/10 text-gray-300 hover:bg-white/5 h-9"
               >
                 <ChevronLeft className="w-4 h-4" />
               </Button>
@@ -295,197 +348,232 @@ export default function Atendimentos() {
                 size="sm"
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="bg-[#152236] border-white/10 text-gray-300 hover:bg-white/5"
+                className="bg-[#152236] border-white/10 text-gray-300 hover:bg-white/5 h-9"
               >
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
           </div>
 
-          {paginatedAtendimentos.length === 0 ? (
+          {paginatedClientes.length === 0 ? (
             <div className="text-center py-20 bg-[#152236] border border-white/5 rounded-2xl flex flex-col items-center">
               <div className="w-20 h-20 bg-[#0d1826] border border-white/5 rounded-full flex items-center justify-center mb-5">
                 <ClipboardList className="w-8 h-8 text-gray-600" />
               </div>
               <h3 className="text-lg font-bold text-gray-200 mb-2">
-                {hasActiveFilters ? 'Nenhum atendimento encontrado' : 'Nenhum atendimento registrado'}
+                {hasActiveFilters ? 'Nenhum resultado encontrado' : 'Nenhuma atividade registrada'}
               </h3>
               <p className="text-sm text-gray-500 max-w-sm mx-auto">
                 {hasActiveFilters
                   ? 'Tente ajustar os filtros de busca para encontrar o que procura.'
-                  : 'Os atendimentos aparecem aqui automaticamente após a conclusão dos serviços.'}
+                  : 'Os serviços concluídos e pendentes aparecerão aqui agrupados por cliente.'}
               </p>
             </div>
       ) : (
-        <>
-          {/* Desktop Table (Visible on lg e superiores) */}
-          <Card className="hidden lg:block border border-white/5 bg-[#152236] shadow-sm rounded-2xl overflow-hidden">
-            <Table>
-              <TableHeader className="bg-[#0b1420] border-b border-white/5">
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="text-gray-400 font-semibold h-12">Cliente</TableHead>
-                  <TableHead className="text-gray-400 font-semibold h-12 w-44">Data Conclusão</TableHead>
-                  <TableHead className="text-gray-400 font-semibold h-12 w-64">Tipo de Serviço</TableHead>
-                  {isAdmin && <TableHead className="text-gray-400 font-semibold h-12 w-32">Valor</TableHead>}
-                  <TableHead className="text-gray-400 font-semibold h-12 w-48">Concluído por</TableHead>
-                  <TableHead className="text-right text-gray-400 font-semibold h-12 w-36">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="divide-y divide-white/5">
-                {paginatedAtendimentos.map((atendimento) => (
-                  <TableRow key={atendimento.id} className="hover:bg-white/5 border-none transition-colors group">
-                    <TableCell className="py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-400 font-bold shadow-inner">
-                          {atendimento.cliente_nome?.charAt(0).toUpperCase() || '?'}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-gray-200 truncate">{atendimento.cliente_nome || '-'}</p>
-                          {atendimento.telefone && <p className="text-[11px] text-gray-500 mt-0.5">{atendimento.telefone}</p>}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 text-gray-300 bg-[#0d1826] border border-white/5 px-3 py-1.5 rounded-lg w-max shadow-sm">
-                        <Calendar className="w-4 h-4 text-emerald-500" />
-                        <span className="text-sm">{formatDate(atendimento.data_conclusao || atendimento.data_atendimento)}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-start gap-2 text-gray-300">
-                        <Wrench className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                        <TipoServicoDisplay value={atendimento.tipo_servico} />
-                      </div>
-                    </TableCell>
-                    {isAdmin && (
-                      <TableCell>
-                        <span className="font-semibold text-emerald-400">
-                          {formatCurrency(atendimento.valor)}
+        <div className="space-y-4">
+          {paginatedClientes.map((cliente) => {
+            const isExpanded = expandedClients[cliente.nome];
+            
+            return (
+              <Card key={cliente.nome} className="bg-[#152236] border border-white/5 shadow-md overflow-hidden rounded-2xl transition-all">
+                
+                {/* Cabeçalho do Card (Accordion Trigger) */}
+                <div 
+                  onClick={() => toggleClient(cliente.nome)}
+                  className="flex flex-col md:flex-row md:items-center justify-between p-4 sm:p-5 cursor-pointer hover:bg-white/5 transition-colors group select-none gap-4"
+                >
+                  <div className="flex items-center gap-4">
+                    {/* Avatar Moderno */}
+                    <div className="w-12 h-12 rounded-full bg-blue-900/40 border border-blue-500/20 flex flex-shrink-0 items-center justify-center shadow-inner group-hover:bg-blue-500/20 transition-colors">
+                      <span className="text-blue-400 font-bold text-lg uppercase tracking-wider">{cliente.nome.charAt(0)}</span>
+                    </div>
+                    
+                    <div>
+                      <h3 className="font-bold text-gray-100 text-[16px] truncate max-w-[200px] sm:max-w-md lg:max-w-lg">{cliente.nome}</h3>
+                      <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-gray-400">
+                        {cliente.telefone && (
+                          <span className="flex items-center font-medium bg-[#0d1826] px-1.5 py-0.5 rounded border border-white/5">
+                            <Phone className="w-3 h-3 mr-1.5 text-blue-400" />
+                            {formatPhone(cliente.telefone)}
+                          </span>
+                        )}
+                        <span className="flex items-center">
+                          <span className="w-1.5 h-1.5 rounded-full bg-gray-600 mr-1.5"></span>
+                          Última OS: {cliente.ultimaData ? format(cliente.ultimaData, 'dd/MM/yyyy') : '-'}
                         </span>
-                      </TableCell>
-                    )}
-                    <TableCell>
-                      <div className="text-xs text-gray-300 space-y-1">
-                        {(() => {
-                          const equipe = atendimento.equipe_nome || 
-                            servicos.find(s => s.id === atendimento.servico_id)?.equipe_nome || '';
-                          return equipe ? <p className="font-semibold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-md inline-block border border-blue-500/10">👷 {equipe}</p> : null;
-                        })()}
-                        <p className="text-gray-500 mt-1">{atendimento.usuario_conclusao || '-'}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" onClick={() => handleCompartilhar(atendimento)} className="h-8 w-8 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10" title="Compartilhar">
-                           <Share2 className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleVerDetalhes(atendimento)} className="h-8 w-8 text-gray-400 hover:text-white hover:bg-white/10" title="Ver Detalhes">
-                           <Info className="w-4 h-4" />
-                         </Button>
-                         {isAdmin && (
-                           <Button variant="ghost" size="icon" onClick={() => handleDelete(atendimento)} className="h-8 w-8 text-gray-400 hover:text-red-400 hover:bg-red-500/10" title="Excluir">
-                             <Trash2 className="w-4 h-4" />
-                           </Button>
-                         )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-
-          {/* Mobile Cards View (Otimizado, flexível flex box) */}
-          <div className="lg:hidden flex flex-col gap-4">
-            {paginatedAtendimentos.map((atendimento) => (
-              <Card key={atendimento.id} className="bg-[#152236] border border-white/5 shadow-md hover:border-white/10 transition-colors overflow-hidden rounded-2xl flex flex-col">
-                <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
-                  {/* Card Header (Client info) */}
-                  <div className="flex items-start justify-between mb-4 gap-2">
-                    <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-400 font-bold shrink-0">
-                        {atendimento.cliente_nome?.charAt(0).toUpperCase() || '?'}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-bold text-gray-100 text-[15px] truncate">{atendimento.cliente_nome || '-'}</p>
-                        <TipoServicoDisplay value={atendimento.tipo_servico} className="mt-0.5" />
+                        <span className="flex items-center font-semibold text-gray-300">
+                          <span className="w-1.5 h-1.5 rounded-full bg-gray-600 mr-1.5"></span>
+                          {cliente.itens.length} OS
+                        </span>
                       </div>
                     </div>
-                    <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] shrink-0 font-semibold">
-                      <CheckCircle2 className="w-3 h-3 mr-1" /> Concluído
-                    </Badge>
                   </div>
-                  
-                  {/* Detailed Info */}
-                  <div className="bg-[#0b1420] border border-white/5 rounded-xl p-3 mb-4 space-y-2.5">
-                     <div className="flex items-center justify-between">
-                         <div className="flex items-center gap-2 text-xs text-gray-300">
-                           <Calendar className="w-3.5 h-3.5 text-blue-400" />
-                           <span>{formatDate(atendimento.data_conclusao || atendimento.data_atendimento)}</span>
-                         </div>
-                         {isAdmin && <span className="font-bold text-emerald-400 text-sm">{formatCurrency(atendimento.valor)}</span>}
-                     </div>
-                     {atendimento.usuario_conclusao && (
-                        <div className="flex items-center gap-2 text-[11px] text-gray-500 pt-1.5 border-t border-white/5">
-                           <span>Concluído por:</span>
-                           <span className="font-medium text-gray-300 truncate">{atendimento.usuario_conclusao}</span>
+
+                  {/* Lado Direito (Badges e Chevron) */}
+                  <div className="flex items-center gap-3 self-end md:self-auto">
+                    {cliente.stats.concluidas > 0 && (
+                      <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold text-[11px] tracking-wide rounded-full">
+                        {cliente.stats.concluidas} concluída(s)
+                      </Badge>
+                    )}
+                    {cliente.stats.pendentes > 0 && (
+                      <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold text-[11px] tracking-wide rounded-full">
+                        {cliente.stats.pendentes} pendente(s)
+                      </Badge>
+                    )}
+                    <div className="w-8 h-8 rounded-full bg-[#0d1826] flex items-center justify-center border border-white/5 text-gray-400 group-hover:text-white transition-colors">
+                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Conteúdo Expandido */}
+                {isExpanded && (
+                  <div className="p-4 sm:p-5 border-t border-white/5 bg-[#121d2f]/50">
+                    
+                    {/* Botão Perfil/Dashboard Topo da Seção */}
+                    <div className="flex justify-between items-end mb-4">
+                      <h4 className="text-gray-400 text-[10px] font-bold uppercase tracking-widest flex items-center">
+                        <span className="w-1.5 h-4 bg-blue-500 block mr-2 rounded-sm" />
+                        Histórico de Atendimentos
+                      </h4>
+                      <Link to={createPageUrl('Clientes')}>
+                        <Button variant="outline" size="sm" className="bg-[#0d1826] border-white/10 text-gray-300 hover:text-white hover:bg-white/10 h-8 text-xs font-semibold px-4 rounded-full shadow-sm">
+                          Ver perfil completo
+                        </Button>
+                      </Link>
+                    </div>
+
+                    {/* Desktop Table Header Format (Responsive Scrolling Container) */}
+                    <div className="overflow-x-auto pb-4">
+                      <div className="min-w-[800px]">
+                        <div className="grid grid-cols-12 gap-2 pb-3 mb-2 border-b border-white/5 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                          <div className="col-span-1 pl-2">OS #</div>
+                          <div className="col-span-2">Data do Serviço</div>
+                          <div className="col-span-3">Tipo de Serviço</div>
+                          <div className="col-span-1">Equipe</div>
+                          <div className="col-span-1">Valor</div>
+                          <div className="col-span-2">Pagamento</div>
+                          <div className="col-span-1">Status</div>
+                          <div className="col-span-1 text-center">Info</div>
                         </div>
-                     )}
-                  </div>
-                  
-                  {atendimento.observacoes_conclusao && (
-                    <div className="mb-4">
-                      <p className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-widest">Observações</p>
-                      <p className="text-sm text-gray-300 italic line-clamp-2">"{atendimento.observacoes_conclusao}"</p>
-                    </div>
-                  )}
 
-                  {/* Actions Grid (Otimizado pro toque na tela) */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-auto pt-3 border-t border-white/5">
-                    <Button variant="outline" className="w-full bg-[#0d1826] border-white/10 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/20 h-10 text-gray-300 flex" onClick={() => handleCompartilhar(atendimento)}>
-                        <Share2 className="w-4 h-4 mr-2" />
-                        <span className="text-xs font-semibold">Compartilhar</span>
-                    </Button>
-                    <Button variant="outline" className="w-full bg-[#0d1826] border-white/10 hover:bg-white/10 hover:text-white h-10 text-gray-300 flex" onClick={() => handleVerDetalhes(atendimento)}>
-                        <Info className="w-4 h-4 mr-2" />
-                        <span className="text-xs font-semibold">Detalhes</span>
-                    </Button>
-                    {isAdmin && (
-                        <Button variant="outline" className="md:col-start-4 w-full bg-red-500/5 border-red-500/20 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 text-red-500 h-10 flex" onClick={() => handleDelete(atendimento)}>
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          <span className="text-xs font-semibold">Excluir</span>
-                        </Button>
-                    )}
+                        <div className="space-y-1">
+                          {cliente.itens.map(item => {
+                            const pagStats = getPagamentoStatus(item);
+                            
+                            return (
+                              <div key={item.id} className="grid grid-cols-12 gap-2 items-center py-2.5 hover:bg-white/5 rounded-lg transition-colors border-b border-white/[0.02]">
+                                <div className="col-span-1 pl-2 font-bold text-blue-400 text-xs">#{item.originalId}</div>
+                                <div className="col-span-2 text-xs text-gray-300">
+                                  <div className="font-semibold">{item.data ? format(new Date(item.data), "dd/MM/yyyy") : '-'}</div>
+                                  <div className="text-gray-500 text-[10px] uppercase font-bold mt-0.5">{item.horario || 'S/H'}</div>
+                                </div>
+                                <div className="col-span-3">
+                                  <div className="font-medium text-gray-200 text-xs truncate pr-2">{item.tipo_servico || '-'}</div>
+                                  <div className="text-gray-500 text-[10px] truncate pr-2 w-max max-w-full">{item.descricao ? `"${item.descricao}"` : ''}</div>
+                                </div>
+                                <div className="col-span-1 text-xs text-gray-400">
+                                  {item.equipe_nome ? <span className="bg-[#0d1826] px-1.5 py-0.5 rounded border border-white/5 font-semibold">#{item.equipe_nome}</span> : <span className="opacity-30">—</span>}
+                                </div>
+                                <div className="col-span-1 font-bold text-emerald-400 text-xs">
+                                  {item.status === 'concluido' ? formatCurrency(item.valor) : <span className="text-orange-400 text-[10px] uppercase block tracking-wider">Aguardando</span>}
+                                </div>
+                                <div className="col-span-2 flex items-center pr-2">
+                                  {pagStats ? (
+                                    <div className={`px-2 text-[10px] py-1 rounded-md font-bold uppercase tracking-wider ${pagStats.style}`}>{pagStats.label}</div>
+                                  ) : (
+                                    <span className="w-16 h-1.5 rounded bg-white/5 block" />
+                                  )}
+                                </div>
+                                <div className="col-span-1 flex items-center">
+                                  {getStatusBadge(item.status)}
+                                </div>
+                                <div className="col-span-1 flex justify-center">
+                                  <Button variant="ghost" size="icon" onClick={() => handleVerDetalhes(item)} className="h-6 w-6 text-gray-500 hover:text-white hover:bg-white/10 rounded-full bg-[#0d1826] border border-white/5">
+                                    <Eye className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        
+                        {/* Finalização do Rodapé de Totais */}
+                        <div className="grid grid-cols-12 gap-2 mt-2 pt-3 pb-1 border-t border-white/5 bg-[#0d1826] rounded-lg px-2">
+                          <div className="col-span-8 text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center">
+                            Total ({cliente.stats.concluidas} concluída(s))
+                          </div>
+                          <div className="col-span-4 font-bold text-emerald-400 text-sm">
+                            {formatCurrency(cliente.stats.concluidasValor)}
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+
+                    {/* Timeline Vertical */}
+                    <div className="mt-8 mb-2">
+                       <h4 className="text-gray-400 text-[10px] font-bold uppercase tracking-widest flex items-center mb-6">
+                         <span className="w-1.5 h-4 bg-purple-500 block mr-2 rounded-sm" />
+                         Linha do Tempo
+                       </h4>
+                       
+                       <div className="pl-4 border-l-2 border-white/5 space-y-6 relative ml-2">
+                          {cliente.itens.map(item => (
+                            <div key={`tl-${item.id}`} className="relative">
+                              {/* Bolinha do Timeline */}
+                              <div className={`absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full ring-4 ring-[#121d2f]/50 border-2 ${item.status === 'concluido' ? 'bg-emerald-400 border-emerald-500/20' : 'bg-blue-400 border-blue-500/20'}`} />
+                              
+                              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                                {/* Info Timeline */}
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                     <h5 className="font-bold text-gray-200 text-sm">{item.tipo_servico || 'Serviço'}</h5>
+                                     <span className="text-[10px] font-bold text-gray-500">#{item.originalId}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Calendar className="w-3 h-3 text-blue-400" />
+                                    <span className="text-[11px] text-gray-400 font-medium tracking-wide">
+                                      {item.data ? format(new Date(item.data), "dd/MM/yyyy") : '-'}
+                                      {item.status !== 'concluido' && <span className="text-amber-500 ml-2">▲ Sem preço fixado</span>}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Badges Timeline */}
+                                <div className="flex items-center gap-2 mt-2 sm:mt-0 opacity-80 scale-90 sm:scale-100 sm:opacity-100 origin-left sm:origin-right">
+                                  {item.valor === 0 && item.status === 'concluido' && (
+                                     <span className="text-[10px] text-red-400 font-bold uppercase tracking-widest">Sem Preço</span>
+                                  )}
+                                  {getStatusBadge(item.status)}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                       </div>
+                    </div>
+
                   </div>
-                </CardContent>
+                )}
               </Card>
-            ))}
-          </div>
-          </>
-        )}
+            );
+          })}
+        </div>
+      )}
       </>
       )}
 
-      <DeleteConfirmDialog
-        open={deleteDialogOpen}
-        onClose={() => { setDeleteDialogOpen(false); setDeletingAtendimento(null); }}
-        onConfirm={() => deleteMutation.mutate(deletingAtendimento?.id)}
-        clienteName={`atendimento de ${deletingAtendimento?.cliente_nome}`}
-        isLoading={deleteMutation.isPending}
-      />
-
-      <DetalhesModal
-        open={detalhesOpen}
-        onClose={() => { setDetalhesOpen(false); setSelectedAtendimento(null); }}
-        atendimento={selectedAtendimento}
-      />
-
-      <CompartilharModal
-        open={compartilharOpen}
-        onClose={() => { setCompartilharOpen(false); setAtendimentoCompartilhar(null); }}
-        servico={atendimentoCompartilhar}
-        isConclusao={true}
-      />
+      {selectedAtendimento && (
+        <DetalhesModal
+          open={detalhesOpen}
+          onClose={() => { setDetalhesOpen(false); setSelectedAtendimento(null); }}
+          atendimento={{
+            ...selectedAtendimento,
+            id: selectedAtendimento.originalId // compatibilidade legada com a modal
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Phone, MapPin, Calendar, MessageCircle, Navigation, Search, Loader2, Clock, Wrench, Share2, Eye, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Phone, MapPin, Calendar, MessageCircle, Navigation, Search, Loader2, Clock, Wrench, Share2, Eye, Plus, Trash2, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import { usePermissions } from '../components/auth/PermissionGuard';
 import { 
   Table,
@@ -22,10 +22,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { format, differenceInDays, addMonths, addDays } from 'date-fns';
+import { format, differenceInDays, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ServicoForm from '../components/servicos/ServicoForm';
-import { Label } from '@/components/ui/label';
 import { TableSkeleton } from '@/components/LoadingSkeleton';
 
 export default function PreventivasFuturasPage() {
@@ -86,11 +85,10 @@ export default function PreventivasFuturasPage() {
     if (!proximaManutencao) return null;
     const daysUntil = differenceInDays(new Date(proximaManutencao), new Date());
     
-    // Vencidos ou vencendo (180 dias ou mais de atraso)
     if (daysUntil < 0) {
       return { 
-        label: `VENCIDA - ${Math.abs(daysUntil)} dias atrasado`, 
-        color: 'bg-red-100 text-red-700 border-red-300',
+        label: `VENCIDA - ${Math.abs(daysUntil)} dias`, 
+        color: 'bg-red-500/10 text-red-500 border-red-500/20 shadow-inner',
         priority: 1,
         days: daysUntil,
         vencida: true
@@ -98,8 +96,8 @@ export default function PreventivasFuturasPage() {
     }
     if (daysUntil <= 7) {
       return { 
-        label: `URGENTE - Faltam ${daysUntil} ${daysUntil === 1 ? 'dia' : 'dias'}`, 
-        color: 'bg-orange-100 text-orange-700 border-orange-300',
+        label: `URGENTE - ${daysUntil} ${daysUntil === 1 ? 'dia' : 'dias'}`, 
+        color: 'bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-inner',
         priority: 2,
         days: daysUntil,
         vencida: false
@@ -108,7 +106,7 @@ export default function PreventivasFuturasPage() {
     if (daysUntil <= 30) {
       return { 
         label: `Faltam ${daysUntil} dias`, 
-        color: 'bg-amber-100 text-amber-700 border-amber-300',
+        color: 'bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-inner',
         priority: 3,
         days: daysUntil,
         vencida: false
@@ -117,7 +115,7 @@ export default function PreventivasFuturasPage() {
     if (daysUntil <= 90) {
       return { 
         label: `Faltam ${daysUntil} dias`, 
-        color: 'bg-blue-100 text-blue-700 border-blue-300',
+        color: 'bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-inner',
         priority: 4,
         days: daysUntil,
         vencida: false
@@ -125,17 +123,15 @@ export default function PreventivasFuturasPage() {
     }
     return { 
       label: `Faltam ${daysUntil} dias`, 
-      color: 'bg-gray-100 text-gray-700 border-gray-300',
+      color: 'bg-gray-500/10 text-gray-400 border-gray-500/20 shadow-inner',
       priority: 5,
       days: daysUntil,
       vencida: false
     };
   };
 
-  // Preparar dados de clientes com manutenção programada
   const clientesComManutencao = clientes
     .map(cliente => {
-      // Se não tem próxima manutenção mas tem última, calcula 6 meses
       let proximaManutencao = cliente.proxima_manutencao;
       if (!proximaManutencao && cliente.ultima_manutencao) {
         const dataUltima = new Date(cliente.ultima_manutencao);
@@ -151,7 +147,6 @@ export default function PreventivasFuturasPage() {
     })
     .filter(c => c.proximaManutencao && c.status);
 
-  // Combinar e filtrar (apenas clientes)
   const todosItens = [...clientesComManutencao]
     .filter(item => {
       const matchNome = item.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -160,13 +155,11 @@ export default function PreventivasFuturasPage() {
       return matchNome || matchTelefone;
     })
     .sort((a, b) => {
-      // Ordenar por dias restantes em ordem crescente (menos dias primeiro)
       const daysA = a.status?.days ?? 999;
       const daysB = b.status?.days ?? 999;
       return daysA - daysB;
     });
 
-  // Paginação
   const totalPages = Math.ceil(todosItens.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
@@ -182,7 +175,6 @@ export default function PreventivasFuturasPage() {
     mutationFn: async (servicoData) => {
       const servico = await base44.entities.Servico.create(servicoData);
       
-      // Remover cliente das preventivas futuras (limpa proxima_manutencao)
       const todosClientes = await base44.entities.Cliente.list();
       const clienteExistente = todosClientes.find(c => 
         c.telefone?.replace(/\D/g, '') === servicoData.telefone?.replace(/\D/g, '')
@@ -253,10 +245,6 @@ export default function PreventivasFuturasPage() {
     setShowServicoForm(true);
   };
 
-  const handleSaveServico = async (servicoData) => {
-    createServicoMutation.mutate(servicoData);
-  };
-
   const handleShare = async (item) => {
     const isCliente = item.tipo === 'cliente';
     const nome = isCliente ? item.nome : item.cliente_nome;
@@ -301,22 +289,26 @@ export default function PreventivasFuturasPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-6 max-w-full overflow-hidden">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Preventivas Futuras</h1>
-          <p className="text-gray-500 mt-1">Manutenções programadas e serviços ativos</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-100 tracking-tight">Preventivas Futuras</h1>
+          <p className="text-gray-400 mt-1 flex items-center gap-2 text-sm">
+            Manutenções programadas ou serviços ativos
+          </p>
         </div>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <Input
-          placeholder="Buscar por nome ou telefone..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 h-11 border-gray-200 text-gray-700 placeholder:text-gray-400 bg-white"
-        />
+      <div className="bg-[#152236] border border-white/5 rounded-2xl p-4 shadow-sm flex items-center">
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+          <Input
+            placeholder="Buscar por nome ou telefone..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 bg-[#0d1826] border-white/10 text-gray-200 placeholder:text-gray-500 h-11 w-full rounded-xl"
+          />
+        </div>
       </div>
 
       {isLoading ? (
@@ -324,103 +316,109 @@ export default function PreventivasFuturasPage() {
       ) : (
         <>
           {todosItens.length > 0 && (
-            <div className="bg-white rounded-lg p-4 border border-gray-200 flex items-center justify-between">
-              <p className="text-sm text-gray-600">
-                Mostrando <span className="font-medium">{startIndex + 1}</span> a <span className="font-medium">{Math.min(endIndex, todosItens.length)}</span> de <span className="font-medium">{todosItens.length}</span> manutenções
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="border-gray-200"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <span className="text-sm text-gray-600">
-                  Página {currentPage} de {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="border-gray-200"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-2">
+               <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest w-full sm:w-auto text-center sm:text-left">
+                  Mostrando {startIndex + 1} a {Math.min(endIndex, todosItens.length)} de {todosItens.length}
+               </p>
+               <div className="flex items-center justify-center gap-2 pb-4 sm:pb-0">
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                   disabled={currentPage === 1}
+                   className="bg-[#152236] border-white/10 text-gray-300 hover:bg-white/5 h-9"
+                 >
+                   <ChevronLeft className="w-4 h-4" />
+                 </Button>
+                 <span className="text-sm font-medium text-gray-400 mx-2">
+                   Página {currentPage} de {totalPages}
+                 </span>
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                   disabled={currentPage === totalPages}
+                   className="bg-[#152236] border-white/10 text-gray-300 hover:bg-white/5 h-9"
+                 >
+                   <ChevronRight className="w-4 h-4" />
+                 </Button>
+               </div>
             </div>
           )}
+
           {todosItens.length === 0 ? (
-        <div className="text-center py-12 rounded-xl border-2 border-dashed border-gray-200 bg-white">
-          <p className="text-gray-400">
-            {searchTerm 
-              ? 'Nenhum resultado encontrado'
-              : 'Nenhuma manutenção programada ou serviço ativo'
-            }
-          </p>
-        </div>
+            <div className="text-center py-20 bg-[#152236] border border-white/5 rounded-2xl flex flex-col items-center">
+               <div className="w-20 h-20 bg-[#0d1826] border border-white/5 rounded-full flex items-center justify-center mb-5">
+                 <AlertTriangle className="w-8 h-8 text-gray-600" />
+               </div>
+               <h3 className="text-lg font-bold text-gray-200 mb-2">
+                  {searchTerm 
+                     ? 'Nenhum resultado encontrado'
+                     : 'Nenhuma manutenção programada'
+                  }
+               </h3>
+               <p className="text-sm text-gray-500">Tente buscar por um cliente diferente ou limpe o filtro.</p>
+            </div>
       ) : (
-        <div className="rounded-xl shadow-sm border border-gray-200 overflow-hidden bg-white">
-          <div className="overflow-x-auto">
+        <>
+          {/* Desktop Table View */}
+          <Card className="hidden lg:block border border-white/5 bg-[#152236] shadow-sm rounded-2xl overflow-hidden">
             <Table>
-              <TableHeader>
-                <TableRow className="border-gray-200" style={{ backgroundColor: '#1e3a8a' }}>
-                  <TableHead className="text-white font-semibold">Tipo</TableHead>
-                  <TableHead className="text-white font-semibold">Nome</TableHead>
-                  <TableHead className="text-white font-semibold">Telefone</TableHead>
-                  <TableHead className="text-white font-semibold">Endereço</TableHead>
-                  <TableHead className="text-white font-semibold">Serviço/Data</TableHead>
-                  <TableHead className="text-white font-semibold">Status</TableHead>
-                  <TableHead className="text-white font-semibold text-center">Ações</TableHead>
+              <TableHeader className="bg-[#0b1420] border-b border-white/5">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="text-gray-400 font-semibold h-12 w-28 text-center">Tipo</TableHead>
+                  <TableHead className="text-gray-400 font-semibold h-12">Cliente</TableHead>
+                  <TableHead className="text-gray-400 font-semibold h-12 w-40">Telefone</TableHead>
+                  <TableHead className="text-gray-400 font-semibold h-12">Endereço</TableHead>
+                  <TableHead className="text-gray-400 font-semibold h-12 w-48">Previsão</TableHead>
+                  <TableHead className="text-gray-400 font-semibold h-12 w-40">Status</TableHead>
+                  <TableHead className="text-gray-400 font-semibold h-12 w-[240px] text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {todosItens.map((item) => {
+              <TableBody className="divide-y divide-white/5">
+                {paginatedItens.map((item) => {
                   const isCliente = item.tipo === 'cliente';
                   const mapsLink = getGoogleMapsLink(item);
 
                   return (
-                    <TableRow key={`${item.tipo}-${item.id}`} className="border-gray-100 hover:bg-gray-50">
-                      <TableCell>
-                        <Badge className={isCliente ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-purple-100 text-purple-700 border-purple-200'}>
+                    <TableRow key={`${item.tipo}-${item.id}`} className="hover:bg-white/5 border-none transition-colors group">
+                      <TableCell className="text-center">
+                        <Badge className={`${isCliente ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-pink-500/10 text-pink-400 border-pink-500/20'} font-semibold border`}>
                           {isCliente ? 'Cliente' : 'Serviço'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-medium text-gray-800">
+                      <TableCell className="font-semibold text-gray-200">
                         {isCliente ? item.nome : item.cliente_nome}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2 text-gray-600">
-                          <Phone className="w-4 h-4 text-gray-400" />
-                          {formatPhone(item.telefone)}
+                        <div className="flex items-center gap-2 text-gray-400 bg-[#0d1826] border border-white/5 px-2 py-1 rounded-md w-max shadow-inner">
+                          <Phone className="w-3 h-3 text-emerald-400" />
+                          <span className="text-[12px]">{formatPhone(item.telefone)}</span>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="max-w-xs">
                           {item.endereco ? (
-                            <div className="flex items-start gap-2 text-gray-600">
-                              <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                              <span className="text-sm line-clamp-2">{item.endereco}</span>
+                            <div className="flex items-start gap-2 text-gray-400 truncate">
+                              <MapPin className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
+                              <span className="text-sm truncate">{item.endereco}</span>
                             </div>
                           ) : (
-                            <span className="text-gray-300 text-sm">-</span>
+                            <span className="text-gray-600 text-sm">-</span>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
                         {isCliente && item.proximaManutencao ? (
-                          <div className="flex items-center gap-2 text-sm text-gray-700">
-                            <Calendar className="w-4 h-4 text-blue-500" />
-                            {format(new Date(item.proximaManutencao), "dd/MM/yyyy", { locale: ptBR })}
+                          <div className="flex items-center gap-2 text-sm text-gray-300">
+                            <Calendar className="w-4 h-4 text-blue-400" />
+                            <span className="font-medium">{format(new Date(item.proximaManutencao), "dd/MM/yyyy", { locale: ptBR })}</span>
                           </div>
                         ) : !isCliente ? (
                           <div className="text-sm space-y-1">
-                            <div className="font-medium text-gray-800">{item.tipo_servico}</div>
+                            <div className="font-medium text-gray-300">{item.tipo_servico}</div>
                             {item.dia_semana && (
-                              <div className="flex items-center gap-1 text-gray-500">
+                              <div className="flex items-center gap-1 text-gray-500 text-xs">
                                 <Calendar className="w-3 h-3" />
                                 {item.dia_semana}
                                 {item.horario && ` - ${item.horario}`}
@@ -428,74 +426,39 @@ export default function PreventivasFuturasPage() {
                             )}
                           </div>
                         ) : (
-                          <span className="text-gray-300 text-sm">-</span>
+                          <span className="text-gray-600 text-sm">-</span>
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge className={item.status.color}>
+                        <Badge className={`${item.status.color} border px-2 py-0.5 whitespace-nowrap`}>
                           {item.status.label}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center justify-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewDetails(item)}
-                            className="text-gray-500 hover:text-blue-600"
-                            title="Ver Detalhes"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleCreateServico(item)}
-                            className="text-gray-500 hover:text-purple-600"
-                            title="Agendar Serviço"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleShare(item)}
-                            className="text-gray-500 hover:text-amber-500"
-                            title="Compartilhar"
-                          >
-                            <Share2 className="w-4 h-4" />
-                          </Button>
-                          {isCliente && isAdmin && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(item)}
-                              className="text-gray-500 hover:text-red-500"
-                              title="Excluir"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
-                          <a
-                            href={getWhatsAppLink(item.telefone)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center h-8 px-2 bg-green-500 hover:bg-green-600 text-white text-sm rounded-md transition-colors"
-                            title="WhatsApp"
-                          >
-                            <MessageCircle className="w-4 h-4" />
-                          </a>
-                          {mapsLink && (
-                            <a
-                              href={mapsLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center justify-center h-8 px-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-md transition-colors"
-                              title="Google Maps"
-                            >
-                              <Navigation className="w-4 h-4" />
-                            </a>
-                          )}
+                         {/* Action Buttons styled modernly */}
+                         <div className="flex items-center justify-end gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                           <Button variant="ghost" size="icon" onClick={() => handleViewDetails(item)} className="h-8 w-8 text-gray-400 hover:text-white hover:bg-white/10" title="Ver Detalhes">
+                             <Eye className="w-4 h-4" />
+                           </Button>
+                           <Button variant="ghost" size="icon" onClick={() => handleCreateServico(item)} className="h-8 w-8 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10" title="Agendar Serviço">
+                             <Plus className="w-4 h-4" />
+                           </Button>
+                           <Button variant="ghost" size="icon" onClick={() => handleShare(item)} className="h-8 w-8 text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/10" title="Compartilhar">
+                             <Share2 className="w-4 h-4" />
+                           </Button>
+                           {isCliente && isAdmin && (
+                             <Button variant="ghost" size="icon" onClick={() => handleDelete(item)} className="h-8 w-8 text-gray-400 hover:text-red-400 hover:bg-red-500/10" title="Excluir">
+                               <Trash2 className="w-4 h-4" />
+                             </Button>
+                           )}
+                           <a href={getWhatsAppLink(item.telefone)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center h-8 w-8 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-md transition-colors border border-emerald-500/20 ml-1" title="WhatsApp">
+                             <MessageCircle className="w-4 h-4" />
+                           </a>
+                           {mapsLink && (
+                             <a href={mapsLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center h-8 w-8 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 rounded-md transition-colors border border-blue-500/20" title="Google Maps">
+                               <Navigation className="w-4 h-4" />
+                             </a>
+                           )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -503,116 +466,185 @@ export default function PreventivasFuturasPage() {
                 })}
               </TableBody>
             </Table>
+          </Card>
+
+          {/* Mobile Cards View */}
+          <div className="lg:hidden flex flex-col gap-4">
+             {paginatedItens.map((item) => {
+               const isCliente = item.tipo === 'cliente';
+               const mapsLink = getGoogleMapsLink(item);
+
+               return (
+                 <Card key={`${item.tipo}-${item.id}`} className="bg-[#152236] border border-white/5 shadow-md hover:border-white/10 transition-colors overflow-hidden rounded-2xl flex flex-col">
+                   <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
+                     {/* Client Info Header */}
+                     <div className="flex items-start justify-between mb-3 gap-2">
+                        <div className="flex-1 min-w-0">
+                           <Badge className={`mb-1.5 ${isCliente ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-pink-500/10 text-pink-400 border-pink-500/20'} font-semibold border text-[9px] uppercase tracking-wider`}>
+                             {isCliente ? 'Cliente' : 'Serviço'}
+                           </Badge>
+                           <p className="font-bold text-gray-100 text-lg truncate">{isCliente ? item.nome : item.cliente_nome}</p>
+                           {item.telefone && (
+                             <p className="text-xs text-emerald-400 font-medium flex items-center mt-1">
+                               <Phone className="w-3 h-3 mr-1" />
+                               {formatPhone(item.telefone)}
+                             </p>
+                           )}
+                        </div>
+                     </div>
+                     
+                     {/* Detail Blocks */}
+                     <div className="space-y-3 bg-[#0d1826] rounded-xl p-3 border border-white/5 mb-4">
+                       <div className="flex flex-col gap-1">
+                          <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Status da Preventiva</span>
+                          <Badge className={`${item.status.color} border px-2 py-0.5 w-max text-xs`}>
+                            {item.status.label}
+                          </Badge>
+                       </div>
+                       <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
+                          <div>
+                            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest block mb-0.5">Agendamento</span>
+                            {isCliente && item.proximaManutencao ? (
+                               <p className="text-xs text-gray-300 flex items-center"><Calendar className="w-3 h-3 mr-1 text-blue-400"/> {format(new Date(item.proximaManutencao), "dd/MM/yyyy")}</p>
+                            ) : !isCliente && item.dia_semana ? (
+                               <p className="text-xs text-gray-300 flex items-center flex-wrap"><Calendar className="w-3 h-3 mr-1 text-blue-400"/> {item.dia_semana} {item.horario}</p>
+                            ) : <p className="text-gray-600 text-xs">-</p>}
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest block mb-0.5">Localização</span>
+                            <p className="text-xs text-gray-400 truncate">{item.endereco || '-'}</p>
+                          </div>
+                       </div>
+                     </div>
+
+                     {/* Actions Grid (Mobile Touch Friendly) */}
+                     <div className="grid grid-cols-5 gap-2 mt-auto pt-2 border-t border-white/5">
+                         <Button variant="outline" className="col-span-2 bg-[#0d1826] border-white/10 hover:bg-blue-500/10 hover:text-blue-400 text-gray-300 h-10 px-0 flex" onClick={() => handleCreateServico(item)}>
+                            <Plus className="w-4 h-4 mr-1.5" />
+                            <span className="text-xs font-semibold">Agendar</span>
+                         </Button>
+                         <Button variant="outline" className="col-span-1 bg-[#0d1826] border-white/10 hover:bg-white/10 text-gray-300 h-10 px-0 flex items-center justify-center" onClick={() => handleViewDetails(item)}>
+                            <Eye className="w-4 h-4" />
+                         </Button>
+                         <a href={getWhatsAppLink(item.telefone)} target="_blank" rel="noopener noreferrer" className="col-span-1 flex items-center justify-center h-10 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg hover:bg-emerald-500/20">
+                            <MessageCircle className="w-5 h-5" />
+                         </a>
+                         {mapsLink ? (
+                           <a href={mapsLink} target="_blank" rel="noopener noreferrer" className="col-span-1 flex items-center justify-center h-10 bg-blue-500/10 border border-blue-500/20 text-blue-500 rounded-lg hover:bg-blue-500/20">
+                              <Navigation className="w-5 h-5" />
+                           </a>
+                         ) : (
+                           <Button variant="outline" disabled className="col-span-1 h-10 bg-[#0d1826]/50 border-white/5 opacity-50 px-0">
+                             <Navigation className="w-5 h-5 text-gray-500" />
+                           </Button>
+                         )}
+                     </div>
+                     {isAdmin && isCliente && (
+                        <div className="mt-2 pt-2 flex items-center justify-end">
+                           <Button variant="ghost" size="sm" className="h-8 text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10 px-2" onClick={() => handleDelete(item)}>Excluir registro</Button>
+                        </div>
+                     )}
+                   </CardContent>
+                 </Card>
+               );
+             })}
           </div>
-        </div>
-          )}
-        </>
+          </>
+        )}
+      </>
       )}
 
-      {/* Modal de Detalhes */}
+      {/* Modal de Detalhes Modernizado */}
       {selectedItem && (
         <Dialog open={showDetails} onOpenChange={setShowDetails}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-[#152236] border-white/10 text-gray-200">
             <DialogHeader>
-              <DialogTitle className="text-xl font-semibold text-gray-800">
-                Detalhes {selectedItem.tipo === 'cliente' ? 'do Cliente' : 'do Serviço'}
+              <DialogTitle className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                Detalhes do Registro
+                <Badge className={`ml-2 ${selectedItem.tipo === 'cliente' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-pink-500/10 text-pink-400 border-pink-500/20'} font-semibold border text-[10px] uppercase`}>
+                  {selectedItem.tipo === 'cliente' ? 'Cliente' : 'Serviço Ativo'}
+                </Badge>
               </DialogTitle>
             </DialogHeader>
             
-            <div className="space-y-6 mt-4">
-              <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white p-4 rounded-lg">
-                <h3 className="text-lg font-semibold">
+            <div className="space-y-6 mt-2">
+              <div className="bg-[#0b1420] border border-white/5 p-5 rounded-xl shadow-inner">
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Nome Principal</p>
+                <h3 className="text-2xl font-bold text-gray-100">
                   {selectedItem.tipo === 'cliente' ? selectedItem.nome : selectedItem.cliente_nome}
                 </h3>
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge className="bg-white/20 text-white border-white/30">
-                    {selectedItem.tipo === 'cliente' ? 'Cliente' : 'Serviço Ativo'}
-                  </Badge>
-                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Telefone</label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Phone className="w-4 h-4 text-gray-400" />
-                    <span className="text-gray-800">{formatPhone(selectedItem.telefone)}</span>
+                <div className="bg-[#0d1826] p-4 rounded-xl border border-white/5">
+                  <span className="text-[11px] text-gray-500 font-bold uppercase tracking-widest block mb-1">Telefone</span>
+                  <div className="flex items-center gap-2 text-emerald-400 font-medium">
+                    <Phone className="w-4 h-4" />
+                    {formatPhone(selectedItem.telefone)}
                   </div>
                 </div>
 
                 {selectedItem.cpf && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">CPF</label>
-                    <p className="text-gray-800 mt-1">{selectedItem.cpf}</p>
+                  <div className="bg-[#0d1826] p-4 rounded-xl border border-white/5">
+                    <span className="text-[11px] text-gray-500 font-bold uppercase tracking-widest block mb-1">CPF</span>
+                    <p className="text-gray-200 font-medium">{selectedItem.cpf}</p>
                   </div>
                 )}
 
                 {selectedItem.tipo !== 'cliente' && selectedItem.tipo_servico && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Tipo de Serviço</label>
-                    <p className="text-gray-800 mt-1">{selectedItem.tipo_servico}</p>
+                  <div className="bg-[#0d1826] p-4 rounded-xl border border-white/5">
+                    <span className="text-[11px] text-gray-500 font-bold uppercase tracking-widest block mb-1">Tipo de Serviço</span>
+                    <p className="text-gray-200 font-medium">{selectedItem.tipo_servico}</p>
                   </div>
                 )}
 
                 {selectedItem.dia_semana && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Dia da Semana</label>
-                    <p className="text-gray-800 mt-1">{selectedItem.dia_semana}</p>
-                  </div>
-                )}
-
-                {selectedItem.horario && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Horário</label>
-                    <p className="text-gray-800 mt-1">{selectedItem.horario}</p>
+                  <div className="bg-[#0d1826] p-4 rounded-xl border border-white/5">
+                    <span className="text-[11px] text-gray-500 font-bold uppercase tracking-widest block mb-1">Agendamento Diário</span>
+                    <p className="text-gray-200 font-medium">{selectedItem.dia_semana} {selectedItem.horario && ` às ${selectedItem.horario}`}</p>
                   </div>
                 )}
 
                 {selectedItem.valor && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Valor</label>
-                    <p className="text-gray-800 mt-1">R$ {selectedItem.valor.toFixed(2)}</p>
+                  <div className="bg-[#0d1826] p-4 rounded-xl border border-white/5">
+                    <span className="text-[11px] text-gray-500 font-bold uppercase tracking-widest block mb-1">Valor</span>
+                    <p className="text-emerald-400 font-bold text-lg">R$ {selectedItem.valor.toFixed(2)}</p>
                   </div>
                 )}
               </div>
 
               {selectedItem.endereco && (
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Endereço</label>
-                  <div className="flex items-start gap-2 mt-1">
-                    <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
-                    <span className="text-gray-800">{selectedItem.endereco}</span>
+                <div className="bg-[#0b1420] p-4 rounded-xl border border-white/5">
+                  <span className="text-[11px] text-gray-500 font-bold uppercase tracking-widest block mb-2">Endereço Completo</span>
+                  <div className="flex items-start gap-2 text-gray-300">
+                    <MapPin className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
+                    <span>{selectedItem.endereco}</span>
                   </div>
                 </div>
               )}
 
               {selectedItem.tipo === 'cliente' && selectedItem.proximaManutencao && (
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Próxima Manutenção</label>
+                <div className="bg-[#0d1826] p-5 rounded-xl border border-white/5 shadow-sm">
+                  <span className="text-[11px] text-gray-500 font-bold uppercase tracking-widest block mb-3">Controle de Preventiva</span>
                   
                   {editingDate ? (
-                    <div className="space-y-3 mt-2">
+                    <div className="space-y-4">
                       <Input
                         type="date"
                         value={newDate}
                         onChange={(e) => setNewDate(e.target.value)}
-                        className="max-w-xs"
+                        className="max-w-[200px] bg-[#152236] border-white/10 text-white"
                       />
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2">
                         <Button
                           size="sm"
                           onClick={handleSaveDate}
                           disabled={updateClienteDateMutation.isPending}
-                          className="bg-gradient-to-r from-blue-500 to-cyan-500"
+                          className="bg-blue-600 hover:bg-blue-500 text-white font-medium"
                         >
                           {updateClienteDateMutation.isPending ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Salvando...
-                            </>
-                          ) : (
-                            'Salvar Data'
-                          )}
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando</>
+                          ) : 'Confirmar Data'}
                         </Button>
                         <Button
                           size="sm"
@@ -621,60 +653,62 @@ export default function PreventivasFuturasPage() {
                             setEditingDate(false);
                             setNewDate(selectedItem.proximaManutencao);
                           }}
+                          className="border-white/10 text-gray-400 hover:text-white hover:bg-white/5"
                         >
                           Cancelar
                         </Button>
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-2 mt-1">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-800">
+                    <div className="flex items-center justify-between">
+                      <div className="flex gap-4 items-center">
+                        <span className="text-gray-200 font-bold flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-blue-400" />
                           {format(new Date(selectedItem.proximaManutencao), "dd/MM/yyyy", { locale: ptBR })}
                         </span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setEditingDate(true)}
-                          className="ml-2 text-blue-600 hover:text-blue-700"
-                        >
-                          Editar
-                        </Button>
+                        <Badge className={`${selectedItem.status.color} border px-2 py-0.5`}>
+                          {selectedItem.status.label}
+                        </Badge>
                       </div>
-                      <Badge className={`${selectedItem.status.color}`}>
-                        {selectedItem.status.label}
-                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setEditingDate(true)}
+                        className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                      >
+                        Editar
+                      </Button>
                     </div>
                   )}
                 </div>
               )}
 
               {(selectedItem.observacoes || selectedItem.descricao) && (
-                <div>
-                  <label className="text-sm font-medium text-gray-600">
-                    {selectedItem.tipo === 'cliente' ? 'Observações' : 'Descrição'}
-                  </label>
-                  <p className="text-gray-800 bg-gray-50 p-3 rounded-lg mt-1">
-                    {selectedItem.observacoes || selectedItem.descricao}
+                <div className="bg-[#0b1420] p-4 rounded-xl border border-white/5">
+                  <span className="text-[11px] text-gray-500 font-bold uppercase tracking-widest block mb-2">
+                    {selectedItem.tipo === 'cliente' ? 'Observações' : 'Descrição do Serviço'}
+                  </span>
+                  <p className="text-gray-300 italic text-sm">
+                    "{selectedItem.observacoes || selectedItem.descricao}"
                   </p>
                 </div>
               )}
 
-              <div className="flex gap-3 pt-4 border-t">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <Button
                   onClick={() => {
                     setShowDetails(false);
                     handleCreateServico(selectedItem);
                   }}
-                  className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                  className="flex-1 bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20 font-bold h-12"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
+                  <Plus className="w-5 h-5 mr-2" />
                   Agendar Novo Serviço
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => setShowDetails(false)}
+                  className="bg-transparent border-white/10 text-gray-400 hover:text-white hover:bg-white/5 h-12 px-8"
                 >
                   Fechar
                 </Button>

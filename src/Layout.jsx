@@ -57,7 +57,6 @@ function LayoutContent({ children }) {
   let navigation = [];
   
   if (isSuperAdmin()) {
-    // Super Admin vê tudo
     navigation = [
       { name: 'Dashboard', href: createPageUrl('Dashboard'), icon: LayoutDashboard },
       { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
@@ -83,7 +82,6 @@ function LayoutContent({ children }) {
       { name: 'Sair', href: '#', icon: LogOut, action: () => base44.auth.logout() },
     ];
   } else if (currentUser?.tipo_usuario === 'tecnico' || user?.role === 'user') {
-    // Técnicos veem Dashboard, Serviços, Atendimentos, Preventivas Futuras, Meu Financeiro e Sair
     navigation = [
       { name: 'Dashboard', href: createPageUrl('Dashboard'), icon: LayoutDashboard },
       { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
@@ -93,7 +91,6 @@ function LayoutContent({ children }) {
       { name: 'Sair', href: '#', icon: LogOut, action: () => base44.auth.logout() },
     ];
   } else {
-    // Admins normais veem tudo exceto gerenciar empresas
     navigation = [
       { name: 'Dashboard', href: createPageUrl('Dashboard'), icon: LayoutDashboard },
       { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
@@ -127,31 +124,29 @@ function LayoutContent({ children }) {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen" style={{ backgroundColor: '#0d1826' }}>
-        {/* Backdrop mobile */}
-        {sidebarOpen &&
+      <div className="min-h-screen bg-[#0d1826]">
+        {/* Backdrop mobile com transição suave */}
         <div
-          className="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm"
-          onClick={() => setSidebarOpen(false)} />
+          className={`fixed inset-0 bg-[#0d1826]/70 z-40 lg:hidden backdrop-blur-sm transition-opacity duration-300 ${sidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          onClick={() => setSidebarOpen(false)}
+        />
 
-        }
-
-        {/* Sidebar */}
+        {/* Sidebar Moderna */}
         <aside className={`
-          fixed top-0 left-0 z-50 h-full w-72 shadow-2xl transform transition-transform duration-300 ease-in-out
+          fixed top-0 left-0 z-50 h-full w-72 transform transition-transform duration-300 ease-in-out
           lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        `} style={{ background: 'linear-gradient(180deg, #0d1b3e 0%, #1a3270 50%, #1e40af 100%)' }}>
-          <div className="flex flex-col h-full">
+          bg-[#0A1421] border-r border-white/5
+        `}>
+          <div className="flex flex-col h-full overflow-hidden">
 
             {/* Logo / empresa */}
-            <div className="flex items-center justify-between px-5 py-5 border-b border-white/10" style={{ background: 'rgba(0,0,0,0.15)' }}>
+            <div className="flex items-center justify-between px-6 py-6 border-b border-white/5">
               <Link
                 to={isAdminEmpresa() || isSuperAdmin() ? createPageUrl('Configuracoes') : '#'}
-                className="flex items-center gap-3 hover:opacity-90 transition-opacity">
+                className="flex items-center gap-4 hover:opacity-90 transition-opacity w-full">
 
-                {/* Logo box */}
-                <div className="w-20 h-20 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg, #F5C800 0%, #f97316 100%)', boxShadow: '0 4px 15px rgba(245,200,0,0.4)' }}>
+                {/* Logo box premium */}
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 bg-[#12233a] border border-white/10 shadow-lg shadow-black/20">
                   {companySettings.company_logo_url ?
                   <img
                     src={companySettings.company_logo_url}
@@ -160,31 +155,30 @@ function LayoutContent({ children }) {
                     onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex'; }}
                   />
                   : null}
-                  <LogoIcon className={`w-8 h-8 text-white ${companySettings.company_logo_url ? 'hidden' : ''}`} />
-
+                  <LogoIcon className={`w-7 h-7 text-blue-400 ${companySettings.company_logo_url ? 'hidden' : ''}`} />
                 </div>
-                <div>
-                  <p className="font-bold text-white text-lg leading-tight">
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-gray-100 text-[15px] leading-tight truncate">
                     {currentEmpresa?.nome || companySettings.company_name}
                   </p>
-                  <p className="text-xs font-medium" style={{ color: '#7dd3fc' }}>
+                  <p className="text-[11px] font-medium text-blue-400 uppercase tracking-wider mt-1 truncate">
                     {isSuperAdmin() ? 'Super Admin' : currentUser?.tipo_usuario === 'admin_empresa' ? 'Administrador' : 'Climatização'}
                   </p>
                   {user?.full_name &&
-                  <p className="text-xs font-semibold" style={{ color: '#fde68a' }}>{user.full_name}</p>
+                  <p className="text-xs text-gray-400 truncate mt-0.5">{user.full_name}</p>
                   }
                 </div>
               </Link>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="lg:hidden p-2 rounded-lg hover:bg-white/10 transition-colors text-white">
-
+                className="lg:hidden p-2 -mr-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Nav */}
-            <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+            {/* Nav elegante */}
+            <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1 scrollbar-thin scrollbar-thumb-white/10">
+              <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-3">Menu Principal</div>
               {navigation.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);
@@ -194,12 +188,11 @@ function LayoutContent({ children }) {
                     <button
                       key={item.name}
                       onClick={item.action}
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-200/60 hover:text-white hover:bg-white/10 transition-all duration-200">
-
-                      <Icon className="w-5 h-5 flex-shrink-0" />
-                      <span className="font-medium">{item.name}</span>
-                    </button>);
-
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all duration-200 mt-6 group">
+                      <Icon className="w-5 h-5 flex-shrink-0 text-red-400 group-hover:text-red-500 transition-colors" />
+                      <span className="font-medium text-sm">{item.name}</span>
+                    </button>
+                  );
                 }
 
                 return (
@@ -207,78 +200,66 @@ function LayoutContent({ children }) {
                     key={item.name}
                     to={item.href}
                     onClick={() => setSidebarOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                    active ?
-                    'text-white font-semibold shadow-lg' :
-                    'text-blue-100/70 hover:text-white hover:bg-white/10'}`
-                    }
-                    style={active ? { background: 'linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%)', boxShadow: '0 4px 12px rgba(14,165,233,0.35)' } : {}}>
-
-                    <Icon className={`w-5 h-5 flex-shrink-0 ${active ? 'text-white' : 'text-blue-300/60'}`} />
-                    <span className="font-medium flex-1">{item.name}</span>
-                    {active && <ChevronRight className="w-4 h-4 text-white/70" />}
-                  </Link>);
-
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
+                      active ? 'text-white bg-blue-500/10' : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
+                    }`}
+                  >
+                    {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-500 rounded-r-full" />}
+                    <Icon className={`w-5 h-5 flex-shrink-0 transition-colors ${active ? 'text-blue-400' : 'text-gray-500 group-hover:text-blue-300'}`} />
+                    <span className={`font-medium text-sm flex-1 ${active ? 'font-semibold' : ''}`}>{item.name}</span>
+                  </Link>
+                );
               })}
             </nav>
           </div>
         </aside>
 
-        {/* Main */}
-        <div className="lg:pl-72">
+        {/* Main Content Area */}
+        <div className="lg:pl-72 flex flex-col min-h-screen transition-all duration-300">
 
-          {/* Top bar */}
-          <header className="sticky top-0 z-30 shadow-md">
-            <div className="px-4 py-3 flex items-center justify-between lg:px-6" style={{ background: 'linear-gradient(135deg, #0d1b3e 0%, #1a3270 60%, #1e40af 100%)' }}>
+          {/* Top bar translúcido (Glassmorphism) */}
+          <header className="sticky top-0 z-30 bg-[#0d1826]/80 backdrop-blur-lg border-b border-white/5 shadow-sm">
+            <div className="px-4 py-3 sm:px-6 flex items-center justify-between min-h-[64px]">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className="lg:hidden p-2 rounded-lg hover:bg-white/15 transition-colors">
-
-                  <Menu className="w-6 h-6 text-white" />
+                  className="lg:hidden p-2 -ml-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+                  <Menu className="w-6 h-6" />
                 </button>
 
-                {/* Logo visível no mobile topbar */}
+                {/* Mobile view Logo simplificado */}
                 <div className="flex items-center gap-2 lg:hidden">
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center overflow-hidden"
-                  style={{ background: 'linear-gradient(135deg, #F5C800 0%, #f97316 100%)', boxShadow: '0 2px 8px rgba(245,200,0,0.4)' }}>
-                    {companySettings.company_logo_url ?
-                    <img
-                      src={companySettings.company_logo_url}
-                      alt="Logo"
-                      className="w-full h-full object-cover"
-                      onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex'; }}
-                    />
-                    : null}
-                    <LogoIcon className={`w-4 h-4 text-white ${companySettings.company_logo_url ? 'hidden' : ''}`} />
-
-                  </div>
-                  <span className="font-bold text-white">{currentEmpresa?.nome || companySettings.company_name}</span>
+                  <span className="font-semibold text-gray-100 truncate max-w-[150px] sm:max-w-[200px]">
+                    {currentEmpresa?.nome || companySettings.company_name}
+                  </span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <button
-                  onClick={() => window.location.reload()} className="text-white/80 p-2 rounded-lg hover:bg-white/15 transition-colors hover:text-white"
-
+                  onClick={() => window.location.reload()} 
+                  className="text-gray-400 p-2 rounded-xl hover:bg-white/5 hover:text-white transition-colors"
                   title="Atualizar">
-
-                  <RotateCw className="bg-[none] lucide lucide-rotate-cw w-5 h-5" />
+                  <RotateCw className="w-5 h-5" />
                 </button>
-                <NotificationCenter />
-                <UserMenu user={user} />
+                <div className="relative flex items-center justify-center p-1">
+                  <NotificationCenter />
+                </div>
+                <div className="pl-2 border-l border-white/10 ml-1">
+                  <UserMenu user={user} />
+                </div>
               </div>
             </div>
           </header>
 
-          {/* Page content */}
-          <main className="p-4 lg:p-6">
+          {/* Page content padding otimizado para mobile */}
+          <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto">
             {children}
           </main>
         </div>
       </div>
-    </ErrorBoundary>);
-
+    </ErrorBoundary>
+  );
 }
 
 export default function Layout({ children }) {
@@ -287,6 +268,6 @@ export default function Layout({ children }) {
       <EmpresaProvider>
         <LayoutContent>{children}</LayoutContent>
       </EmpresaProvider>
-    </SubscriptionBlocker>);
-
+    </SubscriptionBlocker>
+  );
 }

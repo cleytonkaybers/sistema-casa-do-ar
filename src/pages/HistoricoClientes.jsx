@@ -3,9 +3,13 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, Calendar, User, DollarSign, CheckCircle2, Clock, Download, FileText, Eye, X, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { 
+  Search, Calendar, User, DollarSign, CheckCircle2,
+  Clock, Download, FileText, Eye, X, Trash2, 
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { gerarPDFCliente, gerarPDFTodos } from '@/components/utils/HistoricoDownload';
@@ -13,20 +17,40 @@ import NoPermission from '../components/NoPermission';
 import { usePermissions } from '../components/auth/PermissionGuard';
 import { toast } from 'sonner';
 
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
+
+// Helper de telefone extraído dos padrões
+const formatPhone = (phone) => {
+  if (!phone) return '';
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length === 11) {
+    return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
+  }
+  return phone;
+};
+
 export default function HistoricoClientes() {
   const { isAdmin } = usePermissions();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [clientesPerPage] = useState(10);
-  const [clienteSelecionado, setClienteSelecionado] = useState(null);
+  const [expandedClients, setExpandedClients] = useState({});
   const queryClient = useQueryClient();
 
+  const toggleClient = (clienteNome) => {
+    setExpandedClients(prev => ({
+      ...prev,
+      [clienteNome]: !prev[clienteNome]
+    }));
+  };
+
   const deleteMutation = useMutation({
-    mutationFn: async (item) => {
-      if (item.id?.startsWith('s-')) {
-        await base44.entities.Servico.delete(item.id.replace('s-', ''));
+    mutationFn: async (idOriginal, tipoObjeto) => {
+      if (tipoObjeto === 'servico') {
+        await base44.entities.Servico.delete(idOriginal);
       } else {
-        await base44.entities.Atendimento.delete(item.id.replace('a-', ''));
+        await base44.entities.Atendimento.delete(idOriginal);
       }
     },
     onSuccess: () => {
@@ -38,8 +62,8 @@ export default function HistoricoClientes() {
   });
 
   const handleDelete = (item) => {
-    if (confirm(`Excluir "${item.descricao}" de ${item.cliente}?`)) {
-      deleteMutation.mutate(item);
+    if (confirm(`Excluir permanentemente este registro #${item.originalId}?`)) {
+      deleteMutation.mutate(item.originalId, item.tipoObjeto);
     }
   };
 
@@ -58,65 +82,112 @@ export default function HistoricoClientes() {
     queryFn: () => base44.entities.AlteracaoStatus.list('-data_alteracao'),
   });
 
-  const historico = [
-    ...servicos
-      .filter(s => s.status === 'concluido')
-      .map(s => ({
-      id: `s-${s.id}`,
-      tipo: 'Serviço',
-      cliente: s.cliente_nome,
-      descricao: s.tipo_servico,
-      data: s.data_programada,
-      status: s.status,
-      valor: s.valor,
-      equipe_nome: s.equipe_nome || '',
-      usuario: s.usuario_atualizacao_status,
-      data_atualizacao: s.data_atualizacao_status
-    })),
-    ...atendimentos
-      .filter(a => a.status === 'concluido' || a.status === 'Concluído')
-      .map(a => ({
-      id: `a-${a.id}`,
-      tipo: 'Atendimento',
-      cliente: a.cliente_nome,
-      descricao: a.tipo_servico,
-      data: a.data_atendimento,
-      status: a.status,
-      valor: a.valor,
-      equipe_nome: a.equipe_nome || '',
-      usuario: a.usuario_atualizacao_status,
-      data_atualizacao: a.data_atualizacao_status
-    }))
-  ];
+  const { data: pagamentos = [] } = useQuery({
+    queryKey: ['pagamentos-historico'],
+    queryFn: () => base44.entities.PagamentoCliente.list(),
+  });
 
-  const clientesAgrupados = useMemo(() => {
-    const grupos = {};
-    historico.forEach(item => {
-      if (!item.cliente) return;
-      if (!grupos[item.cliente]) grupos[item.cliente] = [];
-      grupos[item.cliente].push(item);
+  const agrupadoPorCliente = useMemo(() => {
+    const historicoUnificado = [];
+
+    // Adiciona Serviços (Agendados, Abertos, Reagendados, Andamento)
+    servicos.forEach(s => {
+      if (s.status === 'concluido') return; // Os itens concluídos no ciclo real de app tornam-se Atendimento
+      historicoUnificado.push({
+        id: `s-${s.id}`,
+        originalId: s.id,
+        tipoObjeto: 'servico',
+        cliente_nome: s.cliente_nome,
+        telefone: s.telefone,
+        tipo_servico: s.tipo_servico,
+        data: s.data_programada,
+        horario: s.horario,
+        status: s.status,
+        equipe_nome: s.equipe_nome,
+        valor: s.valor,
+        descricao: s.descricao
+      });
     });
 
-    Object.keys(grupos).forEach(cliente => {
-      grupos[cliente].sort((a, b) => new Date(b.data_atualizacao || b.data) - new Date(a.data_atualizacao || a.data));
+    // Adiciona Atendimentos (Concluídos)
+    atendimentos.forEach(a => {
+      historicoUnificado.push({
+        id: `a-${a.id}`,
+        originalId: a.id,
+        tipoObjeto: 'atendimento',
+        cliente_nome: a.cliente_nome,
+        telefone: a.telefone,
+        tipo_servico: a.tipo_servico,
+        data: a.data_conclusao || a.data_atendimento,
+        horario: null,
+        status: 'concluido',
+        equipe_nome: a.equipe_nome,
+        valor: a.valor,
+        descricao: a.descricao,
+        observacoes: a.observacoes_conclusao,
+        servico_id: a.servico_id
+      });
+    });
+
+    // Agrupamento Legado (para os cards/linhas do tempo)
+    const grupos = {};
+    historicoUnificado.forEach(item => {
+      const nome = item.cliente_nome?.trim() || 'Desconhecido';
+      if (!grupos[nome]) {
+        grupos[nome] = {
+          nome,
+          telefone: item.telefone,
+          itens: [],
+          stats: { concluidas: 0, concluidasValor: 0, pendentes: 0 },
+          ultimaData: null
+        };
+      }
+      
+      grupos[nome].itens.push(item);
+      
+      if (item.status === 'concluido') {
+        grupos[nome].stats.concluidas++;
+        grupos[nome].stats.concluidasValor += (item.valor || 0);
+      } else {
+        grupos[nome].stats.pendentes++;
+      }
+
+      const itemDate = new Date(item.data);
+      if (!isNaN(itemDate)) {
+        if (!grupos[nome].ultimaData || itemDate > grupos[nome].ultimaData) {
+          grupos[nome].ultimaData = itemDate;
+        }
+      }
     });
 
     const clientesFiltrados = {};
-    Object.keys(grupos).forEach(cliente => {
-      if (cliente.toLowerCase().includes(searchTerm.toLowerCase())) {
-        clientesFiltrados[cliente] = grupos[cliente];
-      } else {
-        const itens = grupos[cliente].filter(item =>
-          item.descricao?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-        if (itens.length > 0) clientesFiltrados[cliente] = itens;
+    Object.values(grupos).forEach(grupo => {
+      const searchLower = searchTerm.toLowerCase();
+      const matchNome = grupo.nome.toLowerCase().includes(searchLower);
+      const matchItens = grupo.itens.some(i => 
+        i.tipo_servico?.toLowerCase().includes(searchLower) || 
+        i.descricao?.toLowerCase().includes(searchLower)
+      );
+
+      if (matchNome || matchItens) {
+        grupo.itens.sort((a, b) => new Date(b.data || 0) - new Date(a.data || 0));
+        clientesFiltrados[grupo.nome] = grupo;
       }
     });
 
     return clientesFiltrados;
-  }, [historico, searchTerm]);
+  }, [atendimentos, servicos, searchTerm]);
 
-  const clientesArray = Object.keys(clientesAgrupados);
+  const totalServicosHistorico = servicos.length + atendimentos.length;
+  const totalValorHistorico = atendimentos.reduce((sum, item) => sum + (item.valor || 0), 0);
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setCurrentPage(1);
+  };
+
+  const clientesArray = Object.values(agrupadoPorCliente).sort((a, b) => (b.ultimaData || 0) - (a.ultimaData || 0));
+  const hasActiveFilters = searchTerm !== '';
   const totalPages = Math.ceil(clientesArray.length / clientesPerPage);
   const startIndex = (currentPage - 1) * clientesPerPage;
   const endIndex = startIndex + clientesPerPage;
@@ -126,319 +197,363 @@ export default function HistoricoClientes() {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  const statusCores = {
-    'aberto': 'bg-gray-100 text-gray-700 border-gray-300',
-    'andamento': 'bg-blue-100 text-blue-700 border-blue-300',
-    'concluido': 'bg-green-100 text-green-700 border-green-300',
-    'pausado': 'bg-yellow-100 text-yellow-700 border-yellow-300',
-    'Aberto': 'bg-gray-100 text-gray-700 border-gray-300',
-    'Em Andamento': 'bg-blue-100 text-blue-700 border-blue-300',
-    'Concluído': 'bg-green-100 text-green-700 border-green-300',
-    'Pausado': 'bg-yellow-100 text-yellow-700 border-yellow-300',
-    'agendado': 'bg-purple-100 text-purple-700 border-purple-300',
-    'reagendado': 'bg-orange-100 text-orange-700 border-orange-300',
-  };
-
-  const totalServicos = historico.length;
-  const totalValor = historico.reduce((sum, item) => sum + (item.valor || 0), 0);
-
   if (!isAdmin) return <NoPermission />;
 
+  const formatCurrency = (value) => {
+    if (!value) return 'R$ 0,00';
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  };
+
+  const getStatusBadge = (status) => {
+    const s = status?.toLowerCase() || '';
+    if (s === 'concluido' || s === 'concluído') {
+      return <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold shadow-inner w-max text-[11px]">Concluída</Badge>;
+    }
+    if (s === 'faturada' || s === 'faturado') {
+      return <Badge className="bg-purple-500/10 text-purple-400 border border-purple-500/20 font-semibold shadow-inner w-max text-[11px]">Faturada</Badge>;
+    }
+    if (s === 'agendado' || s === 'reagendado') {
+      return <Badge className="bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold shadow-inner w-max text-[11px]">Agendada</Badge>;
+    }
+    return <Badge className="bg-gray-500/10 text-gray-400 border border-gray-500/20 font-semibold shadow-inner w-max text-[11px] capitalize">{status}</Badge>;
+  };
+
+  const getPagamentoStatus = (item) => {
+    if (item.status !== 'concluido') return null;
+    let pag = null;
+    if (item.tipoObjeto === 'atendimento') {
+      pag = pagamentos.find(p => p.servico_id === item.servico_id || p.id === item.originalId);
+    } else {
+      pag = pagamentos.find(p => p.servico_id === item.originalId);
+    }
+    
+    if (!pag) {
+      if (item.valor === 0) return { label: 'Sem Preço', style: 'bg-red-500/10 text-red-500 border border-red-500/20' };
+      return { label: 'Aguardando', style: 'bg-gray-500/10 text-gray-400 border border-gray-500/20' };   
+    }
+
+    if (pag.status === 'pago') return { label: 'Pago', style: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' };
+    return { label: 'Aguardando', style: 'bg-orange-500/10 text-orange-400 border border-orange-500/20' };
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Modal de Detalhes */}
-      {clienteSelecionado && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-gray-200 shadow-2xl bg-white">
-            <CardHeader className="sticky top-0 flex flex-row items-center justify-between" style={{ backgroundColor: '#1e3a8a' }}>
-              <CardTitle className="text-xl text-white">Detalhes de Manutenção — {clienteSelecionado}</CardTitle>
-              <Button onClick={() => setClienteSelecionado(null)} variant="ghost" size="icon" className="text-white hover:bg-white/20">
-                <X className="w-5 h-5" />
-              </Button>
-            </CardHeader>
-
-            <CardContent className="p-6 bg-white">
-              <div className="space-y-6">
-                {clientesAgrupados[clienteSelecionado]?.map((item) => {
-                  const hist = item.id?.startsWith('s-')
-                    ? alteracoes.filter(a => a.servico_id === item.id?.replace('s-', '') && a.tipo_registro === 'servico')
-                    : alteracoes.filter(a => a.atendimento_id === item.id?.replace('a-', '') && a.tipo_registro === 'atendimento');
-
-                  return (
-                    <div key={item.id} className="border-l-4 border-blue-500 pl-4 pb-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h4 className="font-bold text-lg text-gray-800">{item.descricao}</h4>
-                          <Badge className={`${statusCores[item.status] || 'bg-gray-100 text-gray-700'} border text-xs mt-2`}>
-                            {item.status}
-                          </Badge>
-                        </div>
-                        {item.valor && (
-                          <span className="font-bold text-lg text-green-700">R$ {item.valor.toLocaleString('pt-BR')}</span>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                        <div>
-                          <p className="text-gray-500 font-medium">Data do Serviço</p>
-                          <p className="text-gray-800 mt-1">{format(new Date(item.data), 'dd/MM/yyyy', { locale: ptBR })}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500 font-medium">Tipo</p>
-                          <p className="text-gray-800 mt-1">{item.tipo}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500 font-medium">Criado por</p>
-                          <p className="text-gray-800 mt-1">{servicos.find(s => s.id === item.id?.replace('s-', ''))?.created_by || atendimentos.find(a => a.id === item.id?.replace('a-', ''))?.created_by || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500 font-medium">Data de Criação</p>
-                          <p className="text-gray-800 mt-1">
-                            {item.id?.startsWith('s-')
-                              ? format(new Date(servicos.find(s => s.id === item.id?.replace('s-', ''))?.created_date), 'dd/MM/yyyy HH:mm', { locale: ptBR })
-                              : format(new Date(atendimentos.find(a => a.id === item.id?.replace('a-', ''))?.created_date), 'dd/MM/yyyy HH:mm', { locale: ptBR })
-                            }
-                          </p>
-                        </div>
-                      </div>
-
-                      {hist.length > 0 && (
-                        <div className="mt-4 pt-4 border-t border-gray-200">
-                          <p className="text-gray-600 font-medium text-sm mb-3">Histórico de Status</p>
-                          <div className="space-y-2">
-                            {hist.sort((a, b) => new Date(a.data_alteracao) - new Date(b.data_alteracao)).map((alt, idx) => (
-                              <div key={idx} className="bg-gray-50 border border-gray-200 rounded p-3 text-sm flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                  <span className="text-gray-700">
-                                    <strong>{alt.status_novo}</strong> às {format(new Date(alt.data_alteracao), 'HH:mm', { locale: ptBR })} por <strong>{alt.usuario}</strong>
-                                  </span>
-                                </div>
-                                <span className="text-gray-400 text-xs">{format(new Date(alt.data_alteracao), 'dd/MM/yyyy', { locale: ptBR })}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Header */}
+    <div className="space-y-6 max-w-full overflow-hidden">
       <div>
-        <h1 className="text-3xl font-bold text-gray-800">📋 Histórico de Clientes</h1>
-        <p className="text-gray-500 mt-1">Garantia e proteção — Histórico completo de técnicos, serviços e datas</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-100 tracking-tight">Histórico de Clientes</h1>
+        <p className="text-gray-400 mt-1">Auditoria e histórico completo de serviços prestados e pendentes</p>
       </div>
 
-      {/* Stats */}
+      {/* Top Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border border-gray-200 shadow-sm bg-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 font-medium">Total de Serviços</p>
-                <p className="text-2xl font-bold text-blue-700 mt-2">{totalServicos}</p>
-              </div>
-              <CheckCircle2 className="w-8 h-8 text-blue-400" />
-            </div>
-          </CardContent>
+        <Card className="border border-white/5 bg-[#152236] shadow-sm rounded-2xl p-6">
+           <div className="flex items-center justify-between">
+             <div>
+               <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Total Operações</p>
+               <p className="text-2xl font-bold text-blue-400 mt-2">{totalServicosHistorico}</p>
+             </div>
+             <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-blue-500/10 border border-blue-500/20">
+                <CheckCircle2 className="w-6 h-6 text-blue-400" />
+             </div>
+           </div>
         </Card>
-        <Card className="border border-gray-200 shadow-sm bg-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 font-medium">Valor Total</p>
-                <p className="text-2xl font-bold text-green-700 mt-2">R$ {totalValor.toLocaleString('pt-BR')}</p>
-              </div>
-              <DollarSign className="w-8 h-8 text-green-500" />
-            </div>
-          </CardContent>
+        <Card className="border border-white/5 bg-[#152236] shadow-sm rounded-2xl p-6">
+           <div className="flex items-center justify-between">
+             <div>
+               <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Total Movimentado</p>
+               <p className="text-2xl font-bold text-emerald-400 mt-2">{formatCurrency(totalValorHistorico)}</p>
+             </div>
+             <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-emerald-500/10 border border-emerald-500/20">
+                <DollarSign className="w-6 h-6 text-emerald-400" />
+             </div>
+           </div>
         </Card>
-        <Card className="border border-gray-200 shadow-sm bg-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 font-medium">Clientes</p>
-                <p className="text-2xl font-bold text-amber-600 mt-2">{Object.keys(clientesAgrupados).length}</p>
-              </div>
-              <User className="w-8 h-8 text-amber-400" />
-            </div>
-          </CardContent>
+        <Card className="border border-white/5 bg-[#152236] shadow-sm rounded-2xl p-6">
+           <div className="flex items-center justify-between">
+             <div>
+               <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Clientes Histórico</p>
+               <p className="text-2xl font-bold text-amber-400 mt-2">{Object.keys(agrupadoPorCliente).length}</p>
+             </div>
+             <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-amber-500/10 border border-amber-500/20">
+                <User className="w-6 h-6 text-amber-500" />
+             </div>
+           </div>
         </Card>
       </div>
 
-      {/* Search e Botão Download */}
-      <div className="flex gap-4 flex-col sm:flex-row">
+      {/* Toolbar */}
+      <div className="bg-[#152236] border border-white/5 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <Input
-            placeholder="Buscar por cliente ou serviço..."
+            placeholder="Buscar histórico do cliente..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 h-11 border-gray-300 text-gray-800 placeholder:text-gray-400 bg-white"
+            className="pl-9 bg-[#0d1826] border-white/10 text-gray-200 placeholder:text-gray-500 w-full h-11 rounded-xl"
           />
         </div>
+
         <Button
-          onClick={() => gerarPDFTodos(clientesAgrupados)}
-          className="bg-green-600 hover:bg-green-700 whitespace-nowrap gap-2 text-white"
+           onClick={() => gerarPDFTodos(agrupadoPorCliente)}
+           className="bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 h-11 rounded-xl font-semibold border-0 whitespace-nowrap"
         >
-          <FileText className="w-4 h-4" />
-          Baixar Todos
+          <FileText className="w-4 h-4 mr-2" />
+          Exportar Base (PDF)
         </Button>
       </div>
 
-      {/* Paginação */}
-      {clientesArray.length > 0 && (
-        <div className="rounded-lg p-4 border border-gray-200 bg-white flex items-center justify-between">
-          <p className="text-sm text-gray-600">
-            Mostrando <span className="font-semibold text-gray-900">{startIndex + 1}</span> a <span className="font-semibold text-gray-900">{Math.min(endIndex, clientesArray.length)}</span> de <span className="font-semibold text-gray-900">{clientesArray.length}</span> clientes
-          </p>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="border-gray-300 text-gray-600 hover:bg-gray-50">
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <span className="text-sm text-gray-600">Página {currentPage} de {totalPages}</span>
-            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="border-gray-300 text-gray-600 hover:bg-gray-50">
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-2">
+         <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest w-full sm:w-auto text-center sm:text-left">
+           Mostrando {startIndex + 1} a {Math.min(endIndex, clientesArray.length)} de {clientesArray.length} clientes
+         </p>
+         <div className="flex items-center justify-center gap-2 w-full sm:w-auto pb-4 sm:pb-0">
+           <Button
+             variant="outline"
+             size="sm"
+             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+             disabled={currentPage === 1}
+             className="bg-[#152236] border-white/10 text-gray-300 hover:bg-white/5 h-9"
+           >
+             <ChevronLeft className="w-4 h-4" />
+           </Button>
+           <span className="text-sm font-medium text-gray-400 mx-2">
+             Página {currentPage} de {totalPages}
+           </span>
+           <Button
+             variant="outline"
+             size="sm"
+             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+             disabled={currentPage === totalPages}
+             className="bg-[#152236] border-white/10 text-gray-300 hover:bg-white/5 h-9"
+           >
+             <ChevronRight className="w-4 h-4" />
+           </Button>
+         </div>
+      </div>
 
-      {/* Cliente Cards */}
-      <div className="space-y-6">
-        {clientesArray.length === 0 ? (
-          <Card className="border border-gray-200 shadow-sm bg-white">
-            <CardContent className="p-8 text-center">
-              <p className="text-gray-500">Nenhum histórico encontrado</p>
-            </CardContent>
-          </Card>
-        ) : (
-          paginatedClientes.map((cliente) => {
-            const itens = clientesAgrupados[cliente];
+      {paginatedClientes.length === 0 ? (
+         <div className="text-center py-20 bg-[#152236] border border-white/5 rounded-2xl flex flex-col items-center">
+            <div className="w-20 h-20 bg-[#0d1826] border border-white/5 rounded-full flex items-center justify-center mb-5">
+              <FileText className="w-8 h-8 text-gray-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-200 mb-2">
+              Nenhum histórico encontrado
+            </h3>
+            <p className="text-sm text-gray-500 max-w-sm mx-auto">
+              Realize uma busca diferente ou limpe o campo para voltar.
+            </p>
+         </div>
+      ) : (
+        <div className="space-y-4">
+          {paginatedClientes.map((cliente) => {
+            const isExpanded = expandedClients[cliente.nome];
+            
             return (
-              <Card key={cliente} className="border border-gray-200 shadow-md hover:shadow-lg transition-shadow overflow-hidden bg-white">
-                <CardHeader style={{ backgroundColor: '#1e3a8a' }}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-lg flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                        {cliente?.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg text-white">{cliente}</CardTitle>
-                        <p className="text-sm text-blue-200 mt-0.5">
-                          {itens.length} serviço(s) | Total: R$ {itens.reduce((sum, item) => sum + (item.valor || 0), 0).toLocaleString('pt-BR')}
-                        </p>
-                      </div>
+              <Card key={cliente.nome} className="bg-[#152236] border border-white/5 shadow-md overflow-hidden rounded-2xl transition-all">
+                
+                {/* Header do Accordion */}
+                <div 
+                  onClick={() => toggleClient(cliente.nome)}
+                  className="flex flex-col md:flex-row md:items-center justify-between p-4 sm:p-5 cursor-pointer hover:bg-white/5 transition-colors group select-none gap-4"
+                >
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="w-12 h-12 rounded-full bg-blue-900/40 border border-blue-500/20 flex flex-shrink-0 items-center justify-center shadow-inner group-hover:bg-blue-500/20 transition-colors">
+                      <span className="text-blue-400 font-bold text-lg uppercase tracking-wider">{cliente.nome.charAt(0)}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-yellow-400 text-gray-900 border-0 font-bold">{itens.length}</Badge>
-                      <Button onClick={() => setClienteSelecionado(cliente)} size="sm" className="bg-white/20 hover:bg-white/30 text-white border border-white/30 gap-1">
-                        <Eye className="w-4 h-4" />
-                        Detalhes
-                      </Button>
-                      <Button
-                        onClick={() => gerarPDFCliente(cliente,
-                          servicos.filter(s => s.cliente_nome === cliente),
-                          atendimentos.filter(a => a.cliente_nome === cliente)
+                    
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-gray-100 text-[16px] truncate">{cliente.nome}</h3>
+                      <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-gray-400">
+                        {cliente.telefone && (
+                          <span className="flex items-center font-medium bg-[#0d1826] px-1.5 py-0.5 rounded border border-white/5">
+                            <Phone className="w-3 h-3 mr-1.5 text-blue-400" />
+                            {formatPhone(cliente.telefone)}
+                          </span>
                         )}
-                        size="sm"
-                        className="bg-green-500 hover:bg-green-600 text-white gap-1"
-                      >
-                        <Download className="w-4 h-4" />
-                        PDF
-                      </Button>
+                        <span className="flex items-center">
+                          <span className="w-1.5 h-1.5 rounded-full bg-gray-600 mr-1.5"></span>
+                          Último registro: {cliente.ultimaData ? format(cliente.ultimaData, 'dd/MM/yyyy') : '-'}
+                        </span>
+                        <span className="flex items-center text-blue-400 font-semibold" onClick={(e) => e.stopPropagation()}>
+                           {/* PDF Button inline on header */}
+                           <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => gerarPDFCliente(cliente.nome, servicos.filter(s => s.cliente_nome === cliente.nome), atendimentos.filter(a => a.cliente_nome === cliente.nome))}
+                              className="h-6 px-2 ml-2 hover:bg-blue-500/20 text-blue-400 border border-blue-500/10 text-[10px]"
+                           >
+                             <Download className="w-3 h-3 mr-1" />
+                             PDF Deste Cliente
+                           </Button>
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </CardHeader>
 
-                <CardContent className="p-0 bg-white">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-gray-100 border-b border-gray-200">
-                          <th className="text-left px-4 py-3 text-gray-600 font-semibold">Data / Equipe</th>
-                          <th className="text-left px-4 py-3 text-gray-600 font-semibold w-14 text-center">Qtd</th>
-                          <th className="text-left px-4 py-3 text-gray-600 font-semibold">Serviço</th>
-                          <th className="text-right px-4 py-3 text-gray-600 font-semibold">Valor Unit.</th>
-                          <th className="text-right px-4 py-3 text-gray-600 font-semibold">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(() => {
-                          // Agrupa por data + equipe
-                          const byDate = {};
-                          itens.forEach(item => {
-                            const dateKey = item.data || '';
-                            const equipeKey = item.equipe_nome || '';
-                            const groupKey = `${dateKey}||${equipeKey}`;
-                            if (!byDate[groupKey]) {
-                              byDate[groupKey] = { data: dateKey, equipe: equipeKey, servicos: {} };
-                            }
-                            const sKey = item.descricao;
-                            if (!byDate[groupKey].servicos[sKey]) {
-                              byDate[groupKey].servicos[sKey] = { descricao: item.descricao, qty: 0, valorUnit: item.valor || 0, totalValor: 0 };
-                            }
-                            byDate[groupKey].servicos[sKey].qty += 1;
-                            byDate[groupKey].servicos[sKey].totalValor += (item.valor || 0);
-                          });
-
-                          const sortedGroups = Object.values(byDate).sort((a, b) => new Date(a.data) - new Date(b.data));
-                          let rowBg = false;
-
-                          return sortedGroups.map((group, gIdx) => {
-                            const servicoRows = Object.values(group.servicos);
-                            return servicoRows.map((s, sIdx) => {
-                              rowBg = !rowBg;
-                              return (
-                                <tr key={`${gIdx}-${sIdx}`} className={`border-b border-gray-100 ${rowBg ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
-                                  {sIdx === 0 ? (
-                                    <td className="px-4 py-3 align-top" rowSpan={servicoRows.length}>
-                                      <div className="font-semibold text-gray-800">
-                                        {group.data ? format(new Date(group.data), 'dd/MM/yyyy', { locale: ptBR }) : '—'}
-                                      </div>
-                                      {group.equipe && (
-                                        <div className="text-xs text-blue-600 font-medium mt-0.5">{group.equipe}</div>
-                                      )}
-                                    </td>
-                                  ) : null}
-                                  <td className="px-4 py-3 text-center">
-                                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">{s.qty}x</span>
-                                  </td>
-                                  <td className="px-4 py-3 font-medium text-gray-800">{s.descricao}</td>
-                                  <td className="px-4 py-3 text-right text-gray-600">
-                                    {s.valorUnit ? `R$ ${s.valorUnit.toLocaleString('pt-BR')}` : '—'}
-                                  </td>
-                                  <td className="px-4 py-3 text-right font-bold text-green-700">
-                                    {s.totalValor ? `R$ ${s.totalValor.toLocaleString('pt-BR')}` : '—'}
-                                  </td>
-                                </tr>
-                              );
-                            });
-                          });
-                        })()}
-                      </tbody>
-                      <tfoot>
-                        <tr className="border-t-2 border-gray-300 bg-gray-50">
-                          <td colSpan={4} className="px-4 py-3 text-right font-semibold text-gray-700">Total Geral:</td>
-                          <td className="px-4 py-3 text-right font-bold text-green-700 text-base">
-                            R$ {itens.reduce((sum, item) => sum + (item.valor || 0), 0).toLocaleString('pt-BR')}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
+                  <div className="flex items-center justify-end gap-3 self-end md:self-auto w-full md:w-auto">
+                    {cliente.stats.concluidas > 0 && (
+                      <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold text-[11px] tracking-wide rounded-full">
+                        {cliente.stats.concluidas} concluída(s)
+                      </Badge>
+                    )}
+                    {cliente.stats.pendentes > 0 && (
+                      <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold text-[11px] tracking-wide rounded-full">
+                        {cliente.stats.pendentes} pendente(s)
+                      </Badge>
+                    )}
+                    <div className="w-8 h-8 rounded-full bg-[#0d1826] flex items-center justify-center border border-white/5 text-gray-400 group-hover:text-white transition-colors">
+                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </div>
                   </div>
-                </CardContent>
+                </div>
+
+                {/* Conteudo Expandido (A tabela idêntica à do Atendimentos) */}
+                {isExpanded && (
+                  <div className="p-4 sm:p-5 border-t border-white/5 bg-[#121d2f]/50">
+                    <div className="flex justify-between items-end mb-4">
+                      <h4 className="text-gray-400 text-[10px] font-bold uppercase tracking-widest flex items-center">
+                        <span className="w-1.5 h-4 bg-blue-500 block mr-2 rounded-sm" />
+                        Histórico de Registros
+                      </h4>
+                      <Link to={createPageUrl('Clientes')}>
+                        <Button variant="outline" size="sm" className="bg-[#0d1826] border-white/10 text-gray-300 hover:text-white hover:bg-white/10 h-8 text-xs font-semibold px-4 rounded-full shadow-sm">
+                          Ver perfil completo
+                        </Button>
+                      </Link>
+                    </div>
+
+                    <div className="overflow-x-auto pb-4">
+                      <div className="min-w-[850px]">
+                        <div className="grid grid-cols-12 gap-2 pb-3 mb-2 border-b border-white/5 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                          <div className="col-span-1 pl-2">OS #</div>
+                          <div className="col-span-2">Data do Serviço</div>
+                          <div className="col-span-3">Tipo de Serviço</div>
+                          <div className="col-span-1">Equipe</div>
+                          <div className="col-span-1">Valor</div>
+                          <div className="col-span-2">Pagamento</div>
+                          <div className="col-span-1">Status</div>
+                          <div className="col-span-1 text-center">Admin Ações</div>
+                        </div>
+
+                        <div className="space-y-1">
+                          {cliente.itens.map(item => {
+                            const pagStats = getPagamentoStatus(item);
+                            
+                            return (
+                              <div key={item.id} className="grid grid-cols-12 gap-2 items-center py-2.5 hover:bg-white/5 rounded-lg transition-colors border-b border-white/[0.02]">
+                                <div className="col-span-1 pl-2 font-bold text-blue-400 text-xs text-center w-max">#{item.originalId}</div>
+                                <div className="col-span-2 text-xs text-gray-300">
+                                  <div className="font-semibold">{item.data ? format(new Date(item.data), "dd/MM/yyyy") : '-'}</div>
+                                  <div className="text-gray-500 text-[10px] uppercase font-bold mt-0.5">{item.horario || 'S/H'}</div>
+                                </div>
+                                <div className="col-span-3">
+                                  <div className="font-medium text-gray-200 text-xs truncate pr-2">{item.tipo_servico || '-'}</div>
+                                  <div className="text-gray-500 text-[10px] truncate pr-2 w-max max-w-full">{item.descricao ? `"${item.descricao}"` : ''}</div>
+                                </div>
+                                <div className="col-span-1 text-xs text-gray-400">
+                                  {item.equipe_nome ? <span className="bg-[#0d1826] px-1.5 py-0.5 rounded border border-white/5 font-semibold">#{item.equipe_nome}</span> : <span className="opacity-30">—</span>}
+                                </div>
+                                <div className="col-span-1 font-bold text-emerald-400 text-xs">
+                                  {item.status === 'concluido' ? formatCurrency(item.valor) : <span className="text-orange-400 text-[10px] uppercase block tracking-wider">Aguardando</span>}
+                                </div>
+                                <div className="col-span-2 flex items-center pr-2">
+                                  {pagStats ? (
+                                    <div className={`px-2 text-[10px] py-1 rounded-md font-bold uppercase tracking-wider ${pagStats.style}`}>{pagStats.label}</div>
+                                  ) : (
+                                    <span className="w-16 h-1.5 rounded bg-white/5 block" />
+                                  )}
+                                </div>
+                                <div className="col-span-1 flex items-center">
+                                  {getStatusBadge(item.status)}
+                                </div>
+                                <div className="col-span-1 flex justify-center">
+                                  <Button variant="ghost" size="icon" onClick={() => handleDelete(item)} disabled={deleteMutation.isPending} className="h-6 w-6 text-red-500 hover:text-white hover:bg-red-500/80 rounded-full bg-red-500/10 border border-red-500/20" title="Apagar Registro Permanentemente">
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        
+                        <div className="grid grid-cols-12 gap-2 mt-2 pt-3 pb-1 border-t border-white/5 bg-[#0d1826] rounded-lg px-2">
+                          <div className="col-span-8 text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center">
+                            Total Movimentado ({cliente.stats.concluidas} concluída(s))
+                          </div>
+                          <div className="col-span-4 font-bold text-emerald-400 text-sm">
+                            {formatCurrency(cliente.stats.concluidasValor)}
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+
+                    <div className="mt-8 mb-2">
+                       <h4 className="text-gray-400 text-[10px] font-bold uppercase tracking-widest flex items-center mb-6">
+                         <span className="w-1.5 h-4 bg-purple-500 block mr-2 rounded-sm" />
+                         Linha do Tempo
+                       </h4>
+                       <div className="pl-4 border-l-2 border-white/5 space-y-6 relative ml-2">
+                          {cliente.itens.map(item => {
+                            // Extrair o array de trilha de auditoria desse item em específico se aplicável
+                            const audições = alteracoes.filter(a => a.tipo_registro === item.tipoObjeto && (a.servico_id === item.originalId || a.atendimento_id === item.originalId));
+
+                            return (
+                              <div key={`tl-${item.id}`} className="relative">
+                                <div className={`absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full ring-4 ring-[#121d2f]/50 border-2 ${item.status === 'concluido' ? 'bg-emerald-400 border-emerald-500/20' : 'bg-blue-400 border-blue-500/20'}`} />
+                                
+                                <div className="flex flex-col md:flex-row md:items-start justify-between gap-2">
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                       <h5 className="font-bold text-gray-200 text-sm">{item.tipo_servico || 'Serviço Não Especificado'}</h5>
+                                       <span className="text-[10px] font-bold text-gray-500">#{item.originalId}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <Calendar className="w-3 h-3 text-blue-400" />
+                                      <span className="text-[11px] text-gray-400 font-medium tracking-wide">
+                                        {item.data ? format(new Date(item.data), "dd/MM/yyyy") : '-'}
+                                        {item.status !== 'concluido' && <span className="text-amber-500 ml-2">▲ Sem preço fixado</span>}
+                                      </span>
+                                    </div>
+
+                                    {audições.length > 0 && (
+                                       <div className="mt-3 bg-[#0d1826] border border-white/5 rounded-lg p-3">
+                                          <p className="text-[9px] uppercase font-bold tracking-widest text-gray-500 mb-2">Trilha de Auditoria (Status)</p>
+                                          <div className="space-y-1.5">
+                                            {audições.sort((a,b) => new Date(a.data_alteracao) - new Date(b.data_alteracao)).map((alt, idx) => (
+                                              <div key={idx} className="flex items-center gap-2 text-[10px] text-gray-400">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                                                <span className="uppercase text-gray-300 font-bold">{alt.status_novo}</span>
+                                                <span className="opacity-50">em</span>
+                                                <span>{format(new Date(alt.data_alteracao), "dd/MM 'às' HH:mm")}</span>
+                                                <span className="opacity-50">por</span>
+                                                <span className="text-blue-300">{alt.usuario}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                       </div>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-2 mt-2 md:mt-0 origin-left md:origin-right">
+                                    {item.valor === 0 && item.status === 'concluido' && (
+                                       <span className="text-[10px] text-red-400 font-bold uppercase tracking-widest">Sem Preço</span>
+                                    )}
+                                    {getStatusBadge(item.status)}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                       </div>
+                    </div>
+
+                  </div>
+                )}
               </Card>
             );
-          })
-        )}
-      </div>
+          })}
+        </div>
+      )}
     </div>
   );
 }
