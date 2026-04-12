@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm audit:*)",
+      "Bash(npm run:*)",
+      "Bash(gh auth:*)",
+      "Bash(git --version)",
+      "Bash(echo \"EXIT_CODE: $?\")",
+      "Bash(npx base44:*)",
+      "Bash(netstat -ano)",
+      "Bash(grep -E \"\\\\.jsx$\")",
+      "Bash(xargs grep:*)",
+      "Bash(grep -l \"BackupRestaurer\" \"c:\\\\Users\\\\cleyt\\\\Desktop\\\\copia casa do ar antigravity/src\"/*.jsx \"c:\\\\Users\\\\cleyt\\\\Desktop\\\\copia casa do ar antigravity/src\"/*.js)"
+    ]
+  }
+}

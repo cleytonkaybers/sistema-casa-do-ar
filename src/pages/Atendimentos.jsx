@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 import { base44 } from '@/api/base44Client';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -18,9 +19,8 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { TableSkeleton } from '@/components/LoadingSkeleton';
 import { 
-  Search, 
-  ClipboardList, 
-  Phone,
+  Search,
+  ClipboardList,
   Calendar,
   X,
   ChevronDown,
@@ -63,6 +63,7 @@ export default function Atendimentos() {
   const { user: currentUser, loading: loadingUser, isAdmin } = usePermissions();
   
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm);
   const [filterTipo, setFilterTipo] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -175,10 +176,10 @@ export default function Atendimentos() {
         grupo.stats.pendentes = grupo.itens.filter(i => i.status !== 'concluido').length;
       }
 
-      const searchLower = searchTerm.toLowerCase();
+      const searchLower = debouncedSearch.toLowerCase();
       const matchNome = grupo.nome.toLowerCase().includes(searchLower);
-      const matchItens = grupo.itens.some(i => 
-        i.tipo_servico?.toLowerCase().includes(searchLower) || 
+      const matchItens = grupo.itens.some(i =>
+        i.tipo_servico?.toLowerCase().includes(searchLower) ||
         i.descricao?.toLowerCase().includes(searchLower)
       );
 
@@ -189,7 +190,7 @@ export default function Atendimentos() {
     });
 
     return clientesFiltrados;
-  }, [atendimentos, servicos, loadingUser, isAdmin, equipeIdUsuario, filterTipo, searchTerm]);
+  }, [atendimentos, servicos, loadingUser, isAdmin, equipeIdUsuario, filterTipo, debouncedSearch]);
 
   const tiposServico = useMemo(() => {
     const tipos = new Set();
@@ -211,7 +212,7 @@ export default function Atendimentos() {
   const endIndex = startIndex + itemsPerPage;
   const paginatedClientes = clientesArray.slice(startIndex, endIndex);
 
-  React.useEffect(() => { setCurrentPage(1); }, [searchTerm, filterTipo]);
+  React.useEffect(() => { setCurrentPage(1); }, [debouncedSearch, filterTipo]);
 
   const formatCurrency = (value) => {
     if (!value) return 'R$ 0,00';
@@ -315,10 +316,16 @@ export default function Atendimentos() {
                           <h3 className="font-bold text-gray-100 text-[16px] truncate max-w-[200px] sm:max-w-md lg:max-w-lg">{cliente.nome}</h3>
                           <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-gray-400">
                             {cliente.telefone && (
-                              <span className="flex items-center font-medium bg-[#0d1826] px-1.5 py-0.5 rounded border border-white/5">
-                                <Phone className="w-3 h-3 mr-1.5 text-blue-400" />
+                              <a
+                                href={`https://wa.me/55${cliente.telefone.replace(/\D/g, '')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex items-center gap-1.5 font-medium bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 px-2 py-0.5 rounded-md transition-colors"
+                              >
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" className="w-3 h-3" />
                                 {formatPhone(cliente.telefone)}
-                              </span>
+                              </a>
                             )}
                             <span className="flex items-center">
                               <span className="w-1.5 h-1.5 rounded-full bg-gray-600 mr-1.5"></span>

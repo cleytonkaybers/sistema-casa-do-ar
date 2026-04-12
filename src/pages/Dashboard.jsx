@@ -12,6 +12,7 @@ import { createPageUrl } from '@/utils';
 import GanhosSemanaDashboard from '@/components/dashboard/GanhosSemanaDashboard';
 import ResumoMesAdminDashboard from '@/components/dashboard/ResumoMesAdminDashboard';
 import GanhosTecnicosAdminDashboard from '@/components/dashboard/GanhosTecnicosAdminDashboard';
+import { DashboardStatCardSkeleton, DashboardAdminSkeleton } from '@/components/LoadingSkeleton';
 import {
   Users,
   ClipboardList,
@@ -405,75 +406,81 @@ export default function Dashboard() {
 
       {/* Cards do Admin */}
       {isAdmin && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-          {/* Resumo aparece primeiro no mobile (order-first) e último no desktop */}
-          <div className="md:col-span-1 flex flex-col order-first md:order-last">
-            <ResumoMesAdminDashboard
-              servicosConcluidos={atendimentosDoMes.length}
-              receita={adminResumoMes.receita}
-              despesas={adminResumoMes.despesas}
-              comissoes={adminResumoMes.comissoes}
+        isLoading ? <DashboardAdminSkeleton /> : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+            {/* Resumo aparece primeiro no mobile (order-first) e último no desktop */}
+            <div className="md:col-span-1 flex flex-col order-first md:order-last">
+              <ResumoMesAdminDashboard
+                servicosConcluidos={atendimentosDoMes.length}
+                receita={adminResumoMes.receita}
+                despesas={adminResumoMes.despesas}
+                comissoes={adminResumoMes.comissoes}
+              />
+            </div>
+            <div className="md:col-span-2 flex flex-col">
+              <GanhosTecnicosAdminDashboard
+                tecnicos={adminTecnicosSemana}
+                totalGanhoSemana={adminResumoTecnicos.totalGanhoSemana}
+                totalPagoSemana={adminResumoTecnicos.totalPagoSemana}
+                totalPendente={adminResumoTecnicos.totalPendente}
+              />
+            </div>
+          </div>
+        )
+      )}
+
+      {/* Grid Principal (Bento Style) */}
+      {isLoading ? (
+        <DashboardStatCardSkeleton count={isAdmin ? 4 : 6} />
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-6">
+          {!isAdmin && (
+            <div className="col-span-2 xl:col-span-2">
+              <GanhosSemanaDashboard />
+            </div>
+          )}
+          <div className="col-span-1">
+            <StatCard
+              title="Total Clientes"
+              value={totalClientes}
+              icon={Users}
+              colorClass="text-blue-400"
+              subtitle="Na base"
+              href={createPageUrl('Clientes')}
             />
           </div>
-          <div className="md:col-span-2 flex flex-col">
-            <GanhosTecnicosAdminDashboard
-              tecnicos={adminTecnicosSemana}
-              totalGanhoSemana={adminResumoTecnicos.totalGanhoSemana}
-              totalPagoSemana={adminResumoTecnicos.totalPagoSemana}
-              totalPendente={adminResumoTecnicos.totalPendente}
+          <div className="col-span-1">
+            <StatCard
+              title="Concluídos no Mês"
+              value={atendimentosDoMes.length}
+              icon={ClipboardList}
+              colorClass="text-emerald-400"
+              subtitle="Mês atual"
+              href={createPageUrl('Atendimentos')}
+            />
+          </div>
+          <div className="col-span-1">
+            <StatCard
+              title="Manutenções Programadas"
+              value={manutencoesPendentes.length}
+              icon={Calendar}
+              colorClass="text-amber-400"
+              subtitle="Próximos 30 dias"
+              href={createPageUrl('PreventivasFuturas')}
+            />
+          </div>
+          <div className="col-span-1">
+            <StatCard
+              title="Histórico Concluídos"
+              value={atendimentosConcluidos}
+              icon={CheckCircle2}
+              colorClass="text-purple-400"
+              subtitle="Desde o início"
+              href={createPageUrl('Atendimentos')}
             />
           </div>
         </div>
       )}
-
-      {/* Grid Principal (Bento Style) */}
-      <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-6">
-        {!isAdmin && (
-          <div className="col-span-2 xl:col-span-2">
-            <GanhosSemanaDashboard />
-          </div>
-        )}
-        <div className="col-span-1">
-          <StatCard
-            title="Total Clientes"
-            value={totalClientes}
-            icon={Users}
-            colorClass="text-blue-400"
-            subtitle="Na base"
-            href={createPageUrl('Clientes')}
-          />
-        </div>
-        <div className="col-span-1">
-          <StatCard
-            title="Concluídos no Mês"
-            value={atendimentosDoMes.length}
-            icon={ClipboardList}
-            colorClass="text-emerald-400"
-            subtitle="Mês atual"
-            href={createPageUrl('Atendimentos')}
-          />
-        </div>
-        <div className="col-span-1">
-          <StatCard
-            title="Manutenções Programadas"
-            value={manutencoesPendentes.length}
-            icon={Calendar}
-            colorClass="text-amber-400"
-            subtitle="Próximos 30 dias"
-            href={createPageUrl('PreventivasFuturas')}
-          />
-        </div>
-        <div className="col-span-1">
-          <StatCard
-            title="Histórico Concluídos"
-            value={atendimentosConcluidos}
-            icon={CheckCircle2}
-            colorClass="text-purple-400"
-            subtitle="Desde o início"
-            href={createPageUrl('Atendimentos')}
-          />
-        </div>
-      </div>
 
       {/* Grid Secundário Dividido */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">

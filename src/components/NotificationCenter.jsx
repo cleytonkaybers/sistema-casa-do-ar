@@ -35,6 +35,13 @@ export default function NotificationCenter() {
     }
   });
 
+  const clearAllMutation = useMutation({
+    mutationFn: () => Promise.all(notificacoes.map((n) => base44.entities.Notificacao.delete(n.id))),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
+    }
+  });
+
   const notificacoesNaoLidas = notificacoes.filter((n) => !n.lida);
 
   const handleMarkAsRead = (id) => {
@@ -61,12 +68,22 @@ export default function NotificationCenter() {
       <div className="fixed right-4 top-16 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-[60] max-h-96 overflow-y-auto">
           <div className="sticky top-0 bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-3 flex items-center justify-between">
             <h3 className="text-white font-bold">Notificações</h3>
-            <button
-            onClick={() => setOpen(false)}
-            className="p-1 hover:bg-white/20 rounded-lg transition-colors">
-
-              <X className="w-4 h-4 text-white" />
-            </button>
+            <div className="flex items-center gap-2">
+              {notificacoes.length > 0 && (
+                <button
+                  onClick={() => clearAllMutation.mutate()}
+                  disabled={clearAllMutation.isPending}
+                  className="text-xs text-white/80 hover:text-white font-medium px-2 py-1 rounded-md hover:bg-white/20 transition-colors disabled:opacity-50"
+                >
+                  {clearAllMutation.isPending ? 'Limpando...' : 'Limpar todas'}
+                </button>
+              )}
+              <button
+                onClick={() => setOpen(false)}
+                className="p-1 hover:bg-white/20 rounded-lg transition-colors">
+                <X className="w-4 h-4 text-white" />
+              </button>
+            </div>
           </div>
 
           {isLoading ?

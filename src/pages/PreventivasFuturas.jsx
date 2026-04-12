@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +31,7 @@ import { TableSkeleton } from '@/components/LoadingSkeleton';
 export default function PreventivasFuturasPage() {
   const { isAdmin } = usePermissions();
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(15);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -150,9 +152,9 @@ export default function PreventivasFuturasPage() {
 
   const todosItens = [...clientesComManutencao]
     .filter(item => {
-      const matchNome = item.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       item.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchTelefone = item.telefone?.includes(searchTerm);
+      const matchNome = item.nome?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                       item.cliente_nome?.toLowerCase().includes(debouncedSearch.toLowerCase());
+      const matchTelefone = item.telefone?.includes(debouncedSearch);
       return matchNome || matchTelefone;
     })
     .sort((a, b) => {
@@ -168,7 +170,7 @@ export default function PreventivasFuturasPage() {
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [debouncedSearch]);
 
   const isLoading = loadingClientes || loadingServicos;
 

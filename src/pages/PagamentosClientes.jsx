@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 import TipoServicoDisplay from '@/components/TipoServicoDisplay';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
@@ -1070,6 +1071,7 @@ function PagamentosClientesContent() {
   const secaoCobrarRef = useRef(null);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm);
   const [highlightSecao, setHighlightSecao] = useState('');
 
   // Ler parâmetro de URL e fazer scroll
@@ -1408,10 +1410,10 @@ function PagamentosClientesContent() {
 
   const pagsFiltrados = useMemo(() =>
     pagamentos.filter(p =>
-      (!searchTerm || p.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase())) &&
+      (!debouncedSearch || p.cliente_nome?.toLowerCase().includes(debouncedSearch.toLowerCase())) &&
       !TIPOS_IGNORADOS.includes(p.tipo_servico)
     )
-  , [pagamentos, searchTerm]);
+  , [pagamentos, debouncedSearch]);
 
   // Helper: verifica se algum pagamento real foi feito nesta semana
   const temPagamentoNaSemana = useCallback((p) => {

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ export default function ServicosPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingServico, setEditingServico] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm);
   const [equipeFilter, setEquipeFilter] = useState('todas');
   const [isDeleting, setIsDeleting] = useState(false);
   const [showReagendarModal, setShowReagendarModal] = useState(false);
@@ -30,6 +32,10 @@ export default function ServicosPage() {
   const [servicoConcluido, setServicoConcluido] = useState(null);
   const [showConclusaoModal, setShowConclusaoModal] = useState(false);
   const [servicoParaConcluir, setServicoParaConcluir] = useState(null);
+  const [expandedDias, setExpandedDias] = useState({});
+  const [currentPageSemData, setCurrentPageSemData] = useState(1);
+  const SERVICOS_POR_DIA = 5;
+  const SERVICOS_POR_PAGINA = 20;
 
   const queryClient = useQueryClient();
 
@@ -429,22 +435,31 @@ export default function ServicosPage() {
 
     // Serviços abertos ou em andamento ficam SEMPRE na agenda, independente da data
     if (s.status === 'aberto' || s.status === 'andamento') {
-      const matchSearch = s.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         s.telefone?.includes(searchTerm);
+      const matchSearch = s.cliente_nome?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                         s.telefone?.includes(debouncedSearch);
       return matchSearch;
     }
 
     // Serviços agendados/reagendados: mostrar os de hoje em diante E os em atraso (ainda não concluídos)
     // Serviços em atraso ficam visíveis até serem concluídos ou reagendados
 
-    const matchSearch = s.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       s.telefone?.includes(searchTerm);
+    const matchSearch = s.cliente_nome?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                       s.telefone?.includes(debouncedSearch);
     
     return matchSearch;
   });
 
   const servicosComData = filteredServicos.filter(s => s.data_programada);
   const servicosSemData = filteredServicos.filter(s => !s.data_programada);
+
+  // Reset page when filter changes
+  React.useEffect(() => { setCurrentPageSemData(1); setExpandedDias({}); }, [debouncedSearch, equipeFilter]);
+
+  const totalPagesSemData = Math.ceil(servicosSemData.length / SERVICOS_POR_PAGINA);
+  const paginatedSemData = servicosSemData.slice(
+    (currentPageSemData - 1) * SERVICOS_POR_PAGINA,
+    currentPageSemData * SERVICOS_POR_PAGINA
+  );
 
   const servicosPorDia = servicosComData.reduce((acc, servico) => {
     const diaSemana = servico.dia_semana || 'Sem dia';
@@ -553,7 +568,10 @@ export default function ServicosPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
             {diasDaSemana.map(dia => {
               const servicosDoDia = servicosPorDia[dia] || [];
-              
+              const isExpanded = !!expandedDias[dia];
+              const visiveis = isExpanded ? servicosDoDia : servicosDoDia.slice(0, SERVICOS_POR_DIA);
+              const extras = servicosDoDia.length - SERVICOS_POR_DIA;
+
               return (
                 <div key={dia} className="rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full bg-white">
                   <div className={`bg-gradient-to-r ${diaColors[dia]} px-4 py-3 sticky top-0 z-10`}>
@@ -571,24 +589,34 @@ export default function ServicosPage() {
                         Nenhum serviço
                       </p>
                     ) : (
-                      servicosDoDia.map(servico => (
-                        <div key={servico.id} className="rounded-lg shadow-sm border border-gray-100 overflow-hidden bg-gray-50">
-                          <div className="p-3">
-                            <ServicoCard
-                              servico={servico}
-                              onEdit={handleEdit}
-                              onDelete={(isAdmin || hasPermission('servicos_deletar')) ? handleDelete : undefined}
-                              onStatusChange={handleStatusChange}
-                              onShare={(servico) => {
-                                setServicoConcluido({ ...servico, isConclusao: false });
-                                setShowCompartilharModal(true);
-                              }}
-                              equipes={equipes}
-                              compact
-                            />
+                      <>
+                        {visiveis.map(servico => (
+                          <div key={servico.id} className="rounded-lg shadow-sm border border-gray-100 overflow-hidden bg-gray-50">
+                            <div className="p-3">
+                              <ServicoCard
+                                servico={servico}
+                                onEdit={handleEdit}
+                                onDelete={(isAdmin || hasPermission('servicos_deletar')) ? handleDelete : undefined}
+                                onStatusChange={handleStatusChange}
+                                onShare={(servico) => {
+                                  setServicoConcluido({ ...servico, isConclusao: false });
+                                  setShowCompartilharModal(true);
+                                }}
+                                equipes={equipes}
+                                compact
+                              />
+                            </div>
                           </div>
-                        </div>
-                      ))
+                        ))}
+                        {extras > 0 && (
+                          <button
+                            onClick={() => setExpandedDias(prev => ({ ...prev, [dia]: !isExpanded }))}
+                            className="w-full text-xs font-semibold text-center py-2 rounded-lg border border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors"
+                          >
+                            {isExpanded ? 'Ver menos' : `Ver mais ${extras}`}
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -608,21 +636,42 @@ export default function ServicosPage() {
                 </Badge>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-                {servicosSemData.map(servico => (
+                {paginatedSemData.map(servico => (
                   <ServicoCard
                     key={servico.id}
                     servico={servico}
                     onEdit={handleEdit}
                     onDelete={(isAdmin || hasPermission('servicos_deletar')) ? handleDelete : undefined}
                     onStatusChange={handleStatusChange}
-                    onShare={(servico) => {
-                      setServicoConcluido({ ...servico, isConclusao: false });
+                    onShare={(s) => {
+                      setServicoConcluido({ ...s, isConclusao: false });
                       setShowCompartilharModal(true);
                     }}
                     equipes={equipes}
                   />
                 ))}
               </div>
+              {totalPagesSemData > 1 && (
+                <div className="flex items-center justify-center gap-2 px-4 py-3 border-t border-gray-100">
+                  <button
+                    onClick={() => setCurrentPageSemData(p => Math.max(1, p - 1))}
+                    disabled={currentPageSemData === 1}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Anterior
+                  </button>
+                  <span className="text-xs text-gray-500">
+                    {currentPageSemData} / {totalPagesSemData}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPageSemData(p => Math.min(totalPagesSemData, p + 1))}
+                    disabled={currentPageSemData === totalPagesSemData}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Próxima
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

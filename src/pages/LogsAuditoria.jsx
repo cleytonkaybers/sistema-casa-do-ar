@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +26,7 @@ export default function LogsAuditoria() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm);
   
   React.useEffect(() => {
     const checkAdmin = async () => {
@@ -75,10 +77,10 @@ export default function LogsAuditoria() {
   });
 
   const logsFiltrados = logs.filter(log => {
-    const matchSearch = 
-      log.usuario_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.acao?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.observacao?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchSearch =
+      log.usuario_nome?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      log.acao?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      log.observacao?.toLowerCase().includes(debouncedSearch.toLowerCase());
     const matchAcao = !acaoFiltro || log.acao === acaoFiltro;
     return matchSearch && matchAcao;
   });

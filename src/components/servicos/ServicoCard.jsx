@@ -99,6 +99,7 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
   const diasAtraso = servico.data_programada && servico.status !== 'concluido'
     ? differenceInDays(today, startOfDay(parseISO(servico.data_programada)))
     : 0;
+  const isAtrasado = diasAtraso >= 1;
   const isAtrasadoGrave = diasAtraso >= 2;
 
   if (compact) {
@@ -296,6 +297,12 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
                   <StatusIcon className="w-3 h-3 mr-1" />
                   {statusConfig.label}
                 </Badge>
+                {isAtrasado && !isAtrasadoGrave && (
+                  <Badge className="bg-red-100 text-red-600 border border-red-300 text-xs font-bold">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    Atrasado
+                  </Badge>
+                )}
               </div>
             </div>
             <Button

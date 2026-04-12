@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,7 @@ export default function Clientes() {
   
   const [user, setUser] = React.useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
   const [formOpen, setFormOpen] = useState(false);
@@ -167,25 +169,25 @@ export default function Clientes() {
   });
 
   const filteredClientes = useMemo(() => {
-    if (!searchTerm.trim()) return clientes;
-    
-    const searchTerms = searchTerm.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    const searchNumeros = searchTerm.replace(/\D/g, '');
-    
+    if (!debouncedSearch.trim()) return clientes;
+
+    const searchTerms = debouncedSearch.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    const searchNumeros = debouncedSearch.replace(/\D/g, '');
+
     const results = clientes.filter(cliente => {
       const nomeLower = (cliente.nome || '').toLowerCase();
       const telefoneLimpo = (cliente.telefone || '').replace(/\D/g, '');
-      
+
       // Match se contém a busca completa OU se contém qualquer uma das palavras
-      const matchNome = nomeLower.includes(searchTerm.toLowerCase()) || 
+      const matchNome = nomeLower.includes(debouncedSearch.toLowerCase()) ||
                         searchTerms.some(term => nomeLower.includes(term));
       const matchTelefone = searchNumeros && telefoneLimpo.includes(searchNumeros);
-      
+
       return matchNome || matchTelefone;
     });
-    
+
     return results;
-  }, [clientes, searchTerm]);
+  }, [clientes, debouncedSearch]);
 
   const handleSave = (data) => {
     if (editingCliente) {

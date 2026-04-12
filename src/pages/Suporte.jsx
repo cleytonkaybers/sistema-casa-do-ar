@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ export default function SuportePage() {
   const [selectedChat, setSelectedChat] = useState(null);
   const [replyMessage, setReplyMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm);
   const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -92,8 +94,8 @@ export default function SuportePage() {
   });
 
   const filteredChats = conversations.filter(chat =>
-    chat.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    chat.user_email.toLowerCase().includes(searchTerm.toLowerCase())
+    chat.user_name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    chat.user_email.toLowerCase().includes(debouncedSearch.toLowerCase())
   );
 
   const statusLabels = {

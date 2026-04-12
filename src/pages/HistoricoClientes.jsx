@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
@@ -49,6 +50,7 @@ const formatServiceText = (text) => {
 export default function HistoricoClientes() {
   const { isAdmin } = usePermissions();
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm);
   const [currentPage, setCurrentPage] = useState(1);
   const [clientesPerPage] = useState(10);
   const [expandedClients, setExpandedClients] = useState({});
@@ -191,10 +193,10 @@ export default function HistoricoClientes() {
 
     const clientesFiltrados = {};
     Object.values(grupos).forEach(grupo => {
-      const searchLower = searchTerm.toLowerCase();
+      const searchLower = debouncedSearch.toLowerCase();
       const matchNome = grupo.nome.toLowerCase().includes(searchLower);
-      const matchItens = grupo.itens.some(i => 
-        i.tipo_servico?.toLowerCase().includes(searchLower) || 
+      const matchItens = grupo.itens.some(i =>
+        i.tipo_servico?.toLowerCase().includes(searchLower) ||
         i.descricao?.toLowerCase().includes(searchLower)
       );
 
@@ -205,7 +207,7 @@ export default function HistoricoClientes() {
     });
 
     return clientesFiltrados;
-  }, [atendimentos, servicos, searchTerm]);
+  }, [atendimentos, servicos, debouncedSearch]);
 
   const totalServicosHistorico = servicos.length + atendimentos.length;
   const totalValorHistorico = atendimentos.reduce((sum, item) => sum + (item.valor || 0), 0);
@@ -224,7 +226,7 @@ export default function HistoricoClientes() {
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [debouncedSearch]);
 
   if (!isAdmin) return <NoPermission />;
 
