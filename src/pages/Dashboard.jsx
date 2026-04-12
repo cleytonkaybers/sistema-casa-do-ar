@@ -235,8 +235,15 @@ export default function Dashboard() {
         });
         const creditoPago = pagamentosSemana.reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-        // Pendente acumulado real direto da entidade (não só desta semana)
-        const creditoPendente = t.credito_pendente || 0;
+        // Pendente real: total de comissões geradas - total de pagamentos confirmados (todos os tempos)
+        // Calculado dos dados brutos para não depender do campo possivelmente defasado da entidade
+        const totalComissoesAll = lancamentosFinanceiros
+          .filter(l => l.tecnico_id === t.tecnico_id)
+          .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
+        const totalPagoAll = pagamentosTecnicos
+          .filter(p => p.tecnico_id === t.tecnico_id && p.status === 'Confirmado')
+          .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
+        const creditoPendente = Math.max(0, totalComissoesAll - totalPagoAll);
 
         return {
           ...t,
@@ -245,7 +252,7 @@ export default function Dashboard() {
           total_ganho: totalGanho
         };
       })
-      // Mostrar todos que têm pendente OU que trabalharam esta semana
+      // Mostrar técnicos que têm pendente real OU que trabalharam esta semana
       .filter(t => t.credito_pendente > 0 || t.total_ganho > 0);
   }, [tecnicosFinanceiro, lancamentosFinanceiros, pagamentosTecnicos, isAdmin]);
 
