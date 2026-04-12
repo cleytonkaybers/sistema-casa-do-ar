@@ -72,6 +72,7 @@ export default function PreventivasFuturasPage() {
   };
 
   const getGoogleMapsLink = (item) => {
+    if (item.google_maps_link) return item.google_maps_link;
     if (item.latitude && item.longitude) {
       return `https://www.google.com/maps?q=${item.latitude},${item.longitude}`;
     }

@@ -31,6 +31,12 @@ export default function DetalhesModal({ open, onClose, atendimento }) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
+  const mapsLink = atendimento.google_maps_link || (atendimento.latitude && atendimento.longitude
+    ? `https://www.google.com/maps?q=${atendimento.latitude},${atendimento.longitude}`
+    : atendimento.endereco
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(atendimento.endereco)}`
+    : null);
+
   const formatDate = (date) => {
     if (!date) return '-';
     try { return format(new Date(date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }); }
@@ -93,8 +99,8 @@ export default function DetalhesModal({ open, onClose, atendimento }) {
                 <MapPin className="w-4 h-4" /> Endereço
               </p>
               <p className="font-medium text-gray-800">{atendimento.endereco}</p>
-              {atendimento.latitude && atendimento.longitude && (
-                <a href={`https://www.google.com/maps?q=${atendimento.latitude},${atendimento.longitude}`}
+              {mapsLink && (
+                <a href={mapsLink}
                   target="_blank" rel="noopener noreferrer"
                   className="text-xs text-blue-600 hover:underline mt-1 inline-block">
                   Ver no mapa →

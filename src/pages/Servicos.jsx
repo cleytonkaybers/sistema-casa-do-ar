@@ -250,6 +250,7 @@ export default function ServicosPage() {
                 dia_semana: servicoSnapshot.dia_semana || null,
                 equipe_id: servicoSnapshot.equipe_id || null,
                 equipe_nome: servicoSnapshot.equipe_nome || null,
+                google_maps_link: servicoSnapshot.google_maps_link || null,
                 data_criacao: servicoSnapshot.created_date || null,
               },
               observacoes_conclusao: observacoes || null,
@@ -281,6 +282,7 @@ export default function ServicosPage() {
               equipe_nome: servicoSnapshot.equipe_nome || '',
               usuario_conclusao: user?.email,
               data_conclusao: agora,
+              google_maps_link: servicoSnapshot.google_maps_link || '',
               detalhes: JSON.stringify(detalhesCompletos),
             });
           }).catch(() => {}),

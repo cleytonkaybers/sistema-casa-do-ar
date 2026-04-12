@@ -140,7 +140,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         cpf: prefilledData.cpf || '',
         telefone: stripAndFormatPhone(prefilledData.telefone || ''),
         endereco: prefilledData.endereco || '',
-        google_maps_link: '',
+        google_maps_link: prefilledData.google_maps_link || '',
         latitude: prefilledData.latitude || null,
         longitude: prefilledData.longitude || null,
         tipos_servico: [{ tipo: 'Limpeza de 9k', quantidade: 1 }],
@@ -210,6 +210,17 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
   const handlePhoneChange = (e) => {
     setFormData({ ...formData, telefone: stripAndFormatPhone(e.target.value) });
   };
+
+  // Busca automática ao colar link do Google Maps
+  useEffect(() => {
+    const link = formData.google_maps_link?.trim();
+    if (link && (link.includes('google.com/maps') || link.includes('goo.gl/maps')) && !formData.latitude) {
+      const timer = setTimeout(() => {
+        handleSearchLocation();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [formData.google_maps_link]);
 
   const formatCPF = (value) => {
     const cleaned = value.replace(/\D/g, '');

@@ -30,6 +30,7 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
   };
 
   const getGoogleMapsLink = () => {
+    if (servico.google_maps_link) return servico.google_maps_link;
     if (servico.latitude && servico.longitude) {
       return `https://www.google.com/maps?q=${servico.latitude},${servico.longitude}`;
     }

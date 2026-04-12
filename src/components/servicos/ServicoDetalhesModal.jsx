@@ -29,11 +29,11 @@ export default function ServicoDetalhesModal({ open, onClose, servico }) {
   const StatusIcon = statusConfig.icon;
 
   const whatsappLink = `https://wa.me/55${servico.telefone?.replace(/\D/g, '') || ''}`;
-  const mapsLink = servico.latitude && servico.longitude
+  const mapsLink = servico.google_maps_link || (servico.latitude && servico.longitude
     ? `https://www.google.com/maps?q=${servico.latitude},${servico.longitude}`
     : servico.endereco
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(servico.endereco)}`
-    : null;
+    : null);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
