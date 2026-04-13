@@ -82,8 +82,17 @@ export default function ConfiguracoesPage() {
     setUploading(true);
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setFormData(prev => ({ ...prev, company_logo_url: file_url }));
-      toast.success('Logo carregado com sucesso!');
+      // Atualiza estado local
+      const novoFormData = { ...formData, company_logo_url: file_url };
+      setFormData(novoFormData);
+      // Salva imediatamente no banco sem precisar clicar em Salvar
+      if (settings?.id) {
+        await base44.entities.CompanySettings.update(settings.id, novoFormData);
+      } else {
+        await base44.entities.CompanySettings.create(novoFormData);
+      }
+      queryClient.invalidateQueries({ queryKey: ['companySettings'] });
+      toast.success('Logo salvo com sucesso!');
     } catch { toast.error('Erro ao carregar a imagem'); }
     finally { setUploading(false); }
   };
@@ -200,7 +209,12 @@ export default function ConfiguracoesPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setFormData({ ...formData, company_logo_url: '' })}
+                        onClick={async () => {
+                          const novo = { ...formData, company_logo_url: '' };
+                          setFormData(novo);
+                          if (settings?.id) await base44.entities.CompanySettings.update(settings.id, novo).catch(() => {});
+                          queryClient.invalidateQueries({ queryKey: ['companySettings'] });
+                        }}
                         className="text-xs text-red-600 hover:text-red-700"
                       >
                         <X className="w-3 h-3" />
