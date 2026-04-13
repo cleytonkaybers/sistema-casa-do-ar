@@ -435,7 +435,10 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                     <SelectTrigger className={`${selectDark} w-full`}>
                       <SelectValue placeholder="— Preencher manualmente —" />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1e2a3a] border-[#2d3f55] text-white max-h-64 overflow-y-auto">
+                    <SelectContent
+                      className="bg-[#1e2a3a] border-[#2d3f55] text-white max-h-64 overflow-y-auto"
+                      onOpenAutoFocus={(e) => e.preventDefault()}
+                    >
                       <div className="sticky top-0 bg-[#1e2a3a] border-b border-[#2d3f55] p-2">
                         <Input
                           placeholder="Buscar cliente..."
@@ -443,6 +446,8 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                           onChange={(e) => setClienteSearch(e.target.value)}
                           className={`h-8 text-sm ${inputDark}`}
                           onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                          onPointerDown={(e) => e.stopPropagation()}
                         />
                       </div>
                       <SelectItem value="__manual__" className="text-gray-400 italic">— Preencher manualmente —</SelectItem>
@@ -579,7 +584,10 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                           <SelectTrigger className={`flex-1 ${selectDark}`}>
                             <SelectValue placeholder="Selecione o serviço" />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#1e2a3a] border-[#2d3f55] text-white max-h-80">
+                          <SelectContent
+                            className="bg-[#1e2a3a] border-[#2d3f55] text-white max-h-80"
+                            onOpenAutoFocus={(e) => e.preventDefault()}
+                          >
                             <div className="sticky top-0 bg-[#1e2a3a] border-b border-[#2d3f55] p-2">
                               <Input
                                 placeholder="Buscar serviço..."
@@ -588,6 +596,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                                 className={`h-8 text-sm ${inputDark}`}
                                 onClick={(e) => e.stopPropagation()}
                                 onKeyDown={(e) => e.stopPropagation()}
+                                onPointerDown={(e) => e.stopPropagation()}
                               />
                             </div>
                             <div className="max-h-64 overflow-y-auto">
