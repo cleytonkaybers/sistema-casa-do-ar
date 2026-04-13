@@ -98,7 +98,7 @@ export default function RelatorioComissoes() {
       const lancsSemana = lancamentos.filter(l => {
         if (!l.data_geracao) return false;
         try {
-          const dt = toLocalDate(new Date(l.data_geracao + 'T12:00:00'));
+          const dt = toLocalDate(new Date(l.data_geracao));
           if (!dt) return false;
           return isWithinInterval(dt, { start: inicio, end: fim });
         } catch { return false; }
@@ -111,7 +111,8 @@ export default function RelatorioComissoes() {
       lancsSemana.forEach(l => {
         const nome = l.equipe_nome;
         if (!nome) return;
-        const val = l.valor_comissao_equipe || 0;
+        // usa valor_comissao_tecnico (sempre preenchido); cai em valor_comissao_equipe se existir
+        const val = (l.valor_comissao_tecnico || 0) + (l.valor_comissao_equipe || 0);
         porEquipe[nome] = (porEquipe[nome] || 0) + val;
         totalSemana += val;
       });
