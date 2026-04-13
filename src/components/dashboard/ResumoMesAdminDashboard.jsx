@@ -4,15 +4,8 @@ import { Activity } from 'lucide-react';
 
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
-export default function ResumoMesAdminDashboard({ servicosConcluidos, receita, despesas, comissoes }) {
-  const lucroLiquido = receita - despesas - comissoes;
-
-  const rows = [
-    { label: 'Serviços concluídos', value: servicosConcluidos, valueClass: 'text-emerald-400', isNumber: true },
-    { label: 'Receita',             value: formatCurrency(receita),    valueClass: 'text-emerald-400' },
-    { label: 'Despesas',            value: formatCurrency(despesas),   valueClass: 'text-red-400' },
-    { label: 'Comissões',           value: formatCurrency(comissoes),  valueClass: 'text-amber-500' },
-  ];
+export default function ResumoMesAdminDashboard({ servicosConcluidos, faturadoMes, faturadoSemana, recebidoMes, recebidoSemana, comissoes }) {
+  const lucroLiquido = faturadoMes - comissoes;
 
   return (
     <Card className="bg-[#152236] border-white/5 shadow-sm hover:border-white/10 transition-all rounded-2xl flex-1 flex flex-col">
@@ -24,14 +17,25 @@ export default function ResumoMesAdminDashboard({ servicosConcluidos, receita, d
       </CardHeader>
 
       <CardContent className="p-0 overflow-hidden divide-y divide-white/5">
-        {rows.map(({ label, value, valueClass }) => (
-          <div key={label} className="flex items-center justify-between px-4 sm:px-5 py-3 bg-white/5 hover:bg-white/10 transition-colors">
-            <span className="text-xs sm:text-sm font-medium text-gray-400">{label}</span>
-            <span className={`text-xs sm:text-sm font-bold ${valueClass}`}>{value}</span>
-          </div>
-        ))}
+        {/* Serviços concluídos */}
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-white/5 hover:bg-white/10 transition-colors">
+          <span className="text-xs sm:text-sm font-medium text-gray-400">Serviços concluídos</span>
+          <span className="text-xs sm:text-sm font-bold text-emerald-400">{servicosConcluidos}</span>
+        </div>
 
-        {/* Lucro líquido em destaque */}
+        {/* Receita (faturado bruto do mês) */}
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-white/5 hover:bg-white/10 transition-colors">
+          <span className="text-xs sm:text-sm font-medium text-gray-400">Receita (Faturado)</span>
+          <span className="text-xs sm:text-sm font-bold text-emerald-400">{formatCurrency(faturadoMes)}</span>
+        </div>
+
+        {/* Comissões */}
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-white/5 hover:bg-white/10 transition-colors">
+          <span className="text-xs sm:text-sm font-medium text-gray-400">Comissões</span>
+          <span className="text-xs sm:text-sm font-bold text-amber-500">{formatCurrency(comissoes)}</span>
+        </div>
+
+        {/* Lucro líquido */}
         <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-[#0d1826]/50">
           <span className="text-sm font-bold text-blue-400">Lucro Líquido</span>
           <span className={`text-sm sm:text-base font-bold px-2 sm:px-3 py-1 rounded-full ${
@@ -41,6 +45,36 @@ export default function ResumoMesAdminDashboard({ servicosConcluidos, receita, d
           }`}>
             {lucroLiquido < 0 ? '-' : ''}{formatCurrency(Math.abs(lucroLiquido))}
           </span>
+        </div>
+
+        {/* Separador de seção */}
+        <div className="px-4 sm:px-5 py-2 bg-[#0d1826]/30">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Faturado</span>
+        </div>
+
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-white/5 hover:bg-white/10 transition-colors">
+          <span className="text-xs sm:text-sm font-medium text-gray-400">Esta semana</span>
+          <span className="text-xs sm:text-sm font-bold text-emerald-400">{formatCurrency(faturadoSemana)}</span>
+        </div>
+
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-white/5 hover:bg-white/10 transition-colors">
+          <span className="text-xs sm:text-sm font-medium text-gray-400">Este mês</span>
+          <span className="text-xs sm:text-sm font-bold text-emerald-400">{formatCurrency(faturadoMes)}</span>
+        </div>
+
+        {/* Separador de seção */}
+        <div className="px-4 sm:px-5 py-2 bg-[#0d1826]/30">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Recebido</span>
+        </div>
+
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-white/5 hover:bg-white/10 transition-colors">
+          <span className="text-xs sm:text-sm font-medium text-gray-400">Esta semana</span>
+          <span className="text-xs sm:text-sm font-bold text-sky-400">{formatCurrency(recebidoSemana)}</span>
+        </div>
+
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-white/5 hover:bg-white/10 transition-colors">
+          <span className="text-xs sm:text-sm font-medium text-gray-400">Este mês</span>
+          <span className="text-xs sm:text-sm font-bold text-sky-400">{formatCurrency(recebidoMes)}</span>
         </div>
       </CardContent>
     </Card>

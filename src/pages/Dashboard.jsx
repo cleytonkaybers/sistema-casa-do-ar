@@ -172,16 +172,41 @@ export default function Dashboard() {
 
   // --- ADMIN STATS ---
   const adminResumoMes = React.useMemo(() => {
-    if (!isAdmin) return { receita: 0, despesas: 0, comissoes: 0 };
+    if (!isAdmin) return { faturadoMes: 0, faturadoSemana: 0, recebidoMes: 0, recebidoSemana: 0, comissoes: 0 };
     const hoje = getLocalDate();
     const inicioMes = startOfMonth(hoje);
     const fimMes = endOfMonth(hoje);
-    
-    // Receita: PagamentosClientes
-    const receita = pagamentosClientes.reduce((sum, pag) => {
+    const inicioSemana = getStartOfWeek();
+    const fimSemana = getEndOfWeek();
+
+    // Faturado: valor dos serviços concluídos (bruto)
+    const faturadoMes = servicos.filter(s => {
+      if (s.status !== 'concluido') return false;
+      const dataRef = s.data_conclusao || s.data_programada;
+      if (!dataRef) return false;
+      try {
+        const dt = toLocalDate(new Date(dataRef + 'T12:00:00'));
+        if (!dt) return false;
+        return isWithinInterval(dt, { start: inicioMes, end: fimMes });
+      } catch { return false; }
+    }).reduce((sum, s) => sum + (parseFloat(s.valor) || 0), 0);
+
+    const faturadoSemana = servicos.filter(s => {
+      if (s.status !== 'concluido') return false;
+      const dataRef = s.data_conclusao || s.data_programada;
+      if (!dataRef) return false;
+      try {
+        const dt = toLocalDate(new Date(dataRef + 'T12:00:00'));
+        if (!dt) return false;
+        return isWithinInterval(dt, { start: inicioSemana, end: fimSemana });
+      } catch { return false; }
+    }).reduce((sum, s) => sum + (parseFloat(s.valor) || 0), 0);
+
+    // Recebido: pagamentos efetivamente recebidos de clientes
+    const recebidoMes = pagamentosClientes.reduce((sum, pag) => {
       const pgs = pag.historico_pagamentos || [];
       const pagoNoMes = pgs.filter(p => {
-        if(!p.data || p.agendada) return false;
+        if (!p.data || p.agendada) return false;
         try {
           const dt = toLocalDate(new Date(p.data + 'T12:00:00'));
           if (!dt) return false;
@@ -191,6 +216,19 @@ export default function Dashboard() {
       return sum + pagoNoMes;
     }, 0);
 
+    const recebidoSemana = pagamentosClientes.reduce((sum, pag) => {
+      const pgs = pag.historico_pagamentos || [];
+      const pagoNaSemana = pgs.filter(p => {
+        if (!p.data || p.agendada) return false;
+        try {
+          const dt = toLocalDate(new Date(p.data + 'T12:00:00'));
+          if (!dt) return false;
+          return isWithinInterval(dt, { start: inicioSemana, end: fimSemana });
+        } catch { return false; }
+      }).reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
+      return sum + pagoNaSemana;
+    }, 0);
+
     const comissoes = lancamentosFinanceiros.filter(l => {
       if (!l.data_geracao) return false;
       const dataGeracao = toLocalDate(new Date(l.data_geracao));
@@ -198,15 +236,8 @@ export default function Dashboard() {
       return isWithinInterval(dataGeracao, { start: inicioMes, end: fimMes });
     }).reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
-    const despesas = lancamentosFinanceiros.filter(l => {
-      if (!l.data_geracao) return false;
-      const dataGeracao = toLocalDate(new Date(l.data_geracao));
-      if (!dataGeracao) return false;
-      return isWithinInterval(dataGeracao, { start: inicioMes, end: fimMes });
-    }).reduce((sum, l) => sum + (l.valor_comissao_equipe || 0), 0);
-
-    return { receita, despesas, comissoes };
-  }, [pagamentosClientes, lancamentosFinanceiros, isAdmin]);
+    return { faturadoMes, faturadoSemana, recebidoMes, recebidoSemana, comissoes };
+  }, [servicos, pagamentosClientes, lancamentosFinanceiros, isAdmin]);
 
   const adminTecnicosSemana = React.useMemo(() => {
     if (!isAdmin) return [];
@@ -405,8 +436,10 @@ export default function Dashboard() {
             <div className="md:col-span-1 flex flex-col order-first md:order-last">
               <ResumoMesAdminDashboard
                 servicosConcluidos={atendimentosDoMes.length}
-                receita={adminResumoMes.receita}
-                despesas={adminResumoMes.despesas}
+                faturadoMes={adminResumoMes.faturadoMes}
+                faturadoSemana={adminResumoMes.faturadoSemana}
+                recebidoMes={adminResumoMes.recebidoMes}
+                recebidoSemana={adminResumoMes.recebidoSemana}
                 comissoes={adminResumoMes.comissoes}
               />
             </div>
