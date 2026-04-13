@@ -8,7 +8,7 @@ import { Trophy, TrendingUp, Clock, Users, Award, Star, Wrench } from 'lucide-re
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { usePermissions } from '@/components/auth/PermissionGuard';
-import NoPermission from '@/components/NoPermission';
+import { useAuth } from '@/lib/AuthContext';
 
 const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
@@ -29,6 +29,8 @@ const MEDAL_CLASSES = [
 
 export default function RankingTecnicos() {
   const { isAdmin } = usePermissions();
+  const { user } = useAuth();
+  const isTecnico = !isAdmin;
   const [periodo, setPeriodo] = useState('mes');
 
   const hoje = new Date();
@@ -75,8 +77,6 @@ export default function RankingTecnicos() {
     queryKey: ['pagamentos-tec-ranking'],
     queryFn: () => base44.entities.PagamentoTecnico.list(),
   });
-
-  if (!isAdmin) return <NoPermission />;
 
   const isLoading = loadLanc || loadPag;
 
@@ -174,47 +174,49 @@ export default function RankingTecnicos() {
         </Select>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="bg-[#152236] border-white/5 rounded-2xl">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl bg-blue-500/15 flex items-center justify-center flex-shrink-0">
-              <Users className="w-5 h-5 text-blue-400" />
-            </div>
-            <div>
-              <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">Técnicos ativos</p>
-              <p className="text-2xl font-bold text-gray-100">{ranking.length}</p>
-              <p className="text-xs text-gray-500">{totalServicos} serviços no período</p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Summary cards — somente admin */}
+      {!isTecnico && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card className="bg-[#152236] border-white/5 rounded-2xl">
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-blue-500/15 flex items-center justify-center flex-shrink-0">
+                <Users className="w-5 h-5 text-blue-400" />
+              </div>
+              <div>
+                <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">Técnicos ativos</p>
+                <p className="text-2xl font-bold text-gray-100">{ranking.length}</p>
+                <p className="text-xs text-gray-500">{totalServicos} serviços no período</p>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-[#152236] border-white/5 rounded-2xl">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
-              <TrendingUp className="w-5 h-5 text-emerald-400" />
-            </div>
-            <div>
-              <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">Total comissões</p>
-              <p className="text-2xl font-bold text-emerald-400">{fmt(totalGeral)}</p>
-              {lider && <p className="text-xs text-gray-500">Líder: {lider.nome}</p>}
-            </div>
-          </CardContent>
-        </Card>
+          <Card className="bg-[#152236] border-white/5 rounded-2xl">
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">Total comissões</p>
+                <p className="text-2xl font-bold text-emerald-400">{fmt(totalGeral)}</p>
+                {lider && <p className="text-xs text-gray-500">Líder: {lider.nome}</p>}
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-[#152236] border-white/5 rounded-2xl">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl bg-amber-500/15 flex items-center justify-center flex-shrink-0">
-              <Clock className="w-5 h-5 text-amber-400" />
-            </div>
-            <div>
-              <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">A pagar (geral)</p>
-              <p className="text-2xl font-bold text-amber-400">{fmt(totalPendente)}</p>
-              <p className="text-xs text-gray-500">pendente acumulado</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="bg-[#152236] border-white/5 rounded-2xl">
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+                <Clock className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">A pagar (geral)</p>
+                <p className="text-2xl font-bold text-amber-400">{fmt(totalPendente)}</p>
+                <p className="text-xs text-gray-500">pendente acumulado</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Podium top 3 */}
       {ranking.length >= 2 && (
@@ -325,20 +327,24 @@ export default function RankingTecnicos() {
 
                     {/* Metrics */}
                     <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0 text-right">
-                      <div className="hidden sm:block">
-                        <p className="text-[9px] text-gray-600 uppercase font-bold tracking-wider">Ganho</p>
-                        <p className="text-sm font-bold text-emerald-400">{fmt(tec.total_ganho)}</p>
-                      </div>
+                      {!isTecnico && (
+                        <div className="hidden sm:block">
+                          <p className="text-[9px] text-gray-600 uppercase font-bold tracking-wider">Ganho</p>
+                          <p className="text-sm font-bold text-emerald-400">{fmt(tec.total_ganho)}</p>
+                        </div>
+                      )}
                       <div className="hidden sm:block">
                         <p className="text-[9px] text-gray-600 uppercase font-bold tracking-wider">Pago</p>
                         <p className="text-sm font-semibold text-blue-400">{fmt(tec.total_pago)}</p>
                       </div>
-                      <div>
-                        <p className="text-[9px] text-gray-600 uppercase font-bold tracking-wider">Pendente</p>
-                        <p className={`text-sm font-bold ${tec.pendente > 0 ? 'text-amber-400' : 'text-green-400'}`}>
-                          {fmt(tec.pendente)}
-                        </p>
-                      </div>
+                      {!isTecnico && (
+                        <div>
+                          <p className="text-[9px] text-gray-600 uppercase font-bold tracking-wider">Pendente</p>
+                          <p className={`text-sm font-bold ${tec.pendente > 0 ? 'text-amber-400' : 'text-green-400'}`}>
+                            {fmt(tec.pendente)}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
