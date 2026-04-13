@@ -49,10 +49,12 @@ export function SubscriptionBlocker({ children }) {
     verificarAssinatura();
   }, [authUser, authLoading]);
 
+  if (authLoading) return children;
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-purple-900">
-        <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
+      <div className="flex items-center justify-center min-h-screen bg-[#0d1826]">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
       </div>
     );
   }

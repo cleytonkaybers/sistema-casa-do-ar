@@ -21,11 +21,10 @@ export default function RelatoriosAutomaticosPage() {
   const [showGerarManual, setShowGerarManual] = useState(false);
   const queryClient = useQueryClient();
 
-  if (!isAdmin) return <NoPermission />;
-
   const { data: configuracoes = [], isLoading } = useQuery({
     queryKey: ['configuracoes-relatorio'],
     queryFn: () => base44.entities.ConfiguracaoRelatorio.list('-created_date'),
+    enabled: isAdmin,
   });
 
   const deleteMutation = useMutation({
@@ -45,6 +44,8 @@ export default function RelatoriosAutomaticosPage() {
     },
     onError: () => toast.error('Erro ao atualizar status'),
   });
+
+  if (!isAdmin) return <NoPermission />;
 
   const handleDelete = (config) => {
     if (confirm(`Excluir configuração "${config.nome}"?`)) {
