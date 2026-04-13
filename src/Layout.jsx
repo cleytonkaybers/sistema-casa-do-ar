@@ -23,7 +23,8 @@ import {
   RotateCw,
   ChevronRight,
   ChevronDown,
-  DollarSign } from
+  DollarSign,
+  Trophy } from
 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -105,6 +106,7 @@ function LayoutContent({ children }) {
       key: 'admin',
       label: 'Admin',
       items: [
+        { name: 'Ranking de Técnicos', href: '/RankingTecnicos', icon: Trophy },
         { name: 'Usuários', href: createPageUrl('Usuarios'), icon: Users },
         ...(isSuperAdmin() ? [{ name: 'Gerenciar Empresas', href: createPageUrl('GerenciarEmpresas'), icon: Database }] : []),
         { name: 'Logs de Auditoria', href: createPageUrl('LogsAuditoria'), icon: Database },

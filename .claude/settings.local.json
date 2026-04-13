@@ -11,7 +11,10 @@
       "Bash(netstat -ano)",
       "Bash(grep -E \"\\\\.jsx$\")",
       "Bash(xargs grep:*)",
-      "Bash(grep -l \"BackupRestaurer\" \"c:\\\\Users\\\\cleyt\\\\Desktop\\\\copia casa do ar antigravity/src\"/*.jsx \"c:\\\\Users\\\\cleyt\\\\Desktop\\\\copia casa do ar antigravity/src\"/*.js)"
+      "Bash(grep -l \"BackupRestaurer\" \"c:\\\\Users\\\\cleyt\\\\Desktop\\\\copia casa do ar antigravity/src\"/*.jsx \"c:\\\\Users\\\\cleyt\\\\Desktop\\\\copia casa do ar antigravity/src\"/*.js)",
+      "Bash(ls -la .app*)",
+      "Bash(ls -la *.jsonc)",
+      "Bash(ls -la .base44*)"
     ]
   }
 }

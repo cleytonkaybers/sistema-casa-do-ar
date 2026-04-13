@@ -1,7 +1,11 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Phone, MapPin, Calendar, MessageCircle, Navigation, Clock, DollarSign, CreditCard, CheckCircle, Play, CalendarClock, FileText } from 'lucide-react';
+import { Phone, MapPin, Calendar, MessageCircle, Navigation, Clock, DollarSign, CreditCard, CheckCircle, Play, CalendarClock, FileText, History, User } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const formatPhone = (phone) => {
   if (!phone) return '';
@@ -23,6 +27,12 @@ const getStatusConfig = (status) => {
 };
 
 export default function ServicoDetalhesModal({ open, onClose, servico }) {
+  const { data: logs = [] } = useQuery({
+    queryKey: ['log_auditoria_servico', servico?.id],
+    queryFn: () => base44.entities.LogAuditoria.filter({ entidade: 'Servico', entidade_id: servico.id }, '-created_date', 20),
+    enabled: open && !!servico?.id,
+  });
+
   if (!servico) return null;
 
   const statusConfig = getStatusConfig(servico.status || 'aberto');
@@ -152,6 +162,34 @@ export default function ServicoDetalhesModal({ open, onClose, servico }) {
               </div>
             )}
           </div>
+
+          {/* Histórico de alterações */}
+          {logs.length > 0 && (
+            <div className="border-t border-gray-100 pt-4">
+              <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-3">
+                <History className="w-3.5 h-3.5" />
+                Histórico de alterações
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {logs.map((log) => (
+                  <div key={log.id} className="flex gap-2.5 text-xs">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center mt-0.5">
+                      <User className="w-3 h-3 text-blue-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-gray-700 font-medium truncate">{log.usuario_nome || log.usuario_email}</p>
+                      <p className="text-gray-500 leading-relaxed">{log.observacao}</p>
+                      {log.created_date && (
+                        <p className="text-gray-400 mt-0.5">
+                          {format(new Date(log.created_date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

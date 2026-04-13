@@ -58,7 +58,7 @@ export default function ServicosPage() {
     mutationFn: async (data) => {
       const { sem_registro_cliente, ...servicoData } = data;
       const servico = await base44.entities.Servico.create(servicoData);
-      
+
       if (!sem_registro_cliente) {
         // Verificar duplicata por telefone OU por nome (normalizado)
         const telefoneLimpo = data.telefone?.replace(/\D/g, '') || '';
@@ -83,7 +83,29 @@ export default function ServicosPage() {
           toast.success('Cliente cadastrado automaticamente!');
         }
       }
-      
+
+      // Notificar membros da equipe atribuída
+      if (data.equipe_id) {
+        try {
+          const todosUsuarios = await base44.entities.User.list();
+          const membrosDaEquipe = todosUsuarios.filter(u => u.equipe_id === data.equipe_id);
+          await Promise.all(
+            membrosDaEquipe.map(u =>
+              base44.entities.Notificacao.create({
+                usuario_email: u.email,
+                titulo: 'Novo serviço atribuído',
+                mensagem: `${data.tipo_servico || 'Serviço'} para ${data.cliente_nome || 'cliente'}${data.data_programada ? ` em ${data.data_programada}` : ''}`,
+                tipo: 'novo_servico',
+                cliente_nome: data.cliente_nome || '',
+                lida: false,
+              })
+            )
+          );
+        } catch (_) {
+          // Falha em notificar não deve bloquear o cadastro
+        }
+      }
+
       return servico;
     },
     onSuccess: () => {
@@ -97,9 +119,36 @@ export default function ServicosPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Servico.update(id, data),
+    mutationFn: async ({ id, data, servicoAnterior }) => {
+      const result = await base44.entities.Servico.update(id, data);
+      // Registrar no histórico de alterações
+      try {
+        const me = await base44.auth.me();
+        const campos = Object.keys(data).filter(k => k !== 'usuario_atualizacao_status' && k !== 'data_atualizacao_status');
+        if (campos.length > 0) {
+          await base44.entities.LogAuditoria.create({
+            usuario_email: me?.email || '',
+            usuario_nome: me?.full_name || me?.email || '',
+            acao: 'atualizar',
+            entidade: 'Servico',
+            entidade_id: id,
+            dados_depois: JSON.stringify(data),
+            observacao: campos.map(k => {
+              const antes = servicoAnterior?.[k];
+              const depois = data[k];
+              return antes !== undefined && antes !== depois ? `${k}: "${antes}" → "${depois}"` : `${k}: "${depois}"`;
+            }).join('; '),
+            sucesso: true,
+          });
+        }
+      } catch (_) {
+        // Log failure must not block the update
+      }
+      return result;
+    },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['servicos'] });
+      queryClient.invalidateQueries({ queryKey: ['log_auditoria_servico', variables.id] });
       if (!variables.silencioso) {
         setShowForm(false);
         setEditingServico(null);

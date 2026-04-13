@@ -17,6 +17,7 @@ import GerenciarBackups from '@/pages/GerenciarBackups';
 import Cheques from '@/pages/Cheques';
 import PagamentosClientes from '@/pages/PagamentosClientes';
 import Agendamentos from '@/pages/Agendamentos';
+import RankingTecnicos from '@/pages/RankingTecnicos';
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -112,6 +113,11 @@ const AuthenticatedApp = () => {
         <Route path="/Agendamentos" element={
           <LayoutWrapper currentPageName="Agendamentos">
             <Agendamentos />
+          </LayoutWrapper>
+        } />
+        <Route path="/RankingTecnicos" element={
+          <LayoutWrapper currentPageName="RankingTecnicos">
+            <RankingTecnicos />
           </LayoutWrapper>
         } />
         <Route path="*" element={<PageNotFound />} />

@@ -95,7 +95,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
     google_maps_link: '',
     latitude: null,
     longitude: null,
-    tipos_servico: [{ tipo: 'Limpeza de 9k', quantidade: 1 }],
+    tipos_servico: [{ tipo: 'Limpeza de 9k', quantidade: 1, equipamento: '' }],
     dia_semana: '',
     data_programada: '',
     horario: '',
@@ -143,7 +143,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         google_maps_link: prefilledData.google_maps_link || '',
         latitude: prefilledData.latitude || null,
         longitude: prefilledData.longitude || null,
-        tipos_servico: [{ tipo: 'Limpeza de 9k', quantidade: 1 }],
+        tipos_servico: [{ tipo: 'Limpeza de 9k', quantidade: 1, equipamento: '' }],
         dia_semana: '',
         data_programada: '',
         horario: '',
@@ -163,7 +163,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         google_maps_link: '',
         latitude: null,
         longitude: null,
-        tipos_servico: [{ tipo: 'Limpeza de 9k', quantidade: 1 }],
+        tipos_servico: [{ tipo: 'Limpeza de 9k', quantidade: 1, equipamento: '' }],
         dia_semana: '',
         data_programada: '',
         horario: '',
@@ -185,11 +185,19 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
   }, [formData.tipos_servico, tiposServicoValores]);
 
   const parseTiposServico = (tipoServicoStr) => {
-    if (!tipoServicoStr) return [{ tipo: 'Limpeza de 9k', quantidade: 1 }];
+    if (!tipoServicoStr) return [{ tipo: 'Limpeza de 9k', quantidade: 1, equipamento: '' }];
     const partes = tipoServicoStr.split(' + ').filter(Boolean);
+    const chaves = [];
     const contagem = {};
-    partes.forEach(p => { contagem[p] = (contagem[p] || 0) + 1; });
-    return Object.entries(contagem).map(([tipo, quantidade]) => ({ tipo, quantidade }));
+    partes.forEach(p => {
+      const match = p.match(/^(.+?)\s*\[(.+)\]$/);
+      const tipo = match ? match[1].trim() : p.trim();
+      const equipamento = match ? match[2].trim() : '';
+      const key = `${tipo}||${equipamento}`;
+      if (!contagem[key]) { contagem[key] = { tipo, quantidade: 0, equipamento }; chaves.push(key); }
+      contagem[key].quantidade += 1;
+    });
+    return chaves.map(k => contagem[k]);
   };
 
   const formatPhoneInput = (value) => {
@@ -343,9 +351,15 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
 
     const equipeSelecionada = equipes.find(e => e.id === formData.equipe_id);
 
-    const tiposExpandidos = formData.tipos_servico.flatMap(item =>
-      Array(Number(item.quantidade) || 1).fill(item.tipo)
-    );
+    const tiposExpandidos = formData.tipos_servico.flatMap(item => {
+      const label = item.equipamento ? `${item.tipo} [${item.equipamento}]` : item.tipo;
+      return Array(Number(item.quantidade) || 1).fill(label);
+    });
+
+    const equipamentoGlobal = formData.tipos_servico
+      .map(item => item.equipamento)
+      .filter(Boolean)
+      .join(' | ') || null;
 
     const telLimpo = (formData.telefone || '').replace(/\D/g, '');
     const telefoneFinal = telLimpo
@@ -361,7 +375,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
       equipe_id: formData.equipe_id || null,
       equipe_nome: equipeSelecionada?.nome || null,
       sem_registro_cliente: semRegistroCliente,
-      equipamento: formData.equipamento || null,
+      equipamento: equipamentoGlobal,
       google_maps_link: formData.google_maps_link || null
     };
     delete dataToSave.tipos_servico;
@@ -548,91 +562,107 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
               <div className="space-y-1">
                 <Label className={labelDark}>Tipo de Serviço *</Label>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {formData.tipos_servico.map((item, index) => (
-                    <div key={index} className="flex gap-2 items-center">
-                      <Select
-                        value={item.tipo}
-                        onValueChange={(value) => {
-                          const newTipos = [...formData.tipos_servico];
-                          newTipos[index] = { ...newTipos[index], tipo: value };
-                          setFormData({ ...formData, tipos_servico: newTipos });
-                          setServicoSearch('');
-                        }}
-                      >
-                        <SelectTrigger className={`flex-1 ${selectDark}`}>
-                          <SelectValue placeholder="Selecione o serviço" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-[#1e2a3a] border-[#2d3f55] text-white max-h-80">
-                          <div className="sticky top-0 bg-[#1e2a3a] border-b border-[#2d3f55] p-2">
-                            <Input
-                              placeholder="Buscar serviço..."
-                              value={servicoSearch}
-                              onChange={(e) => setServicoSearch(e.target.value)}
-                              className={`h-8 text-sm ${inputDark}`}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          </div>
-                          <div className="max-h-64 overflow-y-auto">
-                            {servicosFiltrados.map(s => (
-                              <SelectItem key={s} value={s} className="text-white hover:bg-white/10">{s}</SelectItem>
-                            ))}
-                          </div>
-                        </SelectContent>
-                      </Select>
+                    <div key={index} className="rounded-lg border border-[#2d3f55] bg-[#152236] p-2.5 space-y-2">
+                      {/* Linha 1: Select + Quantidade + Remover */}
+                      <div className="flex gap-2 items-center">
+                        <Select
+                          value={item.tipo}
+                          onValueChange={(value) => {
+                            const newTipos = [...formData.tipos_servico];
+                            newTipos[index] = { ...newTipos[index], tipo: value };
+                            setFormData({ ...formData, tipos_servico: newTipos });
+                            setServicoSearch('');
+                          }}
+                        >
+                          <SelectTrigger className={`flex-1 ${selectDark}`}>
+                            <SelectValue placeholder="Selecione o serviço" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#1e2a3a] border-[#2d3f55] text-white max-h-80">
+                            <div className="sticky top-0 bg-[#1e2a3a] border-b border-[#2d3f55] p-2">
+                              <Input
+                                placeholder="Buscar serviço..."
+                                value={servicoSearch}
+                                onChange={(e) => setServicoSearch(e.target.value)}
+                                className={`h-8 text-sm ${inputDark}`}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                            <div className="max-h-64 overflow-y-auto">
+                              {servicosFiltrados.map(s => (
+                                <SelectItem key={s} value={s} className="text-white hover:bg-white/10">{s}</SelectItem>
+                              ))}
+                            </div>
+                          </SelectContent>
+                        </Select>
 
-                      {/* Quantidade */}
-                      <div className="flex items-center gap-1">
-                        <Button
-                          type="button" variant="outline" size="icon"
-                          className="h-9 w-9 border-[#2d3f55] bg-[#1e2a3a] text-white hover:bg-white/10"
-                          onClick={() => {
-                            const newTipos = [...formData.tipos_servico];
-                            newTipos[index] = { ...newTipos[index], quantidade: Math.max(1, (Number(item.quantidade) || 1) - 1) };
-                            setFormData({ ...formData, tipos_servico: newTipos });
-                          }}
-                          disabled={item.quantidade <= 1}
-                        >
-                          <Minus className="w-3 h-3" />
-                        </Button>
-                        <Input
-                          type="number" min={1} max={99}
-                          value={item.quantidade}
-                          onChange={(e) => {
-                            const newTipos = [...formData.tipos_servico];
-                            newTipos[index] = { ...newTipos[index], quantidade: Math.max(1, Math.min(99, parseInt(e.target.value) || 1)) };
-                            setFormData({ ...formData, tipos_servico: newTipos });
-                          }}
-                          className={`w-12 text-center font-bold px-1 ${inputDark}`}
-                        />
-                        <Button
-                          type="button" variant="outline" size="icon"
-                          className="h-9 w-9 border-[#2d3f55] bg-[#1e2a3a] text-white hover:bg-white/10"
-                          onClick={() => {
-                            const newTipos = [...formData.tipos_servico];
-                            newTipos[index] = { ...newTipos[index], quantidade: Math.min(99, (Number(item.quantidade) || 1) + 1) };
-                            setFormData({ ...formData, tipos_servico: newTipos });
-                          }}
-                          disabled={item.quantidade >= 99}
-                        >
-                          <Plus className="w-3 h-3" />
-                        </Button>
+                        {/* Quantidade */}
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button" variant="outline" size="icon"
+                            className="h-9 w-9 border-[#2d3f55] bg-[#1e2a3a] text-white hover:bg-white/10"
+                            onClick={() => {
+                              const newTipos = [...formData.tipos_servico];
+                              newTipos[index] = { ...newTipos[index], quantidade: Math.max(1, (Number(item.quantidade) || 1) - 1) };
+                              setFormData({ ...formData, tipos_servico: newTipos });
+                            }}
+                            disabled={item.quantidade <= 1}
+                          >
+                            <Minus className="w-3 h-3" />
+                          </Button>
+                          <Input
+                            type="number" min={1} max={99}
+                            value={item.quantidade}
+                            onChange={(e) => {
+                              const newTipos = [...formData.tipos_servico];
+                              newTipos[index] = { ...newTipos[index], quantidade: Math.max(1, Math.min(99, parseInt(e.target.value) || 1)) };
+                              setFormData({ ...formData, tipos_servico: newTipos });
+                            }}
+                            className={`w-12 text-center font-bold px-1 ${inputDark}`}
+                          />
+                          <Button
+                            type="button" variant="outline" size="icon"
+                            className="h-9 w-9 border-[#2d3f55] bg-[#1e2a3a] text-white hover:bg-white/10"
+                            onClick={() => {
+                              const newTipos = [...formData.tipos_servico];
+                              newTipos[index] = { ...newTipos[index], quantidade: Math.min(99, (Number(item.quantidade) || 1) + 1) };
+                              setFormData({ ...formData, tipos_servico: newTipos });
+                            }}
+                            disabled={item.quantidade >= 99}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </Button>
+                        </div>
+
+                        {formData.tipos_servico.length > 1 && (
+                          <Button
+                            type="button" variant="outline" size="icon"
+                            onClick={() => setFormData({ ...formData, tipos_servico: formData.tipos_servico.filter((_, i) => i !== index) })}
+                            className="h-9 w-9 border-red-800 bg-red-900/30 text-red-400 hover:bg-red-900/50"
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        )}
                       </div>
 
-                      {formData.tipos_servico.length > 1 && (
-                        <Button
-                          type="button" variant="outline" size="icon"
-                          onClick={() => setFormData({ ...formData, tipos_servico: formData.tipos_servico.filter((_, i) => i !== index) })}
-                          className="h-9 w-9 border-red-800 bg-red-900/30 text-red-400 hover:bg-red-900/50"
-                        >
-                          <X className="w-3 h-3" />
-                        </Button>
-                      )}
+                      {/* Linha 2: Equipamento */}
+                      <Input
+                        value={item.equipamento || ''}
+                        onChange={(e) => {
+                          const newTipos = [...formData.tipos_servico];
+                          newTipos[index] = { ...newTipos[index], equipamento: e.target.value };
+                          setFormData({ ...formData, tipos_servico: newTipos });
+                        }}
+                        placeholder="Equipamento (ex: Sala, Quarto, 9.000 BTUs...)"
+                        className={`h-8 text-sm ${inputDark}`}
+                      />
                     </div>
                   ))}
                   <Button
                     type="button" variant="outline"
-                    onClick={() => setFormData({ ...formData, tipos_servico: [...formData.tipos_servico, { tipo: servicosFiltrados[0] || 'Limpeza de 9k', quantidade: 1 }] })}
+                    onClick={() => setFormData({ ...formData, tipos_servico: [...formData.tipos_servico, { tipo: servicosFiltrados[0] || 'Limpeza de 9k', quantidade: 1, equipamento: '' }] })}
                     className="w-full border-dashed border-[#2d3f55] bg-transparent text-gray-400 hover:bg-white/5 hover:text-white text-xs"
                   >
                     <Plus className="w-3 h-3 mr-1" /> Adicionar tipo de serviço
@@ -665,38 +695,26 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
               </div>
             </div>
 
-            {/* Equipe + Equipamento */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {equipes.length > 0 && isAdmin && (
-                <div className="space-y-1">
-                  <Label className={labelDark}>Equipe Responsável *</Label>
-                  <Select
-                    value={formData.equipe_id || 'sem-equipe'}
-                    onValueChange={(value) => setFormData({ ...formData, equipe_id: value === 'sem-equipe' ? '' : value })}
-                  >
-                    <SelectTrigger className={selectDark}>
-                      <SelectValue placeholder="Selecione a equipe" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#1e2a3a] border-[#2d3f55] text-white">
-                      <SelectItem value="sem-equipe" className="text-gray-400">Sem equipe específica</SelectItem>
-                      {equipes.map(eq => (
-                        <SelectItem key={eq.id} value={eq.id} className="text-white hover:bg-white/10">{eq.nome}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
+            {/* Equipe */}
+            {equipes.length > 0 && isAdmin && (
               <div className="space-y-1">
-                <Label className={labelDark}>Equipamento (opcional)</Label>
-                <Input
-                  value={formData.equipamento}
-                  onChange={(e) => setFormData({ ...formData, equipamento: e.target.value })}
-                  placeholder="Ex: Ar 9.000 BTUs, Split..."
-                  className={inputDark}
-                />
+                <Label className={labelDark}>Equipe Responsável *</Label>
+                <Select
+                  value={formData.equipe_id || 'sem-equipe'}
+                  onValueChange={(value) => setFormData({ ...formData, equipe_id: value === 'sem-equipe' ? '' : value })}
+                >
+                  <SelectTrigger className={selectDark}>
+                    <SelectValue placeholder="Selecione a equipe" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1e2a3a] border-[#2d3f55] text-white">
+                    <SelectItem value="sem-equipe" className="text-gray-400">Sem equipe específica</SelectItem>
+                    {equipes.map(eq => (
+                      <SelectItem key={eq.id} value={eq.id} className="text-white hover:bg-white/10">{eq.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
+            )}
           </div>
 
           {/* ── SEÇÃO: Agendamento ── */}
@@ -725,6 +743,18 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                   onChange={(time) => setFormData({ ...formData, horario: time })}
                 />
               </div>
+            </div>
+
+            {/* OBS para os técnicos */}
+            <div className="space-y-1">
+              <Label className={labelDark}>OBS (observações para os técnicos)</Label>
+              <Textarea
+                value={formData.descricao}
+                onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+                placeholder="Ex: Portão azul, ligar antes de chegar, morador só à tarde..."
+                rows={3}
+                className={`resize-none ${inputDark}`}
+              />
             </div>
 
             {/* Horário fixo checkbox */}
