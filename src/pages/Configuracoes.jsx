@@ -40,20 +40,13 @@ export default function ConfiguracoesPage() {
     },
   });
 
-  const { data: pdfSettings = null } = useQuery({
-    queryKey: ['pdfSettings'],
-    queryFn: async () => {
-      const result = await base44.entities.PDFSettings.list();
-      return result.length > 0 ? result[0] : null;
-    },
-  });
-
   const [formData, setFormData] = useState({
     company_name: '',
     company_icon: 'Snowflake',
     company_logo_url: '',
   });
-  const [bannerUrl, setBannerUrl] = useState('');
+  // Banner lido diretamente do localStorage ao montar
+  const [bannerUrl, setBannerUrl] = useState(() => localStorage.getItem('casadoar_pdf_banner_url') || '');
   const [uploading, setUploading] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
 
@@ -66,12 +59,6 @@ export default function ConfiguracoesPage() {
       });
     }
   }, [settings]);
-
-  useEffect(() => {
-    if (pdfSettings) {
-      setBannerUrl(pdfSettings.banner_url || '');
-    }
-  }, [pdfSettings]);
 
   const updateMutation = useMutation({
     mutationFn: async (data) => {
@@ -108,28 +95,32 @@ export default function ConfiguracoesPage() {
     setUploadingBanner(true);
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      // 1. Salva no localStorage imediatamente (garantido)
+      const { saveBannerUrl } = await import('@/lib/pdfBanner');
+      saveBannerUrl(file_url);
       setBannerUrl(file_url);
-      // Salva imediatamente na entidade PDFSettings
-      if (pdfSettings?.id) {
-        await base44.entities.PDFSettings.update(pdfSettings.id, { banner_url: file_url });
-      } else {
-        await base44.entities.PDFSettings.create({ banner_url: file_url });
-      }
-      queryClient.invalidateQueries({ queryKey: ['pdfSettings'] });
-      // Limpa cache do utilitário para forçar releitura na próxima geração de PDF
-      const { clearBannerCache } = await import('@/lib/pdfBanner');
-      clearBannerCache();
+      // 2. Tenta salvar também na entidade PDFSettings (backup cross-device)
+      try {
+        const existing = await base44.entities.PDFSettings.list();
+        if (existing.length > 0) {
+          await base44.entities.PDFSettings.update(existing[0].id, { banner_url: file_url });
+        } else {
+          await base44.entities.PDFSettings.create({ banner_url: file_url });
+        }
+      } catch { /* entidade pode não existir ainda — localStorage já garante */ }
       toast.success('Banner salvo com sucesso!');
-    } catch { toast.error('Erro ao carregar o banner'); }
+    } catch { toast.error('Erro ao fazer upload do banner'); }
     finally { setUploadingBanner(false); }
   };
 
   const handleRemoveBanner = async () => {
+    const { saveBannerUrl } = await import('@/lib/pdfBanner');
+    saveBannerUrl('');
     setBannerUrl('');
     try {
-      if (pdfSettings?.id) {
-        await base44.entities.PDFSettings.update(pdfSettings.id, { banner_url: '' });
-        queryClient.invalidateQueries({ queryKey: ['pdfSettings'] });
+      const existing = await base44.entities.PDFSettings.list();
+      if (existing.length > 0) {
+        await base44.entities.PDFSettings.update(existing[0].id, { banner_url: '' });
       }
     } catch { /* silent */ }
   };
