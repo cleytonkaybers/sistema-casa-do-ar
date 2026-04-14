@@ -378,8 +378,12 @@ export default function RelatorioComissoes() {
     let tecLista = [];
     if (modoLanc === 'equipe') {
       if (!novoLanc.equipe_id) { toast.error('Selecione uma equipe'); return; }
-      tecLista = tecnicos.filter(t => t.equipe_id === novoLanc.equipe_id);
-      if (tecLista.length === 0) { toast.error('Nenhum técnico encontrado para esta equipe'); return; }
+      tecLista = tecnicos.filter(t => t.equipe_nome === novoLanc.equipe_id);
+      if (tecLista.length === 0) {
+        toast.error(`Nenhum técnico na equipe "${novoLanc.equipe_id}". Verifique o cadastro.`);
+        console.warn('[Comissão] tecnicos carregados:', tecnicos.map(t => ({ nome: t.tecnico_nome, equipe_nome: t.equipe_nome })));
+        return;
+      }
     } else {
       const tec = tecnicos.find(t => t.tecnico_id === novoLanc.tecnico_id);
       if (!tec) { toast.error('Selecione um técnico'); return; }
@@ -391,9 +395,10 @@ export default function RelatorioComissoes() {
       const agora = novoLanc.data_geracao ? new Date(novoLanc.data_geracao + 'T12:00:00').toISOString() : new Date().toISOString();
       const comissao = valor * 0.15;
 
-      await Promise.all(tecLista.map(async (tec) => {
-        // Criar lançamento
+      for (const tec of tecLista) {
+        // Criar lançamento — tecnico_id deve ser o email do técnico (usado em MeuFinanceiro)
         await base44.entities.LancamentoFinanceiro.create({
+          servico_id: 'MANUAL',
           tecnico_id: tec.tecnico_id,
           tecnico_nome: tec.tecnico_nome,
           equipe_id: tec.equipe_id || '',
@@ -409,20 +414,31 @@ export default function RelatorioComissoes() {
           data_geracao: agora,
           usuario_geracao: user?.email || '',
         });
-        // Sincronizar crédito no financeiro do técnico
-        await base44.entities.TecnicoFinanceiro.update(tec.id, {
-          credito_pendente: (tec.credito_pendente || 0) + comissao,
-          total_ganho: (tec.total_ganho || 0) + comissao,
-        });
-      }));
+
+        // Sincronizar crédito no financeiro do técnico (buscar registro atualizado)
+        try {
+          const tecRegs = await base44.entities.TecnicoFinanceiro.filter({ tecnico_id: tec.tecnico_id });
+          if (tecRegs && tecRegs.length > 0) {
+            const tr = tecRegs[0];
+            await base44.entities.TecnicoFinanceiro.update(tr.id, {
+              credito_pendente: (tr.credito_pendente || 0) + comissao,
+              total_ganho: (tr.total_ganho || 0) + comissao,
+            });
+          }
+        } catch (err2) {
+          console.error('[Comissão] Erro ao atualizar TecnicoFinanceiro:', err2);
+        }
+      }
 
       queryClient.invalidateQueries({ queryKey: ['lancamentos-financeiros'] });
       queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro'] });
+      queryClient.invalidateQueries({ queryKey: ['minhasComissoes'] });
       toast.success(`${tecLista.length} lançamento(s) adicionado(s) — R$ ${comissao.toFixed(2)} cada!`);
       setModalOpen(false);
       setNovoLanc({ equipe_id: '', tecnico_id: '', cliente_nome: '', tipo_servico: '', valor_servico: '', data_geracao: new Date().toISOString().slice(0,10) });
     } catch (err) {
-      toast.error('Erro ao salvar: ' + (err?.message || err));
+      console.error('[Comissão] Erro ao salvar lançamento:', err);
+      toast.error('Erro ao salvar: ' + (err?.message || String(err)), { duration: 8000 });
     } finally { setSalvando(false); }
   };
 
@@ -430,13 +446,18 @@ export default function RelatorioComissoes() {
     if (!confirm(`Remover lançamento de ${lanc.tecnico_nome} — ${lanc.cliente_nome} (${fmt(lanc.valor_comissao_tecnico)})?`)) return;
     try {
       await base44.entities.LancamentoFinanceiro.delete(lanc.id);
-      // Reverter crédito do técnico
-      const tec = tecnicos.find(t => t.tecnico_id === lanc.tecnico_id);
-      if (tec) {
-        await base44.entities.TecnicoFinanceiro.update(tec.id, {
-          credito_pendente: Math.max(0, (tec.credito_pendente || 0) - (lanc.valor_comissao_tecnico || 0)),
-          total_ganho: Math.max(0, (tec.total_ganho || 0) - (lanc.valor_comissao_tecnico || 0)),
-        });
+      // Reverter crédito do técnico (buscar registro atualizado para evitar race condition)
+      try {
+        const tecRegs = await base44.entities.TecnicoFinanceiro.filter({ tecnico_id: lanc.tecnico_id });
+        if (tecRegs && tecRegs.length > 0) {
+          const tr = tecRegs[0];
+          await base44.entities.TecnicoFinanceiro.update(tr.id, {
+            credito_pendente: Math.max(0, (tr.credito_pendente || 0) - (lanc.valor_comissao_tecnico || 0)),
+            total_ganho: Math.max(0, (tr.total_ganho || 0) - (lanc.valor_comissao_tecnico || 0)),
+          });
+        }
+      } catch (err2) {
+        console.error('[Comissão] Erro ao reverter TecnicoFinanceiro:', err2);
       }
       queryClient.invalidateQueries({ queryKey: ['lancamentos-financeiros'] });
       toast.success('Lançamento removido');
@@ -759,11 +780,11 @@ export default function RelatorioComissoes() {
                 >
                   <option value="">Selecione a equipe</option>
                   {equipes.map(eq => (
-                    <option key={eq.id} value={eq.id}>{eq.nome}</option>
+                    <option key={eq.id} value={eq.nome}>{eq.nome}</option>
                   ))}
                 </select>
                 {novoLanc.equipe_id && (() => {
-                  const membros = tecnicos.filter(t => t.equipe_id === novoLanc.equipe_id);
+                  const membros = tecnicos.filter(t => t.equipe_nome === novoLanc.equipe_id);
                   return membros.length > 0 ? (
                     <p className="text-xs text-emerald-600 mt-1.5">
                       ✓ Lançamento para {membros.length} técnico(s): {membros.map(m => m.tecnico_nome).join(', ')}
