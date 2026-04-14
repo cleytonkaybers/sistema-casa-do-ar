@@ -10,9 +10,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, MapPin, Phone, User, Calendar, Clock, Search, X, MessageCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, MapPin, Phone, User, Calendar, Clock, Search, X, MessageCircle, ClipboardList } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import ServicoForm from '@/components/servicos/ServicoForm';
+import { toast } from 'sonner';
+import { usePermissions } from '@/components/auth/PermissionGuard';
 
 const STATUS_CONFIG = {
   agendado:   { label: 'Agendado',   color: 'bg-blue-100 text-blue-700 border-blue-200' },
@@ -128,13 +131,21 @@ function AgendamentoForm({ open, onClose, inicial, onSave }) {
 
 export default function Agendamentos() {
   const queryClient = useQueryClient();
+  const { isAdmin } = usePermissions();
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
+  const [novoServicoOpen, setNovoServicoOpen] = useState(false);
+  const [novoServicoData, setNovoServicoData] = useState(null);
 
   const { data: agendamentos = [], isLoading } = useQuery({
     queryKey: ['agendamentos'],
     queryFn: () => base44.entities.Agendamento.list('-data_agendamento'),
+  });
+
+  const { data: equipes = [] } = useQuery({
+    queryKey: ['equipes'],
+    queryFn: () => base44.entities.Equipe.list(),
   });
 
   const createMut = useMutation({
@@ -163,6 +174,37 @@ export default function Agendamentos() {
   const handleEdit = (ag) => { setEditItem(ag); setFormOpen(true); };
   const handleNew = () => { setEditItem(null); setFormOpen(true); };
   const handleClose = () => { setFormOpen(false); setEditItem(null); };
+
+  const handleCriarServico = (ag) => {
+    setNovoServicoData({
+      cliente_nome: ag.nome || '',
+      telefone: ag.telefone || '',
+      endereco: ag.localizacao || '',
+      descricao: ag.observacoes || '',
+      data_programada: ag.data_agendamento || '',
+      horario: ag.horario || '',
+      tipos_servico: ag.tipo_servico
+        ? [{ tipo: ag.tipo_servico, quantidade: 1, equipamento: '' }]
+        : [{ tipo: 'Limpeza de 9k', quantidade: 1, equipamento: '' }],
+    });
+    setNovoServicoOpen(true);
+  };
+
+  const handleSalvarNovoServico = async (data) => {
+    try {
+      const { sem_registro_cliente, tipos_servico, ...rest } = data;
+      const tipoStr = Array.isArray(tipos_servico)
+        ? tipos_servico.map(t => `${t.quantidade || 1}x ${t.tipo}`).join(', ')
+        : '';
+      await base44.entities.Servico.create({ ...rest, tipo_servico: tipoStr, status: 'aberto' });
+      queryClient.invalidateQueries({ queryKey: ['servicos'] });
+      toast.success('Serviço criado com sucesso!');
+      setNovoServicoOpen(false);
+      setNovoServicoData(null);
+    } catch (err) {
+      toast.error('Erro ao criar serviço');
+    }
+  };
 
   const lista = agendamentos.filter(a =>
     !search ||
@@ -303,6 +345,13 @@ export default function Agendamentos() {
                           {formatPhone(ag.telefone)}
                         </a>
                         <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleCriarServico(ag)}
+                            title="Criar serviço com dados deste agendamento"
+                            className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-500 hover:text-emerald-700 transition-colors"
+                          >
+                            <ClipboardList className="w-3.5 h-3.5" />
+                          </button>
                           <button onClick={() => handleEdit(ag)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 transition-colors">
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
@@ -325,6 +374,15 @@ export default function Agendamentos() {
         onClose={handleClose}
         inicial={editItem}
         onSave={handleSave}
+      />
+
+      <ServicoForm
+        open={novoServicoOpen}
+        onClose={() => { setNovoServicoOpen(false); setNovoServicoData(null); }}
+        onSave={handleSalvarNovoServico}
+        prefilledData={novoServicoData}
+        equipes={equipes}
+        isAdmin={isAdmin}
       />
     </div>
   );
