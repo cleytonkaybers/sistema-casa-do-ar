@@ -305,6 +305,11 @@ export default function RelatorioComissoes() {
     queryFn: () => base44.entities.Equipe.list(),
   });
 
+  const { data: tiposServico = [] } = useQuery({
+    queryKey: ['tipos-servico-valor'],
+    queryFn: () => base44.entities.TipoServicoValor.list(),
+  });
+
   const lancamentosFiltrados = useMemo(() => {
     return lancamentos.filter(lanc => {
       const dataLanc = new Date(lanc.data_geracao);
@@ -822,7 +827,26 @@ export default function RelatorioComissoes() {
             </div>
             <div>
               <Label className="text-xs text-gray-500 mb-1 block">Tipo de Serviço</Label>
-              <Input placeholder="Ex: Limpeza de 9k, Instalação de 12k..." value={novoLanc.tipo_servico} onChange={e => setNovoLanc(f => ({ ...f, tipo_servico: e.target.value }))} />
+              <select
+                className="w-full border border-gray-200 rounded-md h-10 px-3 text-sm bg-white"
+                value={novoLanc.tipo_servico}
+                onChange={e => {
+                  const tipo = e.target.value;
+                  const tabela = tiposServico.find(t => t.tipo_servico === tipo);
+                  setNovoLanc(f => ({
+                    ...f,
+                    tipo_servico: tipo,
+                    valor_servico: tabela?.valor_tabela ? String(tabela.valor_tabela) : f.valor_servico,
+                  }));
+                }}
+              >
+                <option value="">Selecione o tipo de serviço</option>
+                {tiposServico.filter(t => t.ativo !== false).map(t => (
+                  <option key={t.id} value={t.tipo_servico}>
+                    {t.tipo_servico}{t.valor_tabela ? ` — R$ ${t.valor_tabela.toFixed(2).replace('.', ',')}` : ''}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
