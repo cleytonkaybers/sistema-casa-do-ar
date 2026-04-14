@@ -398,6 +398,7 @@ export default function RelatorioComissoes() {
       for (const tec of tecLista) {
         // Criar lançamento — tecnico_id deve ser o email do técnico (usado em MeuFinanceiro)
         await base44.entities.LancamentoFinanceiro.create({
+          servico_id: '-',
           tecnico_id: tec.tecnico_id,
           tecnico_nome: tec.tecnico_nome,
           equipe_id: tec.equipe_id || '',
