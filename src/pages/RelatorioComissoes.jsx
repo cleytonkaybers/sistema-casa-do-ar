@@ -273,7 +273,8 @@ export default function RelatorioComissoes() {
   const [dataFim, setDataFim] = useState('');
   const [tecnicoFiltro, setTecnicoFiltro] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [novoLanc, setNovoLanc] = useState({ tecnico_id: '', cliente_nome: '', tipo_servico: '', valor_servico: '', data_geracao: new Date().toISOString().slice(0,10) });
+  const [modoLanc, setModoLanc] = useState('equipe'); // 'equipe' | 'tecnico'
+  const [novoLanc, setNovoLanc] = useState({ equipe_id: '', tecnico_id: '', cliente_nome: '', tipo_servico: '', valor_servico: '', data_geracao: new Date().toISOString().slice(0,10) });
   const [salvando, setSalvando] = useState(false);
 
   React.useEffect(() => {
@@ -369,40 +370,57 @@ export default function RelatorioComissoes() {
   }, [ganhosSemanais, equipesNomes]);
 
   const handleSalvarLancamento = async () => {
-    const tec = tecnicos.find(t => t.tecnico_id === novoLanc.tecnico_id);
-    if (!tec) { toast.error('Selecione um técnico'); return; }
     const valor = parseFloat(novoLanc.valor_servico);
     if (!valor || isNaN(valor)) { toast.error('Informe o valor do serviço'); return; }
     if (!novoLanc.cliente_nome.trim()) { toast.error('Informe o cliente'); return; }
+
+    // Determinar lista de técnicos que vão receber o lançamento
+    let tecLista = [];
+    if (modoLanc === 'equipe') {
+      if (!novoLanc.equipe_id) { toast.error('Selecione uma equipe'); return; }
+      tecLista = tecnicos.filter(t => t.equipe_id === novoLanc.equipe_id);
+      if (tecLista.length === 0) { toast.error('Nenhum técnico encontrado para esta equipe'); return; }
+    } else {
+      const tec = tecnicos.find(t => t.tecnico_id === novoLanc.tecnico_id);
+      if (!tec) { toast.error('Selecione um técnico'); return; }
+      tecLista = [tec];
+    }
+
     setSalvando(true);
     try {
       const agora = novoLanc.data_geracao ? new Date(novoLanc.data_geracao + 'T12:00:00').toISOString() : new Date().toISOString();
-      await base44.entities.LancamentoFinanceiro.create({
-        tecnico_id: tec.tecnico_id,
-        tecnico_nome: tec.tecnico_nome,
-        equipe_id: tec.equipe_id || '',
-        equipe_nome: tec.equipe_nome || '',
-        cliente_nome: novoLanc.cliente_nome.trim(),
-        tipo_servico: novoLanc.tipo_servico.trim() || 'Serviço',
-        valor_total_servico: valor,
-        percentual_tecnico: 15,
-        valor_comissao_tecnico: valor * 0.15,
-        percentual_equipe: 30,
-        valor_comissao_equipe: valor * 0.3,
-        status: 'pendente',
-        data_geracao: agora,
-        usuario_geracao: user?.email || '',
-      });
-      // Atualizar crédito pendente do técnico
-      await base44.entities.TecnicoFinanceiro.update(tec.id, {
-        credito_pendente: (tec.credito_pendente || 0) + valor * 0.15,
-        total_ganho: (tec.total_ganho || 0) + valor * 0.15,
-      });
+      const comissao = valor * 0.15;
+
+      await Promise.all(tecLista.map(async (tec) => {
+        // Criar lançamento
+        await base44.entities.LancamentoFinanceiro.create({
+          tecnico_id: tec.tecnico_id,
+          tecnico_nome: tec.tecnico_nome,
+          equipe_id: tec.equipe_id || '',
+          equipe_nome: tec.equipe_nome || '',
+          cliente_nome: novoLanc.cliente_nome.trim(),
+          tipo_servico: novoLanc.tipo_servico.trim() || 'Serviço',
+          valor_total_servico: valor,
+          percentual_tecnico: 15,
+          valor_comissao_tecnico: comissao,
+          percentual_equipe: 30,
+          valor_comissao_equipe: valor * 0.3,
+          status: 'pendente',
+          data_geracao: agora,
+          usuario_geracao: user?.email || '',
+        });
+        // Sincronizar crédito no financeiro do técnico
+        await base44.entities.TecnicoFinanceiro.update(tec.id, {
+          credito_pendente: (tec.credito_pendente || 0) + comissao,
+          total_ganho: (tec.total_ganho || 0) + comissao,
+        });
+      }));
+
       queryClient.invalidateQueries({ queryKey: ['lancamentos-financeiros'] });
       queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro'] });
-      toast.success('Lançamento adicionado!');
+      toast.success(`${tecLista.length} lançamento(s) adicionado(s) — R$ ${comissao.toFixed(2)} cada!`);
       setModalOpen(false);
-      setNovoLanc({ tecnico_id: '', cliente_nome: '', tipo_servico: '', valor_servico: '', data_geracao: new Date().toISOString().slice(0,10) });
+      setNovoLanc({ equipe_id: '', tecnico_id: '', cliente_nome: '', tipo_servico: '', valor_servico: '', data_geracao: new Date().toISOString().slice(0,10) });
     } catch (err) {
       toast.error('Erro ao salvar: ' + (err?.message || err));
     } finally { setSalvando(false); }
@@ -713,19 +731,62 @@ export default function RelatorioComissoes() {
             <DialogTitle>Adicionar Lançamento de Comissão</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <div>
-              <Label className="text-xs text-gray-500 mb-1 block">Técnico *</Label>
-              <select
-                className="w-full border border-gray-200 rounded-md h-10 px-3 text-sm bg-white"
-                value={novoLanc.tecnico_id}
-                onChange={e => setNovoLanc(f => ({ ...f, tecnico_id: e.target.value }))}
+
+            {/* Modo: equipe ou técnico */}
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+              <button
+                onClick={() => setModoLanc('equipe')}
+                className={`flex-1 py-2 text-sm font-semibold transition-colors ${modoLanc === 'equipe' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
               >
-                <option value="">Selecione o técnico</option>
-                {tecnicos.map(t => (
-                  <option key={t.tecnico_id} value={t.tecnico_id}>{t.tecnico_nome} — {t.equipe_nome}</option>
-                ))}
-              </select>
+                Por Equipe
+              </button>
+              <button
+                onClick={() => setModoLanc('tecnico')}
+                className={`flex-1 py-2 text-sm font-semibold transition-colors ${modoLanc === 'tecnico' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+              >
+                Por Técnico
+              </button>
             </div>
+
+            {/* Seleção equipe ou técnico */}
+            {modoLanc === 'equipe' ? (
+              <div>
+                <Label className="text-xs text-gray-500 mb-1 block">Equipe *</Label>
+                <select
+                  className="w-full border border-gray-200 rounded-md h-10 px-3 text-sm bg-white"
+                  value={novoLanc.equipe_id}
+                  onChange={e => setNovoLanc(f => ({ ...f, equipe_id: e.target.value }))}
+                >
+                  <option value="">Selecione a equipe</option>
+                  {equipes.map(eq => (
+                    <option key={eq.id} value={eq.id}>{eq.nome}</option>
+                  ))}
+                </select>
+                {novoLanc.equipe_id && (() => {
+                  const membros = tecnicos.filter(t => t.equipe_id === novoLanc.equipe_id);
+                  return membros.length > 0 ? (
+                    <p className="text-xs text-emerald-600 mt-1.5">
+                      ✓ Lançamento para {membros.length} técnico(s): {membros.map(m => m.tecnico_nome).join(', ')}
+                    </p>
+                  ) : <p className="text-xs text-red-500 mt-1.5">Nenhum técnico cadastrado nesta equipe</p>;
+                })()}
+              </div>
+            ) : (
+              <div>
+                <Label className="text-xs text-gray-500 mb-1 block">Técnico *</Label>
+                <select
+                  className="w-full border border-gray-200 rounded-md h-10 px-3 text-sm bg-white"
+                  value={novoLanc.tecnico_id}
+                  onChange={e => setNovoLanc(f => ({ ...f, tecnico_id: e.target.value }))}
+                >
+                  <option value="">Selecione o técnico</option>
+                  {tecnicos.map(t => (
+                    <option key={t.tecnico_id} value={t.tecnico_id}>{t.tecnico_nome} — {t.equipe_nome}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div>
               <Label className="text-xs text-gray-500 mb-1 block">Cliente *</Label>
               <Input placeholder="Nome do cliente" value={novoLanc.cliente_nome} onChange={e => setNovoLanc(f => ({ ...f, cliente_nome: e.target.value }))} />
@@ -740,7 +801,7 @@ export default function RelatorioComissoes() {
                 <Input type="number" placeholder="200.00" value={novoLanc.valor_servico} onChange={e => setNovoLanc(f => ({ ...f, valor_servico: e.target.value }))} />
               </div>
               <div>
-                <Label className="text-xs text-gray-500 mb-1 block">Comissão (15%)</Label>
+                <Label className="text-xs text-gray-500 mb-1 block">Comissão por técnico (15%)</Label>
                 <Input
                   readOnly
                   className="bg-gray-50 text-emerald-600 font-semibold"
