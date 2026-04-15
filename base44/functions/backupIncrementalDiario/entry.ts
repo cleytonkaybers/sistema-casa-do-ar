@@ -1,18 +1,45 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
+const FOLDER_NAME = 'Backup sistema casa do ar';
+
+async function getOrCreateFolder(accessToken) {
+  // Buscar pasta existente
+  const searchRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false&fields=files(id,name)`,
+    { headers: { 'Authorization': `Bearer ${accessToken}` } }
+  );
+  const searchData = await searchRes.json();
+
+  if (searchData.files && searchData.files.length > 0) {
+    return searchData.files[0].id;
+  }
+
+  // Criar pasta se não existir
+  const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name: FOLDER_NAME,
+      mimeType: 'application/vnd.google-apps.folder'
+    })
+  });
+  const folderData = await createRes.json();
+  return folderData.id;
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    
+
     // Verificar admin
     const user = await base44.auth.me();
     if (user?.role !== 'admin') {
       return Response.json({ error: 'Apenas administradores podem executar backups' }, { status: 403 });
     }
 
-    // Buscar último backup completo
-    const backups = await base44.asServiceRole.entities.BackupIncremental.list('-data_backup', 1);
-    const ultimoBackup = backups[0];
     const agora = new Date();
     const ontem = new Date(agora.getTime() - 24 * 60 * 60 * 1000);
 
@@ -70,15 +97,17 @@ Deno.serve(async (req) => {
 
     const jsonContent = JSON.stringify(backupData, null, 2);
     const blob = new Blob([jsonContent], { type: 'application/json' });
-    const fileName = `backup_incremental_${agora.toISOString().split('T')[0]}_${agora.getHours()}h.json`;
+    const fileName = `backup_${agora.toISOString().split('T')[0]}_${agora.getHours()}h.json`;
 
-    // Upload para Google Drive
+    // Obter token e pasta no Drive
     const { accessToken } = await base44.asServiceRole.connectors.getConnection('googledrive');
-    
-    // Criar arquivo no Drive
+    const folderId = await getOrCreateFolder(accessToken);
+
+    // Upload para a pasta correta
     const metadata = {
       name: fileName,
-      mimeType: 'application/json'
+      mimeType: 'application/json',
+      parents: [folderId]
     };
 
     const formData = new FormData();
@@ -87,9 +116,7 @@ Deno.serve(async (req) => {
 
     const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
-      },
+      headers: { 'Authorization': `Bearer ${accessToken}` },
       body: formData
     });
 
@@ -116,13 +143,15 @@ Deno.serve(async (req) => {
       message: 'Backup incremental realizado com sucesso',
       total_registros: totalRegistros,
       arquivo: fileName,
+      pasta: FOLDER_NAME,
       drive_url: `https://drive.google.com/file/d/${fileData.id}/view`
     });
 
   } catch (error) {
     console.error('Erro no backup incremental:', error);
-    
+
     try {
+      const base44 = createClientFromRequest(req);
       await base44.asServiceRole.entities.BackupIncremental.create({
         data_backup: new Date().toISOString(),
         tipo: 'incremental',

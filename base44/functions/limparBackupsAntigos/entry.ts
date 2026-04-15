@@ -9,18 +9,12 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 
-    // Buscar todos os backups
+    // Buscar todos os backups ordenados do mais recente para o mais antigo
     const backups = await base44.asServiceRole.entities.BackupIncremental.list('-data_backup');
 
-    // Data limite: 7 dias atrás
-    const dataLimite = new Date();
-    dataLimite.setDate(dataLimite.getDate() - 7);
-
-    // Filtrar backups com mais de 7 dias
-    const backupsAntigos = backups.filter(b => {
-      const dataBackup = new Date(b.data_backup);
-      return dataBackup < dataLimite;
-    });
+    // Manter apenas os últimos 5 dias — backups além do 5º são removidos
+    const MANTER = 5;
+    const backupsAntigos = backups.slice(MANTER);
 
     if (backupsAntigos.length === 0) {
       return Response.json({
@@ -36,7 +30,6 @@ Deno.serve(async (req) => {
     let removidos = 0;
     const erros = [];
 
-    // Deletar backups antigos
     for (const backup of backupsAntigos) {
       try {
         // Deletar arquivo do Google Drive se existir
@@ -45,9 +38,7 @@ Deno.serve(async (req) => {
             `https://www.googleapis.com/drive/v3/files/${backup.arquivo_drive_id}`,
             {
               method: 'DELETE',
-              headers: {
-                'Authorization': `Bearer ${accessToken}`
-              }
+              headers: { 'Authorization': `Bearer ${accessToken}` }
             }
           );
 
@@ -70,7 +61,7 @@ Deno.serve(async (req) => {
 
     return Response.json({
       status: 'success',
-      message: `Limpeza concluída: ${removidos} backups removidos`,
+      message: `Limpeza concluída: ${removidos} backups removidos (mantidos os últimos ${MANTER})`,
       total_antigos: backupsAntigos.length,
       total_removidos: removidos,
       erros: erros.length > 0 ? erros : undefined
