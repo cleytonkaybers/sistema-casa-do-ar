@@ -980,7 +980,7 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
           )}
           {isPago && onReverterPendente && (
             <button
-              onClick={() => { if (confirm(`Reverter "${pag.cliente_nome}" para pendente?`)) onReverterPendente(pag); }}
+              onClick={(e) => { e.stopPropagation(); if (confirm(`Reverter "${pag.cliente_nome}" para pendente?`)) onReverterPendente(pag); }}
               className="p-1.5 rounded text-gray-400 hover:text-orange-500 hover:bg-orange-50 flex-shrink-0"
               title="Reverter para pendente"
             >
