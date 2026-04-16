@@ -20,7 +20,7 @@ import CompromissoClientePDF from '@/components/financeiro/CompromissoClientePDF
 import {
   Search, DollarSign, CheckCircle2, AlertCircle, Calendar,
   MessageCircle, Filter, X, Pencil, Tag,
-  Clock, History, Trash2, Eye, Check, FileDown, AlertTriangle
+  Clock, History, Trash2, Eye, Check, FileDown, AlertTriangle, RotateCcw
 } from 'lucide-react';
 
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
@@ -824,7 +824,7 @@ function HistoricoModal({ open, onClose, pagamento }) {
 }
 
 // Card compacto estilo tabela com expansão
-function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData, alertaDinheiro, onDismissAlerta, onMarcarPago }) {
+function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData, alertaDinheiro, onDismissAlerta, onMarcarPago, onReverterPagamento }) {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const [expandido, setExpandido] = useState(false);
@@ -834,6 +834,7 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   // Tolerância de R$1 só se houve algum pagamento (cobre arredondamento em serviços compostos)
   const isPago = pag.status === 'pago' || saldo <= 0.01 || (_valorPago > 0 && saldo <= 1.0);
   const isParcial = !isPago && pag.status === 'parcial' && _valorPago > 0;
+  const temHistoricoReal = (pag.historico_pagamentos || []).some(h => !h.agendada && !h.consolidado);
   // Mostrar 100% apenas se realmente pago — evitar display enganoso
   const pct = pag.valor_total > 0
     ? isPago ? 100 : Math.min(99, Math.round((_valorPago / pag.valor_total) * 100))
@@ -980,6 +981,15 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
               )}
             </>
           )}
+          {isAdmin && temHistoricoReal && onReverterPagamento && (
+            <button
+              onClick={() => { if (confirm(`Reverter último pagamento de "${pag.cliente_nome}"?`)) onReverterPagamento(pag); }}
+              className="p-1.5 rounded text-orange-500 hover:bg-orange-50 flex-shrink-0"
+              title="Reverter último pagamento"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
+          )}
           <button onClick={() => onDelete(pag)} className="p-1.5 rounded text-red-500 hover:bg-red-50 flex-shrink-0" title="Excluir">
             <Trash2 className="w-4 h-4" />
           </button>
@@ -1043,7 +1053,7 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   );
 }
 
-function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData, emptyMsg, alertasDinheiro = [], onDismissAlerta, onMarcarPago }) {
+function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData, emptyMsg, alertasDinheiro = [], onDismissAlerta, onMarcarPago, onReverterPagamento }) {
   return (
     <div className="space-y-2">
       {lista.length === 0 ? (
@@ -1054,7 +1064,7 @@ function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete
       ) : lista.map(p => {
         const alertaDinheiro = alertasDinheiro.find(n => n.cliente_nome?.trim().toLowerCase() === (p.cliente_nome || '').trim().toLowerCase() && !n.lida);
         return (
-          <LinhaTabela key={p.id} pag={p} onPagar={onPagar} onEditarValor={onEditarValor} onHistorico={onHistorico} onDelete={onDelete} onDetalhes={onDetalhes} onDefinirPreco={onDefinirPreco} onAgendarData={onAgendarData} alertaDinheiro={alertaDinheiro} onDismissAlerta={onDismissAlerta} onMarcarPago={onMarcarPago} />
+          <LinhaTabela key={p.id} pag={p} onPagar={onPagar} onEditarValor={onEditarValor} onHistorico={onHistorico} onDelete={onDelete} onDetalhes={onDetalhes} onDefinirPreco={onDefinirPreco} onAgendarData={onAgendarData} alertaDinheiro={alertaDinheiro} onDismissAlerta={onDismissAlerta} onMarcarPago={onMarcarPago} onReverterPagamento={onReverterPagamento} />
         );
       })}
     </div>
@@ -1448,6 +1458,50 @@ function PagamentosClientesContent() {
     }
   };
 
+  const handleReverterPagamento = async (pag) => {
+    const records = pag._records?.length > 0 ? pag._records : [pag];
+    let reverteuAlgum = false;
+    try {
+      for (const rec of records) {
+        const hist = rec.historico_pagamentos || [];
+        // Encontra índice do ÚLTIMO pagamento real (sem flag agendada nem consolidado)
+        const ultimoIdx = [...hist].map((h, i) => ({ h, i }))
+          .reverse()
+          .find(({ h }) => !h.agendada && !h.consolidado)?.i;
+        if (ultimoIdx === undefined) continue;
+
+        const entrada = hist[ultimoIdx];
+        const novoHistorico = hist.filter((_, i) => i !== ultimoIdx);
+        const novoValorPago = Math.max(0, (rec.valor_pago || 0) - (entrada.valor || 0));
+        const saldoRestante = (rec.valor_total || 0) - novoValorPago;
+
+        let novoStatus;
+        if (novoValorPago <= 0.01) {
+          novoStatus = rec.data_pagamento_agendado ? 'agendado' : 'pendente';
+        } else if (saldoRestante <= 0.01) {
+          novoStatus = 'pago';
+        } else {
+          novoStatus = rec.data_pagamento_agendado ? 'agendado' : 'parcial';
+        }
+
+        await updateMutation.mutateAsync({
+          id: rec.id,
+          data: {
+            valor_pago: novoValorPago,
+            status: novoStatus,
+            historico_pagamentos: novoHistorico,
+            data_pagamento_completo: novoStatus === 'pago' ? rec.data_pagamento_completo : null,
+          },
+        });
+        reverteuAlgum = true;
+      }
+      if (reverteuAlgum) toast.success('↩ Pagamento revertido!');
+      else toast.error('Nenhum pagamento encontrado para reverter.');
+    } catch (err) {
+      toast.error('Erro ao reverter pagamento');
+    }
+  };
+
   const pagsFiltrados = useMemo(() =>
     pagamentos.filter(p =>
       (!debouncedSearch || p.cliente_nome?.toLowerCase().includes(debouncedSearch.toLowerCase())) &&
@@ -1733,6 +1787,7 @@ function PagamentosClientesContent() {
               onAgendarData={setAgendarDataModal}
               onDelete={handleDelete}
               onMarcarPago={handleMarcarPago}
+              onReverterPagamento={handleReverterPagamento}
               alertasDinheiro={alertasDinheiro}
               onDismissAlerta={handleDismissAlerta}
               emptyMsg="Nenhum serviço nesta semana"
@@ -1762,6 +1817,7 @@ function PagamentosClientesContent() {
                 onAgendarData={setAgendarDataModal}
                 onDelete={handleDelete}
                 onMarcarPago={handleMarcarPago}
+                onReverterPagamento={handleReverterPagamento}
                 alertasDinheiro={alertasDinheiro}
                 onDismissAlerta={handleDismissAlerta}
                 emptyMsg="Nenhuma pendência encontrada"
@@ -1828,6 +1884,7 @@ function PagamentosClientesContent() {
             onDetalhes={setDetalhesModal}
             onAgendarData={setAgendarDataModal}
             onDelete={handleDelete}
+            onReverterPagamento={handleReverterPagamento}
             emptyMsg="Nenhum registro no período selecionado"
           />
         </div>
