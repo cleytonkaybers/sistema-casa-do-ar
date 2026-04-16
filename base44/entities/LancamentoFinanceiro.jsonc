@@ -1,0 +1,77 @@
+{
+  "name": "LancamentoFinanceiro",
+  "type": "object",
+  "properties": {
+    "servico_id": {
+      "type": "string",
+      "description": "ID do serviço de origem (vazio para lançamentos manuais)"
+    },
+    "equipe_id": {
+      "type": "string",
+      "description": "ID da equipe"
+    },
+    "equipe_nome": {
+      "type": "string",
+      "description": "Nome da equipe"
+    },
+    "tecnico_id": {
+      "type": "string",
+      "description": "Email do técnico (usado para filtro em MeuFinanceiro)"
+    },
+    "tecnico_nome": {
+      "type": "string",
+      "description": "Nome do técnico"
+    },
+    "cliente_nome": {
+      "type": "string",
+      "description": "Nome do cliente"
+    },
+    "tipo_servico": {
+      "type": "string",
+      "description": "Tipo/descrição do serviço"
+    },
+    "valor_total_servico": {
+      "type": "number",
+      "description": "Valor total do serviço"
+    },
+    "percentual_equipe": {
+      "type": "number",
+      "description": "Percentual de comissão da equipe"
+    },
+    "valor_comissao_equipe": {
+      "type": "number",
+      "description": "Valor da comissão da equipe"
+    },
+    "percentual_tecnico": {
+      "type": "number",
+      "description": "Percentual de comissão do técnico"
+    },
+    "valor_comissao_tecnico": {
+      "type": "number",
+      "description": "Valor da comissão do técnico"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pendente", "pago", "creditado"],
+      "default": "pendente",
+      "description": "Status do lançamento"
+    },
+    "data_geracao": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data de geração do lançamento"
+    },
+    "usuario_geracao": {
+      "type": "string",
+      "description": "Email do usuário que gerou o lançamento"
+    }
+  },
+  "required": [
+    "tecnico_id",
+    "tecnico_nome",
+    "cliente_nome",
+    "valor_total_servico",
+    "valor_comissao_tecnico",
+    "status"
+  ]
+}

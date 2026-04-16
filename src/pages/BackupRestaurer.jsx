@@ -133,10 +133,7 @@ export default function BackupRestaurerPage() {
 
   const { data: backupsNuvem = [], isLoading: loadingBackups, refetch: refetchBackups } = useQuery({
     queryKey: ['backups-incrementais'],
-    queryFn: async () => {
-      try { return await base44.entities.BackupIncremental.list('-data_backup', 50); }
-      catch { return []; }
-    },
+    queryFn: () => base44.entities.BackupIncremental.list('-data_backup', 50),
     enabled: isAdmin,
   });
 

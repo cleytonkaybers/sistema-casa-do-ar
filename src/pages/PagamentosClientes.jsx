@@ -823,7 +823,7 @@ function HistoricoModal({ open, onClose, pagamento }) {
 }
 
 // Card compacto estilo tabela com expansão
-function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData, alertaDinheiro, onDismissAlerta, onMarcarPago, onReverterPendente }) {
+function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData, alertaDinheiro, onDismissAlerta }) {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const [expandido, setExpandido] = useState(false);
@@ -967,25 +967,7 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
               <button onClick={() => onPagar(pag)} className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded font-semibold whitespace-nowrap">
                 Pagar
               </button>
-              {isAdmin && isParcial && pct >= 90 && onMarcarPago && (
-                <button
-                  onClick={() => { if (confirm(`Marcar "${pag.cliente_nome}" como pago (${formatCurrency(pag.valor_total)})?`)) onMarcarPago(pag); }}
-                  className="px-2 py-1 text-xs bg-emerald-700 hover:bg-emerald-800 text-white rounded font-semibold whitespace-nowrap"
-                  title="Forçar status pago (diferença por arredondamento)"
-                >
-                  ✓ Quitar
-                </button>
-              )}
             </>
-          )}
-          {isPago && onReverterPendente && (
-            <button
-              onClick={(e) => { e.stopPropagation(); if (confirm(`Reverter "${pag.cliente_nome}" para pendente?`)) onReverterPendente(pag); }}
-              className="p-1.5 rounded text-gray-400 hover:text-orange-500 hover:bg-orange-50 flex-shrink-0"
-              title="Reverter para pendente"
-            >
-              ↩
-            </button>
           )}
           <button onClick={() => onDelete(pag)} className="p-1.5 rounded text-red-500 hover:bg-red-50 flex-shrink-0" title="Excluir">
             <Trash2 className="w-4 h-4" />
@@ -1050,7 +1032,7 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   );
 }
 
-function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData, emptyMsg, alertasDinheiro = [], onDismissAlerta, onMarcarPago, onReverterPendente }) {
+function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData, emptyMsg, alertasDinheiro = [], onDismissAlerta }) {
   return (
     <div className="space-y-2">
       {lista.length === 0 ? (
@@ -1061,7 +1043,7 @@ function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete
       ) : lista.map(p => {
         const alertaDinheiro = alertasDinheiro.find(n => n.cliente_nome?.trim().toLowerCase() === (p.cliente_nome || '').trim().toLowerCase() && !n.lida);
         return (
-          <LinhaTabela key={p.id} pag={p} onPagar={onPagar} onEditarValor={onEditarValor} onHistorico={onHistorico} onDelete={onDelete} onDetalhes={onDetalhes} onDefinirPreco={onDefinirPreco} onAgendarData={onAgendarData} alertaDinheiro={alertaDinheiro} onDismissAlerta={onDismissAlerta} onMarcarPago={onMarcarPago} onReverterPendente={onReverterPendente} />
+          <LinhaTabela key={p.id} pag={p} onPagar={onPagar} onEditarValor={onEditarValor} onHistorico={onHistorico} onDelete={onDelete} onDetalhes={onDetalhes} onDefinirPreco={onDefinirPreco} onAgendarData={onAgendarData} alertaDinheiro={alertaDinheiro} onDismissAlerta={onDismissAlerta} />
         );
       })}
     </div>
@@ -1203,24 +1185,10 @@ function PagamentosClientesContent() {
     queryFn: () => base44.entities.Servico.filter({ status: 'concluido' }, '-data_conclusao'),
   });
 
-  const { data: pagamentosRaw = [], isLoading } = useQuery({
+  const { data: pagamentos = [], isLoading } = useQuery({
     queryKey: ['pagamentos-clientes'],
     queryFn: () => base44.entities.PagamentoCliente.list('-data_conclusao'),
   });
-
-  // Remove pagos de semanas anteriores — aparecem apenas em Histórico/Relatórios
-  const pagamentos = useMemo(() => {
-    return pagamentosRaw.filter(p => {
-      if (p.status !== 'pago') return true; // pendentes/parciais/agendados sempre visíveis
-      // Pagos da semana atual: manter
-      if (p.data_conclusao) {
-        try {
-          if (isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana })) return true;
-        } catch {}
-      }
-      return false; // pago de semana anterior → ocultar da lista principal
-    });
-  }, [pagamentosRaw, inicioSemana, fimSemana]);
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.PagamentoCliente.create(data),
@@ -1423,23 +1391,6 @@ function PagamentosClientesContent() {
     });
   };
 
-  const handleReverterPendente = async (pag) => {
-    const records = pag._records?.length > 0 ? pag._records : [pag];
-    for (const rec of records) {
-      await updateMutation.mutateAsync({
-        id: rec.id,
-        data: {
-          valor_pago: 0,
-          status: 'pendente',
-          historico_pagamentos: [],
-          data_pagamento_completo: null,
-          data_pagamento_agendado: null,
-        },
-      });
-    }
-    toast.success('↩ Pagamento revertido para pendente!');
-  };
-
   const handleEditarValor = async (pag, novoValor) => {
     await updateMutation.mutateAsync({ id: pag.id, data: { valor_total: novoValor, status: 'pendente' } });
     toast.success('Valor atualizado! Status retornado para pendente.');
@@ -1457,34 +1408,7 @@ function PagamentosClientesContent() {
     toast.success('📅 Data de pagamento agendada!');
   };
 
-  // Forçar pagamento total (admin) — para casos onde valor_pago ficou ligeiramente abaixo de valor_total
-  const handleMarcarPago = async (pag) => {
-    const records = pag._records?.length > 0 ? pag._records : [pag];
-    const agora = new Date().toISOString();
-    const dataStr = format(new Date(), 'dd/MM/yyyy');
-    try {
-      for (const rec of records) {
-        const saldoRec = calcularSaldo(rec.valor_total, rec.valor_pago);
-        if (saldoRec <= 0.01) continue; // já pago, pular
-        const novoHistorico = [
-          ...(rec.historico_pagamentos || []),
-          { valor: saldoRec, data: dataStr, observacao: '✅ Marcado como pago manualmente' },
-        ];
-        await updateMutation.mutateAsync({
-          id: rec.id,
-          data: {
-            valor_pago: rec.valor_total,
-            status: 'pago',
-            historico_pagamentos: novoHistorico,
-            data_pagamento_completo: agora,
-          },
-        });
-      }
-      toast.success('✅ Pagamento marcado como pago!');
-    } catch (err) {
-      toast.error('Erro ao marcar como pago');
-    }
-  };
+  // TIPOS_SEM_COBRANCA is now consolidated with TIPOS_IGNORADOS at top
 
   const pagsFiltrados = useMemo(() =>
     pagamentos.filter(p =>
@@ -1567,7 +1491,7 @@ function PagamentosClientesContent() {
     else if (relFiltro === 'personalizado' && relDataInicio && relDataFim) {
       inicio = new Date(relDataInicio); fim = new Date(relDataFim + 'T23:59:59');
     }
-    return pagamentosRaw.filter(p => {
+    return pagamentos.filter(p => {
       const matchCliente = !relCliente || p.cliente_nome?.toLowerCase().includes(relCliente.toLowerCase());
       let matchData = true;
       if (inicio && fim && p.data_conclusao) {
@@ -1581,17 +1505,10 @@ function PagamentosClientesContent() {
   const totalSemana = pagsSemana.reduce((s, p) => s + (p.valor_total || 0), 0);
   const totalPendencias = pagsPendencias.reduce((s, p) => s + Math.max(0, (p.valor_total || 0) - (p.valor_pago || 0)), 0);
 
-  // Detectar serviços com preço padrão (1.0) apenas da semana atual
+  // Detectar serviços com preço padrão (1.0) que precisam ajuste
   const pagsComPrecoDefault = useMemo(() =>
-    pagamentos.filter(p => {
-      if (p.valor_total !== 1.0) return false;
-      if (p.status === 'pago') return false;
-      if (TIPOS_IGNORADOS.includes(p.tipo_servico)) return false;
-      if (!p.data_conclusao) return false;
-      try { return isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana }); }
-      catch { return false; }
-    })
-  , [pagamentos, inicioSemana, fimSemana]);
+    pagamentos.filter(p => p.valor_total === 1.0 && p.status !== 'pago' && !TIPOS_IGNORADOS.includes(p.tipo_servico))
+  , [pagamentos]);
 
   // Recebido na semana: soma via historico_pagamentos (data real do recebimento)
   // Fallback: se o registro tem valor_pago mas historico vazio, usa updated_date ou data_pagamento_completo
@@ -1803,8 +1720,6 @@ function PagamentosClientesContent() {
               onDetalhes={setDetalhesModal}
               onAgendarData={setAgendarDataModal}
               onDelete={handleDelete}
-              onMarcarPago={handleMarcarPago}
-              onReverterPendente={handleReverterPendente}
               alertasDinheiro={alertasDinheiro}
               onDismissAlerta={handleDismissAlerta}
               emptyMsg="Nenhum serviço nesta semana"
@@ -1833,8 +1748,6 @@ function PagamentosClientesContent() {
                 onDetalhes={setDetalhesModal}
                 onAgendarData={setAgendarDataModal}
                 onDelete={handleDelete}
-                onMarcarPago={handleMarcarPago}
-                onReverterPendente={handleReverterPendente}
                 alertasDinheiro={alertasDinheiro}
                 onDismissAlerta={handleDismissAlerta}
                 emptyMsg="Nenhuma pendência encontrada"
@@ -1901,7 +1814,6 @@ function PagamentosClientesContent() {
             onDetalhes={setDetalhesModal}
             onAgendarData={setAgendarDataModal}
             onDelete={handleDelete}
-            onReverterPendente={handleReverterPendente}
             emptyMsg="Nenhum registro no período selecionado"
           />
         </div>
@@ -1913,7 +1825,7 @@ function PagamentosClientesContent() {
       <EditarValorModal open={!!editarModal} onClose={() => setEditarModal(null)} pagamento={editarModal} onSave={handleEditarValor} />
       <HistoricoModal open={!!historicoModal} onClose={() => setHistoricoModal(null)} pagamento={historicoModal} />
       <DetalhesClienteModal open={!!detalhesModal} onClose={() => setDetalhesModal(null)} pagamento={detalhesModal} />
-      <RelatorioClientesPagamentoModal isOpen={abrirRelatorio} onClose={() => setAbrirRelatorio(false)} pagamentos={pagamentosRaw} servicos={servicosConcluidos} />
+      <RelatorioClientesPagamentoModal isOpen={abrirRelatorio} onClose={() => setAbrirRelatorio(false)} pagamentos={pagamentos} servicos={servicosConcluidos} />
       <CompromissoClientePDF isOpen={!!compartilharModal} onClose={() => setCompartilharModal(null)} pagamento={compartilharModal} />
     </div>
   );
