@@ -95,14 +95,17 @@ export default function Dashboard() {
     enabled: isAdmin,
   });
 
-  // Verificar último backup (admin)
+  // Verificar último backup (admin) — entidade pode não existir em todos os ambientes
   const { data: ultimosBackups = [] } = useQuery({
     queryKey: ['ultimo-backup'],
-    queryFn: () => base44.entities.BackupIncremental.list('-data_backup'),
+    queryFn: async () => {
+      try { return await base44.entities.BackupIncremental.list('-data_backup'); }
+      catch { return []; }
+    },
     enabled: isAdmin,
   });
-  const ultimoBackup = ultimosBackups[0];
-  const diasSemBackup = ultimoBackup
+  const ultimoBackup = Array.isArray(ultimosBackups) ? ultimosBackups[0] : undefined;
+  const diasSemBackup = ultimoBackup?.data_backup
     ? Math.floor((Date.now() - new Date(ultimoBackup.data_backup).getTime()) / (1000 * 60 * 60 * 24))
     : null;
   const backupAtrasado = isAdmin && (diasSemBackup === null || diasSemBackup > 7);
