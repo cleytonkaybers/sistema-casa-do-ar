@@ -192,7 +192,8 @@ function groupPagamentos(lista) {
   });
   return Object.values(groups).map(g => {
     const saldo = (g.valor_total || 0) - (g.valor_pago || 0);
-    const status = saldo <= 0.01 ? 'pago' : (g.valor_pago || 0) > 0 ? 'parcial' : 'pendente';
+    // Tolerância de R$1 para cobrir diferenças de arredondamento em serviços com múltiplos tipos
+    const status = saldo <= 1.0 ? 'pago' : (g.valor_pago || 0) > 0 ? 'parcial' : 'pendente';
     // Mescla historico_pagamentos de todos os records
     const historicoMesclado = g._records.flatMap(r => r.historico_pagamentos || []);
     return { ...g, status, historico_pagamentos: historicoMesclado, _tipoResumido: resumirServicos(g._records) };
@@ -828,9 +829,13 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   const [expandido, setExpandido] = useState(false);
   const records = pag._records || [pag];
   const saldo = calcularSaldo(pag.valor_total, pag.valor_pago);
-  const isPago = pag.status === 'pago';
-  const isParcial = pag.status === 'parcial';
-  const pct = pag.valor_total > 0 ? Math.min(100, Math.round(((pag.valor_pago || 0) / pag.valor_total) * 100)) : 0;
+  // Tolerância de R$1 igual ao groupPagamentos (cobre arredondamentos em serviços compostos)
+  const isPago = pag.status === 'pago' || (pag.valor_total > 0 && saldo <= 1.0);
+  const isParcial = !isPago && pag.status === 'parcial' && (pag.valor_pago || 0) > 0;
+  // Mostrar 100% apenas se realmente pago — evitar display enganoso
+  const pct = pag.valor_total > 0
+    ? isPago ? 100 : Math.min(99, Math.round(((pag.valor_pago || 0) / pag.valor_total) * 100))
+    : 0;
   const temPrecoDefinido = pag.valor_total > 0;
   const dataAgendada = pag.data_pagamento_agendado ? parseISO(pag.data_pagamento_agendado) : null;
   const hoje = new Date();
