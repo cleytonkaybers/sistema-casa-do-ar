@@ -981,10 +981,10 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
           {isPago && onReverterPendente && (
             <button
               onClick={() => { if (confirm(`Reverter "${pag.cliente_nome}" para pendente?`)) onReverterPendente(pag); }}
-              className="px-2 py-1 text-xs bg-orange-500 hover:bg-orange-600 text-white rounded font-semibold whitespace-nowrap"
+              className="p-1.5 rounded text-gray-400 hover:text-orange-500 hover:bg-orange-50 flex-shrink-0"
               title="Reverter para pendente"
             >
-              ↩ Pendente
+              ↩
             </button>
           )}
           <button onClick={() => onDelete(pag)} className="p-1.5 rounded text-red-500 hover:bg-red-50 flex-shrink-0" title="Excluir">
