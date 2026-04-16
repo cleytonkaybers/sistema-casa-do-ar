@@ -91,23 +91,20 @@ export function DashboardAdminSkeleton() {
 // ─── End Dashboard skeletons ───────────────────────────────────────────────────
 
 export function TableSkeleton({ rows = 5 }) {
+  const items = Array.from({ length: rows }, (_, i) => i);
   return (
-    <Card className="border border-gray-200">
-      <CardContent className="p-6">
-        <div className="space-y-3">
-          {Array.from({ length: rows }).map((_, i) => (
-            <div key={i} className="flex items-center gap-4">
-              <Skeleton className="h-10 w-10 rounded-lg" />
-              <div className="flex-1 space-y-2">
-                <Skeleton className="h-4 w-[60%]" />
-                <Skeleton className="h-3 w-[40%]" />
-              </div>
-              <Skeleton className="h-8 w-20" />
-            </div>
-          ))}
+    <div className="bg-[#152236] border border-white/5 rounded-2xl p-6 space-y-3">
+      {items.map((i) => (
+        <div key={i} className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10 rounded-lg bg-white/10 flex-shrink-0" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-3/5 bg-white/10" />
+            <Skeleton className="h-3 w-2/5 bg-white/10" />
+          </div>
+          <Skeleton className="h-8 w-20 bg-white/10 flex-shrink-0" />
         </div>
-      </CardContent>
-    </Card>
+      ))}
+    </div>
   );
 }
 
