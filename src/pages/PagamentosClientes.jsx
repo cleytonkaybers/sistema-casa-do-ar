@@ -192,8 +192,9 @@ function groupPagamentos(lista) {
   });
   return Object.values(groups).map(g => {
     const saldo = (g.valor_total || 0) - (g.valor_pago || 0);
-    // Tolerância de R$1 para cobrir diferenças de arredondamento em serviços com múltiplos tipos
-    const status = saldo <= 1.0 ? 'pago' : (g.valor_pago || 0) > 0 ? 'parcial' : 'pendente';
+    const valorPago = g.valor_pago || 0;
+    // Tolerância de R$1 só se houve algum pagamento (cobre arredondamento). Sem pagamento = pendente.
+    const status = saldo <= 0.01 || (valorPago > 0 && saldo <= 1.0) ? 'pago' : valorPago > 0 ? 'parcial' : 'pendente';
     // Mescla historico_pagamentos de todos os records
     const historicoMesclado = g._records.flatMap(r => r.historico_pagamentos || []);
     return { ...g, status, historico_pagamentos: historicoMesclado, _tipoResumido: resumirServicos(g._records) };
@@ -829,12 +830,13 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   const [expandido, setExpandido] = useState(false);
   const records = pag._records || [pag];
   const saldo = calcularSaldo(pag.valor_total, pag.valor_pago);
-  // Tolerância de R$1 igual ao groupPagamentos (cobre arredondamentos em serviços compostos)
-  const isPago = pag.status === 'pago' || (pag.valor_total > 0 && saldo <= 1.0);
-  const isParcial = !isPago && pag.status === 'parcial' && (pag.valor_pago || 0) > 0;
+  const _valorPago = pag.valor_pago || 0;
+  // Tolerância de R$1 só se houve algum pagamento (cobre arredondamento em serviços compostos)
+  const isPago = pag.status === 'pago' || saldo <= 0.01 || (_valorPago > 0 && saldo <= 1.0);
+  const isParcial = !isPago && pag.status === 'parcial' && _valorPago > 0;
   // Mostrar 100% apenas se realmente pago — evitar display enganoso
   const pct = pag.valor_total > 0
-    ? isPago ? 100 : Math.min(99, Math.round(((pag.valor_pago || 0) / pag.valor_total) * 100))
+    ? isPago ? 100 : Math.min(99, Math.round((_valorPago / pag.valor_total) * 100))
     : 0;
   const temPrecoDefinido = pag.valor_total > 0;
   const dataAgendada = pag.data_pagamento_agendado ? parseISO(pag.data_pagamento_agendado) : null;
@@ -1506,7 +1508,11 @@ function PagamentosClientesContent() {
           } catch {}
         }
         const saldo = (p.valor_total || 0) - (p.valor_pago || 0);
-        return saldo > 0.01 || !p.valor_total || p.valor_total <= 1;
+        const valorPago = p.valor_pago || 0;
+        // Excluir se "pago por tolerância" (saldo ≤ R$1 com algum pagamento feito)
+        if (valorPago > 0 && saldo <= 1.0) return false;
+        // Mostrar: saldo real > R$0,01 OU serviço sem preço definido
+        return saldo > 0.01 || !p.valor_total;
       })
       .sort((a, b) => {
         const prioridade = { agendado: 0, parcial: 1, pendente: 2 };
@@ -1541,10 +1547,6 @@ function PagamentosClientesContent() {
   const totalSemana = pagsSemana.reduce((s, p) => s + (p.valor_total || 0), 0);
   const totalPendencias = pagsPendencias.reduce((s, p) => s + Math.max(0, (p.valor_total || 0) - (p.valor_pago || 0)), 0);
 
-  // Detectar serviços com preço padrão (1.0) que precisam ajuste
-  const pagsComPrecoDefault = useMemo(() =>
-    pagamentos.filter(p => p.valor_total === 1.0 && p.status !== 'pago' && !TIPOS_IGNORADOS.includes(p.tipo_servico))
-  , [pagamentos]);
 
   // Recebido na semana: soma via historico_pagamentos (data real do recebimento)
   // Fallback: se o registro tem valor_pago mas historico vazio, usa updated_date ou data_pagamento_completo
@@ -1706,34 +1708,6 @@ function PagamentosClientesContent() {
           ))}
         </div>
       </div>
-
-      {/* Alerta Global: Preços padrão detectados */}
-      {pagsComPrecoDefault.length > 0 && (
-        <div className="border-2 border-red-400 bg-red-50 rounded-lg p-4 flex items-start gap-3 animate-pulse">
-          <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5 animate-bounce" />
-          <div className="flex-1">
-            <p className="font-bold text-red-800 text-base mb-1">⚠️ {pagsComPrecoDefault.length} serviços com preço padrão detectado!</p>
-            <p className="text-red-700 text-sm mb-2">Os seguintes clientes possuem serviços com preço de R$ 1,00 que precisam ajuste:</p>
-            <div className="flex flex-wrap gap-2">
-              {pagsComPrecoDefault.slice(0, 5).map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => setPrecosModal(p)}
-                  className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-semibold hover:bg-red-200 hover:text-red-900 transition-colors cursor-pointer underline underline-offset-2"
-                  title={`Clique para definir o preço de ${p.cliente_nome}`}
-                >
-                  {p.cliente_nome}
-                </button>
-              ))}
-              {pagsComPrecoDefault.length > 5 && (
-                <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-semibold">
-                  +{pagsComPrecoDefault.length - 5} mais
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Aba: Semana Atual */}
       {abaAtiva === 'semana' && (
