@@ -46,10 +46,10 @@ export function DashboardAdminSkeleton() {
 
       {/* GanhosTecnicos skeleton */}
       <Card className="bg-[#152236] border-white/5 rounded-2xl md:col-span-2">
-        <CardHeader className="pb-3 px-4 sm:px-5 pt-4 sm:pt-5 border-b border-white/5 flex flex-row items-center justify-between">
+        <div className="pb-3 px-4 sm:px-5 pt-4 sm:pt-5 border-b border-white/5 flex flex-row items-center justify-between">
           <Skeleton className="h-4 w-36 bg-white/10 rounded" />
           <Skeleton className="h-3 w-20 bg-white/10 rounded" />
-        </CardHeader>
+        </div>
         {/* Summary row */}
         <div className="grid grid-cols-3 divide-x divide-white/5 border-b border-white/5">
           {Array.from({ length: 3 }).map((_, i) => (
