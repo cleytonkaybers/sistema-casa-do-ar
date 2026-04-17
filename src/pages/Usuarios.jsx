@@ -92,6 +92,7 @@ export default function UsuariosPage() {
   const [userToDelete, setUserToDelete] = useState(null);
   const [editingPixId, setEditingPixId] = useState(null);
   const [pixValue, setPixValue] = useState('');
+  const [nomeBancoValue, setNomeBancoValue] = useState('');
   const [copiedId, setCopiedId] = useState(null);
 
   useEffect(() => {
@@ -276,6 +277,7 @@ export default function UsuariosPage() {
   const handleEditPix = (usuario) => {
     setEditingPixId(usuario.id);
     setPixValue((usuario.data || {}).chave_pix || '');
+    setNomeBancoValue((usuario.data || {}).nome_banco || '');
   };
 
   const handleSavePix = (usuario) => {
@@ -284,12 +286,14 @@ export default function UsuariosPage() {
       data: {
         data: {
           ...(usuario.data || {}),
-          chave_pix: pixValue.trim()
+          chave_pix: pixValue.trim(),
+          nome_banco: nomeBancoValue.trim()
         }
       }
     });
     setEditingPixId(null);
     setPixValue('');
+    setNomeBancoValue('');
   };
 
   const handleCopyPix = (chave, id) => {
@@ -405,30 +409,41 @@ export default function UsuariosPage() {
                     </Button>
                   </div>
 
-                  {/* Campo Chave PIX */}
+                  {/* Campo Chave PIX + Banco */}
                   <div className="border-t pt-3">
                     <p className="text-xs text-gray-500 font-medium flex items-center gap-1 mb-2">
                       <QrCode className="w-3 h-3" /> Chave PIX
                     </p>
                     {editingPixId === usuario.id ? (
-                      <div className="flex gap-2">
-                        <Input
-                          value={pixValue}
-                          onChange={(e) => setPixValue(e.target.value)}
-                          placeholder="CPF, e-mail, telefone ou chave..."
-                          className="text-sm h-8"
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSavePix(usuario);
-                            if (e.key === 'Escape') setEditingPixId(null);
-                          }}
-                        />
-                        <Button size="sm" className="h-8 px-2 bg-green-600 hover:bg-green-700" onClick={() => handleSavePix(usuario)}>
-                          <Check className="w-4 h-4" />
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => setEditingPixId(null)}>
-                          ✕
-                        </Button>
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <Input
+                            value={pixValue}
+                            onChange={(e) => setPixValue(e.target.value)}
+                            placeholder="CPF, e-mail, telefone ou chave..."
+                            className="text-sm h-8"
+                            autoFocus
+                            onKeyDown={(e) => { if (e.key === 'Escape') setEditingPixId(null); }}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Input
+                            value={nomeBancoValue}
+                            onChange={(e) => setNomeBancoValue(e.target.value)}
+                            placeholder="Nome do banco (ex: Nubank, Inter...)"
+                            className="text-sm h-8"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSavePix(usuario);
+                              if (e.key === 'Escape') setEditingPixId(null);
+                            }}
+                          />
+                          <Button size="sm" className="h-8 px-2 bg-green-600 hover:bg-green-700 flex-shrink-0" onClick={() => handleSavePix(usuario)}>
+                            <Check className="w-4 h-4" />
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-8 px-2 flex-shrink-0" onClick={() => setEditingPixId(null)}>
+                            ✕
+                          </Button>
+                        </div>
                       </div>
                     ) : (userData.chave_pix) ? (
                       <div className="flex items-center gap-2">
@@ -449,7 +464,7 @@ export default function UsuariosPage() {
                           variant="ghost"
                           className="h-8 px-2 flex-shrink-0 text-gray-400 hover:text-gray-600"
                           onClick={() => handleEditPix(usuario)}
-                          title="Editar chave PIX"
+                          title="Editar"
                         >
                           <Edit className="w-3 h-3" />
                         </Button>
@@ -463,6 +478,23 @@ export default function UsuariosPage() {
                       >
                         + Cadastrar chave PIX
                       </Button>
+                    )}
+
+                    {/* Nome do banco (exibido apenas quando há chave pix e não está editando) */}
+                    {editingPixId !== usuario.id && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-xs text-gray-500">Banco:</span>
+                        {userData.nome_banco ? (
+                          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{userData.nome_banco}</span>
+                        ) : (
+                          <button
+                            className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
+                            onClick={() => handleEditPix(usuario)}
+                          >
+                            {userData.chave_pix ? 'Adicionar banco' : '—'}
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </CardContent>
