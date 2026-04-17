@@ -81,18 +81,22 @@ export default function MeuFinanceiro() {
   const totalPago = pagamentosPeriodo.reduce((s, p) => s + (p.valor_pago || 0), 0);
   const totalGanho = comissoesPeriodo.reduce((s, c) => s + (c.valor_comissao_tecnico || 0), 0);
 
-  // Adiantamento: apenas a semana imediatamente anterior ao período visualizado
+  // Adiantamento: rastreamento começa a partir da semana 2026-04-20
+  const ADIANTAMENTO_INICIO = new Date('2026-04-20T00:00:00');
   const inicioSemana = inicio ? new Date(inicio + 'T00:00:00') : startOfWeek(hoje, { weekStartsOn: 1 });
   const inicioPreviousSemana = new Date(inicioSemana);
   inicioPreviousSemana.setDate(inicioPreviousSemana.getDate() - 7);
 
-  const comissoesSemanaAnterior = minhasComissoes
-    .filter(c => { const d = parseDateSafe(c.data_geracao); return d && d >= inicioPreviousSemana && d < inicioSemana; })
-    .reduce((s, c) => s + (c.valor_comissao_tecnico || 0), 0);
-  const pagamentosSemanaAnterior = meusPagamentos
-    .filter(p => { const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date); return d && d >= inicioPreviousSemana && d < inicioSemana; })
-    .reduce((s, p) => s + (p.valor_pago || 0), 0);
-  const adiantamento_anterior = Math.max(0, pagamentosSemanaAnterior - comissoesSemanaAnterior);
+  let adiantamento_anterior = 0;
+  if (inicioPreviousSemana >= ADIANTAMENTO_INICIO) {
+    const comissoesSemanaAnterior = minhasComissoes
+      .filter(c => { const d = parseDateSafe(c.data_geracao); return d && d >= inicioPreviousSemana && d < inicioSemana; })
+      .reduce((s, c) => s + (c.valor_comissao_tecnico || 0), 0);
+    const pagamentosSemanaAnterior = meusPagamentos
+      .filter(p => { const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date); return d && d >= inicioPreviousSemana && d < inicioSemana; })
+      .reduce((s, p) => s + (p.valor_pago || 0), 0);
+    adiantamento_anterior = Math.max(0, pagamentosSemanaAnterior - comissoesSemanaAnterior);
+  }
 
   // Crédito pendente líquido = ganhou no período - recebeu no período - adiantamento anterior
   const totalPendente = Math.max(0, totalGanho - totalPago - adiantamento_anterior);

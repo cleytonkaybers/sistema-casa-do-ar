@@ -228,19 +228,24 @@ export default function FinanceiroAdmin() {
       const totalPagoSemana = pagamentosSemana
         .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-      // Adiantamento: olhar apenas a semana imediatamente anterior ao período visualizado
+      // Adiantamento: rastreamento começa a partir da semana 2026-04-20 (semana seguinte à ativação)
+      // Só conta adiantamento se a semana anterior for >= data de início do rastreamento
+      const ADIANTAMENTO_INICIO = new Date('2026-04-20T00:00:00');
       const inicioPreviousSemana = new Date(inicioSemana);
       inicioPreviousSemana.setDate(inicioPreviousSemana.getDate() - 7);
 
-      const comissoesSemanaAnterior = lancamentos
-        .filter(l => l.tecnico_id === t.tecnico_id && l.data_geracao && new Date(l.data_geracao) >= inicioPreviousSemana && new Date(l.data_geracao) < inicioSemana)
-        .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
+      let adiantamento_anterior = 0;
+      if (inicioPreviousSemana >= ADIANTAMENTO_INICIO) {
+        const comissoesSemanaAnterior = lancamentos
+          .filter(l => l.tecnico_id === t.tecnico_id && l.data_geracao && new Date(l.data_geracao) >= inicioPreviousSemana && new Date(l.data_geracao) < inicioSemana)
+          .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
-      const pagamentosSemanaAnterior = pagamentos
-        .filter(p => p.tecnico_id === t.tecnico_id && p.status === 'Confirmado' && p.created_date && new Date(p.created_date) >= inicioPreviousSemana && new Date(p.created_date) < inicioSemana)
-        .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
+        const pagamentosSemanaAnterior = pagamentos
+          .filter(p => p.tecnico_id === t.tecnico_id && p.status === 'Confirmado' && p.created_date && new Date(p.created_date) >= inicioPreviousSemana && new Date(p.created_date) < inicioSemana)
+          .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-      const adiantamento_anterior = Math.max(0, pagamentosSemanaAnterior - comissoesSemanaAnterior);
+        adiantamento_anterior = Math.max(0, pagamentosSemanaAnterior - comissoesSemanaAnterior);
+      }
 
       // Crédito pendente líquido = ganhou na semana - já pago - adiantamento anterior
       const creditoPendenteLiquido = Math.max(0, totalComissoesSemana - totalPagoSemana - adiantamento_anterior);

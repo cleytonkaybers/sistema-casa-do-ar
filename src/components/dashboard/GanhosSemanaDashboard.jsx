@@ -54,25 +54,29 @@ export default function GanhosSemanaDashboard() {
 
         const valorPago = pagamentosSemana.reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-        // Adiantamento: apenas a semana imediatamente anterior à atual
+        // Adiantamento: rastreamento começa a partir da semana 2026-04-20
+        const ADIANTAMENTO_INICIO = new Date('2026-04-20T00:00:00');
         const inicioPreviousSemana = new Date(inicioSemana);
         inicioPreviousSemana.setDate(inicioPreviousSemana.getDate() - 7);
 
-        const comissoesSemanaAnterior = lancamentos
-          .filter(l => {
-            if (l.tecnico_id !== user.email || !l.data_geracao) return false;
-            try { const d = toLocalDate(l.data_geracao); return d >= inicioPreviousSemana && d < inicioSemana; } catch { return false; }
-          })
-          .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
+        let adiantamento_anterior = 0;
+        if (inicioPreviousSemana >= ADIANTAMENTO_INICIO) {
+          const comissoesSemanaAnterior = lancamentos
+            .filter(l => {
+              if (l.tecnico_id !== user.email || !l.data_geracao) return false;
+              try { const d = toLocalDate(l.data_geracao); return d >= inicioPreviousSemana && d < inicioSemana; } catch { return false; }
+            })
+            .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
-        const pagamentosSemanaAnterior = pagamentos
-          .filter(p => {
-            if (p.tecnico_id !== user.email || p.status !== 'Confirmado' || !p.created_date) return false;
-            try { const d = toLocalDate(p.created_date); return d >= inicioPreviousSemana && d < inicioSemana; } catch { return false; }
-          })
-          .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
+          const pagamentosSemanaAnterior = pagamentos
+            .filter(p => {
+              if (p.tecnico_id !== user.email || p.status !== 'Confirmado' || !p.created_date) return false;
+              try { const d = toLocalDate(p.created_date); return d >= inicioPreviousSemana && d < inicioSemana; } catch { return false; }
+            })
+            .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-        const adiantamento_anterior = Math.max(0, pagamentosSemanaAnterior - comissoesSemanaAnterior);
+          adiantamento_anterior = Math.max(0, pagamentosSemanaAnterior - comissoesSemanaAnterior);
+        }
         const creditoPendente = Math.max(0, totalGanho - valorPago - adiantamento_anterior);
 
         return { totalGanho, valorPago, creditoPendente, adiantamento_anterior };
