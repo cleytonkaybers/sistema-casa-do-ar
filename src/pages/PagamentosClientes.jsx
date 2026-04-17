@@ -498,33 +498,6 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
             <Input placeholder="Ex: referência, número do comprovante..." value={obs} onChange={e => setObs(e.target.value)} />
           </div>
 
-          <div className="border border-blue-100 rounded-xl p-3 bg-blue-50/40 space-y-3">
-            <p className="text-sm font-semibold text-blue-800">📅 Parcelas Futuras (agendadas)</p>
-            {parcelas.length > 0 && (
-              <div className="space-y-1.5">
-                {parcelas.map((p, i) => (
-                  <div key={i} className="flex items-center justify-between bg-white border border-blue-100 rounded-lg px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-3.5 h-3.5 text-blue-500" />
-                      <span className="text-sm text-gray-700 font-medium">{format(new Date(p.data + 'T12:00:00'), 'dd/MM/yyyy')}</span>
-                      <span className="text-xs text-gray-400">—</span>
-                      <span className="text-sm font-semibold text-blue-700">{formatCurrency(p.valor)}</span>
-                    </div>
-                    <button onClick={() => removerParcela(i)} className="text-gray-300 hover:text-red-500"><X className="w-4 h-4" /></button>
-                  </div>
-                ))}
-                <div className="flex justify-between text-xs font-semibold px-1 pt-1">
-                  <span className="text-gray-500">Saldo após todas as parcelas:</span>
-                  <span className={saldoRestante < -0.01 ? 'text-red-600' : 'text-green-600'}>{formatCurrency(saldoRestante)}</span>
-                </div>
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-2">
-              <div><label className="text-xs text-gray-500 mb-1 block">Data da parcela</label><Input type="date" value={novaData} onChange={e => setNovaData(e.target.value)} className="h-9 text-sm" /></div>
-              <div><label className="text-xs text-gray-500 mb-1 block">Valor (R$)</label><Input placeholder="0,00" value={novoValorParcela} onChange={e => setNovoValorParcela(e.target.value)} className="h-9 text-sm" /></div>
-            </div>
-            <Button variant="outline" size="sm" onClick={adicionarParcela} className="w-full text-blue-700 border-blue-200 hover:bg-blue-100">+ Adicionar parcela futura</Button>
-          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
