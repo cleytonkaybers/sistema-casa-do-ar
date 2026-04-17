@@ -1886,15 +1886,22 @@ function PagamentosClientesContent() {
 
           {/* SEÇÃO 2: Pendências unificadas (atrasados + agendados + parciais + sem preço) */}
           {pagsPendencias.length > 0 && (
-            <div ref={secaoSemPrecoRef} className={`space-y-3 rounded-2xl p-3 transition-all ${highlightSecao === 'sempreco' || highlightSecao === 'cobrar' ? 'bg-amber-50 border-2 border-amber-400' : 'bg-orange-50/40 border border-orange-200'}`}>
+            <div
+              ref={secaoSemPrecoRef}
+              className="space-y-3 rounded-2xl p-3 transition-all"
+              style={highlightSecao === 'sempreco' || highlightSecao === 'cobrar'
+                ? { background: 'rgba(251,191,36,0.15)', border: '2px solid rgba(251,191,36,0.5)' }
+                : { background: 'rgba(234,88,12,0.12)', border: '1px solid rgba(234,88,12,0.3)' }
+              }
+            >
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-orange-500" />
+                <h2 className="text-base font-bold text-orange-300 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-orange-400" />
                   Pendências (Atrasados, Agendados, Parciais)
                 </h2>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-orange-600 font-semibold">{formatCurrency(totalPendencias)} a receber</span>
-                  <span className="text-sm font-semibold text-orange-600">{pagsPendencias.length} itens</span>
+                  <span className="text-xs text-orange-300 font-semibold">{formatCurrency(totalPendencias)} a receber</span>
+                  <span className="text-sm font-semibold text-orange-300">{pagsPendencias.length} itens</span>
                 </div>
               </div>
               <TabelaPagamentos
