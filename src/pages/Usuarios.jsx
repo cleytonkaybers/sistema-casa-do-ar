@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, Users, Shield, Mail, Edit, Trash2 } from 'lucide-react';
+import { Loader2, Users, Shield, Mail, Edit, Trash2, Copy, Check, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePermissions } from '../components/auth/PermissionGuard';
 import { useEmpresa } from '../components/auth/EmpresaGuard';
@@ -90,6 +90,9 @@ export default function UsuariosPage() {
   const [invitePerfil, setInvitePerfil] = useState('atendente');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [editingPixId, setEditingPixId] = useState(null);
+  const [pixValue, setPixValue] = useState('');
+  const [copiedId, setCopiedId] = useState(null);
 
   useEffect(() => {
     base44.auth.me().then(user => setCurrentUser(user)).catch(() => {});
@@ -119,13 +122,17 @@ export default function UsuariosPage() {
 
   const updateUserMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.User.update(id, data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
-      toast.success('Permissões atualizadas!');
-      setShowEditModal(false);
-      setEditingUser(null);
+      if (variables.closesModal) {
+        toast.success('Permissões atualizadas!');
+        setShowEditModal(false);
+        setEditingUser(null);
+      } else {
+        toast.success('Chave PIX salva!');
+      }
     },
-    onError: () => toast.error('Erro ao atualizar permissões')
+    onError: () => toast.error('Erro ao salvar')
   });
 
   const deleteUserMutation = useMutation({
@@ -215,11 +222,13 @@ export default function UsuariosPage() {
 
   const handleSavePermissions = () => {
     if (!editingUser) return;
-    
+    const originalData = usuarios.find(u => u.id === editingUser.id)?.data || {};
     updateUserMutation.mutate({
       id: editingUser.id,
+      closesModal: true,
       data: {
         data: {
+          ...originalData,
           perfil: editingUser.perfil,
           permissoes: editingUser.permissoes,
           empresa_id: editingUser.empresa_id,
@@ -262,6 +271,33 @@ export default function UsuariosPage() {
     if (userToDelete) {
       deleteUserMutation.mutate(userToDelete.id);
     }
+  };
+
+  const handleEditPix = (usuario) => {
+    setEditingPixId(usuario.id);
+    setPixValue((usuario.data || {}).chave_pix || '');
+  };
+
+  const handleSavePix = (usuario) => {
+    updateUserMutation.mutate({
+      id: usuario.id,
+      data: {
+        data: {
+          ...(usuario.data || {}),
+          chave_pix: pixValue.trim()
+        }
+      }
+    });
+    setEditingPixId(null);
+    setPixValue('');
+  };
+
+  const handleCopyPix = (chave, id) => {
+    navigator.clipboard.writeText(chave).then(() => {
+      setCopiedId(id);
+      toast.success('Chave PIX copiada!');
+      setTimeout(() => setCopiedId(null), 2000);
+    });
   };
 
   if (authLoading) {
@@ -345,7 +381,7 @@ export default function UsuariosPage() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-3">
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -367,6 +403,67 @@ export default function UsuariosPage() {
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
+                  </div>
+
+                  {/* Campo Chave PIX */}
+                  <div className="border-t pt-3">
+                    <p className="text-xs text-gray-500 font-medium flex items-center gap-1 mb-2">
+                      <QrCode className="w-3 h-3" /> Chave PIX
+                    </p>
+                    {editingPixId === usuario.id ? (
+                      <div className="flex gap-2">
+                        <Input
+                          value={pixValue}
+                          onChange={(e) => setPixValue(e.target.value)}
+                          placeholder="CPF, e-mail, telefone ou chave..."
+                          className="text-sm h-8"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSavePix(usuario);
+                            if (e.key === 'Escape') setEditingPixId(null);
+                          }}
+                        />
+                        <Button size="sm" className="h-8 px-2 bg-green-600 hover:bg-green-700" onClick={() => handleSavePix(usuario)}>
+                          <Check className="w-4 h-4" />
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => setEditingPixId(null)}>
+                          ✕
+                        </Button>
+                      </div>
+                    ) : (userData.chave_pix) ? (
+                      <div className="flex items-center gap-2">
+                        <span className="flex-1 text-sm font-mono bg-slate-100 dark:bg-slate-800 rounded px-2 py-1 truncate">
+                          {userData.chave_pix}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2 flex-shrink-0"
+                          onClick={() => handleCopyPix(userData.chave_pix, usuario.id)}
+                          title="Copiar chave PIX"
+                        >
+                          {copiedId === usuario.id ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 px-2 flex-shrink-0 text-gray-400 hover:text-gray-600"
+                          onClick={() => handleEditPix(usuario)}
+                          title="Editar chave PIX"
+                        >
+                          <Edit className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full h-8 text-xs text-gray-400 border-dashed"
+                        onClick={() => handleEditPix(usuario)}
+                      >
+                        + Cadastrar chave PIX
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
