@@ -11,7 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, Users, TrendingUp, AlertCircle, Check, X, FileText, Download, Calendar, Edit2, Trash2, Save, XCircle } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, AlertCircle, Check, X, FileText, Download, Calendar, Edit2, Trash2, Save, XCircle, Eye, MessageSquare } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { format, parseISO, startOfWeek, endOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -36,6 +37,7 @@ export default function FinanceiroAdmin() {
   const [estornando, setEstornando] = useState(false);
   const [showPDFModal, setShowPDFModal] = useState(false);
   const [filtroTecnicoRelatorio, setFiltroTecnicoRelatorio] = useState('all');
+  const [pagamentoDetalhes, setPagamentoDetalhes] = useState(null);
   
   const { data: lancamentos = [], refetch: refetchLancamentos } = useQuery({
     queryKey: ['lancamentos'],
@@ -648,7 +650,7 @@ export default function FinanceiroAdmin() {
                   const dataPag = new Date(pag.created_date);
                   return dataPag >= inicioSemanaAtual && dataPag <= fimSemanaAtual;
                 }).map(pag => (
-                  <TableRow key={pag.id}>
+                  <TableRow key={pag.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setPagamentoDetalhes(pag)}>
                     <TableCell>
                       <div>
                         <p className="font-medium">{pag.tecnico_nome}</p>
@@ -663,44 +665,56 @@ export default function FinanceiroAdmin() {
                         {pag.status === 'Confirmado' ? 'Confirmado' : pag.status === 'Estornado' ? 'Estornado' : 'Cancelado'}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      {pag.status === 'Confirmado' && (
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-1">
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => setConfirmCancelPagamento(pag)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={(e) => { e.stopPropagation(); setPagamentoDetalhes(pag); }}
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          title="Ver detalhes"
                         >
-                          <XCircle className="w-4 h-4 mr-1" />
-                          Cancelar
+                          <Eye className="w-4 h-4" />
                         </Button>
-                      )}
-                      {pag.status === 'Estornado' && (
-                        <div className="space-y-1">
-                          {pag.motivo_estorno && (
-                            <p className="text-xs text-gray-500">{pag.motivo_estorno}</p>
-                          )}
+                        {pag.status === 'Confirmado' && (
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={async () => {
-                              if (window.confirm('Tem certeza que deseja remover este pagamento estornado da lista?')) {
-                                try {
-                                  await base44.entities.PagamentoTecnico.delete(pag.id);
-                                  toast.success('Pagamento removido da lista');
-                                  refetchPagamentos();
-                                } catch (error) {
-                                  toast.error('Erro ao remover pagamento');
-                                }
-                              }
-                            }}
-                            className="text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+                            onClick={(e) => { e.stopPropagation(); setConfirmCancelPagamento(pag); }}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
                           >
-                            <Trash2 className="w-4 h-4 mr-1" />
-                            Remover
+                            <XCircle className="w-4 h-4 mr-1" />
+                            Cancelar
                           </Button>
-                        </div>
-                      )}
+                        )}
+                        {pag.status === 'Estornado' && (
+                          <div className="space-y-1">
+                            {pag.motivo_estorno && (
+                              <p className="text-xs text-gray-500">{pag.motivo_estorno}</p>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (window.confirm('Tem certeza que deseja remover este pagamento estornado da lista?')) {
+                                  try {
+                                    await base44.entities.PagamentoTecnico.delete(pag.id);
+                                    toast.success('Pagamento removido da lista');
+                                    refetchPagamentos();
+                                  } catch (error) {
+                                    toast.error('Erro ao remover pagamento');
+                                  }
+                                }
+                              }}
+                              className="text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+                            >
+                              <Trash2 className="w-4 h-4 mr-1" />
+                              Remover
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -711,6 +725,64 @@ export default function FinanceiroAdmin() {
       </Card>
 
 
+
+      {/* Modal Detalhes do Pagamento */}
+      <Dialog open={!!pagamentoDetalhes} onOpenChange={() => setPagamentoDetalhes(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Pagamento</DialogTitle>
+          </DialogHeader>
+          {pagamentoDetalhes && (
+            <div className="space-y-4">
+              <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-4 text-white">
+                <p className="text-white/80 text-xs mb-1">Técnico</p>
+                <h3 className="font-bold text-xl">{pagamentoDetalhes.tecnico_nome}</h3>
+                <p className="text-2xl font-bold mt-2">R$ {pagamentoDetalhes.valor_pago?.toFixed(2)}</p>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between items-center border-b pb-2">
+                  <span className="text-gray-500">Data</span>
+                  <span className="font-medium">
+                    {pagamentoDetalhes.created_date
+                      ? format(new Date(pagamentoDetalhes.created_date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+                      : pagamentoDetalhes.data_pagamento || '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center border-b pb-2">
+                  <span className="text-gray-500">Método</span>
+                  <span className="font-medium">{pagamentoDetalhes.metodo_pagamento || '-'}</span>
+                </div>
+                <div className="flex justify-between items-center border-b pb-2">
+                  <span className="text-gray-500">Status</span>
+                  <Badge variant={pagamentoDetalhes.status === 'Confirmado' ? 'default' : 'destructive'}>
+                    {pagamentoDetalhes.status === 'Confirmado' ? 'Confirmado' : pagamentoDetalhes.status === 'Estornado' ? 'Estornado' : 'Cancelado'}
+                  </Badge>
+                </div>
+
+                {/* OBS */}
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-1.5">
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    OBS
+                  </div>
+                  {pagamentoDetalhes.observacao
+                    ? <p className="text-gray-700">{pagamentoDetalhes.observacao}</p>
+                    : <p className="text-gray-400 italic">Sem observações</p>
+                  }
+                </div>
+
+                {pagamentoDetalhes.motivo_estorno && (
+                  <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+                    <p className="text-xs text-red-500 mb-1">Motivo do Estorno</p>
+                    <p className="text-red-700 text-sm">{pagamentoDetalhes.motivo_estorno}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={!!confirmDeleteLanc}
