@@ -1092,6 +1092,7 @@ function PagamentosClientesContent() {
   ));
   const secaoSemPrecoRef = useRef(null);
   const secaoCobrarRef = useRef(null);
+  const autoArquivadoRef = useRef(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm);
@@ -1254,6 +1255,32 @@ function PagamentosClientesContent() {
   const hoje = new Date();
   const inicioSemana = startOfWeek(hoje, { weekStartsOn: 1 }); // segunda-feira
   const fimSemana = endOfWeek(hoje, { weekStartsOn: 1 }); // domingo
+
+  // Auto-arquivar pagamentos pagos de semanas anteriores ao carregar a página
+  useEffect(() => {
+    if (!isAdmin || autoArquivadoRef.current || pagamentos.length === 0) return;
+
+    const candidatos = pagamentos.filter(p => {
+      if (p.arquivado) return false;
+      if (p.status !== 'pago') return false;
+      const dataRef = p.data_pagamento_completo || p.data_conclusao;
+      if (!dataRef) return false;
+      try {
+        return !isWithinInterval(parseISO(dataRef), { start: inicioSemana, end: fimSemana });
+      } catch { return false; }
+    });
+
+    autoArquivadoRef.current = true;
+    if (candidatos.length === 0) return;
+
+    // Arquivar silenciosamente em segundo plano
+    (async () => {
+      for (const p of candidatos) {
+        try { await updateMutation.mutateAsync({ id: p.id, data: { arquivado: true } }); } catch {}
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagamentos.length, isAdmin]);
 
   // Sincronizar apenas ATENDIMENTOS DA SEMANA ATUAL — 1 registro por atendimento
   useEffect(() => {
