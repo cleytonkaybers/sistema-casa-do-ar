@@ -1256,19 +1256,35 @@ function PagamentosClientesContent() {
   const inicioSemana = startOfWeek(hoje, { weekStartsOn: 1 }); // segunda-feira
   const fimSemana = endOfWeek(hoje, { weekStartsOn: 1 }); // domingo
 
+  // Helper: verifica se registro é "efetivamente pago" (DB pago, tolerância ou placeholder)
+  const isEfetivamentePago = useCallback((p) => {
+    const valorPago = p.valor_pago || 0;
+    const saldo = (p.valor_total || 0) - valorPago;
+    return (
+      p.status === 'pago' ||
+      (valorPago > 0 && saldo <= 1.0) ||        // pago com tolerância de R$1
+      ((p.valor_total || 0) <= 1.0 && valorPago === 0) // placeholder sem pagamento real
+    );
+  }, []);
+
+  // Helper: verifica se data é de semana anterior
+  const isDeSemanasAnteriores = useCallback((p) => {
+    const dataRef = p.data_pagamento_completo || p.data_conclusao;
+    if (!dataRef) return false;
+    try {
+      return !isWithinInterval(parseISO(dataRef), { start: inicioSemana, end: fimSemana });
+    } catch { return false; }
+  }, [inicioSemana, fimSemana]);
+
   // Auto-arquivar pagamentos pagos de semanas anteriores ao carregar a página
   useEffect(() => {
     if (!isAdmin || autoArquivadoRef.current || pagamentos.length === 0) return;
 
-    const candidatos = pagamentos.filter(p => {
-      if (p.arquivado) return false;
-      if (p.status !== 'pago') return false;
-      const dataRef = p.data_pagamento_completo || p.data_conclusao;
-      if (!dataRef) return false;
-      try {
-        return !isWithinInterval(parseISO(dataRef), { start: inicioSemana, end: fimSemana });
-      } catch { return false; }
-    });
+    const candidatos = pagamentos.filter(p =>
+      !p.arquivado &&
+      isEfetivamentePago(p) &&
+      isDeSemanasAnteriores(p)
+    );
 
     autoArquivadoRef.current = true;
     if (candidatos.length === 0) return;
@@ -1530,17 +1546,13 @@ function PagamentosClientesContent() {
   };
 
   const handleArquivarAntigos = async () => {
-    const candidatos = pagamentos.filter(p => {
-      if (p.arquivado) return false;
-      if (p.status !== 'pago') return false;
-      const dataRef = p.data_pagamento_completo || p.data_conclusao;
-      if (!dataRef) return false;
-      try {
-        return !isWithinInterval(parseISO(dataRef), { start: inicioSemana, end: fimSemana });
-      } catch { return false; }
-    });
+    const candidatos = pagamentos.filter(p =>
+      !p.arquivado &&
+      isEfetivamentePago(p) &&
+      isDeSemanasAnteriores(p)
+    );
     if (candidatos.length === 0) { toast.info('Nenhum pagamento anterior para arquivar.'); return; }
-    if (!confirm(`Arquivar ${candidatos.length} registro(s) pago(s) de semanas anteriores?\n\nEles ficarão na aba "Arquivo" e poderão ser restaurados.`)) return;
+    if (!confirm(`Arquivar ${candidatos.length} registro(s) de semanas anteriores?\n\nEles ficarão na aba "Arquivo" e poderão ser restaurados.`)) return;
     try {
       for (const p of candidatos) {
         await updateMutation.mutateAsync({ id: p.id, data: { arquivado: true } });
