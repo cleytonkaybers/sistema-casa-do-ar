@@ -41,6 +41,7 @@ export default function TabelaServicos() {
   const [novoPercEquipe, setNovoPercEquipe] = useState('30');
   const [novoPercTecnico, setNovoPercTecnico] = useState('15');
   const [isCustomType, setIsCustomType] = useState(true);
+  const [customTipo, setCustomTipo] = useState('');
   const queryClient = useQueryClient();
 
   const { data: valores = [] } = useQuery({
@@ -85,8 +86,6 @@ export default function TabelaServicos() {
     onError: () => toast.error('Erro ao adicionar')
   });
 
-  const [customTipo, setCustomTipo] = useState('');
-  
   if (!user) {
     return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div></div>;
   }

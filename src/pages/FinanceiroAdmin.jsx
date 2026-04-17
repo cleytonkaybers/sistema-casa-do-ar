@@ -358,7 +358,7 @@ export default function FinanceiroAdmin() {
                   <SelectValue placeholder="Todas as equipes" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={null}>Todas as equipes</SelectItem>
+                  <SelectItem value="">Todas as equipes</SelectItem>
                   {equipes.map(eq => (
                     <SelectItem key={eq.id} value={eq.id}>{eq.nome}</SelectItem>
                   ))}

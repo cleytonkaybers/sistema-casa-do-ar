@@ -23,12 +23,14 @@ export default function ChatWindow({ isOpen }) {
   // Buscar ou criar conversa
   useEffect(() => {
     if (!currentUser || !isOpen) return;
+    let cancelled = false;
 
     const loadConversation = async () => {
       const conversations = await base44.entities.ChatConversation.filter({
         user_email: currentUser.email
       });
-      
+      if (cancelled) return;
+
       if (conversations.length > 0) {
         setConversation(conversations[0]);
       } else {
@@ -37,11 +39,12 @@ export default function ChatWindow({ isOpen }) {
           user_name: currentUser.full_name || currentUser.email,
           status: 'open'
         });
-        setConversation(newConv);
+        if (!cancelled) setConversation(newConv);
       }
     };
 
     loadConversation();
+    return () => { cancelled = true; };
   }, [currentUser, isOpen]);
 
   // Buscar mensagens

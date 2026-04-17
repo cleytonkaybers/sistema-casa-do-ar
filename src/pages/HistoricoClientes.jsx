@@ -207,7 +207,7 @@ export default function HistoricoClientes() {
     });
 
     return clientesFiltrados;
-  }, [atendimentos, servicos, debouncedSearch]);
+  }, [atendimentos, servicos, debouncedSearch, pagamentos]);
 
   const totalServicosHistorico = servicos.length + atendimentos.length;
   const totalValorHistorico = atendimentos.reduce((sum, item) => sum + (item.valor || 0), 0);

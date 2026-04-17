@@ -386,7 +386,6 @@ export default function RelatorioComissoes() {
       tecLista = tecnicos.filter(t => t.equipe_nome === novoLanc.equipe_id);
       if (tecLista.length === 0) {
         toast.error(`Nenhum técnico na equipe "${novoLanc.equipe_id}". Verifique o cadastro.`);
-        console.warn('[Comissão] tecnicos carregados:', tecnicos.map(t => ({ nome: t.tecnico_nome, equipe_nome: t.equipe_nome })));
         return;
       }
     } else {

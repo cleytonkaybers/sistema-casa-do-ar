@@ -289,7 +289,7 @@ export default function ServicosPage() {
           usuario: user?.email,
           data_alteracao: agora,
           tipo_registro: 'servico'
-        }).catch(() => {}),
+        }).catch(err => console.error('Erro ao criar status:', err)),
 
         base44.entities.AlteracaoStatus.filter({ servico_id: servicoSnapshot.id }, 'data_alteracao')
           .then(historicoStatus => {
@@ -346,7 +346,7 @@ export default function ServicosPage() {
               google_maps_link: servicoSnapshot.google_maps_link || '',
               detalhes: JSON.stringify(detalhesCompletos),
             });
-          }).catch(() => {}),
+          }).catch(err => console.error('Erro ao criar atendimento:', err)),
 
         // Gerar comissões automaticamente ao concluir
         (async () => {
@@ -390,7 +390,10 @@ export default function ServicosPage() {
       ]).then(() => {
         queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
         queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
-      }).catch(() => {});
+      }).catch(err => {
+        console.error('Erro em operações secundárias:', err);
+        toast.error('Atenção: parte das operações pode ter falhado. Verifique comissões e atendimentos.');
+      });
 
       // Atualizar preventiva do cliente em background
       if (!isVerDefeito && !servicoSnapshot.sem_registro_cliente) {
@@ -406,7 +409,7 @@ export default function ServicosPage() {
               });
             }
           }).then(() => queryClient.invalidateQueries({ queryKey: ['clientes'] }))
-          .catch(() => {});
+          .catch(err => console.error('Erro ao atualizar preventiva:', err));
       }
 
     } catch (error) {
@@ -435,7 +438,7 @@ export default function ServicosPage() {
         usuario: currentUser?.email,
         data_alteracao: new Date().toISOString(),
         tipo_registro: 'servico'
-      }).catch(() => {});
+      }).catch(err => console.error('Erro ao registrar alteração:', err));
       
       // Atualizar serviço
       await updateMutation.mutateAsync({ 

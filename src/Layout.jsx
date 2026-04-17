@@ -154,7 +154,7 @@ function LayoutContent({ children }) {
                     src={companySettings.company_logo_url}
                     alt="Logo"
                     className="w-full h-full object-contain"
-                    onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex'; }}
+                    onError={(e) => { e.currentTarget.style.display = 'none'; if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = 'flex'; }}
                   />
                   : null}
                   <LogoIcon className={`w-7 h-7 text-blue-400 ${companySettings.company_logo_url ? 'hidden' : ''}`} />
