@@ -20,7 +20,7 @@ import CompromissoClientePDF from '@/components/financeiro/CompromissoClientePDF
 import {
   Search, DollarSign, CheckCircle2, AlertCircle, Calendar,
   MessageCircle, Filter, X, Pencil, Tag,
-  Clock, History, Trash2, Eye, Check, FileDown, AlertTriangle, RotateCcw
+  Clock, History, Trash2, Eye, Check, FileDown, AlertTriangle, RotateCcw, Archive, ArchiveRestore
 } from 'lucide-react';
 
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
@@ -1502,8 +1502,43 @@ function PagamentosClientesContent() {
     }
   };
 
+  const handleArquivarAntigos = async () => {
+    const candidatos = pagamentos.filter(p => {
+      if (p.arquivado) return false;
+      if (p.status !== 'pago') return false;
+      const dataRef = p.data_pagamento_completo || p.data_conclusao;
+      if (!dataRef) return false;
+      try {
+        return !isWithinInterval(parseISO(dataRef), { start: inicioSemana, end: fimSemana });
+      } catch { return false; }
+    });
+    if (candidatos.length === 0) { toast.info('Nenhum pagamento anterior para arquivar.'); return; }
+    if (!confirm(`Arquivar ${candidatos.length} registro(s) pago(s) de semanas anteriores?\n\nEles ficarão na aba "Arquivo" e poderão ser restaurados.`)) return;
+    try {
+      for (const p of candidatos) {
+        await updateMutation.mutateAsync({ id: p.id, data: { arquivado: true } });
+      }
+      toast.success(`✅ ${candidatos.length} registros arquivados!`);
+    } catch {
+      toast.error('Erro ao arquivar registros');
+    }
+  };
+
+  const handleDesarquivar = async (pag) => {
+    const records = pag._records?.length > 0 ? pag._records : [pag];
+    try {
+      for (const rec of records) {
+        await updateMutation.mutateAsync({ id: rec.id, data: { arquivado: false } });
+      }
+      toast.success('↩ Registro restaurado!');
+    } catch {
+      toast.error('Erro ao restaurar registro');
+    }
+  };
+
   const pagsFiltrados = useMemo(() =>
     pagamentos.filter(p =>
+      p.arquivado !== true &&
       (!debouncedSearch || p.cliente_nome?.toLowerCase().includes(debouncedSearch.toLowerCase())) &&
       !TIPOS_IGNORADOS.includes(p.tipo_servico)
     )
@@ -1585,6 +1620,12 @@ function PagamentosClientesContent() {
       .filter(g => filtroStatus.length === 0 || filtroStatus.includes(g.status));
   }, [pagsFiltrados, inicioSemana, fimSemana, temPagamentoNaSemana, filtroStatus]);
 
+  const pagsArquivados = useMemo(() =>
+    pagamentos
+      .filter(p => p.arquivado === true)
+      .sort((a, b) => new Date(b.data_conclusao || 0) - new Date(a.data_conclusao || 0)),
+  [pagamentos]);
+
   const pagsRelatorio = useMemo(() => {
     let inicio, fim;
     if (relFiltro === 'semana') { inicio = inicioSemana; fim = fimSemana; }
@@ -1662,6 +1703,7 @@ function PagamentosClientesContent() {
 
   const abas = [
     { key: 'semana', label: 'Semana Atual', count: pagsSemana.length + pagsPendencias.length },
+    { key: 'arquivo', label: '📦 Arquivo', count: pagsArquivados.length > 0 ? pagsArquivados.length : null },
     { key: 'relatorio', label: 'Histórico / Relatórios', count: null },
   ];
 
@@ -1835,6 +1877,87 @@ function PagamentosClientesContent() {
           )}
 
 
+        </div>
+      )}
+
+      {/* Aba: Arquivo */}
+      {abaAtiva === 'arquivo' && (
+        <div className="space-y-4">
+          {/* Cabeçalho do arquivo */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
+                  <Archive className="w-5 h-5 text-gray-500" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-gray-800">Registros Arquivados</h2>
+                  <p className="text-xs text-gray-500">Pagamentos concluídos de semanas anteriores</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">{pagsArquivados.length} registros</span>
+                {isAdmin && (
+                  <Button
+                    onClick={handleArquivarAntigos}
+                    variant="outline"
+                    className="gap-1.5 h-8 text-xs border-amber-300 text-amber-700 hover:bg-amber-50"
+                  >
+                    <Archive className="w-3.5 h-3.5" />
+                    Arquivar pagos anteriores
+                  </Button>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 mt-3 border-t pt-3">
+              Arquivar remove os registros das listas principais e do alerta do Dashboard. Use "Restaurar" para trazer de volta quando necessário.
+            </p>
+          </div>
+
+          {/* Lista de arquivados */}
+          {pagsArquivados.length === 0 ? (
+            <div className="bg-white border border-gray-200 rounded-2xl p-10 text-center">
+              <Archive className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 font-medium">Nenhum registro arquivado</p>
+              <p className="text-xs text-gray-400 mt-1">Clique em "Arquivar pagos anteriores" para organizar o sistema</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {pagsArquivados.map(p => {
+                const dataConc = p.data_conclusao ? format(parseISO(p.data_conclusao), 'dd/MM/yyyy', { locale: ptBR }) : '—';
+                const dataPag = p.data_pagamento_completo ? format(parseISO(p.data_pagamento_completo), 'dd/MM/yyyy', { locale: ptBR }) : null;
+                return (
+                  <div key={p.id} className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3 hover:border-gray-300 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-800 text-sm truncate">{p.cliente_nome}</p>
+                        <p className="text-xs text-gray-400 truncate">{p.tipo_servico} · Concluído {dataConc}{dataPag ? ` · Pago ${dataPag}` : ''}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className="text-sm font-bold text-green-600">{formatCurrency(p.valor_total)}</span>
+                      {isAdmin && (
+                        <button
+                          onClick={() => {
+                            if (confirm(`Restaurar "${p.cliente_nome}" para a lista principal?`))
+                              handleDesarquivar(p);
+                          }}
+                          className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg border border-gray-200 text-xs text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-all"
+                          title="Restaurar registro"
+                        >
+                          <ArchiveRestore className="w-3.5 h-3.5" />
+                          Restaurar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

@@ -4,11 +4,11 @@
   "properties": {
     "atendimento_id": {
       "type": "string",
-      "description": "ID do atendimento conclu\u00eddo"
+      "description": "ID do atendimento concluído"
     },
     "servico_id": {
       "type": "string",
-      "description": "ID do servi\u00e7o original"
+      "description": "ID do serviço original"
     },
     "cliente_nome": {
       "type": "string",
@@ -20,21 +20,21 @@
     },
     "tipo_servico": {
       "type": "string",
-      "description": "Tipo de servi\u00e7o realizado"
+      "description": "Tipo de serviço realizado"
     },
     "data_conclusao": {
       "type": "string",
       "format": "date-time",
-      "description": "Data e hora da conclus\u00e3o do servi\u00e7o"
+      "description": "Data e hora da conclusão do serviço"
     },
     "valor_total": {
       "type": "number",
-      "description": "Valor total do servi\u00e7o"
+      "description": "Valor total do serviço"
     },
     "valor_pago": {
       "type": "number",
       "default": 0,
-      "description": "Valor j\u00e1 pago pelo cliente"
+      "description": "Valor já pago pelo cliente"
     },
     "status": {
       "type": "string",
@@ -49,16 +49,16 @@
     },
     "equipe_nome": {
       "type": "string",
-      "description": "Nome da equipe que realizou o servi\u00e7o"
+      "description": "Nome da equipe que realizou o serviço"
     },
     "observacoes": {
       "type": "string",
-      "description": "Observa\u00e7\u00f5es sobre o pagamento"
+      "description": "Observações sobre o pagamento"
     },
     "data_pagamento_completo": {
       "type": "string",
       "format": "date-time",
-      "description": "Data em que o pagamento foi conclu\u00eddo"
+      "description": "Data em que o pagamento foi concluído"
     },
     "data_pagamento_agendado": {
       "type": "string",
@@ -81,7 +81,12 @@
           }
         }
       },
-      "description": "Hist\u00f3rico de pagamentos parciais e totais"
+      "description": "Histórico de pagamentos parciais e totais"
+    },
+    "arquivado": {
+      "type": "boolean",
+      "default": false,
+      "description": "Indica se o registro foi arquivado (oculto das views principais)"
     }
   },
   "required": [

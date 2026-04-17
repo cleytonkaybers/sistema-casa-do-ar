@@ -113,10 +113,11 @@ export default function Dashboard() {
   // Cards de alerta para admin
   const TIPOS_IGNORADOS = ['Ver defeito', 'Verificar defeito', 'Outro tipo de serviço', 'Serviço avulso'];
   const semPrecificacao = pagamentosClientes.filter(p =>
-    p.status !== 'pago' && (p.valor_total === 0 || p.valor_total === 1) && !TIPOS_IGNORADOS.includes(p.tipo_servico)
+    p.status !== 'pago' && !p.arquivado && (p.valor_total === 0 || p.valor_total === 1) && !TIPOS_IGNORADOS.includes(p.tipo_servico)
   );
   const cobrarHoje = pagamentosClientes.filter(p => {
     if (p.status === 'pago') return false;
+    if (p.arquivado) return false;
     if (!p.data_pagamento_agendado) return false;
     const hoje = new Date();
     const agendado = new Date(p.data_pagamento_agendado + 'T12:00:00');
