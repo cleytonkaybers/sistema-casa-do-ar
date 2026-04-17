@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, TrendingUp, CheckCircle2, Clock, FileText } from 'lucide-react';
+import { DollarSign, TrendingUp, CheckCircle2, Clock, FileText, AlertCircle } from 'lucide-react';
 import { format, parseISO, startOfWeek, endOfWeek, subWeeks, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/lib/AuthContext';
@@ -78,13 +78,21 @@ export default function MeuFinanceiro() {
     return ds >= inicio && ds <= fim;
   });
 
-  const totalPendente = comissoesPeriodo
-    .filter(c => c.status === 'pendente')
-    .reduce((s, c) => s + (c.valor_comissao_tecnico || 0), 0);
-
   const totalPago = pagamentosPeriodo.reduce((s, p) => s + (p.valor_pago || 0), 0);
-
   const totalGanho = comissoesPeriodo.reduce((s, c) => s + (c.valor_comissao_tecnico || 0), 0);
+
+  // Adiantamento de semanas anteriores ao período visualizado
+  const inicioSemana = inicio ? new Date(inicio + 'T00:00:00') : startOfWeek(hoje, { weekStartsOn: 1 });
+  const comissoesAnteriores = minhasComissoes
+    .filter(c => { const d = parseDateSafe(c.data_geracao); return d && d < inicioSemana; })
+    .reduce((s, c) => s + (c.valor_comissao_tecnico || 0), 0);
+  const pagamentosAnteriores = meusPagamentos
+    .filter(p => { const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date); return d && d < inicioSemana; })
+    .reduce((s, p) => s + (p.valor_pago || 0), 0);
+  const adiantamento_anterior = Math.max(0, pagamentosAnteriores - comissoesAnteriores);
+
+  // Crédito pendente líquido = ganhou no período - recebeu no período - adiantamento anterior
+  const totalPendente = Math.max(0, totalGanho - totalPago - adiantamento_anterior);
 
   const statusBadge = (status) => {
     if (status === 'pago') return <Badge className="bg-green-500/15 text-green-400 border-green-500/20">Pago</Badge>;
@@ -108,43 +116,7 @@ export default function MeuFinanceiro() {
       </div>
 
       {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-[#152236] border-white/5 rounded-2xl">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-400 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-400" /> Comissões Pendentes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loadingComissoes ? (
-              <Skeleton className="h-8 w-32 bg-white/10 rounded" />
-            ) : (
-              <>
-                <div className="text-2xl font-bold text-amber-400">{formatMoney(totalPendente)}</div>
-                <p className="text-xs text-gray-500 mt-1">{comissoesPeriodo.filter(c => c.status === 'pendente').length} serviço(s)</p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="bg-[#152236] border-white/5 rounded-2xl">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-400 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Pagamentos Recebidos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loadingPagamentos ? (
-              <Skeleton className="h-8 w-32 bg-white/10 rounded" />
-            ) : (
-              <>
-                <div className="text-2xl font-bold text-emerald-400">{formatMoney(totalPago)}</div>
-                <p className="text-xs text-gray-500 mt-1">{pagamentosPeriodo.length} pagamento(s)</p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-[#152236] border-white/5 rounded-2xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-400 flex items-center gap-2">
@@ -162,7 +134,77 @@ export default function MeuFinanceiro() {
             )}
           </CardContent>
         </Card>
+
+        <Card className="bg-[#152236] border-white/5 rounded-2xl">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-400 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Já Recebido
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingPagamentos ? (
+              <Skeleton className="h-8 w-32 bg-white/10 rounded" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-emerald-400">{formatMoney(totalPago)}</div>
+                <p className="text-xs text-gray-500 mt-1">{pagamentosPeriodo.length} pagamento(s)</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="bg-[#152236] border-white/5 rounded-2xl">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-400 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-400" /> A Receber
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingComissoes || loadingPagamentos ? (
+              <Skeleton className="h-8 w-32 bg-white/10 rounded" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-amber-400">{formatMoney(totalPendente)}</div>
+                <p className="text-xs text-gray-500 mt-1">Saldo líquido a receber</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className={`rounded-2xl border-white/5 ${adiantamento_anterior > 0 ? 'bg-orange-900/30 border-orange-500/30' : 'bg-[#152236]'}`}>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-400 flex items-center gap-2">
+              <AlertCircle className={`w-4 h-4 ${adiantamento_anterior > 0 ? 'text-orange-400' : 'text-gray-500'}`} /> Adiantamento Anterior
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingComissoes || loadingPagamentos ? (
+              <Skeleton className="h-8 w-32 bg-white/10 rounded" />
+            ) : (
+              <>
+                <div className={`text-2xl font-bold ${adiantamento_anterior > 0 ? 'text-orange-400' : 'text-gray-500'}`}>{formatMoney(adiantamento_anterior)}</div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {adiantamento_anterior > 0 ? 'Já descontado do saldo acima' : 'Sem adiantamento anterior'}
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Aviso de adiantamento */}
+      {adiantamento_anterior > 0 && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-orange-900/20 border border-orange-500/30 text-sm">
+          <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-orange-300 font-semibold">Adiantamento de semanas anteriores: {formatMoney(adiantamento_anterior)}</p>
+            <p className="text-orange-400/80 text-xs mt-1">
+              Você recebeu {formatMoney(adiantamento_anterior)} a mais do que ganhou em semanas anteriores.
+              Esse valor já foi descontado do seu saldo "A Receber" desta semana.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Comissões por Serviço */}
       <Card className="bg-[#152236] border-white/5 rounded-2xl">

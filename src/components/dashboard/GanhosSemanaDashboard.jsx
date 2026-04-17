@@ -12,7 +12,7 @@ export default function GanhosSemanaDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const { data: dadosSemana = { totalGanho: 0, valorPago: 0, creditoPendente: 0 } } = useQuery({
+  const { data: dadosSemana = { totalGanho: 0, valorPago: 0, creditoPendente: 0, adiantamento_anterior: 0 } } = useQuery({
     queryKey: ['minhasComissoesWeek', user?.email],
     queryFn: async () => {
       if (!user?.email) return { totalGanho: 0, valorPago: 0, creditoPendente: 0 };
@@ -53,9 +53,28 @@ export default function GanhosSemanaDashboard() {
         });
 
         const valorPago = pagamentosSemana.reduce((sum, p) => sum + (p.valor_pago || 0), 0);
-        const creditoPendente = Math.max(0, totalGanho - valorPago);
 
-        return { totalGanho, valorPago, creditoPendente };
+        // Adiantamento de semanas anteriores (pago a mais do que ganhou)
+        const comissoesAnteriores = lancamentos
+          .filter(l => {
+            if (l.tecnico_id !== user.email) return false;
+            if (!l.data_geracao) return false;
+            try { return toLocalDate(l.data_geracao) < inicioSemana; } catch { return false; }
+          })
+          .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
+
+        const pagamentosAnteriores = pagamentos
+          .filter(p => {
+            if (p.tecnico_id !== user.email || p.status !== 'Confirmado') return false;
+            if (!p.created_date) return false;
+            try { return toLocalDate(p.created_date) < inicioSemana; } catch { return false; }
+          })
+          .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
+
+        const adiantamento_anterior = Math.max(0, pagamentosAnteriores - comissoesAnteriores);
+        const creditoPendente = Math.max(0, totalGanho - valorPago - adiantamento_anterior);
+
+        return { totalGanho, valorPago, creditoPendente, adiantamento_anterior };
       } catch (error) {
         console.error('Erro ao calcular ganhos:', error);
         return { totalGanho: 0, valorPago: 0, creditoPendente: 0 };
@@ -95,8 +114,14 @@ export default function GanhosSemanaDashboard() {
               <span>Valor pago:</span>
               <span className="font-semibold text-blue-600">R$ {dadosSemana.valorPago.toFixed(2)}</span>
             </div>
+            {dadosSemana.adiantamento_anterior > 0 && (
+              <div className="flex justify-between text-gray-600">
+                <span>Adiantamento anterior:</span>
+                <span className="font-semibold text-orange-600">- R$ {dadosSemana.adiantamento_anterior.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-gray-600">
-              <span>Crédito pendente:</span>
+              <span>A receber:</span>
               <span className="font-semibold text-amber-600">R$ {dadosSemana.creditoPendente.toFixed(2)}</span>
             </div>
           </div>
