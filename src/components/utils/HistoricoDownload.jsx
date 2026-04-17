@@ -85,7 +85,7 @@ const desenharTabela = (doc, colunas, larguras, linhas) => {
   return y;
   };
 
-export const gerarPDFCliente = async (cliente, servicos, atendimentos) => {
+export const gerarPDFCliente = async (cliente, itens) => {
   const { addBannerToDoc, getBannerUrl } = await import('@/lib/pdfBanner');
   const bannerUrl = await getBannerUrl();
   const doc = new jsPDF();
@@ -107,20 +107,13 @@ export const gerarPDFCliente = async (cliente, servicos, atendimentos) => {
   doc.text(`Data do Relatório: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`, 15, startY);
   startY += 12;
 
-  const historico = [
-    ...atendimentos.map(a => ({
-      descricao: a.tipo_servico,
-      data: a.data_conclusao || a.data_atendimento,
-      valor: a.valor || 0,
-      equipe_nome: a.equipe_nome || '',
-    })),
-    ...servicos.filter(s => s.status === 'concluido').map(s => ({
-      descricao: s.tipo_servico,
-      data: s.data_conclusao || s.data_programada,
-      valor: s.valor || 0,
-      equipe_nome: s.equipe_nome || '',
-    }))
-  ];
+  // Usa itens já processados (deduplicados, com valores de PagamentoCliente)
+  const historico = itens.map(item => ({
+    descricao: item.tipo_servico || item.descricao || '',
+    data: item.data || '',
+    valor: item.valor || 0,
+    equipe_nome: item.equipe_nome || '',
+  }));
 
   const totalValor = historico.reduce((sum, item) => sum + item.valor, 0);
   const grupos = agruparPorData(historico);

@@ -409,7 +409,7 @@ export default function HistoricoClientes() {
                            <Button 
                               size="sm" 
                               variant="ghost" 
-                              onClick={() => gerarPDFCliente(cliente.nome, servicos.filter(s => s.cliente_nome === cliente.nome), atendimentos.filter(a => a.cliente_nome === cliente.nome))}
+                              onClick={() => gerarPDFCliente(cliente.nome, cliente.itens)}
                               className="h-6 px-2 ml-2 hover:bg-blue-500/20 text-blue-400 border border-blue-500/10 text-[10px]"
                            >
                              <Download className="w-3 h-3 mr-1" />
