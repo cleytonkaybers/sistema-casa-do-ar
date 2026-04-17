@@ -54,24 +54,25 @@ export default function GanhosSemanaDashboard() {
 
         const valorPago = pagamentosSemana.reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-        // Adiantamento de semanas anteriores (pago a mais do que ganhou)
-        const comissoesAnteriores = lancamentos
+        // Adiantamento: apenas a semana imediatamente anterior à atual
+        const inicioPreviousSemana = new Date(inicioSemana);
+        inicioPreviousSemana.setDate(inicioPreviousSemana.getDate() - 7);
+
+        const comissoesSemanaAnterior = lancamentos
           .filter(l => {
-            if (l.tecnico_id !== user.email) return false;
-            if (!l.data_geracao) return false;
-            try { return toLocalDate(l.data_geracao) < inicioSemana; } catch { return false; }
+            if (l.tecnico_id !== user.email || !l.data_geracao) return false;
+            try { const d = toLocalDate(l.data_geracao); return d >= inicioPreviousSemana && d < inicioSemana; } catch { return false; }
           })
           .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
-        const pagamentosAnteriores = pagamentos
+        const pagamentosSemanaAnterior = pagamentos
           .filter(p => {
-            if (p.tecnico_id !== user.email || p.status !== 'Confirmado') return false;
-            if (!p.created_date) return false;
-            try { return toLocalDate(p.created_date) < inicioSemana; } catch { return false; }
+            if (p.tecnico_id !== user.email || p.status !== 'Confirmado' || !p.created_date) return false;
+            try { const d = toLocalDate(p.created_date); return d >= inicioPreviousSemana && d < inicioSemana; } catch { return false; }
           })
           .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-        const adiantamento_anterior = Math.max(0, pagamentosAnteriores - comissoesAnteriores);
+        const adiantamento_anterior = Math.max(0, pagamentosSemanaAnterior - comissoesSemanaAnterior);
         const creditoPendente = Math.max(0, totalGanho - valorPago - adiantamento_anterior);
 
         return { totalGanho, valorPago, creditoPendente, adiantamento_anterior };

@@ -81,15 +81,18 @@ export default function MeuFinanceiro() {
   const totalPago = pagamentosPeriodo.reduce((s, p) => s + (p.valor_pago || 0), 0);
   const totalGanho = comissoesPeriodo.reduce((s, c) => s + (c.valor_comissao_tecnico || 0), 0);
 
-  // Adiantamento de semanas anteriores ao período visualizado
+  // Adiantamento: apenas a semana imediatamente anterior ao período visualizado
   const inicioSemana = inicio ? new Date(inicio + 'T00:00:00') : startOfWeek(hoje, { weekStartsOn: 1 });
-  const comissoesAnteriores = minhasComissoes
-    .filter(c => { const d = parseDateSafe(c.data_geracao); return d && d < inicioSemana; })
+  const inicioPreviousSemana = new Date(inicioSemana);
+  inicioPreviousSemana.setDate(inicioPreviousSemana.getDate() - 7);
+
+  const comissoesSemanaAnterior = minhasComissoes
+    .filter(c => { const d = parseDateSafe(c.data_geracao); return d && d >= inicioPreviousSemana && d < inicioSemana; })
     .reduce((s, c) => s + (c.valor_comissao_tecnico || 0), 0);
-  const pagamentosAnteriores = meusPagamentos
-    .filter(p => { const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date); return d && d < inicioSemana; })
+  const pagamentosSemanaAnterior = meusPagamentos
+    .filter(p => { const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date); return d && d >= inicioPreviousSemana && d < inicioSemana; })
     .reduce((s, p) => s + (p.valor_pago || 0), 0);
-  const adiantamento_anterior = Math.max(0, pagamentosAnteriores - comissoesAnteriores);
+  const adiantamento_anterior = Math.max(0, pagamentosSemanaAnterior - comissoesSemanaAnterior);
 
   // Crédito pendente líquido = ganhou no período - recebeu no período - adiantamento anterior
   const totalPendente = Math.max(0, totalGanho - totalPago - adiantamento_anterior);
