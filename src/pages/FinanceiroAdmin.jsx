@@ -23,7 +23,7 @@ export default function FinanceiroAdmin() {
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [filtroEquipe, setFiltroEquipe] = useState('');
+  const [filtroEquipe, setFiltroEquipe] = useState('todas');
   const [filtroTecnico, setFiltroTecnico] = useState('');
   const [filtroSemana, setFiltroSemana] = useState('atual');
   const [showModalPagamento, setShowModalPagamento] = useState(false);
@@ -185,7 +185,7 @@ export default function FinanceiroAdmin() {
   // Filtrar técnicos e recalcular seus valores baseado apenas na semana selecionada
   const filteredTecnicos = tecnicos
     .filter(t => {
-      const matchEquipe = !filtroEquipe || t.equipe_id === filtroEquipe;
+      const matchEquipe = filtroEquipe === 'todas' || !filtroEquipe || t.equipe_id === filtroEquipe;
       const matchTecnico = !filtroTecnico || t.tecnico_id.includes(filtroTecnico);
       return matchEquipe && matchTecnico;
     })
@@ -266,7 +266,7 @@ export default function FinanceiroAdmin() {
 
   // Débitos de semanas anteriores por técnico
   const tecnicosComDebitoAnterior = tecnicos
-    .filter(t => !filtroEquipe || t.equipe_id === filtroEquipe)
+    .filter(t => filtroEquipe === 'todas' || !filtroEquipe || t.equipe_id === filtroEquipe)
     .map(t => {
       const comissoesAnteriores = lancamentos
         .filter(l => l.tecnico_id === t.tecnico_id && l.data_geracao && new Date(l.data_geracao) < inicioSemanaAtual)
@@ -379,7 +379,7 @@ export default function FinanceiroAdmin() {
                   <SelectValue placeholder="Todas as equipes" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas as equipes</SelectItem>
+                  <SelectItem value="todas">Todas as equipes</SelectItem>
                   {equipes.map(eq => (
                     <SelectItem key={eq.id} value={eq.id}>{eq.nome}</SelectItem>
                   ))}
