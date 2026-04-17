@@ -93,6 +93,7 @@ export default function UsuariosPage() {
   const [editingPixId, setEditingPixId] = useState(null);
   const [pixValue, setPixValue] = useState('');
   const [nomeBancoValue, setNomeBancoValue] = useState('');
+  const [nomeTitularValue, setNomeTitularValue] = useState('');
   const [copiedId, setCopiedId] = useState(null);
 
   useEffect(() => {
@@ -276,6 +277,7 @@ export default function UsuariosPage() {
 
   const handleEditPix = (usuario) => {
     setEditingPixId(usuario.id);
+    setNomeTitularValue((usuario.data || {}).nome_titular || '');
     setPixValue((usuario.data || {}).chave_pix || '');
     setNomeBancoValue((usuario.data || {}).nome_banco || '');
   };
@@ -286,20 +288,26 @@ export default function UsuariosPage() {
       data: {
         data: {
           ...(usuario.data || {}),
+          nome_titular: nomeTitularValue.trim(),
           chave_pix: pixValue.trim(),
           nome_banco: nomeBancoValue.trim()
         }
       }
     });
     setEditingPixId(null);
+    setNomeTitularValue('');
     setPixValue('');
     setNomeBancoValue('');
   };
 
-  const handleCopyPix = (chave, id) => {
-    navigator.clipboard.writeText(chave).then(() => {
+  const handleCopyPix = (userData, id) => {
+    const partes = [];
+    if (userData.nome_titular) partes.push(`Titular: ${userData.nome_titular}`);
+    if (userData.chave_pix) partes.push(`PIX: ${userData.chave_pix}`);
+    if (userData.nome_banco) partes.push(`Banco: ${userData.nome_banco}`);
+    navigator.clipboard.writeText(partes.join('\n')).then(() => {
       setCopiedId(id);
-      toast.success('Chave PIX copiada!');
+      toast.success('Dados PIX copiados!');
       setTimeout(() => setCopiedId(null), 2000);
     });
   };
@@ -409,10 +417,19 @@ export default function UsuariosPage() {
                     </Button>
                   </div>
 
-                  {/* Campo Chave PIX + Banco */}
+                  {/* Campo PIX: Titular + Chave + Banco */}
                   <div className="border-t pt-3 space-y-2">
                     {editingPixId === usuario.id ? (
                       <div className="space-y-2">
+                        <p className="text-xs text-gray-500 font-medium">Nome do Titular</p>
+                        <Input
+                          value={nomeTitularValue}
+                          onChange={(e) => setNomeTitularValue(e.target.value)}
+                          placeholder="Nome completo do titular..."
+                          className="text-sm h-8"
+                          autoFocus
+                          onKeyDown={(e) => { if (e.key === 'Escape') setEditingPixId(null); }}
+                        />
                         <p className="text-xs text-gray-500 font-medium flex items-center gap-1">
                           <QrCode className="w-3 h-3" /> Chave PIX
                         </p>
@@ -421,7 +438,6 @@ export default function UsuariosPage() {
                           onChange={(e) => setPixValue(e.target.value)}
                           placeholder="CPF, e-mail, telefone ou chave..."
                           className="text-sm h-8"
-                          autoFocus
                           onKeyDown={(e) => { if (e.key === 'Escape') setEditingPixId(null); }}
                         />
                         <p className="text-xs text-gray-500 font-medium">Banco</p>
@@ -446,6 +462,27 @@ export default function UsuariosPage() {
                       </div>
                     ) : (
                       <>
+                        {/* Linha Nome do Titular */}
+                        <div>
+                          <p className="text-xs text-gray-500 font-medium mb-1">Titular</p>
+                          {userData.nome_titular ? (
+                            <div className="flex items-center gap-2">
+                              <span className="flex-1 text-sm bg-slate-100 dark:bg-slate-800 rounded px-2 py-1 truncate">
+                                {userData.nome_titular}
+                              </span>
+                              <Button size="sm" variant="ghost" className="h-8 px-2 flex-shrink-0 text-gray-400 hover:text-gray-600"
+                                onClick={() => handleEditPix(usuario)} title="Editar">
+                                <Edit className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button size="sm" variant="outline" className="w-full h-8 text-xs text-gray-400 border-dashed"
+                              onClick={() => handleEditPix(usuario)}>
+                              + Adicionar titular
+                            </Button>
+                          )}
+                        </div>
+
                         {/* Linha Chave PIX */}
                         <div>
                           <p className="text-xs text-gray-500 font-medium flex items-center gap-1 mb-1">
@@ -457,7 +494,7 @@ export default function UsuariosPage() {
                                 {userData.chave_pix}
                               </span>
                               <Button size="sm" variant="outline" className="h-8 px-2 flex-shrink-0"
-                                onClick={() => handleCopyPix(userData.chave_pix, usuario.id)} title="Copiar chave PIX">
+                                onClick={() => handleCopyPix(userData, usuario.id)} title="Copiar dados PIX">
                                 {copiedId === usuario.id ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                               </Button>
                               <Button size="sm" variant="ghost" className="h-8 px-2 flex-shrink-0 text-gray-400 hover:text-gray-600"
