@@ -1133,16 +1133,16 @@ function PagamentosClientesContent() {
   const [precosSyncKey, setPrecosSyncKey] = useState(0);
   const [abrirRelatorio, setAbrirRelatorio] = useState(false);
   const [compartilharModal, setCompartilharModal] = useState(null);
-  const [exportFiltros, setExportFiltros] = useState(['pendente', 'parcial', 'agendado']);
+  const [filtroStatus, setFiltroStatus] = useState(['pendente', 'parcial', 'agendado', 'pago']);
 
-  const toggleExportFiltro = (status) => {
-    setExportFiltros(prev =>
+  const toggleFiltroStatus = (status) => {
+    setFiltroStatus(prev =>
       prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
     );
   };
 
   const handleExportarExcel = async () => {
-    const statusFiltros = exportFiltros.length === 0 ? ['pendente', 'parcial', 'agendado'] : exportFiltros;
+    const statusFiltros = filtroStatus.length === 0 ? ['pendente', 'parcial', 'agendado', 'pago'] : filtroStatus;
 
     const lista = pagamentos.filter(p =>
       statusFiltros.includes(p.status) &&
@@ -1540,13 +1540,15 @@ function PagamentosClientesContent() {
         return temPagamentoNaSemana(p);
       });
     const agrupados = groupPagamentos(filtrados);
-    return agrupados.sort((a, b) => {
-      const aTemPreco = a.valor_total > 0;
-      const bTemPreco = b.valor_total > 0;
-      if (aTemPreco !== bTemPreco) return aTemPreco ? 1 : -1;
-      return (statusOrder[a.status] || 4) - (statusOrder[b.status] || 4);
-    });
-  }, [pagsFiltrados, inicioSemana, fimSemana, temPagamentoNaSemana]);
+    return agrupados
+      .filter(g => filtroStatus.length === 0 || filtroStatus.includes(g.status))
+      .sort((a, b) => {
+        const aTemPreco = a.valor_total > 0;
+        const bTemPreco = b.valor_total > 0;
+        if (aTemPreco !== bTemPreco) return aTemPreco ? 1 : -1;
+        return (statusOrder[a.status] || 4) - (statusOrder[b.status] || 4);
+      });
+  }, [pagsFiltrados, inicioSemana, fimSemana, temPagamentoNaSemana, filtroStatus]);
 
   // 2. PENDÊNCIAS: apenas itens de semanas ANTERIORES com saldo em aberto
   //    Exclui os que receberam pagamento esta semana
@@ -1579,8 +1581,9 @@ function PagamentosClientesContent() {
         const db = b.data_pagamento_agendado ? new Date(b.data_pagamento_agendado) : (b.data_conclusao ? new Date(b.data_conclusao) : new Date(0));
         return da - db;
       });
-    return groupPagamentos(filtrados);
-  }, [pagsFiltrados, inicioSemana, fimSemana, temPagamentoNaSemana]);
+    return groupPagamentos(filtrados)
+      .filter(g => filtroStatus.length === 0 || filtroStatus.includes(g.status));
+  }, [pagsFiltrados, inicioSemana, fimSemana, temPagamentoNaSemana, filtroStatus]);
 
   const pagsRelatorio = useMemo(() => {
     let inicio, fim;
@@ -1715,36 +1718,42 @@ function PagamentosClientesContent() {
           <Input placeholder="Buscar cliente..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9 h-10 bg-white border-gray-200 w-full" />
           {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-4 h-4 text-gray-400" /></button>}
         </div>
-        <div className="flex flex-wrap gap-2 items-center">
-          {isAdmin && (
-            <Button onClick={() => setAbrirRelatorio(true)} variant="outline" className="gap-2">
-              📄 Gerar PDF
-            </Button>
-          )}
-          <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex flex-wrap gap-2 items-center justify-between">
+          {/* Filtros de status — controlam a visualização */}
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <span className="text-xs font-semibold text-gray-500 mr-1">Filtrar:</span>
             {[
               { key: 'pendente', label: 'Pendentes', color: 'text-red-700 bg-red-50 border-red-200' },
-              { key: 'parcial', label: 'Parcial', color: 'text-amber-700 bg-amber-50 border-amber-200' },
+              { key: 'parcial',  label: 'Parcial',   color: 'text-amber-700 bg-amber-50 border-amber-200' },
               { key: 'agendado', label: 'Agendados', color: 'text-purple-700 bg-purple-50 border-purple-200' },
+              { key: 'pago',     label: 'Pagos',     color: 'text-green-700 bg-green-50 border-green-200' },
             ].map(({ key, label, color }) => {
-              const ativo = exportFiltros.includes(key);
+              const ativo = filtroStatus.includes(key);
               return (
                 <button
                   key={key}
                   type="button"
-                  onClick={() => toggleExportFiltro(key)}
-                  className={`flex items-center gap-1.5 h-9 px-3 rounded-lg border text-xs font-semibold transition-all ${ativo ? color : 'text-gray-400 bg-white border-gray-200 hover:border-gray-300'}`}
+                  onClick={() => toggleFiltroStatus(key)}
+                  className={`flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-xs font-semibold transition-all ${ativo ? color : 'text-gray-400 bg-white border-gray-200 hover:border-gray-300'}`}
                 >
-                  <span className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                  <span className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                     ativo ? 'border-current bg-current' : 'border-gray-300'
                   }`}>
-                    {ativo && <X className="w-2.5 h-2.5 text-white" />}
+                    {ativo && <X className="w-2 h-2 text-white" />}
                   </span>
                   {label}
                 </button>
               );
             })}
-            <Button onClick={handleExportarExcel} disabled={exportFiltros.length === 0} className="gap-1.5 h-9 text-sm rounded-xl" style={{ backgroundColor: '#22c55e', color: '#fff' }}>
+          </div>
+          {/* Botões de exportação agrupados */}
+          <div className="flex gap-2">
+            {isAdmin && (
+              <Button onClick={() => setAbrirRelatorio(true)} variant="outline" className="gap-1.5 h-8 text-xs px-3">
+                📄 PDF
+              </Button>
+            )}
+            <Button onClick={handleExportarExcel} disabled={filtroStatus.length === 0} className="gap-1.5 h-8 text-xs px-3 rounded-lg" style={{ backgroundColor: '#22c55e', color: '#fff' }}>
               📅 Excel
             </Button>
           </div>
