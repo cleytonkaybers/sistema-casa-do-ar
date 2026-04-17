@@ -410,27 +410,26 @@ export default function UsuariosPage() {
                   </div>
 
                   {/* Campo Chave PIX + Banco */}
-                  <div className="border-t pt-3">
-                    <p className="text-xs text-gray-500 font-medium flex items-center gap-1 mb-2">
-                      <QrCode className="w-3 h-3" /> Chave PIX
-                    </p>
+                  <div className="border-t pt-3 space-y-2">
                     {editingPixId === usuario.id ? (
                       <div className="space-y-2">
-                        <div className="flex gap-2">
-                          <Input
-                            value={pixValue}
-                            onChange={(e) => setPixValue(e.target.value)}
-                            placeholder="CPF, e-mail, telefone ou chave..."
-                            className="text-sm h-8"
-                            autoFocus
-                            onKeyDown={(e) => { if (e.key === 'Escape') setEditingPixId(null); }}
-                          />
-                        </div>
+                        <p className="text-xs text-gray-500 font-medium flex items-center gap-1">
+                          <QrCode className="w-3 h-3" /> Chave PIX
+                        </p>
+                        <Input
+                          value={pixValue}
+                          onChange={(e) => setPixValue(e.target.value)}
+                          placeholder="CPF, e-mail, telefone ou chave..."
+                          className="text-sm h-8"
+                          autoFocus
+                          onKeyDown={(e) => { if (e.key === 'Escape') setEditingPixId(null); }}
+                        />
+                        <p className="text-xs text-gray-500 font-medium">Banco</p>
                         <div className="flex gap-2">
                           <Input
                             value={nomeBancoValue}
                             onChange={(e) => setNomeBancoValue(e.target.value)}
-                            placeholder="Nome do banco (ex: Nubank, Inter...)"
+                            placeholder="Ex: Nubank, Inter, Bradesco..."
                             className="text-sm h-8"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') handleSavePix(usuario);
@@ -445,56 +444,56 @@ export default function UsuariosPage() {
                           </Button>
                         </div>
                       </div>
-                    ) : (userData.chave_pix) ? (
-                      <div className="flex items-center gap-2">
-                        <span className="flex-1 text-sm font-mono bg-slate-100 dark:bg-slate-800 rounded px-2 py-1 truncate">
-                          {userData.chave_pix}
-                        </span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 px-2 flex-shrink-0"
-                          onClick={() => handleCopyPix(userData.chave_pix, usuario.id)}
-                          title="Copiar chave PIX"
-                        >
-                          {copiedId === usuario.id ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 px-2 flex-shrink-0 text-gray-400 hover:text-gray-600"
-                          onClick={() => handleEditPix(usuario)}
-                          title="Editar"
-                        >
-                          <Edit className="w-3 h-3" />
-                        </Button>
-                      </div>
                     ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full h-8 text-xs text-gray-400 border-dashed"
-                        onClick={() => handleEditPix(usuario)}
-                      >
-                        + Cadastrar chave PIX
-                      </Button>
-                    )}
+                      <>
+                        {/* Linha Chave PIX */}
+                        <div>
+                          <p className="text-xs text-gray-500 font-medium flex items-center gap-1 mb-1">
+                            <QrCode className="w-3 h-3" /> Chave PIX
+                          </p>
+                          {userData.chave_pix ? (
+                            <div className="flex items-center gap-2">
+                              <span className="flex-1 text-sm font-mono bg-slate-100 dark:bg-slate-800 rounded px-2 py-1 truncate">
+                                {userData.chave_pix}
+                              </span>
+                              <Button size="sm" variant="outline" className="h-8 px-2 flex-shrink-0"
+                                onClick={() => handleCopyPix(userData.chave_pix, usuario.id)} title="Copiar chave PIX">
+                                {copiedId === usuario.id ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-8 px-2 flex-shrink-0 text-gray-400 hover:text-gray-600"
+                                onClick={() => handleEditPix(usuario)} title="Editar">
+                                <Edit className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button size="sm" variant="outline" className="w-full h-8 text-xs text-gray-400 border-dashed"
+                              onClick={() => handleEditPix(usuario)}>
+                              + Cadastrar chave PIX
+                            </Button>
+                          )}
+                        </div>
 
-                    {/* Nome do banco (exibido apenas quando há chave pix e não está editando) */}
-                    {editingPixId !== usuario.id && (
-                      <div className="mt-2 flex items-center gap-2">
-                        <span className="text-xs text-gray-500">Banco:</span>
-                        {userData.nome_banco ? (
-                          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{userData.nome_banco}</span>
-                        ) : (
-                          <button
-                            className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
-                            onClick={() => handleEditPix(usuario)}
-                          >
-                            {userData.chave_pix ? 'Adicionar banco' : '—'}
-                          </button>
-                        )}
-                      </div>
+                        {/* Linha Banco */}
+                        <div>
+                          <p className="text-xs text-gray-500 font-medium mb-1">Banco</p>
+                          {userData.nome_banco ? (
+                            <div className="flex items-center gap-2">
+                              <span className="flex-1 text-sm bg-slate-100 dark:bg-slate-800 rounded px-2 py-1 truncate">
+                                {userData.nome_banco}
+                              </span>
+                              <Button size="sm" variant="ghost" className="h-8 px-2 flex-shrink-0 text-gray-400 hover:text-gray-600"
+                                onClick={() => handleEditPix(usuario)} title="Editar">
+                                <Edit className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button size="sm" variant="outline" className="w-full h-8 text-xs text-gray-400 border-dashed"
+                              onClick={() => handleEditPix(usuario)}>
+                              + Adicionar banco
+                            </Button>
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
                 </CardContent>
