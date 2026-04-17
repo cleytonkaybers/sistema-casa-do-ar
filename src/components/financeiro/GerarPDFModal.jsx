@@ -211,11 +211,11 @@ export default function GerarPDFModal({ open, onClose, equipes, tecnicos, lancam
         doc.setFontSize(8);
         doc.setTextColor(100);
         doc.text('Data', 20, y);
-        doc.text('Técnico', 42, y);
-        doc.text('Equipe', 90, y);
-        doc.text('Valor Pago', 130, y);
-        doc.text('Método', 160, y);
-        doc.text('Status', 180, y);
+        doc.text('Hora', 38, y);
+        doc.text('Técnico', 52, y);
+        doc.text('Valor Pago', 100, y);
+        doc.text('Método', 132, y);
+        doc.text('Status', 164, y);
         y += 4;
         doc.setDrawColor(200);
         doc.line(20, y, 190, y);
@@ -224,21 +224,31 @@ export default function GerarPDFModal({ open, onClose, equipes, tecnicos, lancam
         doc.setTextColor(0);
         let totalPagoGeral = 0;
         for (const p of pagsFiltrados) {
-          if (y > 270) { doc.addPage(); y = 20; }
+          const temObs = p.observacao && p.observacao.trim().length > 0;
+          const alturaLinha = temObs ? 11 : 6;
+          if (y + alturaLinha > 270) { doc.addPage(); y = 20; }
           const dataStr = p.created_date ? format(new Date(p.created_date), 'dd/MM/yy') : '-';
+          const horaStr = p.created_date ? format(new Date(p.created_date), 'HH:mm') : '-';
           doc.setFontSize(7.5);
           doc.text(dataStr, 20, y);
-          doc.text((p.tecnico_nome || '').substring(0, 22), 42, y);
-          doc.text((p.equipe_nome || '').substring(0, 18), 90, y);
+          doc.text(horaStr, 38, y);
+          doc.text((p.tecnico_nome || '').substring(0, 22), 52, y);
           doc.setTextColor(0, 120, 200);
-          doc.text(`R$ ${(p.valor_pago || 0).toFixed(2)}`, 130, y);
+          doc.text(`R$ ${(p.valor_pago || 0).toFixed(2)}`, 100, y);
           doc.setTextColor(0);
-          doc.text((p.metodo_pagamento || '-').substring(0, 14), 160, y);
+          doc.text((p.metodo_pagamento || '-').substring(0, 16), 132, y);
           if (p.status === 'Estornado') doc.setTextColor(200, 0, 0);
-          doc.text(p.status || '-', 180, y);
+          doc.text(p.status || '-', 164, y);
           doc.setTextColor(0);
+          if (temObs) {
+            doc.setFontSize(6.5);
+            doc.setTextColor(120, 120, 120);
+            const obsTexto = doc.splitTextToSize(`OBS: ${p.observacao}`, 140);
+            doc.text(obsTexto[0], 52, y + 5);
+            doc.setTextColor(0);
+          }
           totalPagoGeral += p.valor_pago || 0;
-          y += 5.5;
+          y += alturaLinha;
         }
 
         // Total pagamentos

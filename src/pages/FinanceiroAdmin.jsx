@@ -228,13 +228,26 @@ export default function FinanceiroAdmin() {
       const totalPagoSemana = pagamentosSemana
         .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-      const creditoPendenteSemana = Math.max(0, totalComissoesSemana - totalPagoSemana);
+      // Calcular adiantamento de semanas anteriores (pago a mais do que ganhou)
+      const comissoesAnteriores = lancamentos
+        .filter(l => l.tecnico_id === t.tecnico_id && l.data_geracao && new Date(l.data_geracao) < inicioSemana)
+        .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
+
+      const pagamentosAnteriores = pagamentos
+        .filter(p => p.tecnico_id === t.tecnico_id && p.status === 'Confirmado' && p.created_date && new Date(p.created_date) < inicioSemana)
+        .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
+
+      const adiantamento_anterior = Math.max(0, pagamentosAnteriores - comissoesAnteriores);
+
+      // Crédito pendente líquido = ganhou na semana - já pago - adiantamento anterior
+      const creditoPendenteLiquido = Math.max(0, totalComissoesSemana - totalPagoSemana - adiantamento_anterior);
 
       return {
         ...t,
-        credito_pendente: creditoPendenteSemana,
+        credito_pendente: creditoPendenteLiquido,
         credito_pago: totalPagoSemana,
-        total_ganho: totalComissoesSemana
+        total_ganho: totalComissoesSemana,
+        adiantamento_anterior
       };
     });
 
@@ -327,9 +340,17 @@ export default function FinanceiroAdmin() {
          <CardHeader className="flex items-center justify-between">
            <CardTitle>Gestão de Créditos</CardTitle>
            <div className="flex gap-2">
-             <Button 
-               onClick={() => setShowPDFModal(true)} 
-               size="sm" 
+             <Button
+               onClick={() => setShowModalPagamento(true)}
+               size="sm"
+               className="gap-2 bg-green-600 hover:bg-green-700"
+             >
+               <DollarSign className="w-4 h-4" />
+               Pagar
+             </Button>
+             <Button
+               onClick={() => setShowPDFModal(true)}
+               size="sm"
                className="gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
              >
                <Download className="w-4 h-4" />
@@ -381,10 +402,10 @@ export default function FinanceiroAdmin() {
                 <TableRow>
                   <TableHead>Técnico</TableHead>
                   <TableHead>Equipe</TableHead>
+                  <TableHead>Adiantamento Anterior</TableHead>
                   <TableHead>Crédito Pendente</TableHead>
                   <TableHead>Crédito Pago</TableHead>
                   <TableHead>Total Ganho</TableHead>
-                  <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -398,6 +419,15 @@ export default function FinanceiroAdmin() {
                     </TableCell>
                     <TableCell>{tecnico.equipe_nome}</TableCell>
                     <TableCell>
+                      {(tecnico.adiantamento_anterior || 0) > 0 ? (
+                        <Badge className="bg-orange-500 text-white">
+                          R$ {(tecnico.adiantamento_anterior).toFixed(2)}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">R$ 0,00</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <Badge variant={tecnico.credito_pendente > 0 ? 'default' : 'secondary'}>
                         R$ {(tecnico.credito_pendente || 0).toFixed(2)}
                       </Badge>
@@ -409,18 +439,6 @@ export default function FinanceiroAdmin() {
                     </TableCell>
                     <TableCell className="font-bold">
                       R$ {(tecnico.total_ganho || 0).toFixed(2)}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setTecnicoSelecionado(tecnico);
-                          setShowModalPagamento(true);
-                        }}
-                        disabled={tecnico.credito_pendente <= 0}
-                      >
-                        Pagar
-                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

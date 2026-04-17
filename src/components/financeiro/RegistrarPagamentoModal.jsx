@@ -60,11 +60,24 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
       })
       .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
+    // Adiantamento de semanas anteriores (pago a mais do que ganhou)
+    const comissoesAnteriores = todosLancamentos
+      .filter(l => l.tecnico_id === t.tecnico_id && l.data_geracao && new Date(l.data_geracao) < inicioSemana)
+      .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
+
+    const pagamentosAnteriores = todosPagamentos
+      .filter(p => p.tecnico_id === t.tecnico_id && p.status === 'Confirmado' && p.created_date && new Date(p.created_date) < inicioSemana)
+      .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
+
+    const adiantamento_anterior = Math.max(0, pagamentosAnteriores - comissoesAnteriores);
+    const creditoPendenteLiquido = Math.max(0, totalComissoesSemana - totalPagoSemana - adiantamento_anterior);
+
     return {
       ...t,
-      credito_pendente: Math.max(0, totalComissoesSemana - totalPagoSemana),
+      credito_pendente: creditoPendenteLiquido,
       credito_pago: totalPagoSemana,
-      total_ganho: totalComissoesSemana
+      total_ganho: totalComissoesSemana,
+      adiantamento_anterior
     };
   });
 
@@ -136,7 +149,7 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
             <>
               {/* Resumo do Técnico */}
               <Card className="bg-blue-50 border-blue-200">
-                <CardContent className="pt-4">
+                <CardContent className="pt-4 space-y-3">
                   <div className="grid grid-cols-3 gap-4 text-sm">
                     <div>
                       <p className="text-gray-600">Crédito Pendente</p>
@@ -151,6 +164,16 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
                       <p className="font-bold text-lg">R$ {tecnicoSelecionado.total_ganho.toFixed(2)}</p>
                     </div>
                   </div>
+                  {(tecnicoSelecionado.adiantamento_anterior || 0) > 0 && (
+                    <div className="flex items-center gap-2 p-2 bg-orange-50 border border-orange-200 rounded-md text-sm">
+                      <AlertCircle className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                      <div>
+                        <span className="font-semibold text-orange-700">Adiantamento de semanas anteriores: </span>
+                        <span className="font-bold text-orange-700">R$ {tecnicoSelecionado.adiantamento_anterior.toFixed(2)}</span>
+                        <p className="text-xs text-orange-600 mt-0.5">Valor já adiantado além do que foi ganho. Descontado do crédito pendente acima.</p>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
