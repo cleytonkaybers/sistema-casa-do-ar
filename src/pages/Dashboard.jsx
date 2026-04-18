@@ -196,27 +196,27 @@ export default function Dashboard() {
     const inicioSemana = getStartOfWeek();
     const fimSemana = getEndOfWeek();
 
+    const parseDate = (dataRef) => {
+      if (!dataRef) return null;
+      try {
+        const str = typeof dataRef === 'string' && dataRef.includes('T') ? dataRef : dataRef + 'T12:00:00';
+        return toLocalDate(new Date(str));
+      } catch { return null; }
+    };
+
     // Faturado: valor dos serviços concluídos (bruto)
     const faturadoMes = servicos.filter(s => {
       if (s.status !== 'concluido') return false;
-      const dataRef = s.data_conclusao || s.data_programada;
-      if (!dataRef) return false;
-      try {
-        const dt = toLocalDate(new Date(dataRef + 'T12:00:00'));
-        if (!dt) return false;
-        return isWithinInterval(dt, { start: inicioMes, end: fimMes });
-      } catch { return false; }
+      const dt = parseDate(s.data_conclusao || s.data_programada);
+      if (!dt) return false;
+      return isWithinInterval(dt, { start: inicioMes, end: fimMes });
     }).reduce((sum, s) => sum + (parseFloat(s.valor) || 0), 0);
 
     const faturadoSemana = servicos.filter(s => {
       if (s.status !== 'concluido') return false;
-      const dataRef = s.data_conclusao || s.data_programada;
-      if (!dataRef) return false;
-      try {
-        const dt = toLocalDate(new Date(dataRef + 'T12:00:00'));
-        if (!dt) return false;
-        return isWithinInterval(dt, { start: inicioSemana, end: fimSemana });
-      } catch { return false; }
+      const dt = parseDate(s.data_conclusao || s.data_programada);
+      if (!dt) return false;
+      return isWithinInterval(dt, { start: inicioSemana, end: fimSemana });
     }).reduce((sum, s) => sum + (parseFloat(s.valor) || 0), 0);
 
     // Recebido: pagamentos efetivamente recebidos de clientes
@@ -224,11 +224,8 @@ export default function Dashboard() {
       const pgs = pag.historico_pagamentos || [];
       const pagoNoMes = pgs.filter(p => {
         if (!p.data || p.agendada) return false;
-        try {
-          const dt = toLocalDate(new Date(p.data + 'T12:00:00'));
-          if (!dt) return false;
-          return isWithinInterval(dt, { start: inicioMes, end: fimMes });
-        } catch { return false; }
+        const dt = parseDate(p.data);
+        return dt && isWithinInterval(dt, { start: inicioMes, end: fimMes });
       }).reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
       return sum + pagoNoMes;
     }, 0);
@@ -237,24 +234,23 @@ export default function Dashboard() {
       const pgs = pag.historico_pagamentos || [];
       const pagoNaSemana = pgs.filter(p => {
         if (!p.data || p.agendada) return false;
-        try {
-          const dt = toLocalDate(new Date(p.data + 'T12:00:00'));
-          if (!dt) return false;
-          return isWithinInterval(dt, { start: inicioSemana, end: fimSemana });
-        } catch { return false; }
+        const dt = parseDate(p.data);
+        return dt && isWithinInterval(dt, { start: inicioSemana, end: fimSemana });
       }).reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
       return sum + pagoNaSemana;
     }, 0);
 
-    const comissoes = lancamentosFinanceiros.filter(l => {
-      if (!l.data_geracao) return false;
-      const dataGeracao = toLocalDate(new Date(l.data_geracao));
-      if (!dataGeracao) return false;
-      return isWithinInterval(dataGeracao, { start: inicioMes, end: fimMes });
-    }).reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
+    // Comissões: pagamentos efetivamente realizados aos técnicos no mês
+    const comissoes = pagamentosTecnicos.filter(p => {
+      if (p.status !== 'Confirmado') return false;
+      if (!p.created_date) return false;
+      const dt = toLocalDate(new Date(p.created_date));
+      if (!dt) return false;
+      return isWithinInterval(dt, { start: inicioMes, end: fimMes });
+    }).reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
     return { faturadoMes, faturadoSemana, recebidoMes, recebidoSemana, comissoes };
-  }, [servicos, pagamentosClientes, lancamentosFinanceiros, isAdmin]);
+  }, [servicos, pagamentosClientes, lancamentosFinanceiros, pagamentosTecnicos, isAdmin]);
 
   const adminTecnicosSemana = React.useMemo(() => {
     if (!isAdmin) return [];

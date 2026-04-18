@@ -29,9 +29,9 @@ export default function ResumoMesAdminDashboard({ servicosConcluidos, faturadoMe
           <span className="text-xs sm:text-sm font-bold text-emerald-400">{formatCurrency(faturadoMes)}</span>
         </div>
 
-        {/* Comissões */}
+        {/* Pago a Técnicos */}
         <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-white/5 hover:bg-white/10 transition-colors">
-          <span className="text-xs sm:text-sm font-medium text-gray-400">Comissões</span>
+          <span className="text-xs sm:text-sm font-medium text-gray-400">Pago a Técnicos</span>
           <span className="text-xs sm:text-sm font-bold text-amber-500">{formatCurrency(comissoes)}</span>
         </div>
 
