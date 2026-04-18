@@ -115,6 +115,52 @@ const fmtTelefone = (tel?: string) => {
   return tel;
 };
 
+// Agrupa todos os registros do mesmo cliente em uma única linha,
+// somando valores e listando os serviços individualmente.
+function agruparPorCliente(lista: any[]): any[] {
+  const mapa = new Map<string, any>();
+  for (const p of lista) {
+    const chave =
+      `${(p.cliente_nome || '').trim().toLowerCase()}||${(p.telefone || '').replace(/\D/g, '')}`;
+    if (!mapa.has(chave)) {
+      mapa.set(chave, {
+        cliente_nome: p.cliente_nome || '-',
+        telefone: p.telefone || '',
+        valor_total: 0,
+        valor_pago: 0,
+        servicos: [] as string[],
+        data_pagamento_agendado: p.data_pagamento_agendado || null,
+        observacoes: [] as string[],
+      });
+    }
+    const reg = mapa.get(chave)!;
+    reg.valor_total += p.valor_total || 0;
+    reg.valor_pago  += p.valor_pago  || 0;
+
+    // Cada serviço vira uma linha dentro da célula: "Tipo (dd/mm/aaaa — R$ x)"
+    if (p.tipo_servico) {
+      reg.servicos.push(
+        `• ${p.tipo_servico} — ${fmtData(p.data_conclusao)} — ${fmtBRL(p.valor_total || 0)}`
+      );
+    }
+
+    if (p.observacoes) reg.observacoes.push(p.observacoes);
+
+    // Mantém a data de agendamento mais próxima/recente
+    if (
+      p.data_pagamento_agendado &&
+      (!reg.data_pagamento_agendado ||
+        p.data_pagamento_agendado > reg.data_pagamento_agendado)
+    ) {
+      reg.data_pagamento_agendado = p.data_pagamento_agendado;
+    }
+  }
+  // Ordena por saldo devedor descendente
+  return Array.from(mapa.values()).sort(
+    (a, b) => (b.valor_total - b.valor_pago) - (a.valor_total - a.valor_pago)
+  );
+}
+
 function gerarPDF(
   pendentes: any[],
   parciais: any[],
@@ -125,7 +171,7 @@ function gerarPDF(
   const pageWidth = doc.internal.pageSize.getWidth();
   const agora = new Date();
 
-  // Cabeçalho
+  // ── Cabeçalho ────────────────────────────────────────────────────────────
   doc.setFillColor(30, 41, 59);
   doc.rect(0, 0, pageWidth, 22, 'F');
   doc.setTextColor(255, 255, 255);
@@ -136,16 +182,16 @@ function gerarPDF(
   doc.setFont('helvetica', 'normal');
   doc.text(`Gerado em ${fmtDataHora(agora.toISOString())}`, 14, 17);
 
-  // Resumo
+  // ── Resumo ────────────────────────────────────────────────────────────────
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.text('Resumo', 14, 32);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Clientes em aberto: ${totais.total}`, 14, 38);
+  doc.text(`Clientes com débito em aberto: ${totais.total}`, 14, 38);
   doc.text(
-    `Pendentes: ${pendentes.length}   Parciais: ${parciais.length}   Agendados: ${agendados.length}`,
+    `Agendados: ${agendados.length}   Parciais: ${parciais.length}   Pendentes: ${pendentes.length}`,
     14,
     44
   );
@@ -156,44 +202,53 @@ function gerarPDF(
 
   let cursorY = 58;
 
-  const linhaResumo = (status: string, lista: any[]) => {
-    return lista.reduce((s, p) => s + ((p.valor_total || 0) - (p.valor_pago || 0)), 0);
-  };
-
-  const tabela = (titulo: string, lista: any[], cor: [number, number, number], extras = false) => {
+  // ── Renderiza seção ───────────────────────────────────────────────────────
+  const renderSecao = (
+    titulo: string,
+    lista: any[],
+    cor: [number, number, number],
+    mostrarAgendado = false
+  ) => {
     if (!lista.length) return;
 
+    const agrupada = agruparPorCliente(lista);
+    const totalSaldo = agrupada.reduce(
+      (s, p) => s + ((p.valor_total || 0) - (p.valor_pago || 0)),
+      0
+    );
+
+    // Título da seção
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...cor);
     doc.text(
-      `${titulo}  (${lista.length} clientes — ${fmtBRL(linhaResumo(titulo, lista))})`,
+      `${titulo}  (${agrupada.length} clientes — ${fmtBRL(totalSaldo)})`,
       14,
       cursorY
     );
     doc.setTextColor(0, 0, 0);
     cursorY += 3;
 
-    const head = extras
-      ? [['Cliente', 'Telefone', 'Serviço', 'Concluído em', 'Pagar em', 'Total', 'Pago', 'Saldo', 'Obs']]
-      : [['Cliente', 'Telefone', 'Serviço', 'Concluído em', 'Total', 'Pago', 'Saldo', 'Obs']];
+    // Colunas: Cliente | Telefone | [Pagar em] | Serviços realizados | Total | Pago | Saldo | Obs
+    const head = mostrarAgendado
+      ? [['Cliente', 'Telefone', 'Pagar em', 'Serviços realizados', 'Total', 'Pago', 'Saldo', 'Obs']]
+      : [['Cliente', 'Telefone', 'Serviços realizados', 'Total', 'Pago', 'Saldo', 'Obs']];
 
-    const body = lista.map((p) => {
-      const saldo = (p.valor_total || 0) - (p.valor_pago || 0);
-      const base = [
-        p.cliente_nome || '-',
-        fmtTelefone(p.telefone),
-        p.tipo_servico || '-',
-        fmtData(p.data_conclusao),
-      ];
-      if (extras) base.push(fmtData(p.data_pagamento_agendado));
-      base.push(
+    const body = agrupada.map((p) => {
+      const saldo      = (p.valor_total || 0) - (p.valor_pago || 0);
+      const servicosStr = p.servicos.length ? p.servicos.join('\n') : '-';
+      const obsStr     = p.observacoes.join(' | ').slice(0, 80);
+
+      const linha: any[] = [p.cliente_nome, fmtTelefone(p.telefone)];
+      if (mostrarAgendado) linha.push(fmtData(p.data_pagamento_agendado));
+      linha.push(
+        servicosStr,
         fmtBRL(p.valor_total || 0),
-        fmtBRL(p.valor_pago || 0),
+        fmtBRL(p.valor_pago  || 0),
         fmtBRL(saldo),
-        (p.observacoes || '').slice(0, 60)
+        obsStr
       );
-      return base;
+      return linha;
     });
 
     autoTable(doc, {
@@ -203,29 +258,27 @@ function gerarPDF(
       theme: 'striped',
       styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
       headStyles: { fillColor: cor, textColor: 255, fontStyle: 'bold', fontSize: 8 },
-      columnStyles: extras
+      columnStyles: mostrarAgendado
         ? {
-            0: { cellWidth: 40 },
+            0: { cellWidth: 36 },
             1: { cellWidth: 28 },
-            2: { cellWidth: 32 },
-            3: { cellWidth: 22 },
-            4: { cellWidth: 22 },
+            2: { cellWidth: 22 },
+            3: { cellWidth: 'auto' },
+            4: { cellWidth: 22, halign: 'right' },
             5: { cellWidth: 22, halign: 'right' },
-            6: { cellWidth: 22, halign: 'right' },
-            7: { cellWidth: 22, halign: 'right', fontStyle: 'bold' },
-            8: { cellWidth: 'auto' },
+            6: { cellWidth: 22, halign: 'right', fontStyle: 'bold' },
+            7: { cellWidth: 34 },
           }
         : {
-            0: { cellWidth: 45 },
-            1: { cellWidth: 30 },
-            2: { cellWidth: 38 },
-            3: { cellWidth: 25 },
-            4: { cellWidth: 25, halign: 'right' },
-            5: { cellWidth: 25, halign: 'right' },
-            6: { cellWidth: 25, halign: 'right', fontStyle: 'bold' },
-            7: { cellWidth: 'auto' },
+            0: { cellWidth: 36 },
+            1: { cellWidth: 28 },
+            2: { cellWidth: 'auto' },
+            3: { cellWidth: 22, halign: 'right' },
+            4: { cellWidth: 22, halign: 'right' },
+            5: { cellWidth: 22, halign: 'right', fontStyle: 'bold' },
+            6: { cellWidth: 34 },
           },
-      didDrawPage: (data) => {
+      didDrawPage: (_data) => {
         const pageH = doc.internal.pageSize.getHeight();
         doc.setFontSize(7);
         doc.setTextColor(120, 120, 120);
@@ -241,9 +294,10 @@ function gerarPDF(
     cursorY = (doc as any).lastAutoTable.finalY + 8;
   };
 
-  tabela('PENDENTE', pendentes, [200, 30, 30]);
-  tabela('PARCIAL', parciais, [200, 140, 0]);
-  tabela('AGENDADO', agendados, [30, 100, 200], true);
+  // Ordem das seções: Agendados → Parciais → Pendentes
+  renderSecao('AGENDADO',  agendados, [30,  100, 200], true);
+  renderSecao('PARCIAL',   parciais,  [200, 140,   0]);
+  renderSecao('PENDENTE',  pendentes, [200,  30,  30]);
 
   if (!pendentes.length && !parciais.length && !agendados.length) {
     doc.setFontSize(12);
@@ -314,7 +368,7 @@ Deno.serve(async (req) => {
 
     // 4. Gerar PDF
     const pendentes = abertos.filter((p: any) => p.status === 'pendente');
-    const parciais = abertos.filter((p: any) => p.status === 'parcial');
+    const parciais  = abertos.filter((p: any) => p.status === 'parcial');
     const agendados = abertos.filter((p: any) => p.status === 'agendado');
     const totalDevido = abertos.reduce(
       (s: number, p: any) => s + ((p.valor_total || 0) - (p.valor_pago || 0)),
@@ -328,20 +382,20 @@ Deno.serve(async (req) => {
     // 5. Upload para o Drive
     const { accessToken } = await db.connectors.getConnection('googledrive');
     const folderId = await getOrCreateFolder(accessToken);
-    const dataStr = new Date().toISOString().split('T')[0];
+    const dataStr  = new Date().toISOString().split('T')[0];
     const fileName = `cobranca_casa_do_ar_${dataStr}.pdf`;
-    const file = await uploadPDFToDrive(accessToken, fileName, pdfBytes, folderId);
+    const file     = await uploadPDFToDrive(accessToken, fileName, pdfBytes, folderId);
 
     // 6. Registrar na entidade
     await db.entities.RelatorioCobrancaPDF.create({
       data_relatorio: new Date().toISOString(),
-      arquivo_drive_id: file.id,
+      arquivo_drive_id:  file.id,
       arquivo_drive_url: `https://drive.google.com/file/d/${file.id}/view`,
       hash_dados: hash,
       total_clientes: abertos.length,
       total_devido: totalDevido,
       status: 'sucesso',
-      mensagem: `${pendentes.length} pendentes, ${parciais.length} parciais, ${agendados.length} agendados`,
+      mensagem: `${agendados.length} agendados, ${parciais.length} parciais, ${pendentes.length} pendentes`,
     });
 
     // 7. Retenção (só roda quando houve mudança — protege períodos estáticos)
@@ -371,9 +425,9 @@ Deno.serve(async (req) => {
       totalClientes: abertos.length,
       totalDevido,
       breakdown: {
-        pendentes: pendentes.length,
-        parciais: parciais.length,
         agendados: agendados.length,
+        parciais:  parciais.length,
+        pendentes: pendentes.length,
       },
       retencao: { removidos, erros: errosRetencao.length ? errosRetencao : undefined },
     });
