@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { FileDown, Loader2, ExternalLink } from 'lucide-react';
+import { FileSpreadsheet, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function BotaoGerarRelatorioCobranca({ className = '' }) {
@@ -15,7 +15,7 @@ export default function BotaoGerarRelatorioCobranca({ className = '' }) {
 
       if (data.status === 'success') {
         toast.success(
-          `Relatório gerado: ${data.totalClientes} clientes em aberto`,
+          `Excel gerado: ${data.totalClientes} clientes em aberto`,
           {
             description: `Total devido: R$ ${(data.totalDevido || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
             action: data.driveLink
@@ -29,7 +29,7 @@ export default function BotaoGerarRelatorioCobranca({ className = '' }) {
         );
       } else if (data.status === 'skipped') {
         toast.info('Sem mudanças desde o último relatório', {
-          description: 'Os PDFs anteriores foram preservados no Drive',
+          description: 'O arquivo Excel anterior foi preservado no Drive',
         });
       } else {
         toast.error(data.message || 'Erro ao gerar relatório');
@@ -49,7 +49,7 @@ export default function BotaoGerarRelatorioCobranca({ className = '' }) {
       onClick={handleGerar}
       disabled={loading}
       className={className}
-      title="Gera PDF com todos os débitos em aberto e envia ao Google Drive"
+      title="Gera planilha Excel com todos os débitos em aberto e envia ao Google Drive"
     >
       {loading ? (
         <>
@@ -58,8 +58,8 @@ export default function BotaoGerarRelatorioCobranca({ className = '' }) {
         </>
       ) : (
         <>
-          <FileDown className="w-4 h-4 mr-1.5" />
-          Backup Cobrança PDF
+          <FileSpreadsheet className="w-4 h-4 mr-1.5" />
+          Backup Cobrança Excel
         </>
       )}
     </Button>
