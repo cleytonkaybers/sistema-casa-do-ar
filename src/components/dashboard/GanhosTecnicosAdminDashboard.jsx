@@ -80,7 +80,7 @@ export default function GanhosTecnicosAdminDashboard({ tecnicos, totalGanhoSeman
                   </Badge>
                 </div>
 
-                {/* Bruto semana | Pago semana | Pendente acumulado */}
+                {/* Bruto semana | Pago semana | Pendente */}
                 <div className="flex items-center gap-3 sm:gap-6">
                   <div className="flex flex-col">
                     <span className="text-[9px] uppercase font-bold tracking-wider text-gray-600">Bruto semana</span>
@@ -91,9 +91,18 @@ export default function GanhosTecnicosAdminDashboard({ tecnicos, totalGanhoSeman
                     <span className="text-[9px] uppercase font-bold tracking-wider text-gray-600">Pago semana</span>
                     <span className="text-xs sm:text-sm font-semibold text-blue-400">{fmt(tec.credito_pago)}</span>
                   </div>
+                  {(tec.adiantamento_anterior || 0) > 0 && (
+                    <>
+                      <div className="w-px h-6 bg-white/10 shrink-0" />
+                      <div className="flex flex-col">
+                        <span className="text-[9px] uppercase font-bold tracking-wider text-gray-600">Adiant. ant.</span>
+                        <span className="text-xs sm:text-sm font-semibold text-orange-400">-{fmt(tec.adiantamento_anterior)}</span>
+                      </div>
+                    </>
+                  )}
                   <div className="w-px h-6 bg-white/10 shrink-0" />
                   <div className="flex flex-col">
-                    <span className="text-[9px] uppercase font-bold tracking-wider text-gray-600">Pendente total</span>
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-gray-600">A receber</span>
                     <span className={`text-xs sm:text-sm font-bold ${tec.credito_pendente > 0 ? 'text-amber-400' : 'text-green-400'}`}>
                       {fmt(tec.credito_pendente)}
                     </span>

@@ -260,10 +260,10 @@ export default function Dashboard() {
     if (!isAdmin) return [];
     const inicioSemanaAtual = getStartOfWeek();
     const fimSemanaAtual = getEndOfWeek();
+    const ADIANTAMENTO_INICIO = new Date('2026-04-20T00:00:00');
 
     return tecnicosFinanceiro
       .map(t => {
-        // Ganho desta semana (para contexto)
         const lancamentosSemana = lancamentosFinanceiros.filter(l => {
           if (l.tecnico_id !== t.tecnico_id) return false;
           if (!l.data_geracao) return false;
@@ -273,7 +273,6 @@ export default function Dashboard() {
         });
         const totalGanho = lancamentosSemana.reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
-        // Pago esta semana
         const pagamentosSemana = pagamentosTecnicos.filter(p => {
           if (p.tecnico_id !== t.tecnico_id) return false;
           if (p.status !== 'Confirmado') return false;
@@ -284,17 +283,41 @@ export default function Dashboard() {
         });
         const creditoPago = pagamentosSemana.reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-        // Pendente da semana: comissões da semana - pagamentos da semana (igual ao Financeiro Admin)
-        const creditoPendente = Math.max(0, totalGanho - creditoPago);
+        // Adiantamento: apenas semana anterior, apenas a partir de 2026-04-20
+        const inicioPreviousSemana = new Date(inicioSemanaAtual);
+        inicioPreviousSemana.setDate(inicioPreviousSemana.getDate() - 7);
+
+        let adiantamento_anterior = 0;
+        if (inicioPreviousSemana >= ADIANTAMENTO_INICIO) {
+          const comissoesSemanaAnterior = lancamentosFinanceiros
+            .filter(l => {
+              if (l.tecnico_id !== t.tecnico_id || !l.data_geracao) return false;
+              const d = toLocalDate(new Date(l.data_geracao));
+              return d && d >= inicioPreviousSemana && d < inicioSemanaAtual;
+            })
+            .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
+
+          const pagamentosSemanaAnterior = pagamentosTecnicos
+            .filter(p => {
+              if (p.tecnico_id !== t.tecnico_id || p.status !== 'Confirmado' || !p.created_date) return false;
+              const d = toLocalDate(new Date(p.created_date));
+              return d && d >= inicioPreviousSemana && d < inicioSemanaAtual;
+            })
+            .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
+
+          adiantamento_anterior = Math.max(0, pagamentosSemanaAnterior - comissoesSemanaAnterior);
+        }
+
+        const creditoPendente = Math.max(0, totalGanho - creditoPago - adiantamento_anterior);
 
         return {
           ...t,
           credito_pendente: creditoPendente,
           credito_pago: creditoPago,
-          total_ganho: totalGanho
+          total_ganho: totalGanho,
+          adiantamento_anterior
         };
       })
-      // Mostrar técnicos que têm pendente real OU que trabalharam esta semana
       .filter(t => t.credito_pendente > 0 || t.total_ganho > 0);
   }, [tecnicosFinanceiro, lancamentosFinanceiros, pagamentosTecnicos, isAdmin]);
 
