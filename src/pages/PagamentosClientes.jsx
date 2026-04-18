@@ -8,6 +8,7 @@ import TechnicianAccessBlock from '@/components/TechnicianAccessBlock';
 import jsPDF from 'jspdf';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import RelatorioClientesPagamentoModal from '@/components/financeiro/RelatorioClientesPagamentoModal';
+import BotaoGerarRelatorioCobranca from '@/components/financeiro/BotaoGerarRelatorioCobranca';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -1806,6 +1807,9 @@ function PagamentosClientesContent() {
               <Button onClick={() => setAbrirRelatorio(true)} variant="outline" className="gap-1.5 h-8 text-xs px-3">
                 📄 PDF
               </Button>
+            )}
+            {isAdmin && (
+              <BotaoGerarRelatorioCobranca className="h-8 text-xs px-3" />
             )}
             <Button onClick={handleExportarExcel} disabled={filtroStatus.length === 0} className="gap-1.5 h-8 text-xs px-3 rounded-lg" style={{ backgroundColor: '#22c55e', color: '#fff' }}>
               📅 Excel
