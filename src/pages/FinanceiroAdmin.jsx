@@ -472,27 +472,27 @@ export default function FinanceiroAdmin() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Créditos a pagar (empresa deve ao técnico) */}
           {tecnicosComSaldoAnterior.filter(t => t.saldo_total > 0).length > 0 && (
-            <Card className="border-emerald-300 bg-emerald-50">
+            <Card className="border-emerald-500/30 bg-emerald-900/20">
               <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-emerald-700 text-sm">
+                <CardTitle className="flex items-center gap-2 text-emerald-400 text-sm">
                   <TrendingUp className="w-5 h-5" />
                   Saldo a Pagar (Empresa deve ao Técnico)
                 </CardTitle>
-                <p className="text-xs text-emerald-600">Técnicos com saldo positivo em aberto — valor acumulado ainda não pago</p>
+                <p className="text-xs text-emerald-500">Técnicos com saldo positivo em aberto — valor acumulado ainda não pago</p>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   {tecnicosComSaldoAnterior.filter(t => t.saldo_total > 0).map(tec => (
-                    <div key={tec.id} className="flex justify-between items-center p-3 bg-emerald-50/50 rounded-lg border border-emerald-200">
+                    <div key={tec.id} className="flex justify-between items-center p-3 bg-transparent rounded-lg border border-emerald-500/30">
                       <div>
-                        <p className="font-semibold text-gray-800">{tec.tecnico_nome}</p>
-                        <p className="text-xs text-gray-500">{tec.equipe_nome}</p>
-                        <p className="text-[11px] text-emerald-600 font-medium mt-0.5">✓ Saldo positivo em aberto</p>
+                        <p className="font-semibold text-gray-100">{tec.tecnico_nome}</p>
+                        <p className="text-xs text-gray-400">{tec.equipe_nome}</p>
+                        <p className="text-[11px] text-emerald-400 font-medium mt-0.5">✓ Saldo positivo em aberto</p>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="text-right">
-                          <p className="font-bold text-emerald-600 text-lg">+R$ {tec.saldo_total.toFixed(2)}</p>
-                          <p className="text-[10px] text-gray-400">já incluso no crédito pendente</p>
+                          <p className="font-bold text-emerald-400 text-lg">+R$ {tec.saldo_total.toFixed(2)}</p>
+                          <p className="text-[10px] text-gray-500">já incluso no crédito pendente</p>
                         </div>
                       </div>
                     </div>
@@ -504,26 +504,26 @@ export default function FinanceiroAdmin() {
 
           {/* Débitos (técnico recebeu mais do que produziu) */}
           {tecnicosComSaldoAnterior.filter(t => t.saldo_total < 0).length > 0 && (
-            <Card className="border-red-300 bg-red-50">
+            <Card className="border-red-500/30 bg-red-900/20">
               <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-red-700 text-sm">
+                <CardTitle className="flex items-center gap-2 text-red-400 text-sm">
                   <TrendingDown className="w-5 h-5" />
                   Saldo Negativo (Técnico deve à Empresa)
                 </CardTitle>
-                <p className="text-xs text-red-600">Técnicos que receberam mais do que produziram — será descontado nos próximos pagamentos</p>
+                <p className="text-xs text-red-500">Técnicos que receberam mais do que produziram — será descontado nos próximos pagamentos</p>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   {tecnicosComSaldoAnterior.filter(t => t.saldo_total < 0).map(tec => (
-                    <div key={tec.id} className="flex justify-between items-center p-3 bg-red-50/50 rounded-lg border border-red-200">
+                    <div key={tec.id} className="flex justify-between items-center p-3 bg-transparent rounded-lg border border-red-500/30">
                       <div>
-                        <p className="font-semibold text-gray-800">{tec.tecnico_nome}</p>
-                        <p className="text-xs text-gray-500">{tec.equipe_nome}</p>
-                        <p className="text-[11px] text-red-600 font-medium mt-0.5">⚠ Recebeu além do produzido</p>
+                        <p className="font-semibold text-gray-100">{tec.tecnico_nome}</p>
+                        <p className="text-xs text-gray-400">{tec.equipe_nome}</p>
+                        <p className="text-[11px] text-red-400 font-medium mt-0.5">⚠ Recebeu além do produzido</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-red-600 text-lg">-R$ {Math.abs(tec.saldo_total).toFixed(2)}</p>
-                        <p className="text-[10px] text-gray-400">será descontado no próximo pagamento</p>
+                        <p className="font-bold text-red-400 text-lg">-R$ {Math.abs(tec.saldo_total).toFixed(2)}</p>
+                        <p className="text-[10px] text-gray-500">será descontado no próximo pagamento</p>
                       </div>
                     </div>
                   ))}
