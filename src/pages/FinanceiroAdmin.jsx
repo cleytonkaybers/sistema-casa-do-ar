@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, Users, TrendingUp, AlertCircle, Check, X, FileText, Download, Calendar, Edit2, Trash2, Save, XCircle, Eye, MessageSquare } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, TrendingDown, AlertCircle, Check, X, FileText, Download, Calendar, Edit2, Trash2, Save, XCircle, Eye, MessageSquare } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { format, parseISO, startOfWeek, endOfWeek } from 'date-fns';
@@ -231,34 +231,37 @@ export default function FinanceiroAdmin() {
       const totalPagoSemana = pagamentosSemana
         .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-      // Adiantamento: rastreamento começa a partir da semana 2026-04-20 (semana seguinte à ativação)
-      // Só conta adiantamento se a semana anterior for >= data de início do rastreamento
-      const ADIANTAMENTO_INICIO = new Date('2026-04-20T00:00:00');
-      const inicioPreviousSemana = new Date(inicioSemana);
-      inicioPreviousSemana.setDate(inicioPreviousSemana.getDate() - 7);
-
-      let adiantamento_anterior = 0;
-      if (inicioPreviousSemana >= ADIANTAMENTO_INICIO) {
-        const comissoesSemanaAnterior = lancamentos
-          .filter(l => l.tecnico_id === t.tecnico_id && l.data_geracao && new Date(l.data_geracao) >= inicioPreviousSemana && new Date(l.data_geracao) < inicioSemana)
+      // Saldo acumulado de todas as semanas anteriores ao período selecionado
+      // Positivo = empresa deve ao técnico | Negativo = técnico recebeu a mais (deve devolver)
+      const SALDO_INICIO = new Date('2026-04-20T00:00:00');
+      let saldo_anterior = 0;
+      if (inicioSemana > SALDO_INICIO) {
+        const comissoesAnteriores = lancamentos
+          .filter(l => l.tecnico_id === t.tecnico_id && l.data_geracao &&
+                       new Date(l.data_geracao) >= SALDO_INICIO &&
+                       new Date(l.data_geracao) < inicioSemana)
           .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
-        const pagamentosSemanaAnterior = pagamentos
-          .filter(p => p.tecnico_id === t.tecnico_id && p.status === 'Confirmado' && p.created_date && new Date(p.created_date) >= inicioPreviousSemana && new Date(p.created_date) < inicioSemana)
+        const pagamentosAnteriores = pagamentos
+          .filter(p => p.tecnico_id === t.tecnico_id && p.status === 'Confirmado' && p.created_date &&
+                       new Date(p.created_date) >= SALDO_INICIO &&
+                       new Date(p.created_date) < inicioSemana)
           .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-        adiantamento_anterior = Math.max(0, pagamentosSemanaAnterior - comissoesSemanaAnterior);
+        saldo_anterior = comissoesAnteriores - pagamentosAnteriores;
+        // +: técnico tem crédito a receber de semanas anteriores
+        // -: técnico foi pago a mais, esse excesso desconta desta semana
       }
 
-      // Crédito pendente líquido = ganhou na semana - já pago - adiantamento anterior
-      const creditoPendenteLiquido = Math.max(0, totalComissoesSemana - totalPagoSemana - adiantamento_anterior);
+      // Crédito líquido = ganhou esta semana + saldo anterior - já recebeu esta semana
+      const creditoPendenteLiquido = Math.max(0, totalComissoesSemana + saldo_anterior - totalPagoSemana);
 
       return {
         ...t,
         credito_pendente: creditoPendenteLiquido,
         credito_pago: totalPagoSemana,
         total_ganho: totalComissoesSemana,
-        adiantamento_anterior
+        saldo_anterior,
       };
     });
 
@@ -275,22 +278,8 @@ export default function FinanceiroAdmin() {
     return matchSemana && matchTecnico;
   });
 
-  // Débitos de semanas anteriores por técnico
-  const tecnicosComDebitoAnterior = tecnicos
-    .filter(t => filtroEquipe === 'todas' || !filtroEquipe || t.equipe_id === filtroEquipe)
-    .map(t => {
-      const comissoesAnteriores = lancamentos
-        .filter(l => l.tecnico_id === t.tecnico_id && l.data_geracao && new Date(l.data_geracao) < inicioSemanaAtual)
-        .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
-
-      const pagamentosAnteriores = pagamentos
-        .filter(p => p.tecnico_id === t.tecnico_id && p.status === 'Confirmado' && p.created_date && new Date(p.created_date) < inicioSemanaAtual)
-        .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
-
-      const debito = Math.max(0, comissoesAnteriores - pagamentosAnteriores);
-      return { ...t, debito_anterior: debito };
-    })
-    .filter(t => t.debito_anterior > 0.01);
+  // Técnicos com saldo não-zero (crédito ou débito de semanas anteriores)
+  const tecnicosComSaldoAnterior = filteredTecnicos.filter(t => Math.abs(t.saldo_anterior || 0) > 0.01);
 
   // Totais baseados nos valores recalculados da semana
   const totalPendente = filteredTecnicos.reduce((sum, t) => sum + (t.credito_pendente || 0), 0);
@@ -413,15 +402,22 @@ export default function FinanceiroAdmin() {
                 <TableRow>
                   <TableHead>Técnico</TableHead>
                   <TableHead>Equipe</TableHead>
-                  <TableHead>Adiantamento Anterior</TableHead>
+                  <TableHead>
+                    <div className="flex flex-col">
+                      <span>Saldo Sem. Anterior</span>
+                      <span className="text-[10px] font-normal text-gray-400 normal-case">+ = a receber / - = a devolver</span>
+                    </div>
+                  </TableHead>
                   <TableHead>Crédito Pendente</TableHead>
                   <TableHead>Crédito Pago</TableHead>
                   <TableHead>Total Ganho</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTecnicos.map(tecnico => (
-                  <TableRow key={tecnico.id}>
+                {filteredTecnicos.map(tecnico => {
+                  const saldo = tecnico.saldo_anterior || 0;
+                  return (
+                  <TableRow key={tecnico.id} className={Math.abs(saldo) > 0.01 ? (saldo > 0 ? 'bg-emerald-50' : 'bg-red-50') : ''}>
                     <TableCell>
                       <div>
                         <p className="font-medium">{tecnico.tecnico_nome}</p>
@@ -430,12 +426,20 @@ export default function FinanceiroAdmin() {
                     </TableCell>
                     <TableCell>{tecnico.equipe_nome}</TableCell>
                     <TableCell>
-                      {(tecnico.adiantamento_anterior || 0) > 0 ? (
-                        <Badge className="bg-orange-500 text-white">
-                          R$ {(tecnico.adiantamento_anterior).toFixed(2)}
-                        </Badge>
+                      {Math.abs(saldo) > 0.01 ? (
+                        <div className="flex flex-col gap-0.5">
+                          <Badge className={saldo > 0
+                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                            : 'bg-red-100 text-red-700 border border-red-300'
+                          }>
+                            {saldo > 0 ? '+' : ''}R$ {saldo.toFixed(2)}
+                          </Badge>
+                          <span className={`text-[10px] font-semibold ${saldo > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                            {saldo > 0 ? '▲ crédito a receber' : '▼ recebeu a mais'}
+                          </span>
+                        </div>
                       ) : (
-                        <Badge variant="secondary">R$ 0,00</Badge>
+                        <span className="text-gray-400 text-sm">—</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -452,44 +456,78 @@ export default function FinanceiroAdmin() {
                       R$ {(tecnico.total_ganho || 0).toFixed(2)}
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
         </CardContent>
       </Card>
 
-      {tecnicosComDebitoAnterior.length > 0 && (
-        <Card className="border-orange-200 bg-orange-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-orange-700"><AlertCircle className="w-5 h-5" /> Débitos de Semanas Anteriores</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-orange-600 mb-3">Técnicos com saldo não quitado de semanas anteriores:</p>
-            <div className="space-y-2">
-              {tecnicosComDebitoAnterior.map(tec => (
-                <div key={tec.id} className="flex justify-between items-center p-3 bg-white rounded border border-orange-200">
-                  <div>
-                    <p className="font-medium">{tec.tecnico_nome}</p>
-                    <p className="text-xs text-gray-500">{tec.equipe_nome}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <p className="font-bold text-orange-600">R$ {tec.debito_anterior.toFixed(2)}</p>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        setTecnicoSelecionado({ ...tec, credito_pendente: tec.debito_anterior });
-                        setShowModalPagamento(true);
-                      }}
-                    >
-                      Pagar
-                    </Button>
-                  </div>
+      {tecnicosComSaldoAnterior.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Créditos a pagar (técnico tem saldo positivo de semanas anteriores) */}
+          {tecnicosComSaldoAnterior.filter(t => t.saldo_anterior > 0).length > 0 && (
+            <Card className="border-emerald-300 bg-emerald-50">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-emerald-700 text-sm">
+                  <TrendingUp className="w-5 h-5" />
+                  Créditos de Semanas Anteriores
+                </CardTitle>
+                <p className="text-xs text-emerald-600">Técnicos que têm valor a receber de semanas passadas</p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {tecnicosComSaldoAnterior.filter(t => t.saldo_anterior > 0).map(tec => (
+                    <div key={tec.id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-emerald-200">
+                      <div>
+                        <p className="font-semibold text-gray-800">{tec.tecnico_nome}</p>
+                        <p className="text-xs text-gray-500">{tec.equipe_nome}</p>
+                        <p className="text-[11px] text-emerald-600 font-medium mt-0.5">✓ Saldo positivo acumulado</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <p className="font-bold text-emerald-600 text-lg">+R$ {tec.saldo_anterior.toFixed(2)}</p>
+                          <p className="text-[10px] text-gray-400">já incluso no crédito pendente</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Débitos (técnico recebeu mais do que fez) */}
+          {tecnicosComSaldoAnterior.filter(t => t.saldo_anterior < 0).length > 0 && (
+            <Card className="border-red-300 bg-red-50">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-red-700 text-sm">
+                  <TrendingDown className="w-5 h-5" />
+                  Débitos de Semanas Anteriores
+                </CardTitle>
+                <p className="text-xs text-red-600">Técnicos que receberam mais do que produziram — já descontado do crédito pendente</p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {tecnicosComSaldoAnterior.filter(t => t.saldo_anterior < 0).map(tec => (
+                    <div key={tec.id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-red-200">
+                      <div>
+                        <p className="font-semibold text-gray-800">{tec.tecnico_nome}</p>
+                        <p className="text-xs text-gray-500">{tec.equipe_nome}</p>
+                        <p className="text-[11px] text-red-600 font-medium mt-0.5">⚠ Recebeu além do produzido</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-red-600 text-lg">-R$ {Math.abs(tec.saldo_anterior).toFixed(2)}</p>
+                        <p className="text-[10px] text-gray-400">já descontado do crédito pendente</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       <Card>

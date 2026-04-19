@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, TrendingUp, CheckCircle2, Clock, FileText, AlertCircle } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, CheckCircle2, Clock, FileText, AlertCircle } from 'lucide-react';
 import { format, parseISO, startOfWeek, endOfWeek, subWeeks, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/lib/AuthContext';
@@ -81,25 +81,26 @@ export default function MeuFinanceiro() {
   const totalPago = pagamentosPeriodo.reduce((s, p) => s + (p.valor_pago || 0), 0);
   const totalGanho = comissoesPeriodo.reduce((s, c) => s + (c.valor_comissao_tecnico || 0), 0);
 
-  // Adiantamento: rastreamento começa a partir da semana 2026-04-20
-  const ADIANTAMENTO_INICIO = new Date('2026-04-20T00:00:00');
+  // Saldo acumulado de todas as semanas anteriores ao período selecionado
+  // Positivo = empresa deve ao técnico | Negativo = técnico recebeu a mais
+  const SALDO_INICIO = new Date('2026-04-20T00:00:00');
   const inicioSemana = inicio ? new Date(inicio + 'T00:00:00') : startOfWeek(hoje, { weekStartsOn: 1 });
-  const inicioPreviousSemana = new Date(inicioSemana);
-  inicioPreviousSemana.setDate(inicioPreviousSemana.getDate() - 7);
 
-  let adiantamento_anterior = 0;
-  if (inicioPreviousSemana >= ADIANTAMENTO_INICIO) {
-    const comissoesSemanaAnterior = minhasComissoes
-      .filter(c => { const d = parseDateSafe(c.data_geracao); return d && d >= inicioPreviousSemana && d < inicioSemana; })
+  let saldo_anterior = 0;
+  if (inicioSemana > SALDO_INICIO) {
+    const comissoesAnteriores = minhasComissoes
+      .filter(c => { const d = parseDateSafe(c.data_geracao); return d && d >= SALDO_INICIO && d < inicioSemana; })
       .reduce((s, c) => s + (c.valor_comissao_tecnico || 0), 0);
-    const pagamentosSemanaAnterior = meusPagamentos
-      .filter(p => { const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date); return d && d >= inicioPreviousSemana && d < inicioSemana; })
+    const pagamentosAnteriores = meusPagamentos
+      .filter(p => { const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date); return d && d >= SALDO_INICIO && d < inicioSemana; })
       .reduce((s, p) => s + (p.valor_pago || 0), 0);
-    adiantamento_anterior = Math.max(0, pagamentosSemanaAnterior - comissoesSemanaAnterior);
+    saldo_anterior = comissoesAnteriores - pagamentosAnteriores;
+    // +: tenho crédito de semanas anteriores
+    // -: recebi a mais em semanas anteriores
   }
 
-  // Crédito pendente líquido = ganhou no período - recebeu no período - adiantamento anterior
-  const totalPendente = Math.max(0, totalGanho - totalPago - adiantamento_anterior);
+  // Crédito líquido = ganhou no período + saldo anterior - já recebeu no período
+  const totalPendente = Math.max(0, totalGanho + saldo_anterior - totalPago);
 
   const statusBadge = (status) => {
     if (status === 'pago') return <Badge className="bg-green-500/15 text-green-400 border-green-500/20">Pago</Badge>;
@@ -178,10 +179,22 @@ export default function MeuFinanceiro() {
           </CardContent>
         </Card>
 
-        <Card className={`rounded-2xl border-white/5 ${adiantamento_anterior > 0 ? 'bg-orange-900/30 border-orange-500/30' : 'bg-[#152236]'}`}>
+        <Card className={`rounded-2xl ${
+          saldo_anterior > 0.01
+            ? 'bg-emerald-900/30 border-emerald-500/30'
+            : saldo_anterior < -0.01
+            ? 'bg-red-900/30 border-red-500/30'
+            : 'bg-[#152236] border-white/5'
+        }`}>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-400 flex items-center gap-2">
-              <AlertCircle className={`w-4 h-4 ${adiantamento_anterior > 0 ? 'text-orange-400' : 'text-gray-500'}`} /> Adiantamento Anterior
+              {saldo_anterior > 0.01
+                ? <TrendingUp className="w-4 h-4 text-emerald-400" />
+                : saldo_anterior < -0.01
+                ? <TrendingDown className="w-4 h-4 text-red-400" />
+                : <AlertCircle className="w-4 h-4 text-gray-500" />
+              }
+              Saldo Sem. Anterior
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -189,9 +202,19 @@ export default function MeuFinanceiro() {
               <Skeleton className="h-8 w-32 bg-white/10 rounded" />
             ) : (
               <>
-                <div className={`text-2xl font-bold ${adiantamento_anterior > 0 ? 'text-orange-400' : 'text-gray-500'}`}>{formatMoney(adiantamento_anterior)}</div>
+                <div className={`text-2xl font-bold ${
+                  saldo_anterior > 0.01 ? 'text-emerald-400'
+                  : saldo_anterior < -0.01 ? 'text-red-400'
+                  : 'text-gray-500'
+                }`}>
+                  {saldo_anterior > 0.01 ? '+' : ''}{formatMoney(saldo_anterior)}
+                </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  {adiantamento_anterior > 0 ? 'Já descontado do saldo acima' : 'Sem adiantamento anterior'}
+                  {saldo_anterior > 0.01
+                    ? 'Crédito a receber (somado acima)'
+                    : saldo_anterior < -0.01
+                    ? 'Recebeu a mais (descontado acima)'
+                    : 'Saldo zerado'}
                 </p>
               </>
             )}
@@ -199,15 +222,29 @@ export default function MeuFinanceiro() {
         </Card>
       </div>
 
-      {/* Aviso de adiantamento */}
-      {adiantamento_anterior > 0 && (
-        <div className="flex items-start gap-3 p-4 rounded-xl bg-orange-900/20 border border-orange-500/30 text-sm">
-          <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+      {/* Banner de saldo anterior */}
+      {saldo_anterior > 0.01 && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-emerald-900/20 border border-emerald-500/30 text-sm">
+          <TrendingUp className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-orange-300 font-semibold">Adiantamento de semanas anteriores: {formatMoney(adiantamento_anterior)}</p>
-            <p className="text-orange-400/80 text-xs mt-1">
-              Você recebeu {formatMoney(adiantamento_anterior)} a mais do que ganhou em semanas anteriores.
-              Esse valor já foi descontado do seu saldo "A Receber" desta semana.
+            <p className="text-emerald-300 font-semibold">
+              Você tem {formatMoney(saldo_anterior)} de crédito de semanas anteriores
+            </p>
+            <p className="text-emerald-400/80 text-xs mt-1">
+              Esse valor já foi somado ao seu crédito "A Receber" desta semana.
+            </p>
+          </div>
+        </div>
+      )}
+      {saldo_anterior < -0.01 && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-red-900/20 border border-red-500/30 text-sm">
+          <TrendingDown className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-red-300 font-semibold">
+              Você recebeu {formatMoney(Math.abs(saldo_anterior))} a mais em semanas anteriores
+            </p>
+            <p className="text-red-400/80 text-xs mt-1">
+              Essa diferença já foi descontada do seu crédito "A Receber" desta semana.
             </p>
           </div>
         </div>
