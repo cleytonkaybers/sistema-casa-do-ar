@@ -483,7 +483,7 @@ export default function FinanceiroAdmin() {
               <CardContent>
                 <div className="space-y-2">
                   {tecnicosComSaldoAnterior.filter(t => t.saldo_total > 0).map(tec => (
-                    <div key={tec.id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-emerald-200">
+                    <div key={tec.id} className="flex justify-between items-center p-3 bg-emerald-50/50 rounded-lg border border-emerald-200">
                       <div>
                         <p className="font-semibold text-gray-800">{tec.tecnico_nome}</p>
                         <p className="text-xs text-gray-500">{tec.equipe_nome}</p>
@@ -515,7 +515,7 @@ export default function FinanceiroAdmin() {
               <CardContent>
                 <div className="space-y-2">
                   {tecnicosComSaldoAnterior.filter(t => t.saldo_total < 0).map(tec => (
-                    <div key={tec.id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-red-200">
+                    <div key={tec.id} className="flex justify-between items-center p-3 bg-red-50/50 rounded-lg border border-red-200">
                       <div>
                         <p className="font-semibold text-gray-800">{tec.tecnico_nome}</p>
                         <p className="text-xs text-gray-500">{tec.equipe_nome}</p>
