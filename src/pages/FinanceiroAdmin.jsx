@@ -421,7 +421,7 @@ export default function FinanceiroAdmin() {
                 {filteredTecnicos.map(tecnico => {
                   const saldo = tecnico.saldo_total || 0;
                   return (
-                  <TableRow key={tecnico.id} className={Math.abs(saldo) > 0.01 ? (saldo > 0 ? 'bg-emerald-50' : 'bg-red-50') : ''}>
+                  <TableRow key={tecnico.id} className={Math.abs(saldo) > 0.01 ? (saldo > 0 ? 'bg-emerald-900/20' : 'bg-red-900/20') : ''}>
                     <TableCell>
                       <div>
                         <p className="font-medium">{tecnico.tecnico_nome}</p>
