@@ -99,8 +99,10 @@ export default function MeuFinanceiro() {
     // -: recebi a mais em semanas anteriores
   }
 
-  // Crédito líquido = ganhou no período + saldo anterior - já recebeu no período
-  const totalPendente = Math.max(0, totalGanho + saldo_anterior - totalPago);
+  // Saldo em tempo real: inclui semanas anteriores + período atual
+  const saldo_total = saldo_anterior + totalGanho - totalPago;
+  // Crédito pendente exibe apenas o que há para receber (nunca negativo)
+  const totalPendente = Math.max(0, saldo_total);
 
   const statusBadge = (status) => {
     if (status === 'pago') return <Badge className="bg-green-500/15 text-green-400 border-green-500/20">Pago</Badge>;
@@ -180,21 +182,21 @@ export default function MeuFinanceiro() {
         </Card>
 
         <Card className={`rounded-2xl ${
-          saldo_anterior > 0.01
+          saldo_total > 0.01
             ? 'bg-emerald-900/30 border-emerald-500/30'
-            : saldo_anterior < -0.01
+            : saldo_total < -0.01
             ? 'bg-red-900/30 border-red-500/30'
             : 'bg-[#152236] border-white/5'
         }`}>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-400 flex items-center gap-2">
-              {saldo_anterior > 0.01
+              {saldo_total > 0.01
                 ? <TrendingUp className="w-4 h-4 text-emerald-400" />
-                : saldo_anterior < -0.01
+                : saldo_total < -0.01
                 ? <TrendingDown className="w-4 h-4 text-red-400" />
                 : <AlertCircle className="w-4 h-4 text-gray-500" />
               }
-              Saldo Sem. Anterior
+              Saldo em Aberto
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -203,17 +205,17 @@ export default function MeuFinanceiro() {
             ) : (
               <>
                 <div className={`text-2xl font-bold ${
-                  saldo_anterior > 0.01 ? 'text-emerald-400'
-                  : saldo_anterior < -0.01 ? 'text-red-400'
+                  saldo_total > 0.01 ? 'text-emerald-400'
+                  : saldo_total < -0.01 ? 'text-red-400'
                   : 'text-gray-500'
                 }`}>
-                  {saldo_anterior > 0.01 ? '+' : ''}{formatMoney(saldo_anterior)}
+                  {saldo_total > 0.01 ? '+' : ''}{formatMoney(saldo_total)}
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  {saldo_anterior > 0.01
-                    ? 'Crédito a receber (somado acima)'
-                    : saldo_anterior < -0.01
-                    ? 'Recebeu a mais (descontado acima)'
+                  {saldo_total > 0.01
+                    ? 'Empresa te deve este valor'
+                    : saldo_total < -0.01
+                    ? 'Você recebeu a mais'
                     : 'Saldo zerado'}
                 </p>
               </>
@@ -222,29 +224,29 @@ export default function MeuFinanceiro() {
         </Card>
       </div>
 
-      {/* Banner de saldo anterior */}
-      {saldo_anterior > 0.01 && (
+      {/* Banner de saldo em tempo real */}
+      {saldo_total > 0.01 && (
         <div className="flex items-start gap-3 p-4 rounded-xl bg-emerald-900/20 border border-emerald-500/30 text-sm">
           <TrendingUp className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-emerald-300 font-semibold">
-              Você tem {formatMoney(saldo_anterior)} de crédito de semanas anteriores
+              A empresa te deve {formatMoney(saldo_total)} no total
             </p>
             <p className="text-emerald-400/80 text-xs mt-1">
-              Esse valor já foi somado ao seu crédito "A Receber" desta semana.
+              Inclui serviços realizados menos o que já foi pago (semanas anteriores + período atual).
             </p>
           </div>
         </div>
       )}
-      {saldo_anterior < -0.01 && (
+      {saldo_total < -0.01 && (
         <div className="flex items-start gap-3 p-4 rounded-xl bg-red-900/20 border border-red-500/30 text-sm">
           <TrendingDown className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-red-300 font-semibold">
-              Você recebeu {formatMoney(Math.abs(saldo_anterior))} a mais em semanas anteriores
+              Você recebeu {formatMoney(Math.abs(saldo_total))} a mais do que produziu
             </p>
             <p className="text-red-400/80 text-xs mt-1">
-              Essa diferença já foi descontada do seu crédito "A Receber" desta semana.
+              Essa diferença será descontada nos próximos pagamentos.
             </p>
           </div>
         </div>

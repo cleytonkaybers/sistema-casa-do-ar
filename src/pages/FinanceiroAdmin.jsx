@@ -253,8 +253,12 @@ export default function FinanceiroAdmin() {
         // -: técnico foi pago a mais, esse excesso desconta desta semana
       }
 
-      // Crédito líquido = ganhou esta semana + saldo anterior - já recebeu esta semana
-      const creditoPendenteLiquido = Math.max(0, totalComissoesSemana + saldo_anterior - totalPagoSemana);
+      // Saldo em tempo real: inclui semanas anteriores + semana atual em aberto
+      // Positivo = empresa deve ao técnico | Negativo = técnico recebeu a mais
+      const saldo_total = saldo_anterior + totalComissoesSemana - totalPagoSemana;
+
+      // Crédito pendente exibe apenas o que há para pagar (nunca negativo)
+      const creditoPendenteLiquido = Math.max(0, saldo_total);
 
       return {
         ...t,
@@ -262,6 +266,7 @@ export default function FinanceiroAdmin() {
         credito_pago: totalPagoSemana,
         total_ganho: totalComissoesSemana,
         saldo_anterior,
+        saldo_total,
       };
     });
 
@@ -278,8 +283,8 @@ export default function FinanceiroAdmin() {
     return matchSemana && matchTecnico;
   });
 
-  // Técnicos com saldo não-zero (crédito ou débito de semanas anteriores)
-  const tecnicosComSaldoAnterior = filteredTecnicos.filter(t => Math.abs(t.saldo_anterior || 0) > 0.01);
+  // Técnicos com saldo não-zero (tempo real)
+  const tecnicosComSaldoAnterior = filteredTecnicos.filter(t => Math.abs(t.saldo_total || 0) > 0.01);
 
   // Totais baseados nos valores recalculados da semana
   const totalPendente = filteredTecnicos.reduce((sum, t) => sum + (t.credito_pendente || 0), 0);
@@ -404,8 +409,8 @@ export default function FinanceiroAdmin() {
                   <TableHead>Equipe</TableHead>
                   <TableHead>
                     <div className="flex flex-col">
-                      <span>Saldo Sem. Anterior</span>
-                      <span className="text-[10px] font-normal text-gray-400 normal-case">+ = a receber / - = a devolver</span>
+                      <span>Saldo em Aberto</span>
+                      <span className="text-[10px] font-normal text-gray-400 normal-case">+ = empresa deve / - = técnico deve</span>
                     </div>
                   </TableHead>
                   <TableHead>Crédito Pendente</TableHead>
@@ -415,7 +420,7 @@ export default function FinanceiroAdmin() {
               </TableHeader>
               <TableBody>
                 {filteredTecnicos.map(tecnico => {
-                  const saldo = tecnico.saldo_anterior || 0;
+                  const saldo = tecnico.saldo_total || 0;
                   return (
                   <TableRow key={tecnico.id} className={Math.abs(saldo) > 0.01 ? (saldo > 0 ? 'bg-emerald-50' : 'bg-red-50') : ''}>
                     <TableCell>
@@ -435,7 +440,7 @@ export default function FinanceiroAdmin() {
                             {saldo > 0 ? '+' : ''}R$ {saldo.toFixed(2)}
                           </Badge>
                           <span className={`text-[10px] font-semibold ${saldo > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                            {saldo > 0 ? '▲ crédito a receber' : '▼ recebeu a mais'}
+                            {saldo > 0 ? '▲ a receber' : '▼ recebeu a mais'}
                           </span>
                         </div>
                       ) : (
@@ -466,28 +471,28 @@ export default function FinanceiroAdmin() {
 
       {tecnicosComSaldoAnterior.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Créditos a pagar (técnico tem saldo positivo de semanas anteriores) */}
-          {tecnicosComSaldoAnterior.filter(t => t.saldo_anterior > 0).length > 0 && (
+          {/* Créditos a pagar (empresa deve ao técnico) */}
+          {tecnicosComSaldoAnterior.filter(t => t.saldo_total > 0).length > 0 && (
             <Card className="border-emerald-300 bg-emerald-50">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-emerald-700 text-sm">
                   <TrendingUp className="w-5 h-5" />
-                  Créditos de Semanas Anteriores
+                  Saldo a Pagar (Empresa deve ao Técnico)
                 </CardTitle>
-                <p className="text-xs text-emerald-600">Técnicos que têm valor a receber de semanas passadas</p>
+                <p className="text-xs text-emerald-600">Técnicos com saldo positivo em aberto — valor acumulado ainda não pago</p>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {tecnicosComSaldoAnterior.filter(t => t.saldo_anterior > 0).map(tec => (
+                  {tecnicosComSaldoAnterior.filter(t => t.saldo_total > 0).map(tec => (
                     <div key={tec.id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-emerald-200">
                       <div>
                         <p className="font-semibold text-gray-800">{tec.tecnico_nome}</p>
                         <p className="text-xs text-gray-500">{tec.equipe_nome}</p>
-                        <p className="text-[11px] text-emerald-600 font-medium mt-0.5">✓ Saldo positivo acumulado</p>
+                        <p className="text-[11px] text-emerald-600 font-medium mt-0.5">✓ Saldo positivo em aberto</p>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="text-right">
-                          <p className="font-bold text-emerald-600 text-lg">+R$ {tec.saldo_anterior.toFixed(2)}</p>
+                          <p className="font-bold text-emerald-600 text-lg">+R$ {tec.saldo_total.toFixed(2)}</p>
                           <p className="text-[10px] text-gray-400">já incluso no crédito pendente</p>
                         </div>
                       </div>
@@ -498,19 +503,19 @@ export default function FinanceiroAdmin() {
             </Card>
           )}
 
-          {/* Débitos (técnico recebeu mais do que fez) */}
-          {tecnicosComSaldoAnterior.filter(t => t.saldo_anterior < 0).length > 0 && (
+          {/* Débitos (técnico recebeu mais do que produziu) */}
+          {tecnicosComSaldoAnterior.filter(t => t.saldo_total < 0).length > 0 && (
             <Card className="border-red-300 bg-red-50">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-red-700 text-sm">
                   <TrendingDown className="w-5 h-5" />
-                  Débitos de Semanas Anteriores
+                  Saldo Negativo (Técnico deve à Empresa)
                 </CardTitle>
-                <p className="text-xs text-red-600">Técnicos que receberam mais do que produziram — já descontado do crédito pendente</p>
+                <p className="text-xs text-red-600">Técnicos que receberam mais do que produziram — será descontado nos próximos pagamentos</p>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {tecnicosComSaldoAnterior.filter(t => t.saldo_anterior < 0).map(tec => (
+                  {tecnicosComSaldoAnterior.filter(t => t.saldo_total < 0).map(tec => (
                     <div key={tec.id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-red-200">
                       <div>
                         <p className="font-semibold text-gray-800">{tec.tecnico_nome}</p>
@@ -518,8 +523,8 @@ export default function FinanceiroAdmin() {
                         <p className="text-[11px] text-red-600 font-medium mt-0.5">⚠ Recebeu além do produzido</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-red-600 text-lg">-R$ {Math.abs(tec.saldo_anterior).toFixed(2)}</p>
-                        <p className="text-[10px] text-gray-400">já descontado do crédito pendente</p>
+                        <p className="font-bold text-red-600 text-lg">-R$ {Math.abs(tec.saldo_total).toFixed(2)}</p>
+                        <p className="text-[10px] text-gray-400">será descontado no próximo pagamento</p>
                       </div>
                     </div>
                   ))}
