@@ -5,94 +5,83 @@ import { useAuth } from '@/lib/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { DollarSign, TrendingUp } from 'lucide-react';
-import { getLocalDate, getStartOfWeek, getEndOfWeek, toLocalDate } from '@/lib/dateUtils';
+import { DollarSign, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
+import { getStartOfWeek, getEndOfWeek, toLocalDate } from '@/lib/dateUtils';
 
 export default function GanhosSemanaDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const { data: dadosSemana = { totalGanho: 0, valorPago: 0, creditoPendente: 0, adiantamento_anterior: 0 } } = useQuery({
+  const { data: dadosSemana = { totalGanho: 0, valorPago: 0, creditoPendente: 0, saldo_total: 0, saldo_anterior: 0 } } = useQuery({
     queryKey: ['minhasComissoesWeek', user?.email],
     queryFn: async () => {
-      if (!user?.email) return { totalGanho: 0, valorPago: 0, creditoPendente: 0 };
+      if (!user?.email) return { totalGanho: 0, valorPago: 0, creditoPendente: 0, saldo_total: 0, saldo_anterior: 0 };
       try {
         const lancamentos = await base44.entities.LancamentoFinanceiro.list();
         const pagamentos = await base44.entities.PagamentoTecnico.list();
         const inicioSemana = getStartOfWeek();
         const fimSemana = getEndOfWeek();
-        
-        // Filtrar comissões do técnico da semana atual
-        const comissoesSemana = lancamentos.filter(c => {
-          if (c.tecnico_id !== user.email) return false;
-          if (!c.data_geracao) return false;
-          try {
-            const dataGeracao = toLocalDate(c.data_geracao);
-            if (!dataGeracao) return false;
-            return dataGeracao >= inicioSemana && dataGeracao <= fimSemana;
-          } catch {
-            return false;
-          }
-        });
 
-        // Calcular total de comissões ganhas na semana
+        // Comissões da semana atual
+        const comissoesSemana = lancamentos.filter(c => {
+          if (c.tecnico_id !== user.email || !c.data_geracao) return false;
+          try { const d = toLocalDate(c.data_geracao); return d && d >= inicioSemana && d <= fimSemana; } catch { return false; }
+        });
         const totalGanho = comissoesSemana.reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
 
-        // Calcular pagamentos feitos ao técnico na semana
+        // Pagamentos na semana atual
         const pagamentosSemana = pagamentos.filter(p => {
-          if (p.tecnico_id !== user.email) return false;
-          if (p.status !== 'Confirmado') return false;
-          if (!p.created_date) return false;
-          try {
-            const dataPagamento = toLocalDate(p.created_date);
-            if (!dataPagamento) return false;
-            return dataPagamento >= inicioSemana && dataPagamento <= fimSemana;
-          } catch {
-            return false;
-          }
+          if (p.tecnico_id !== user.email || p.status !== 'Confirmado' || !p.created_date) return false;
+          try { const d = toLocalDate(p.created_date); return d && d >= inicioSemana && d <= fimSemana; } catch { return false; }
         });
-
         const valorPago = pagamentosSemana.reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-        // Adiantamento: rastreamento começa a partir da semana 2026-04-20
-        const ADIANTAMENTO_INICIO = new Date('2026-04-20T00:00:00');
-        const inicioPreviousSemana = new Date(inicioSemana);
-        inicioPreviousSemana.setDate(inicioPreviousSemana.getDate() - 7);
-
-        let adiantamento_anterior = 0;
-        if (inicioPreviousSemana >= ADIANTAMENTO_INICIO) {
-          const comissoesSemanaAnterior = lancamentos
+        // Saldo acumulado de todas as semanas anteriores (desde SALDO_INICIO)
+        const SALDO_INICIO = new Date('2026-04-20T00:00:00');
+        let saldo_anterior = 0;
+        if (inicioSemana > SALDO_INICIO) {
+          const comissoesAnt = lancamentos
             .filter(l => {
               if (l.tecnico_id !== user.email || !l.data_geracao) return false;
-              try { const d = toLocalDate(l.data_geracao); return d >= inicioPreviousSemana && d < inicioSemana; } catch { return false; }
+              try { const d = toLocalDate(l.data_geracao); return d && d >= SALDO_INICIO && d < inicioSemana; } catch { return false; }
             })
             .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
-          const pagamentosSemanaAnterior = pagamentos
+          const pagamentosAnt = pagamentos
             .filter(p => {
               if (p.tecnico_id !== user.email || p.status !== 'Confirmado' || !p.created_date) return false;
-              try { const d = toLocalDate(p.created_date); return d >= inicioPreviousSemana && d < inicioSemana; } catch { return false; }
+              try { const d = toLocalDate(p.created_date); return d && d >= SALDO_INICIO && d < inicioSemana; } catch { return false; }
             })
             .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-          adiantamento_anterior = Math.max(0, pagamentosSemanaAnterior - comissoesSemanaAnterior);
+          saldo_anterior = comissoesAnt - pagamentosAnt;
         }
-        const creditoPendente = Math.max(0, totalGanho - valorPago - adiantamento_anterior);
 
-        return { totalGanho, valorPago, creditoPendente, adiantamento_anterior };
+        // Saldo em tempo real: semanas anteriores + semana atual
+        const saldo_total = saldo_anterior + totalGanho - valorPago;
+        const creditoPendente = Math.max(0, saldo_total);
+
+        return { totalGanho, valorPago, creditoPendente, saldo_total, saldo_anterior };
       } catch (error) {
         console.error('Erro ao calcular ganhos:', error);
-        return { totalGanho: 0, valorPago: 0, creditoPendente: 0 };
+        return { totalGanho: 0, valorPago: 0, creditoPendente: 0, saldo_total: 0, saldo_anterior: 0 };
       }
     },
     enabled: !!user?.email,
-    staleTime: 30000 // Cache por 30 segundos
+    staleTime: 30000,
   });
 
   if (!user) return null;
 
+  const { totalGanho, valorPago, saldo_total } = dadosSemana;
+  const saldoPositivo = saldo_total > 0.01;
+  const saldoNegativo = saldo_total < -0.01;
+
   return (
-    <Card className="bg-gradient-to-br from-emerald-50 to-green-50 border-green-200 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/MeuFinanceiro')}>
+    <Card
+      className="bg-gradient-to-br from-emerald-50 to-green-50 border-green-200 hover:shadow-lg transition-shadow cursor-pointer"
+      onClick={() => navigate('/MeuFinanceiro')}
+    >
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium flex items-center gap-2 text-gray-700">
@@ -104,35 +93,67 @@ export default function GanhosSemanaDashboard() {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {/* Valor principal */}
+          {/* Total ganho na semana */}
           <div className="text-3xl font-bold text-green-700 tabular-nums">
-            R$ {dadosSemana.totalGanho.toFixed(2)}
+            R$ {totalGanho.toFixed(2)}
           </div>
 
-          {/* Detalhes */}
+          {/* Linha ganho / pago */}
           <div className="space-y-1.5 text-xs border-t border-green-200 pt-2">
             <div className="flex justify-between text-gray-600">
               <span>Total ganho:</span>
-              <span className="font-semibold text-green-700">R$ {dadosSemana.totalGanho.toFixed(2)}</span>
+              <span className="font-semibold text-green-700">R$ {totalGanho.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-gray-600">
               <span>Valor pago:</span>
-              <span className="font-semibold text-blue-600">R$ {dadosSemana.valorPago.toFixed(2)}</span>
-            </div>
-            {dadosSemana.adiantamento_anterior > 0 && (
-              <div className="flex justify-between text-gray-600">
-                <span>Adiantamento anterior:</span>
-                <span className="font-semibold text-orange-600">- R$ {dadosSemana.adiantamento_anterior.toFixed(2)}</span>
-              </div>
-            )}
-            <div className="flex justify-between text-gray-600">
-              <span>A receber:</span>
-              <span className="font-semibold text-amber-600">R$ {dadosSemana.creditoPendente.toFixed(2)}</span>
+              <span className="font-semibold text-blue-600">R$ {valorPago.toFixed(2)}</span>
             </div>
           </div>
 
-          {/* Botão de ação */}
-          <Button className="w-full mt-2 bg-green-600 hover:bg-green-700" size="sm">
+          {/* Saldo em aberto — destaque principal */}
+          <div className={`rounded-xl p-3 border ${
+            saldoPositivo
+              ? 'bg-emerald-100 border-emerald-400'
+              : saldoNegativo
+              ? 'bg-red-50 border-red-400'
+              : 'bg-gray-100 border-gray-200'
+          }`}>
+            <div className="flex items-center gap-1.5 mb-1">
+              {saldoPositivo
+                ? <TrendingUp className="w-3.5 h-3.5 text-emerald-700" />
+                : saldoNegativo
+                ? <TrendingDown className="w-3.5 h-3.5 text-red-600" />
+                : <AlertCircle className="w-3.5 h-3.5 text-gray-400" />
+              }
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                saldoPositivo ? 'text-emerald-700'
+                : saldoNegativo ? 'text-red-700'
+                : 'text-gray-500'
+              }`}>Saldo em Aberto</span>
+            </div>
+
+            <div className={`text-2xl font-bold tabular-nums ${
+              saldoPositivo ? 'text-emerald-700'
+              : saldoNegativo ? 'text-red-700'
+              : 'text-gray-500'
+            }`}>
+              {saldoPositivo ? '+' : ''}R$ {saldo_total.toFixed(2)}
+            </div>
+
+            <p className={`text-[11px] mt-1 font-medium ${
+              saldoPositivo ? 'text-emerald-600'
+              : saldoNegativo ? 'text-red-600'
+              : 'text-gray-400'
+            }`}>
+              {saldoPositivo
+                ? '✓ A empresa te deve esse valor'
+                : saldoNegativo
+                ? '⚠ Você recebeu a mais — será descontado'
+                : '— Sem pendências financeiras'}
+            </p>
+          </div>
+
+          <Button className="w-full bg-green-600 hover:bg-green-700" size="sm">
             Ver Detalhes
           </Button>
         </div>
