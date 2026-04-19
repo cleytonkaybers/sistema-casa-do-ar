@@ -68,12 +68,16 @@ export default function GanhosSemanaDashboard() {
       }
     },
     enabled: !!user?.email,
-    staleTime: 30000,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
   if (!user) return null;
 
-  const { totalGanho, valorPago, saldo_total } = dadosSemana;
+  const totalGanho = dadosSemana.totalGanho ?? 0;
+  const valorPago = dadosSemana.valorPago ?? 0;
+  // Fallback: se cache antigo não tiver saldo_total, recalcula inline
+  const saldo_total = dadosSemana.saldo_total ?? (totalGanho - valorPago);
   const saldoPositivo = saldo_total > 0.01;
   const saldoNegativo = saldo_total < -0.01;
 

@@ -8,10 +8,9 @@ import { Input } from '@/components/ui/input';
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, Users, TrendingUp, TrendingDown, AlertCircle, Check, X, FileText, Download, Calendar, Edit2, Trash2, Save, XCircle, Eye, MessageSquare } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, TrendingDown, Check, X, FileText, Download, Calendar, Edit2, Trash2, Save, XCircle, Eye, MessageSquare } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { format, parseISO, startOfWeek, endOfWeek } from 'date-fns';
@@ -233,7 +232,7 @@ export default function FinanceiroAdmin() {
 
       // Saldo acumulado de todas as semanas anteriores ao período selecionado
       // Positivo = empresa deve ao técnico | Negativo = técnico recebeu a mais (deve devolver)
-      const SALDO_INICIO = new Date('2026-04-20T00:00:00');
+      const SALDO_INICIO = new Date('2025-04-14T00:00:00');
       let saldo_anterior = 0;
       if (inicioSemana > SALDO_INICIO) {
         const comissoesAnteriores = lancamentos
@@ -599,10 +598,10 @@ export default function FinanceiroAdmin() {
                               autoFocus
                             />
                           ) : (
-                            `R$ ${lanc.valor_total_servico.toFixed(2)}`
+                            `R$ ${(lanc.valor_total_servico || 0).toFixed(2)}`
                           )}
                         </TableCell>
-                       <TableCell className="font-bold text-green-600">R$ {lanc.valor_comissao_tecnico.toFixed(2)}</TableCell>
+                       <TableCell className="font-bold text-green-600">R$ {(lanc.valor_comissao_tecnico || 0).toFixed(2)}</TableCell>
                        <TableCell className="font-semibold text-blue-600">
                          {editandoLancamento === lanc.id ? (
                            <div className="flex items-center gap-1">
