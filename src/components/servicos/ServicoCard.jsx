@@ -12,6 +12,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import ServicoDetalhesModal from './ServicoDetalhesModal';
+import TipoServicoDisplay from '@/components/TipoServicoDisplay';
+import { formatTipoServicoCompact } from '@/utils';
 
 export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange, onShare, compact = false, equipes = [] }) {
   const [showDetalhes, setShowDetalhes] = useState(false);
@@ -47,7 +49,7 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
     } else {
       // Fallback para compartilhamento nativo
       const mapsLink = getGoogleMapsLink();
-      const shareText = `📋 *${servico.cliente_nome}* - ${servico.tipo_servico}\n\n📞 Telefone: ${formatPhone(servico.telefone)}\n\n📍 Localização: ${servico.endereco || 'Não informado'}\n${mapsLink ? `🗺️ ${mapsLink}\n` : ''}\n${servico.dia_semana ? `📅 ${servico.dia_semana}` : ''}\n${servico.horario ? `🕐 ${servico.horario}` : ''}\n${servico.descricao ? `📝 ${servico.descricao}` : ''}`;
+      const shareText = `📋 *${servico.cliente_nome}* - ${formatTipoServicoCompact(servico.tipo_servico)}\n\n📞 Telefone: ${formatPhone(servico.telefone)}\n\n📍 Localização: ${servico.endereco || 'Não informado'}\n${mapsLink ? `🗺️ ${mapsLink}\n` : ''}\n${servico.dia_semana ? `📅 ${servico.dia_semana}` : ''}\n${servico.horario ? `🕐 ${servico.horario}` : ''}\n${servico.descricao ? `📝 ${servico.descricao}` : ''}`;
 
       if (navigator.share) {
         navigator.share({ title: `Serviço: ${servico.cliente_nome}`, text: shareText }).catch(error => {
@@ -119,7 +121,7 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
               </span>
             )}
             <h4 className="font-semibold text-gray-800 break-words">{servico.cliente_nome}</h4>
-            <p className="text-xs text-gray-500 mt-0.5">{servico.tipo_servico}</p>
+            <TipoServicoDisplay value={servico.tipo_servico} className="mt-0.5 [&_span.text-sm]:text-xs" />
             <div className="flex items-center gap-1 mt-1.5 flex-wrap">
               <Badge className={`${statusConfig.color} text-xs border`}>
                 <StatusIcon className="w-3 h-3 mr-1" />
@@ -291,7 +293,7 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
               <h3 className="font-semibold text-lg text-gray-800">{servico.cliente_nome}</h3>
               <div className="flex items-center gap-2 flex-wrap mt-1">
                 <Badge className="bg-blue-100 text-blue-700 border border-blue-200 text-xs">
-                  {servico.tipo_servico}
+                  {formatTipoServicoCompact(servico.tipo_servico) || '-'}
                 </Badge>
                 <Badge className={`${statusConfig.color} border text-xs`}>
                   <StatusIcon className="w-3 h-3 mr-1" />

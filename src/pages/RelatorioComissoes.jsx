@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import { getStartOfWeek, getEndOfWeek, getLocalDate, toLocalDate, formatDate } from '@/lib/dateUtils';
 import { subWeeks, format, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formatTipoServicoCompact } from '@/utils';
 
 const inputDark = 'bg-[#1e2d3d] border-[#2d3f55] text-gray-100 placeholder:text-gray-500 focus:border-blue-500 focus:ring-blue-500/20 h-10 px-3 rounded-md border w-full text-sm';
 const selectDark = 'bg-[#1e2d3d] border border-[#2d3f55] text-gray-100 h-10 px-3 rounded-md w-full text-sm focus:outline-none focus:border-blue-500';
@@ -728,7 +729,7 @@ export default function RelatorioComissoes() {
                     <td className="px-4 py-3 text-gray-200 font-medium text-xs">{lanc.tecnico_nome}</td>
                     <td className="px-4 py-3 text-gray-400 text-xs">{lanc.equipe_nome || '—'}</td>
                     <td className="px-4 py-3 text-gray-300 text-xs">{lanc.cliente_nome}</td>
-                    <td className="px-4 py-3 text-gray-400 text-xs max-w-[160px] truncate">{lanc.tipo_servico}</td>
+                    <td className="px-4 py-3 text-gray-400 text-xs max-w-[160px] truncate">{formatTipoServicoCompact(lanc.tipo_servico)}</td>
                     <td className="px-4 py-3 text-gray-200 font-medium text-xs whitespace-nowrap">{fmt(lanc.valor_total_servico)}</td>
                     <td className="px-4 py-3 font-bold text-emerald-400 text-xs whitespace-nowrap">{fmt(lanc.valor_comissao_tecnico)}</td>
                     <td className="px-4 py-3">

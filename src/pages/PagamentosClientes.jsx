@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import TipoServicoDisplay from '@/components/TipoServicoDisplay';
+import { formatTipoServicoCompact } from '@/utils';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { exportarExcel } from '@/lib/excelUtils';
@@ -577,7 +578,7 @@ function EditarValorModal({ open, onClose, pagamento, onSave }) {
       <DialogContent className="max-w-sm w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Editar Valor do Serviço</DialogTitle></DialogHeader>
         <div className="py-3 space-y-3">
-          <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">{pagamento?.cliente_nome} — {pagamento?.tipo_servico}</p>
+          <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">{pagamento?.cliente_nome} — {formatTipoServicoCompact(pagamento?.tipo_servico)}</p>
           <div>
             <label className="text-sm font-medium text-gray-700 mb-1.5 block">Novo valor (R$)</label>
             <Input value={valor} onChange={e => setValor(e.target.value)} className="h-12 text-lg font-semibold" autoFocus />
@@ -884,7 +885,7 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-500 truncate">{pag._tipoResumido || pag.tipo_servico}</p>
+            <p className="text-xs text-gray-500 truncate">{pag._tipoResumido || formatTipoServicoCompact(pag.tipo_servico)}</p>
           </div>
         </div>
 
@@ -1957,7 +1958,7 @@ function PagamentosClientesContent() {
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-gray-800 text-sm truncate">{p.cliente_nome}</p>
-                        <p className="text-xs text-gray-400 truncate">{p.tipo_servico} · Concluído {dataConc}{dataPag ? ` · Pago ${dataPag}` : ''}</p>
+                        <p className="text-xs text-gray-400 truncate">{formatTipoServicoCompact(p.tipo_servico)} · Concluído {dataConc}{dataPag ? ` · Pago ${dataPag}` : ''}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">

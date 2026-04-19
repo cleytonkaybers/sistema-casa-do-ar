@@ -11,6 +11,7 @@ import NoPermission from '../components/NoPermission';
 import { usePermissions } from '../components/auth/PermissionGuard';
 import { useNavigate } from 'react-router-dom';
 import { exportarExcel } from '@/lib/excelUtils';
+import { formatTipoServicoCompact } from '@/utils';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#f97316'];
 
@@ -445,7 +446,7 @@ export default function RelatóriosPage() {
                         return (
                           <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                             <td className="py-2.5 px-3 text-gray-800 font-semibold">{s.cliente_nome}</td>
-                            <td className="py-2.5 px-3 text-gray-600 text-xs max-w-[180px] truncate">{s.tipo_servico}</td>
+                            <td className="py-2.5 px-3 text-gray-600 text-xs max-w-[180px] truncate">{formatTipoServicoCompact(s.tipo_servico)}</td>
                             <td className="py-2.5 px-3">
                               <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ backgroundColor: (cat?.color || '#6b7280') + '20', color: cat?.color || '#6b7280' }}>
                                 {getCategoria(s.tipo_servico)}

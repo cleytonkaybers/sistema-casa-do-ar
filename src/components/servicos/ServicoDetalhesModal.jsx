@@ -2,6 +2,7 @@ import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Phone, MapPin, Calendar, MessageCircle, Navigation, Clock, DollarSign, CreditCard, CheckCircle, Play, CalendarClock, FileText } from 'lucide-react';
+import { formatTipoServicoCompact } from '@/utils';
 
 const formatPhone = (phone) => {
   if (!phone) return '';
@@ -46,7 +47,7 @@ export default function ServicoDetalhesModal({ open, onClose, servico }) {
           {/* Header */}
           <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-4 text-white">
             <h3 className="font-bold text-xl">{servico.cliente_nome}</h3>
-            <p className="text-white/80 text-sm mt-1">{servico.tipo_servico}</p>
+            <p className="text-white/80 text-sm mt-1">{formatTipoServicoCompact(servico.tipo_servico)}</p>
             <div className="mt-2">
               <Badge className={`${statusConfig.color} border`}>
                 <StatusIcon className="w-3 h-3 mr-1" />

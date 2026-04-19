@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CheckCircle, Loader2, DollarSign } from 'lucide-react';
+import { formatTipoServicoCompact } from '@/utils';
 
 export default function ConclusaoModal({ open, onClose, onConfirm, servico, isLoading }) {
   const [observacoes, setObservacoes] = useState('');
@@ -41,7 +42,7 @@ export default function ConclusaoModal({ open, onClose, onConfirm, servico, isLo
               <strong>Cliente:</strong> {servico?.cliente_nome}
             </p>
             <p className="text-sm text-gray-700">
-              <strong>Serviço:</strong> {servico?.tipo_servico}
+              <strong>Serviço:</strong> {formatTipoServicoCompact(servico?.tipo_servico)}
             </p>
           </div>
 

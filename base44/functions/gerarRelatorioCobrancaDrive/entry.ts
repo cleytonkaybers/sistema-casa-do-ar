@@ -100,6 +100,17 @@ const fmtTelefone = (tel?: string) => {
 const fmtBRL = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
+// Agrupa "X + X + Y" → "2x X, Y"
+const fmtTipoServico = (t?: string): string => {
+  if (!t) return '';
+  const parts = t.split('+').map(s => s.trim()).filter(Boolean);
+  const counts: Record<string, number> = {};
+  for (const part of parts) counts[part] = (counts[part] || 0) + 1;
+  return Object.entries(counts)
+    .map(([name, count]) => (count > 1 ? `${count}x ${name}` : name))
+    .join(', ');
+};
+
 // ─── Agrupamento por cliente ──────────────────────────────────────────────────
 
 function agruparPorCliente(lista: any[]): any[] {
@@ -121,7 +132,7 @@ function agruparPorCliente(lista: any[]): any[] {
     reg.valor_total += p.valor_total || 0;
     reg.valor_pago  += p.valor_pago  || 0;
     if (p.tipo_servico) {
-      reg.servicos.push(`${p.tipo_servico} (${fmtData(p.data_conclusao)} — ${fmtBRL(p.valor_total || 0)})`);
+      reg.servicos.push(`${fmtTipoServico(p.tipo_servico)} (${fmtData(p.data_conclusao)} — ${fmtBRL(p.valor_total || 0)})`);
     }
     if (p.observacoes) reg.observacoes.push(p.observacoes);
     if (

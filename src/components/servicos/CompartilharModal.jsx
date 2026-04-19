@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { MessageCircle, Facebook, Instagram, Twitter, Link2, Check, Share2, Send } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatTipoServicoCompact } from '@/utils';
 
 export default function CompartilharModal({ open, onClose, servico, isConclusao = false }) {
   const [copied, setCopied] = useState(false);
@@ -48,7 +49,7 @@ export default function CompartilharModal({ open, onClose, servico, isConclusao 
         ``,
         `👤 *Cliente:* ${servico.cliente_nome}`,
         servico.telefone ? `📞 *Telefone:* ${formatPhone(servico.telefone)}` : null,
-        `🔧 *Tipo de Serviço:* ${servico.tipo_servico}`,
+        `🔧 *Tipo de Serviço:* ${formatTipoServicoCompact(servico.tipo_servico)}`,
         servico.data_programada ? `📅 *Data:* ${new Date(servico.data_programada).toLocaleDateString('pt-BR')}` : null,
         servico.horario ? `🕐 *Horário:* ${servico.horario}` : null,
         servico.endereco ? `📍 *Endereço:* ${servico.endereco}` : null,
@@ -62,7 +63,7 @@ export default function CompartilharModal({ open, onClose, servico, isConclusao 
         ``,
         `👤 *Cliente:* ${servico.cliente_nome}`,
         servico.telefone ? `📞 *Telefone:* ${formatPhone(servico.telefone)}` : null,
-        `🔧 *Tipo de Serviço:* ${servico.tipo_servico}`,
+        `🔧 *Tipo de Serviço:* ${formatTipoServicoCompact(servico.tipo_servico)}`,
         servico.data_programada ? `📅 *Data:* ${new Date(servico.data_programada).toLocaleDateString('pt-BR')}` : null,
         servico.horario ? `🕐 *Horário:* ${servico.horario}` : null,
         servico.endereco ? `📍 *Endereço:* ${servico.endereco}` : null,

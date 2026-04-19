@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { formatTipoServicoCompact } from '@/utils';
 
 export default function OrdensServicoSaaS() {
   const { empresa } = useSaaSAuth();
@@ -147,7 +148,7 @@ export default function OrdensServicoSaaS() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <h3 className="font-bold">{ordem.cliente_nome}</h3>
-                      <p className="text-sm text-gray-600">{ordem.tipo_servico}</p>
+                      <p className="text-sm text-gray-600">{formatTipoServicoCompact(ordem.tipo_servico)}</p>
                       {ordem.data_agendada && (
                         <p className="text-xs text-gray-500 mt-1">
                           📅 {new Date(ordem.data_agendada).toLocaleDateString('pt-BR')} às {ordem.hora_agendada}

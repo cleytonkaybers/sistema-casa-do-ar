@@ -19,6 +19,7 @@ import { ptBR } from 'date-fns/locale';
 import RegistrarPagamentoModal from '@/components/financeiro/RegistrarPagamentoModal';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import GerarPDFModal from '@/components/financeiro/GerarPDFModal';
+import { formatTipoServicoCompact } from '@/utils';
 
 export default function FinanceiroAdmin() {
   const navigate = useNavigate();
@@ -543,7 +544,7 @@ export default function FinanceiroAdmin() {
                        <TableCell className="font-medium">{lanc.equipe_nome}</TableCell>
                        <TableCell className="text-sm">{lanc.tecnico_nome}</TableCell>
                        <TableCell className="text-sm">{lanc.cliente_nome}</TableCell>
-                       <TableCell className="text-sm">{lanc.tipo_servico}</TableCell>
+                       <TableCell className="text-sm">{formatTipoServicoCompact(lanc.tipo_servico)}</TableCell>
                        <TableCell className="font-semibold">
                           {editandoLancamento === lanc.id ? (
                             <Input

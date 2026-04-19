@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Calendar, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formatTipoServicoCompact } from '@/utils';
 
 export default function ReagendarModal({ open, onClose, onSave, servico, isLoading }) {
   const [novaData, setNovaData] = useState('');
@@ -41,7 +42,7 @@ export default function ReagendarModal({ open, onClose, onSave, servico, isLoadi
               <span className="font-semibold">Cliente:</span> {servico?.cliente_nome}
             </p>
             <p className="text-sm text-gray-700">
-              <span className="font-semibold">Serviço:</span> {servico?.tipo_servico}
+              <span className="font-semibold">Serviço:</span> {formatTipoServicoCompact(servico?.tipo_servico)}
             </p>
           </div>
 

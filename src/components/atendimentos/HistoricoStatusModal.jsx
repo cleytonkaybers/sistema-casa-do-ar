@@ -7,6 +7,7 @@ import { ptBR } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Loader2 } from 'lucide-react';
+import { formatTipoServicoCompact } from '@/utils';
 
 export default function HistoricoStatusModal({ open, onClose, servicoId }) {
   const { data: historico = [], isLoading } = useQuery({
@@ -127,7 +128,7 @@ export default function HistoricoStatusModal({ open, onClose, servicoId }) {
                 {servico.tipo_servico && (
                   <div>
                     <span className="font-medium text-gray-700">Tipo de Serviço:</span>
-                    <span className="text-gray-600 ml-2">{servico.tipo_servico}</span>
+                    <span className="text-gray-600 ml-2">{formatTipoServicoCompact(servico.tipo_servico)}</span>
                   </div>
                 )}
                 {servico.descricao && (

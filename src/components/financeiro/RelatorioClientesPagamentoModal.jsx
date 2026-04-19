@@ -9,6 +9,7 @@ import { jsPDF } from 'jspdf';
 import { formatCurrency } from '@/lib/utils/formatters';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
+import { formatTipoServicoCompact } from '@/utils';
 
 export default function RelatorioClientesPagamentoModal({ isOpen, onClose, pagamentos = [], servicos = [] }) {
   const [filtroTipo, setFiltroTipo] = useState('mes');
@@ -143,7 +144,7 @@ export default function RelatorioClientesPagamentoModal({ isOpen, onClose, pagam
 
         const servicosData = servicosFiltrados.map(s => [
           (s.cliente_nome || '').substring(0, 15),
-          (s.tipo_servico || '').substring(0, 12),
+          formatTipoServicoCompact(s.tipo_servico).substring(0, 12),
           new Date(s.data_conclusao || s.data_programada).toLocaleDateString('pt-BR'),
           formatCurrency(s.valor || 0),
           (s.equipe_nome || '').substring(0, 15)
@@ -165,7 +166,7 @@ export default function RelatorioClientesPagamentoModal({ isOpen, onClose, pagam
 
         const pagamentosData = pagamentosFiltrados.map(p => [
           (p.cliente_nome || '').substring(0, 15),
-          (p.tipo_servico || '').substring(0, 12),
+          formatTipoServicoCompact(p.tipo_servico).substring(0, 12),
           formatCurrency(p.valor_total || 0),
           formatCurrency(p.valor_pago || 0),
           formatCurrency(Math.max(0, (p.valor_total || 0) - (p.valor_pago || 0)))

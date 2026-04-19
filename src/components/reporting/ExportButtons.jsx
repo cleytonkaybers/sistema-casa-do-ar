@@ -4,6 +4,7 @@ import { Download, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { formatTipoServicoCompact } from '@/utils';
 
 export default function ExportButtons({ reportData, dateRange }) {
   const exportCSV = () => {
@@ -14,7 +15,7 @@ export default function ExportButtons({ reportData, dateRange }) {
       csv += 'Data,Tipo,Cliente,Status,Valor\n';
       
       services.forEach(s => {
-        csv += `"${s.data_programada}","${s.tipo_servico}","${s.cliente_nome}","${s.status}","${s.valor}"\n`;
+        csv += `"${s.data_programada}","${formatTipoServicoCompact(s.tipo_servico)}","${s.cliente_nome}","${s.status}","${s.valor}"\n`;
       });
       
       csv += '\n\nRelatório de Clientes\n';

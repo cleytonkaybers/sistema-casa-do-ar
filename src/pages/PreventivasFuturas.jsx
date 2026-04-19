@@ -27,6 +27,7 @@ import { format, differenceInDays, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ServicoForm from '../components/servicos/ServicoForm';
 import { TableSkeleton } from '@/components/LoadingSkeleton';
+import { formatTipoServicoCompact } from '@/utils';
 
 export default function PreventivasFuturasPage() {
   const { isAdmin } = usePermissions();
@@ -280,7 +281,7 @@ export default function PreventivasFuturasPage() {
     }
     
     if (!isCliente) {
-      shareText += `\n🔧 ${item.tipo_servico}`;
+      shareText += `\n🔧 ${formatTipoServicoCompact(item.tipo_servico)}`;
       if (item.dia_semana) shareText += `\n📆 ${item.dia_semana}`;
       if (item.horario) shareText += ` às ${item.horario}`;
     }
@@ -431,7 +432,7 @@ export default function PreventivasFuturasPage() {
                           </div>
                         ) : !isCliente ? (
                           <div className="text-sm space-y-1">
-                            <div className="font-medium text-gray-300">{item.tipo_servico}</div>
+                            <div className="font-medium text-gray-300">{formatTipoServicoCompact(item.tipo_servico)}</div>
                             {item.dia_semana && (
                               <div className="flex items-center gap-1 text-gray-500 text-xs">
                                 <Calendar className="w-3 h-3" />
@@ -609,7 +610,7 @@ export default function PreventivasFuturasPage() {
                 {selectedItem.tipo !== 'cliente' && selectedItem.tipo_servico && (
                   <div className="bg-[#0d1826] p-4 rounded-xl border border-white/5">
                     <span className="text-[11px] text-gray-500 font-bold uppercase tracking-widest block mb-1">Tipo de Serviço</span>
-                    <p className="text-gray-200 font-medium">{selectedItem.tipo_servico}</p>
+                    <p className="text-gray-200 font-medium">{formatTipoServicoCompact(selectedItem.tipo_servico)}</p>
                   </div>
                 )}
 

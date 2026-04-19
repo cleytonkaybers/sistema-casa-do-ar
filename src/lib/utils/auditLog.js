@@ -1,4 +1,5 @@
 import { base44 } from '@/api/base44Client';
+import { formatTipoServicoCompact } from '@/utils';
 
 /**
  * Registra ação de auditoria
@@ -67,7 +68,7 @@ export const auditActions = {
       acao: 'concluir_servico',
       entidade: 'Servico',
       entidade_id: servico.id,
-      observacao: `Serviço concluído: ${servico.tipo_servico} - ${servico.cliente_nome}`,
+      observacao: `Serviço concluído: ${formatTipoServicoCompact(servico.tipo_servico)} - ${servico.cliente_nome}`,
     }),
     
   registrarPagamento: (pagamento) =>

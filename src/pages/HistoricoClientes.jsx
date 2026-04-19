@@ -19,7 +19,7 @@ import { usePermissions } from '../components/auth/PermissionGuard';
 import { toast } from 'sonner';
 
 import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
+import { createPageUrl, formatTipoServicoCompact } from '@/utils';
 
 // Helper de telefone extraído dos padrões
 const formatPhone = (phone) => {
@@ -547,7 +547,7 @@ export default function HistoricoClientes() {
                                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-2">
                                   <div>
                                     <div className="flex items-center gap-2">
-                                       <h5 className="font-bold text-gray-200 text-sm">{item.tipo_servico || 'Serviço Não Especificado'}</h5>
+                                       <h5 className="font-bold text-gray-200 text-sm">{formatTipoServicoCompact(item.tipo_servico) || 'Serviço Não Especificado'}</h5>
                                        <span className="text-[10px] font-bold text-gray-500">#{item.originalId}</span>
                                     </div>
                                     <div className="flex items-center gap-2 mt-1">

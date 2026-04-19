@@ -16,6 +16,7 @@ import { ptBR } from 'date-fns/locale';
 import ServicoForm from '@/components/servicos/ServicoForm';
 import { toast } from 'sonner';
 import { usePermissions } from '@/components/auth/PermissionGuard';
+import { formatTipoServicoCompact } from '@/utils';
 
 const STATUS_CONFIG = {
   agendado:   { label: 'Agendado',   color: 'bg-blue-100 text-blue-700 border-blue-200' },
@@ -309,7 +310,7 @@ export default function Agendamentos() {
                             </span>
                           )}
                           {ag.tipo_servico && (
-                            <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">{ag.tipo_servico}</span>
+                            <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">{formatTipoServicoCompact(ag.tipo_servico)}</span>
                           )}
                         </div>
                       )}

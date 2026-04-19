@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Wrench, CheckCircle, Clock, Pause } from 'lucide-react';
+import { formatTipoServicoCompact } from '@/utils';
 
 const statusIcons = {
   'aberto': Clock,
@@ -34,7 +35,7 @@ export default function ClientHistoryTimeline({ servicos, atendimentos }) {
       id: `s-${s.id}`,
       tipo: 'servico',
       data: s.data_programada,
-      titulo: s.tipo_servico,
+      titulo: formatTipoServicoCompact(s.tipo_servico),
       status: s.status,
       valor: s.valor,
       descricao: s.descricao
@@ -43,7 +44,7 @@ export default function ClientHistoryTimeline({ servicos, atendimentos }) {
       id: `a-${a.id}`,
       tipo: 'atendimento',
       data: a.data_atendimento,
-      titulo: a.tipo_servico,
+      titulo: formatTipoServicoCompact(a.tipo_servico),
       status: a.status,
       valor: a.valor,
       descricao: a.descricao

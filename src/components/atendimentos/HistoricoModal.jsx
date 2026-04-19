@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formatTipoServicoCompact } from '@/utils';
 import { 
   Calendar, 
   Wrench, 
@@ -94,7 +95,7 @@ export default function HistoricoModal({ open, onClose, cliente, atendimentos, o
                           <Wrench className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
-                          <h4 className="font-medium text-gray-800">{atendimento.tipo_servico}</h4>
+                          <h4 className="font-medium text-gray-800">{formatTipoServicoCompact(atendimento.tipo_servico)}</h4>
                           <div className="flex items-center gap-1.5 text-sm text-gray-500">
                             <Calendar className="w-3.5 h-3.5" />
                             {format(new Date(atendimento.data_atendimento), "dd/MM/yyyy", { locale: ptBR })}

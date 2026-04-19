@@ -8,6 +8,7 @@ import { Download, Loader2 } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { formatTipoServicoCompact } from '@/utils';
 
 export default function GerarPDFModal({ open, onClose, equipes, tecnicos, lancamentos, pagamentos }) {
   const [filtroTipo, setFiltroTipo] = useState('todos'); // 'todos' | 'equipe' | 'tecnico'
@@ -173,7 +174,7 @@ export default function GerarPDFModal({ open, onClose, equipes, tecnicos, lancam
           doc.text(dataStr, 20, y);
           doc.text((l.tecnico_nome || '').substring(0, 18), 42, y);
           doc.text((l.cliente_nome || '').substring(0, 18), 82, y);
-          doc.text((l.tipo_servico || '').substring(0, 22), 122, y);
+          doc.text(formatTipoServicoCompact(l.tipo_servico).substring(0, 22), 122, y);
           doc.setTextColor(0, 140, 0);
           doc.text(`R$ ${(l.valor_comissao_tecnico || 0).toFixed(2)}`, 172, y);
           doc.setTextColor(0);

@@ -14,6 +14,7 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { formatTipoServicoCompact } from '@/utils';
 
 export default function GerarRelatorioManual({ open, onClose }) {
   const queryClient = useQueryClient();
@@ -115,7 +116,7 @@ export default function GerarRelatorioManual({ open, onClose }) {
           y = 20;
         }
         
-        pdf.text(`${idx + 1}. ${servico.cliente_nome} - ${servico.tipo_servico}`, 20, y);
+        pdf.text(`${idx + 1}. ${servico.cliente_nome} - ${formatTipoServicoCompact(servico.tipo_servico)}`, 20, y);
         y += 5;
         pdf.text(`   Status: ${servico.status || 'aberto'} | Valor: R$ ${(servico.valor || 0).toFixed(2)}`, 20, y);
         y += 8;

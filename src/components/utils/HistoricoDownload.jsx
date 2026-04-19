@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formatTipoServicoCompact } from '@/utils';
 
 // Agrupa serviços por data+equipe, conta serviços iguais do mesmo dia
 function agruparPorData(historico) {
@@ -109,7 +110,7 @@ export const gerarPDFCliente = async (cliente, itens) => {
 
   // Usa itens já processados (deduplicados, com valores de PagamentoCliente)
   const historico = itens.map(item => ({
-    descricao: item.tipo_servico || item.descricao || '',
+    descricao: formatTipoServicoCompact(item.tipo_servico) || item.descricao || '',
     data: item.data || '',
     valor: item.valor || 0,
     equipe_nome: item.equipe_nome || '',
@@ -201,7 +202,7 @@ export const gerarPDFTodos = async (clientesAgrupados) => {
     y += 5;
 
     const historicoItens = itens.map(item => ({
-      descricao: item.descricao || item.tipo_servico || '',
+      descricao: item.descricao || formatTipoServicoCompact(item.tipo_servico) || '',
       data: item.data || item.data_conclusao || item.data_atendimento || '',
       valor: item.valor || 0,
       equipe_nome: item.equipe_nome || item.usuario || '',

@@ -7,6 +7,7 @@ import { BarChart3, Users, FileText, Clock, AlertCircle, TrendingUp, DollarSign,
 import { useSaaSAuth } from '@/components/saas/SaaSAuthGuard';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatTipoServicoCompact } from '@/utils';
 
 export default function DashboardSaaS() {
   const { user, empresa, loading } = useSaaSAuth();
@@ -206,7 +207,7 @@ export default function DashboardSaaS() {
               <div key={ordem.id} className="flex items-center justify-between p-4 border rounded-lg">
                 <div>
                   <p className="font-semibold">{ordem.cliente_nome}</p>
-                  <p className="text-sm text-gray-600">{ordem.tipo_servico}</p>
+                  <p className="text-sm text-gray-600">{formatTipoServicoCompact(ordem.tipo_servico)}</p>
                 </div>
                 <div className="text-right">
                   <p className="font-bold">R$ {ordem.valor_servico?.toLocaleString('pt-BR') || '0'}</p>

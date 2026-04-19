@@ -14,6 +14,7 @@ import { AlertTriangle, X, Clock, Calendar, User, Phone, ChevronDown, CheckCircl
 import { format, differenceInHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { formatTipoServicoCompact } from '@/utils';
 
 export default function AlertaAtraso({ onConcluirServico }) {
   const [dismissed, setDismissed] = useState(false);
@@ -116,7 +117,7 @@ export default function AlertaAtraso({ onConcluirServico }) {
               usuario_email: tecnico.email,
               tipo: 'atendimento_atualizado',
               titulo: `⚠️ Serviço em Atraso - ${diasAtraso} dia(s)`,
-              mensagem: `O serviço de ${servico.tipo_servico} para ${servico.cliente_nome} está atrasado há ${diasAtraso} dia(s). Data prevista: ${format(dataPrograma, "dd/MM/yyyy", { locale: ptBR })}`,
+              mensagem: `O serviço de ${formatTipoServicoCompact(servico.tipo_servico)} para ${servico.cliente_nome} está atrasado há ${diasAtraso} dia(s). Data prevista: ${format(dataPrograma, "dd/MM/yyyy", { locale: ptBR })}`,
               atendimento_id: servico.id,
               cliente_nome: servico.cliente_nome,
               lida: false
@@ -209,7 +210,7 @@ export default function AlertaAtraso({ onConcluirServico }) {
                   </div>
                   
                   <p className="text-sm text-gray-700">
-                    <span className="font-medium">Serviço:</span> {servico.tipo_servico}
+                    <span className="font-medium">Serviço:</span> {formatTipoServicoCompact(servico.tipo_servico)}
                   </p>
                 </div>
                 
