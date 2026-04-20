@@ -256,65 +256,57 @@ export default function Dashboard() {
     if (!isAdmin) return [];
     const inicioSemanaAtual = getStartOfWeek();
     const fimSemanaAtual = getEndOfWeek();
-    const ADIANTAMENTO_INICIO = new Date('2026-04-20T00:00:00');
+    const SALDO_INICIO = new Date('2026-04-13T00:00:00');
 
     return tecnicosFinanceiro
       .map(t => {
         const lancamentosSemana = lancamentosFinanceiros.filter(l => {
-          if (l.tecnico_id !== t.tecnico_id) return false;
-          if (!l.data_geracao) return false;
-          const dataGeracao = toLocalDate(new Date(l.data_geracao));
-          if (!dataGeracao) return false;
-          return isWithinInterval(dataGeracao, { start: inicioSemanaAtual, end: fimSemanaAtual });
+          if (l.tecnico_id !== t.tecnico_id || !l.data_geracao) return false;
+          const d = toLocalDate(new Date(l.data_geracao));
+          return d && isWithinInterval(d, { start: inicioSemanaAtual, end: fimSemanaAtual });
         });
         const totalGanho = lancamentosSemana.reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
         const pagamentosSemana = pagamentosTecnicos.filter(p => {
-          if (p.tecnico_id !== t.tecnico_id) return false;
-          if (p.status !== 'Confirmado') return false;
-          if (!p.created_date) return false;
-          const dataPagamento = toLocalDate(new Date(p.created_date));
-          if (!dataPagamento) return false;
-          return isWithinInterval(dataPagamento, { start: inicioSemanaAtual, end: fimSemanaAtual });
+          if (p.tecnico_id !== t.tecnico_id || p.status !== 'Confirmado' || !p.created_date) return false;
+          const d = toLocalDate(new Date(p.created_date));
+          return d && isWithinInterval(d, { start: inicioSemanaAtual, end: fimSemanaAtual });
         });
         const creditoPago = pagamentosSemana.reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-        // Adiantamento: apenas semana anterior, apenas a partir de 2026-04-20
-        const inicioPreviousSemana = new Date(inicioSemanaAtual);
-        inicioPreviousSemana.setDate(inicioPreviousSemana.getDate() - 7);
-
-        let adiantamento_anterior = 0;
-        if (inicioPreviousSemana >= ADIANTAMENTO_INICIO) {
-          const comissoesSemanaAnterior = lancamentosFinanceiros
+        // Saldo acumulado desde SALDO_INICIO até início desta semana
+        let saldo_anterior = 0;
+        if (inicioSemanaAtual > SALDO_INICIO) {
+          const comissoesAnt = lancamentosFinanceiros
             .filter(l => {
               if (l.tecnico_id !== t.tecnico_id || !l.data_geracao) return false;
               const d = toLocalDate(new Date(l.data_geracao));
-              return d && d >= inicioPreviousSemana && d < inicioSemanaAtual;
+              return d && d >= SALDO_INICIO && d < inicioSemanaAtual;
             })
             .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
-
-          const pagamentosSemanaAnterior = pagamentosTecnicos
+          const pagamentosAnt = pagamentosTecnicos
             .filter(p => {
               if (p.tecnico_id !== t.tecnico_id || p.status !== 'Confirmado' || !p.created_date) return false;
               const d = toLocalDate(new Date(p.created_date));
-              return d && d >= inicioPreviousSemana && d < inicioSemanaAtual;
+              return d && d >= SALDO_INICIO && d < inicioSemanaAtual;
             })
             .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
-
-          adiantamento_anterior = Math.max(0, pagamentosSemanaAnterior - comissoesSemanaAnterior);
+          saldo_anterior = comissoesAnt - pagamentosAnt;
         }
 
-        const creditoPendente = Math.max(0, totalGanho - creditoPago - adiantamento_anterior);
+        const saldo_total = saldo_anterior + totalGanho - creditoPago;
+        const credito_pendente = Math.max(0, saldo_total);
 
         return {
           ...t,
-          credito_pendente: creditoPendente,
+          credito_pendente,
           credito_pago: creditoPago,
           total_ganho: totalGanho,
-          adiantamento_anterior
+          saldo_anterior,
+          saldo_total,
         };
       })
-      .filter(t => t.credito_pendente > 0 || t.total_ganho > 0);
+      .filter(t => Math.abs(t.saldo_total) > 0.01 || t.total_ganho > 0);
   }, [tecnicosFinanceiro, lancamentosFinanceiros, pagamentosTecnicos, isAdmin]);
 
   const adminResumoTecnicos = React.useMemo(() => {
