@@ -19,10 +19,10 @@ import { usePermissions } from '@/components/auth/PermissionGuard';
 import { formatTipoServicoCompact } from '@/utils';
 
 const STATUS_CONFIG = {
-  agendado:   { label: 'Agendado',   color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  confirmado: { label: 'Confirmado', color: 'bg-green-100 text-green-700 border-green-200' },
-  concluido:  { label: 'Concluído',  color: 'bg-gray-100 text-gray-600 border-gray-200' },
-  cancelado:  { label: 'Cancelado',  color: 'bg-red-100 text-red-600 border-red-200' },
+  agendado:   { label: 'Agendado',   color: 'bg-blue-500/15 text-blue-300 border-blue-500/30' },
+  confirmado: { label: 'Confirmado', color: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
+  concluido:  { label: 'Concluído',  color: 'bg-white/5 text-gray-400 border-white/10' },
+  cancelado:  { label: 'Cancelado',  color: 'bg-red-500/15 text-red-300 border-red-500/30' },
 };
 
 const EMPTY_FORM = {
@@ -73,39 +73,39 @@ function AgendamentoForm({ open, onClose, inicial, onSave }) {
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Nome *</label>
+            <label className="text-xs text-gray-400 mb-1 block">Nome *</label>
             <Input placeholder="Nome do cliente" value={form.nome} onChange={e => set('nome', e.target.value)} required />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Telefone / WhatsApp *</label>
+            <label className="text-xs text-gray-400 mb-1 block">Telefone / WhatsApp *</label>
             <Input placeholder="(00) 00000-0000" value={form.telefone} onChange={e => set('telefone', e.target.value)} required />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Localização (Endereço)</label>
+            <label className="text-xs text-gray-400 mb-1 block">Localização (Endereço)</label>
             <Input placeholder="Rua, número, bairro, cidade" value={form.localizacao} onChange={e => set('localizacao', e.target.value)} />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Local do Serviço</label>
+            <label className="text-xs text-gray-400 mb-1 block">Local do Serviço</label>
             <Input placeholder="Ex: Sala, Quarto, Escritório" value={form.local} onChange={e => set('local', e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Data *</label>
+              <label className="text-xs text-gray-400 mb-1 block">Data *</label>
               <Input type="date" value={form.data_agendamento} onChange={e => set('data_agendamento', e.target.value)} required />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Horário</label>
+              <label className="text-xs text-gray-400 mb-1 block">Horário</label>
               <Input type="time" value={form.horario} onChange={e => set('horario', e.target.value)} />
             </div>
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Tipo de Serviço</label>
+            <label className="text-xs text-gray-400 mb-1 block">Tipo de Serviço</label>
             <Input placeholder="Ex: Limpeza de 12k, Instalação..." value={form.tipo_servico} onChange={e => set('tipo_servico', e.target.value)} />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Status</label>
+            <label className="text-xs text-gray-400 mb-1 block">Status</label>
             <select
-              className="w-full border border-gray-200 rounded-md h-10 px-3 text-sm bg-white"
+              className="w-full border border-white/10 rounded-md h-10 px-3 text-sm bg-[#0f1a2b] text-gray-200"
               value={form.status}
               onChange={e => set('status', e.target.value)}
             >
@@ -115,7 +115,7 @@ function AgendamentoForm({ open, onClose, inicial, onSave }) {
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Observações</label>
+            <label className="text-xs text-gray-400 mb-1 block">Observações</label>
             <Input placeholder="Observações adicionais" value={form.observacoes} onChange={e => set('observacoes', e.target.value)} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -245,12 +245,12 @@ export default function Agendamentos() {
 
       {/* Busca */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
         <Input
           placeholder="Buscar por nome ou telefone..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="pl-9 bg-white border-gray-200"
+          className="pl-9 bg-[#0f1a2b] border-white/10 text-gray-200 placeholder:text-gray-500"
         />
         {search && (
           <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -261,10 +261,10 @@ export default function Agendamentos() {
 
       {/* Lista agrupada por data */}
       {isLoading ? (
-        <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-blue-200 border-t-blue-700 rounded-full animate-spin" /></div>
+        <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-blue-500/30 border-t-blue-400 rounded-full animate-spin" /></div>
       ) : lista.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-          <Calendar className="w-12 h-12 mb-3 text-gray-200" />
+        <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+          <Calendar className="w-12 h-12 mb-3 text-gray-600" />
           <p className="font-medium">Nenhum agendamento encontrado</p>
           <p className="text-sm">Clique em "Novo" para adicionar</p>
         </div>
@@ -274,14 +274,14 @@ export default function Agendamentos() {
             <div key={data}>
               {/* Cabeçalho da data */}
               <div className="flex items-center gap-2 mb-3">
-                <Calendar className="w-4 h-4 text-blue-600" />
-                <h2 className="font-bold text-gray-700 text-sm">
+                <Calendar className="w-4 h-4 text-blue-400" />
+                <h2 className="font-bold text-gray-200 text-sm">
                   {data === 'sem-data' ? 'Sem data definida' : (() => {
                     try { return format(parseISO(data), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR }); }
                     catch { return data; }
                   })()}
                 </h2>
-                <span className="text-xs text-gray-400 font-medium ml-1">({grupos[data].length})</span>
+                <span className="text-xs text-gray-500 font-medium ml-1">({grupos[data].length})</span>
               </div>
 
               {/* Cards */}
@@ -289,14 +289,14 @@ export default function Agendamentos() {
                 {grupos[data].map(ag => {
                   const sc = STATUS_CONFIG[ag.status] || STATUS_CONFIG.agendado;
                   return (
-                    <div key={ag.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                    <div key={ag.id} className="bg-[#152236] rounded-2xl border border-white/5 shadow-sm p-4 flex flex-col gap-3 hover:border-white/10 transition-colors">
                       {/* Topo: nome + status */}
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#e0e7ff' }}>
-                            <User className="w-4 h-4 text-blue-700" />
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-blue-500/20 border border-blue-500/30">
+                            <User className="w-4 h-4 text-blue-300" />
                           </div>
-                          <span className="font-semibold text-gray-800 truncate text-sm">{ag.nome}</span>
+                          <span className="font-semibold text-gray-200 truncate text-sm">{ag.nome}</span>
                         </div>
                         <Badge className={`text-xs border flex-shrink-0 ${sc.color}`}>{sc.label}</Badge>
                       </div>
@@ -305,12 +305,12 @@ export default function Agendamentos() {
                       {(ag.horario || ag.tipo_servico) && (
                         <div className="flex flex-wrap gap-2">
                           {ag.horario && (
-                            <span className="flex items-center gap-1 text-xs text-gray-500">
+                            <span className="flex items-center gap-1 text-xs text-gray-400">
                               <Clock className="w-3 h-3" /> {ag.horario}
                             </span>
                           )}
                           {ag.tipo_servico && (
-                            <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">{formatTipoServicoCompact(ag.tipo_servico)}</span>
+                            <span className="text-xs bg-blue-500/15 text-blue-300 px-2 py-0.5 rounded-full font-medium border border-blue-500/20">{formatTipoServicoCompact(ag.tipo_servico)}</span>
                           )}
                         </div>
                       )}
@@ -321,7 +321,7 @@ export default function Agendamentos() {
                           href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ag.localizacao)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-start gap-1.5 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                          className="flex items-start gap-1.5 text-xs text-blue-400 hover:text-blue-300 hover:underline"
                         >
                           <MapPin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
                           <span className="line-clamp-2">{ag.localizacao}</span>
@@ -330,23 +330,23 @@ export default function Agendamentos() {
 
                       {/* Local do serviço */}
                       {ag.local && (
-                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                          <span className="font-medium text-gray-600">Local:</span> {ag.local}
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                          <span className="font-medium text-gray-300">Local:</span> {ag.local}
                         </div>
                       )}
 
                       {/* Observações */}
                       {ag.observacoes && (
-                        <p className="text-xs text-gray-400 italic line-clamp-2">{ag.observacoes}</p>
+                        <p className="text-xs text-gray-500 italic line-clamp-2">{ag.observacoes}</p>
                       )}
 
                       {/* Rodapé: WhatsApp + ações */}
-                      <div className="flex items-center justify-between pt-1 border-t border-gray-100">
+                      <div className="flex items-center justify-between pt-1 border-t border-white/5">
                         <a
                           href={whatsappLink(ag.telefone)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-xs font-semibold text-green-600 hover:text-green-800"
+                          className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 hover:text-emerald-300"
                         >
                           <MessageCircle className="w-4 h-4" />
                           {formatPhone(ag.telefone)}
@@ -355,14 +355,14 @@ export default function Agendamentos() {
                           <button
                             onClick={() => handleCriarServico(ag)}
                             title="Criar serviço com dados deste agendamento"
-                            className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-500 hover:text-emerald-700 transition-colors"
+                            className="p-1.5 rounded-lg hover:bg-emerald-500/10 text-emerald-400 hover:text-emerald-300 transition-colors"
                           >
                             <ClipboardList className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => handleEdit(ag)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 transition-colors">
+                          <button onClick={() => handleEdit(ag)} className="p-1.5 rounded-lg hover:bg-blue-500/10 text-blue-400 transition-colors">
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => deleteMut.mutate(ag.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 transition-colors">
+                          <button onClick={() => deleteMut.mutate(ag.id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-400 transition-colors">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>

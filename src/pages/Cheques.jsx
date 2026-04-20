@@ -33,6 +33,7 @@ function calcDebitoEmprestimo(e) {
   return Math.max(0, e.valor_principal * Math.pow(1 + taxaDiaria, dias) - (e.total_abatido || 0));
 }
 import { toast } from 'sonner';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import {
   Dialog,
   DialogContent,
@@ -57,6 +58,8 @@ export default function Cheques() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [alertas, setAlertas] = useState([]);
+  const [chequeParaDeletar, setChequeParaDeletar] = useState(null);
+  const [deletando, setDeletando] = useState(false);
 
   const loadCheques = async () => {
     setLoading(true);
@@ -76,12 +79,13 @@ export default function Cheques() {
 
     pendentes.forEach(c => {
       const data_comp = parseISO(c.data_compensacao);
+      const valorFmt = (c.valor ?? 0).toFixed(2);
       if (isToday(data_comp)) {
-        novosAlertas.push({ cheque: c, tipo: 'hoje', msg: `HOJE — Levar cheque de ${c.nome} ao banco! R$ ${c.valor?.toFixed(2)}` });
+        novosAlertas.push({ cheque: c, tipo: 'hoje', msg: `HOJE — Levar cheque de ${c.nome} ao banco! R$ ${valorFmt}` });
       } else if (isTomorrow(data_comp)) {
-        novosAlertas.push({ cheque: c, tipo: 'amanha', msg: `AMANHÃ — Cheque de ${c.nome} vence amanhã! R$ ${c.valor?.toFixed(2)}` });
+        novosAlertas.push({ cheque: c, tipo: 'amanha', msg: `AMANHÃ — Cheque de ${c.nome} vence amanhã! R$ ${valorFmt}` });
       } else if (isPast(data_comp)) {
-        novosAlertas.push({ cheque: c, tipo: 'vencido', msg: `VENCIDO — Cheque de ${c.nome} passou da data! R$ ${c.valor?.toFixed(2)}` });
+        novosAlertas.push({ cheque: c, tipo: 'vencido', msg: `VENCIDO — Cheque de ${c.nome} passou da data! R$ ${valorFmt}` });
       }
     });
 
@@ -155,11 +159,21 @@ export default function Cheques() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Excluir este cheque?')) return;
-    await base44.entities.Cheque.delete(id);
-    toast.success('Cheque removido');
-    loadCheques();
+  const handleDelete = (cheque) => {
+    setChequeParaDeletar(cheque);
+  };
+
+  const confirmarDeleteCheque = async () => {
+    if (!chequeParaDeletar) return;
+    setDeletando(true);
+    try {
+      await base44.entities.Cheque.delete(chequeParaDeletar.id);
+      toast.success('Cheque removido');
+      loadCheques();
+    } finally {
+      setDeletando(false);
+      setChequeParaDeletar(null);
+    }
   };
 
   const getDataAlert = (data_comp, status, depositado) => {
@@ -314,7 +328,7 @@ export default function Cheques() {
                           <button onClick={() => openEdit(c)} title="Editar" className="p-1.5 rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600 transition-colors">
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => handleDelete(c.id)} title="Excluir" className="p-1.5 rounded hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors">
+                          <button onClick={() => handleDelete(c)} title="Excluir" className="p-1.5 rounded hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -359,7 +373,7 @@ export default function Cheques() {
                       </Badge>
                     </td>
                     <td className="px-4 py-2">
-                      <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 transition-colors">
+                      <button onClick={() => handleDelete(c)} className="p-1.5 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 transition-colors">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </td>
@@ -434,6 +448,17 @@ export default function Cheques() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!chequeParaDeletar}
+        onClose={() => !deletando && setChequeParaDeletar(null)}
+        onConfirm={confirmarDeleteCheque}
+        title="Excluir cheque"
+        description={chequeParaDeletar ? `Excluir cheque de ${chequeParaDeletar.nome}${chequeParaDeletar.valor ? ` (R$ ${chequeParaDeletar.valor.toFixed(2)})` : ''}?` : ''}
+        confirmText="Excluir"
+        variant="destructive"
+        isLoading={deletando}
+      />
     </div>
   );
 }

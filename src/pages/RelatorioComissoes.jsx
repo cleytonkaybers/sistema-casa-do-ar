@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils/formatters';
 import { calcularTotalComissoes, agruparPorPeriodo } from '@/lib/utils/calculations';
 import { TableSkeleton, CardSkeleton } from '@/components/LoadingSkeleton';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import NoPermission from '@/components/NoPermission';
 import { useNavigate } from 'react-router-dom';
@@ -277,6 +278,8 @@ export default function RelatorioComissoes() {
   const [modoLanc, setModoLanc] = useState('equipe'); // 'equipe' | 'tecnico'
   const [novoLanc, setNovoLanc] = useState({ equipe_id: '', tecnico_id: '', cliente_nome: '', tipo_servico: '', valor_servico: '', data_geracao: new Date().toISOString().slice(0,10) });
   const [salvando, setSalvando] = useState(false);
+  const [lancParaDeletar, setLancParaDeletar] = useState(null);
+  const [deletando, setDeletando] = useState(false);
 
   React.useEffect(() => {
     const checkAdmin = async () => {
@@ -455,8 +458,10 @@ export default function RelatorioComissoes() {
     } finally { setSalvando(false); }
   };
 
-  const handleDeletarLancamento = async (lanc) => {
-    if (!confirm(`Remover lançamento de ${lanc.tecnico_nome} — ${lanc.cliente_nome} (${fmt(lanc.valor_comissao_tecnico)})?`)) return;
+  const executarDelecaoLancamento = async () => {
+    const lanc = lancParaDeletar;
+    if (!lanc) return;
+    setDeletando(true);
     try {
       await base44.entities.LancamentoFinanceiro.delete(lanc.id);
       // Reverter crédito do técnico (buscar registro atualizado para evitar race condition)
@@ -476,6 +481,9 @@ export default function RelatorioComissoes() {
       toast.success('Lançamento removido');
     } catch (err) {
       toast.error('Erro ao remover');
+    } finally {
+      setDeletando(false);
+      setLancParaDeletar(null);
     }
   };
 
@@ -743,7 +751,7 @@ export default function RelatorioComissoes() {
                     </td>
                     <td className="px-3 py-3">
                       <button
-                        onClick={() => handleDeletarLancamento(lanc)}
+                        onClick={() => setLancParaDeletar(lanc)}
                         className="p-1 rounded hover:bg-red-500/20 text-gray-600 hover:text-red-400 transition-colors"
                         title="Remover lançamento"
                       >
@@ -767,16 +775,16 @@ export default function RelatorioComissoes() {
           <div className="space-y-4 pt-2">
 
             {/* Modo: equipe ou técnico */}
-            <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+            <div className="flex rounded-lg border border-white/10 overflow-hidden">
               <button
                 onClick={() => setModoLanc('equipe')}
-                className={`flex-1 py-2 text-sm font-semibold transition-colors ${modoLanc === 'equipe' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                className={`flex-1 py-2 text-sm font-semibold transition-colors ${modoLanc === 'equipe' ? 'bg-blue-600 text-white' : 'bg-[#0f1a2b] text-gray-400 hover:bg-white/5'}`}
               >
                 Por Equipe
               </button>
               <button
                 onClick={() => setModoLanc('tecnico')}
-                className={`flex-1 py-2 text-sm font-semibold transition-colors ${modoLanc === 'tecnico' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                className={`flex-1 py-2 text-sm font-semibold transition-colors ${modoLanc === 'tecnico' ? 'bg-blue-600 text-white' : 'bg-[#0f1a2b] text-gray-400 hover:bg-white/5'}`}
               >
                 Por Técnico
               </button>
@@ -785,9 +793,9 @@ export default function RelatorioComissoes() {
             {/* Seleção equipe ou técnico */}
             {modoLanc === 'equipe' ? (
               <div>
-                <Label className="text-xs text-gray-500 mb-1 block">Equipe *</Label>
+                <Label className="text-xs text-gray-400 mb-1 block">Equipe *</Label>
                 <select
-                  className="w-full border border-gray-200 rounded-md h-10 px-3 text-sm bg-white"
+                  className="w-full border border-white/10 rounded-md h-10 px-3 text-sm bg-[#0f1a2b] text-gray-200"
                   value={novoLanc.equipe_id}
                   onChange={e => setNovoLanc(f => ({ ...f, equipe_id: e.target.value }))}
                 >
@@ -807,9 +815,9 @@ export default function RelatorioComissoes() {
               </div>
             ) : (
               <div>
-                <Label className="text-xs text-gray-500 mb-1 block">Técnico *</Label>
+                <Label className="text-xs text-gray-400 mb-1 block">Técnico *</Label>
                 <select
-                  className="w-full border border-gray-200 rounded-md h-10 px-3 text-sm bg-white"
+                  className="w-full border border-white/10 rounded-md h-10 px-3 text-sm bg-[#0f1a2b] text-gray-200"
                   value={novoLanc.tecnico_id}
                   onChange={e => setNovoLanc(f => ({ ...f, tecnico_id: e.target.value }))}
                 >
@@ -822,13 +830,13 @@ export default function RelatorioComissoes() {
             )}
 
             <div>
-              <Label className="text-xs text-gray-500 mb-1 block">Cliente *</Label>
+              <Label className="text-xs text-gray-400 mb-1 block">Cliente *</Label>
               <Input placeholder="Nome do cliente" value={novoLanc.cliente_nome} onChange={e => setNovoLanc(f => ({ ...f, cliente_nome: e.target.value }))} />
             </div>
             <div>
-              <Label className="text-xs text-gray-500 mb-1 block">Tipo de Serviço</Label>
+              <Label className="text-xs text-gray-400 mb-1 block">Tipo de Serviço</Label>
               <select
-                className="w-full border border-gray-200 rounded-md h-10 px-3 text-sm bg-white"
+                className="w-full border border-white/10 rounded-md h-10 px-3 text-sm bg-[#0f1a2b] text-gray-200"
                 value={novoLanc.tipo_servico}
                 onChange={e => {
                   const tipo = e.target.value;
@@ -850,20 +858,20 @@ export default function RelatorioComissoes() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs text-gray-500 mb-1 block">Valor do Serviço (R$) *</Label>
+                <Label className="text-xs text-gray-400 mb-1 block">Valor do Serviço (R$) *</Label>
                 <Input type="number" placeholder="200.00" value={novoLanc.valor_servico} onChange={e => setNovoLanc(f => ({ ...f, valor_servico: e.target.value }))} />
               </div>
               <div>
-                <Label className="text-xs text-gray-500 mb-1 block">Comissão por técnico (15%)</Label>
+                <Label className="text-xs text-gray-400 mb-1 block">Comissão por técnico (15%)</Label>
                 <Input
                   readOnly
-                  className="bg-gray-50 text-emerald-600 font-semibold"
+                  className="bg-white/5 text-emerald-400 font-semibold border-white/10"
                   value={novoLanc.valor_servico ? `R$ ${(parseFloat(novoLanc.valor_servico) * 0.15).toFixed(2)}` : 'R$ 0.00'}
                 />
               </div>
             </div>
             <div>
-              <Label className="text-xs text-gray-500 mb-1 block">Data do Lançamento</Label>
+              <Label className="text-xs text-gray-400 mb-1 block">Data do Lançamento</Label>
               <Input type="date" value={novoLanc.data_geracao} onChange={e => setNovoLanc(f => ({ ...f, data_geracao: e.target.value }))} />
             </div>
             <div className="flex gap-2 pt-2">
@@ -875,6 +883,17 @@ export default function RelatorioComissoes() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!lancParaDeletar}
+        onClose={() => !deletando && setLancParaDeletar(null)}
+        onConfirm={executarDelecaoLancamento}
+        title="Remover lançamento de comissão"
+        description={lancParaDeletar ? `Remover lançamento de ${lancParaDeletar.tecnico_nome} — ${lancParaDeletar.cliente_nome} (${fmt(lancParaDeletar.valor_comissao_tecnico)})? O crédito será revertido.` : ''}
+        confirmText="Remover"
+        variant="destructive"
+        isLoading={deletando}
+      />
     </div>
   );
 }

@@ -127,8 +127,8 @@ export default function ClienteDetalhes() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">{cliente.nome}</h1>
-            <div className="flex items-center gap-2 mt-2 text-gray-600">
+            <h1 className="text-3xl font-bold text-gray-200">{cliente.nome}</h1>
+            <div className="flex items-center gap-2 mt-2 text-gray-400">
               <Phone className="w-4 h-4" />
               <span>{cliente.telefone}</span>
             </div>
@@ -136,7 +136,7 @@ export default function ClienteDetalhes() {
         </div>
         <Button
           onClick={() => setEditMode(!editMode)}
-          className={editMode ? 'bg-gray-500 hover:bg-gray-600' : 'bg-blue-500 hover:bg-blue-600'}
+          className={editMode ? 'bg-white/10 hover:bg-white/15 text-gray-200 border border-white/10' : 'bg-blue-600 hover:bg-blue-700 text-white'}
         >
           {editMode ? 'Cancelar' : 'Editar'}
         </Button>
@@ -152,45 +152,45 @@ export default function ClienteDetalhes() {
 
       {/* Edit Mode */}
       {editMode && (
-        <Card className="bg-white border-0 shadow-md">
+        <Card className="bg-[#152236] border border-white/5 shadow-md">
           <CardHeader>
-            <CardTitle>Editar Cliente</CardTitle>
+            <CardTitle className="text-gray-200">Editar Cliente</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-700">Nome</label>
+              <label className="text-sm font-medium text-gray-300">Nome</label>
               <Input
                 value={formData.nome}
                 onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                className="mt-1"
+                className="mt-1 bg-[#0f1a2b] border-white/10 text-gray-200 placeholder:text-gray-500"
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-700">Telefone</label>
+              <label className="text-sm font-medium text-gray-300">Telefone</label>
               <Input
                 value={formData.telefone}
                 onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
-                className="mt-1"
+                className="mt-1 bg-[#0f1a2b] border-white/10 text-gray-200 placeholder:text-gray-500"
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-700">Endereço</label>
+              <label className="text-sm font-medium text-gray-300">Endereço</label>
               <Input
                 value={formData.endereco}
                 onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
-                className="mt-1"
+                className="mt-1 bg-[#0f1a2b] border-white/10 text-gray-200 placeholder:text-gray-500"
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-700">Segmentação</label>
+              <label className="text-sm font-medium text-gray-300">Segmentação</label>
               <Select
                 value={formData.segmentacao}
                 onValueChange={(value) => setFormData({ ...formData, segmentacao: value })}
               >
-                <SelectTrigger className="mt-1">
+                <SelectTrigger className="mt-1 bg-[#0f1a2b] border-white/10 text-gray-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -202,11 +202,11 @@ export default function ClienteDetalhes() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-700">Notas Internas</label>
+              <label className="text-sm font-medium text-gray-300">Notas Internas</label>
               <Textarea
                 value={formData.notas_internas}
                 onChange={(e) => setFormData({ ...formData, notas_internas: e.target.value })}
-                className="mt-1 min-h-24"
+                className="mt-1 min-h-24 bg-[#0f1a2b] border-white/10 text-gray-200 placeholder:text-gray-500"
                 placeholder="Adicione notas confidenciais sobre o cliente..."
               />
             </div>
@@ -214,7 +214,7 @@ export default function ClienteDetalhes() {
             <Button
               onClick={handleSave}
               disabled={updateMutation.isPending}
-              className="bg-green-600 hover:bg-green-700 w-full"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white w-full"
             >
               <Save className="w-4 h-4 mr-2" />
               Salvar Alterações
@@ -227,13 +227,13 @@ export default function ClienteDetalhes() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Location */}
         {cliente.endereco && (
-          <Card className="bg-white border-0 shadow-md">
+          <Card className="bg-[#152236] border border-white/5 shadow-md">
             <CardContent className="p-6">
               <div className="flex items-start gap-3">
-                <MapPin className="w-5 h-5 text-blue-500 mt-1 flex-shrink-0" />
+                <MapPin className="w-5 h-5 text-blue-400 mt-1 flex-shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Endereço</p>
-                  <p className="text-gray-800 mt-1">{cliente.endereco}</p>
+                  <p className="text-sm font-medium text-gray-400">Endereço</p>
+                  <p className="text-gray-200 mt-1">{cliente.endereco}</p>
                 </div>
               </div>
             </CardContent>
@@ -242,10 +242,10 @@ export default function ClienteDetalhes() {
 
         {/* Internal Notes */}
         {cliente.notas_internas && (
-          <Card className="bg-blue-50 border border-blue-200 shadow-md">
+          <Card className="bg-blue-500/10 border border-blue-500/30 shadow-md">
             <CardContent className="p-6">
-              <p className="text-sm font-medium text-blue-900 mb-2">📝 Notas Internas</p>
-              <p className="text-blue-800 text-sm">{cliente.notas_internas}</p>
+              <p className="text-sm font-medium text-blue-300 mb-2">📝 Notas Internas</p>
+              <p className="text-blue-200 text-sm">{cliente.notas_internas}</p>
             </CardContent>
           </Card>
         )}

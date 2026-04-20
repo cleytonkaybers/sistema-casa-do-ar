@@ -2,16 +2,18 @@ import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatTipoServicoCompact } from '@/utils';
+import { parseHistoricoData } from '@/lib/dateUtils';
 
 // Agrupa serviços por data+equipe, conta serviços iguais do mesmo dia
 function agruparPorData(historico) {
   const grupos = {};
   historico.forEach(item => {
-    const dataKey = item.data ? format(new Date(item.data + (item.data.length === 10 ? 'T12:00:00' : '')), 'dd/MM/yyyy', { locale: ptBR }) : 'Sem data';
+    const d = parseHistoricoData(item.data);
+    const dataKey = d ? format(d, 'dd/MM/yyyy', { locale: ptBR }) : 'Sem data';
     const equipe = item.equipe_nome || 'Sem equipe';
     const chave = `${dataKey}||${equipe}`;
     if (!grupos[chave]) {
-      grupos[chave] = { data: dataKey, equipe, servicos: {}, valorTotal: 0 };
+      grupos[chave] = { data: dataKey, equipe, servicos: {}, valorTotal: 0, _ts: d ? d.getTime() : 0 };
     }
     const tipo = (item.descricao || '').trim();
     if (!grupos[chave].servicos[tipo]) {
@@ -22,8 +24,7 @@ function agruparPorData(historico) {
     grupos[chave].valorTotal += item.valor || 0;
   });
 
-  return Object.values(grupos)
-    .sort((a, b) => new Date(a.data.split('/').reverse().join('-')) - new Date(b.data.split('/').reverse().join('-')));
+  return Object.values(grupos).sort((a, b) => a._ts - b._ts);
 }
 
 // Desenha tabela com larguras customizadas por coluna

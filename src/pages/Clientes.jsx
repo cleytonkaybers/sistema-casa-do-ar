@@ -270,8 +270,8 @@ export default function Clientes() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Clientes</h1>
-          <p className="text-gray-500 mt-1">{clientes.length} clientes cadastrados</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-200">Clientes</h1>
+          <p className="text-gray-400 mt-1">{clientes.length} clientes cadastrados</p>
         </div>
         <div className="flex items-center gap-2">
           {isAdmin && (
@@ -279,7 +279,7 @@ export default function Clientes() {
               variant="outline"
               onClick={handleExportarDrive}
               disabled={exportandoDrive}
-              className="border-gray-200 text-gray-600 hover:text-green-700 hover:border-green-400"
+              className="bg-[#152236] border-white/10 text-gray-300 hover:bg-white/5 hover:text-emerald-400 hover:border-emerald-500/40"
             >
               <CloudUpload className="w-4 h-4 mr-2" />
               {exportandoDrive ? 'Exportando...' : 'Exportar Drive'}
@@ -297,8 +297,8 @@ export default function Clientes() {
         </div>
       </div>
 
-      <div className="rounded-2xl shadow-sm p-4 sm:p-6 space-y-4 border border-gray-200 bg-white">
-        <div className="flex items-center gap-2 text-gray-600 mb-2">
+      <div className="rounded-2xl shadow-sm p-4 sm:p-6 space-y-4 border border-white/5 bg-[#152236]">
+        <div className="flex items-center gap-2 text-gray-300 mb-2">
           <Filter className="w-5 h-5" />
           <span className="font-medium">Filtros</span>
           {hasActiveFilters && (
@@ -306,21 +306,21 @@ export default function Clientes() {
               variant="ghost"
               size="sm"
               onClick={clearFilters}
-              className="ml-auto text-gray-500 hover:text-gray-700"
+              className="ml-auto text-gray-400 hover:text-gray-200 hover:bg-white/5"
             >
               <X className="w-4 h-4 mr-1" />
               Limpar
             </Button>
           )}
         </div>
-        
+
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
           <Input
             placeholder="Buscar por nome ou telefone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 h-11 border-gray-200 text-gray-700 placeholder:text-gray-400 bg-white"
+            className="pl-10 h-11 border-white/10 text-gray-200 placeholder:text-gray-500 bg-[#0f1a2b]"
           />
         </div>
       </div>
@@ -330,9 +330,9 @@ export default function Clientes() {
       ) : (
         <>
           {filteredClientes.length > 0 && (
-            <div className="bg-white rounded-lg p-4 border border-gray-200 flex items-center justify-between">
-              <p className="text-sm text-gray-600">
-                Mostrando <span className="font-medium">{startIndex + 1}</span> a <span className="font-medium">{Math.min(endIndex, filteredClientes.length)}</span> de <span className="font-medium">{filteredClientes.length}</span> clientes
+            <div className="bg-[#152236] rounded-lg p-4 border border-white/5 flex items-center justify-between">
+              <p className="text-sm text-gray-300">
+                Mostrando <span className="font-medium text-gray-100">{startIndex + 1}</span> a <span className="font-medium text-gray-100">{Math.min(endIndex, filteredClientes.length)}</span> de <span className="font-medium text-gray-100">{filteredClientes.length}</span> clientes
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -340,11 +340,11 @@ export default function Clientes() {
                   size="sm"
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="border-gray-200"
+                  className="bg-[#0f1a2b] border-white/10 text-gray-300 hover:bg-white/5 disabled:opacity-40"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-gray-300">
                   Página {currentPage} de {totalPages}
                 </span>
                 <Button
@@ -352,7 +352,7 @@ export default function Clientes() {
                   size="sm"
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="border-gray-200"
+                  className="bg-[#0f1a2b] border-white/10 text-gray-300 hover:bg-white/5 disabled:opacity-40"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </Button>

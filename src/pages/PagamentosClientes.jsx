@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { parseHistoricoData, toLocalDateSafe } from '@/lib/dateUtils';
 import CompromissoClientePDF from '@/components/financeiro/CompromissoClientePDF';
 import {
   Search, DollarSign, CheckCircle2, AlertCircle, Calendar,
@@ -735,7 +736,7 @@ function DetalhesClienteModal({ open, onClose, pagamento }) {
 function HistoricoModal({ open, onClose, pagamento }) {
   const records = pagamento?._records || (pagamento ? [pagamento] : []);
   // Merge historico de todos os records
-  const todosPagamentos = records.flatMap(r => (r.historico_pagamentos || []).map(h => ({ ...h, _equipe: r.equipe_nome }))).sort((a, b) => new Date(a.data) - new Date(b.data));
+  const todosPagamentos = records.flatMap(r => (r.historico_pagamentos || []).map(h => ({ ...h, _equipe: r.equipe_nome }))).sort((a, b) => (parseHistoricoData(a.data)?.getTime() || 0) - (parseHistoricoData(b.data)?.getTime() || 0));
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -876,7 +877,7 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
             <p className="font-semibold text-sm text-gray-800">{pag.cliente_nome}</p>
               {pag.data_pagamento_agendado && (
                 <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded font-semibold flex-shrink-0">
-                  📅 {format(new Date(pag.data_pagamento_agendado + 'T12:00:00'), 'dd/MM')}
+                  📅 {format(toLocalDateSafe(pag.data_pagamento_agendado), 'dd/MM')}
                 </span>
               )}
               {isParcial && proximaParcelaAgendada && (
@@ -1147,15 +1148,19 @@ function PagamentosClientesContent() {
       }
     });
 
-    const rows = Object.values(agrupado).map(c => ({
-      'Cliente': c.cliente_nome || '',
-      'Telefone': c.telefone ? c.telefone.replace(/\D/g, '').replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3') : '',
-      'Total (R$)': parseFloat(c.valor_total.toFixed(2)),
-      'Pago (R$)': parseFloat(c.valor_pago.toFixed(2)),
-      'Pendente (R$)': parseFloat(Math.max(0, c.valor_total - c.valor_pago).toFixed(2)),
-      'Status': c.status,
-      'Datas Agendadas': c.datas_agendadas.join(', ') || '-',
-    }));
+    const rows = Object.values(agrupado).map(c => {
+      const vt = c.valor_total || 0;
+      const vp = c.valor_pago || 0;
+      return {
+        'Cliente': c.cliente_nome || '',
+        'Telefone': c.telefone ? c.telefone.replace(/\D/g, '').replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3') : '',
+        'Total (R$)': parseFloat(vt.toFixed(2)),
+        'Pago (R$)': parseFloat(vp.toFixed(2)),
+        'Pendente (R$)': parseFloat(Math.max(0, vt - vp).toFixed(2)),
+        'Status': c.status,
+        'Datas Agendadas': c.datas_agendadas.join(', ') || '-',
+      };
+    });
 
     rows.sort((a, b) => b['Pendente (R$)'] - a['Pendente (R$)']);
 
@@ -1550,16 +1555,12 @@ function PagamentosClientesContent() {
 
   // Helper: verifica se algum pagamento real foi feito nesta semana
   const temPagamentoNaSemana = useCallback((p) => {
-    const parseHistData = (d) => {
-      if (!d) return null;
-      const parte = d.split(' ')[0].split('/');
-      if (parte.length === 3) return new Date(`${parte[2]}-${parte[1]}-${parte[0]}T12:00:00`);
-      return null;
-    };
     return (p.historico_pagamentos || [])
       .filter(h => !h.agendada && !h.consolidado)
       .some(h => {
-        try { return isWithinInterval(parseHistData(h.data), { start: inicioSemana, end: fimSemana }); }
+        const d = parseHistoricoData(h.data);
+        if (!d) return false;
+        try { return isWithinInterval(d, { start: inicioSemana, end: fimSemana }); }
         catch { return false; }
       });
   }, [inicioSemana, fimSemana]);
@@ -1655,13 +1656,6 @@ function PagamentosClientesContent() {
   // Recebido na semana: soma via historico_pagamentos (data real do recebimento)
   // Fallback: se o registro tem valor_pago mas historico vazio, usa updated_date ou data_pagamento_completo
   const totalPagoSemana = useMemo(() => {
-    const parseHistData = (d) => {
-      if (!d) return null;
-      // formato "dd/MM/yyyy HH:mm" ou "dd/MM/yyyy"
-      const parte = d.split(' ')[0].split('/');
-      if (parte.length === 3) return new Date(`${parte[2]}-${parte[1]}-${parte[0]}T12:00:00`);
-      return null;
-    };
     const isNaSemana = (d) => {
       try { return d && isWithinInterval(d, { start: inicioSemana, end: fimSemana }); }
       catch { return false; }
@@ -1675,7 +1669,7 @@ function PagamentosClientesContent() {
       if (hist.length > 0) {
         // Método primário: somar entradas do histórico que caem na semana
         hist.forEach(h => {
-          const d = parseHistData(h.data);
+          const d = parseHistoricoData(h.data);
           if (isNaSemana(d)) total += h.valor || 0;
         });
       } else if ((p.valor_pago || 0) > 0) {

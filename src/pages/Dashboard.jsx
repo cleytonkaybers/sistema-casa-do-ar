@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
@@ -30,18 +30,10 @@ import {
   Wrench,
   ShieldAlert
 } from 'lucide-react';
-import { format, parse, differenceInDays, startOfMonth, endOfMonth, isWithinInterval, isToday } from 'date-fns';
+import { format, differenceInDays, startOfMonth, endOfMonth, isWithinInterval, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { getLocalDate, getStartOfWeek, getEndOfWeek, toLocalDate } from '@/lib/dateUtils';
-
-const formatPhone = (phone) => {
-  if (!phone) return '';
-  const cleaned = phone.replace(/\D/g, '');
-  if (cleaned.length === 11) {
-    return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
-  }
-  return phone;
-};
+import { getLocalDate, getStartOfWeek, getEndOfWeek, toLocalDate, toLocalDateSafe, parseHistoricoData } from '@/lib/dateUtils';
+import { formatPhone } from '@/lib/utils/formatters';
 
 export default function Dashboard() {
   const [filtroServicos, setFiltroServicos] = useState('mes');
@@ -120,7 +112,8 @@ export default function Dashboard() {
     if (p.arquivado) return false;
     if (!p.data_pagamento_agendado) return false;
     const hoje = new Date();
-    const agendado = new Date(p.data_pagamento_agendado + 'T12:00:00');
+    const agendado = toLocalDateSafe(p.data_pagamento_agendado);
+    if (!agendado) return false;
     return agendado.getDate() === hoje.getDate() &&
       agendado.getMonth() === hoje.getMonth() &&
       agendado.getFullYear() === hoje.getFullYear();
@@ -188,7 +181,7 @@ export default function Dashboard() {
   const atendimentosConcluidos = atendimentos.filter(a => a.status === 'Concluído').length;
 
   // --- ADMIN STATS ---
-  const adminResumoMes = React.useMemo(() => {
+  const adminResumoMes = useMemo(() => {
     if (!isAdmin) return { faturadoMes: 0, faturadoSemana: 0, recebidoMes: 0, recebidoSemana: 0, comissoes: 0 };
     const hoje = getLocalDate();
     const inicioMes = startOfMonth(hoje);
@@ -196,19 +189,7 @@ export default function Dashboard() {
     const inicioSemana = getStartOfWeek();
     const fimSemana = getEndOfWeek();
 
-    const parseDate = (dataRef) => {
-      if (!dataRef) return null;
-      try {
-        const s = String(dataRef);
-        // historico_pagamentos[].data is stored as "dd/MM/yyyy HH:mm"
-        if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) {
-          const fmt = s.length > 10 ? 'dd/MM/yyyy HH:mm' : 'dd/MM/yyyy';
-          return parse(s, fmt, new Date());
-        }
-        const str = s.includes('T') ? s : s + 'T12:00:00';
-        return toLocalDate(new Date(str));
-      } catch { return null; }
-    };
+    const parseDate = parseHistoricoData;
 
     // Faturado: valor dos serviços concluídos (bruto)
     const faturadoMes = servicos.filter(s => {
@@ -256,9 +237,9 @@ export default function Dashboard() {
     }).reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
     return { faturadoMes, faturadoSemana, recebidoMes, recebidoSemana, comissoes };
-  }, [servicos, pagamentosClientes, lancamentosFinanceiros, pagamentosTecnicos, isAdmin]);
+  }, [servicos, pagamentosClientes, pagamentosTecnicos, isAdmin]);
 
-  const adminTecnicosSemana = React.useMemo(() => {
+  const adminTecnicosSemana = useMemo(() => {
     if (!isAdmin) return [];
     const inicioSemanaAtual = getStartOfWeek();
     const fimSemanaAtual = getEndOfWeek();
@@ -315,7 +296,7 @@ export default function Dashboard() {
       .filter(t => Math.abs(t.saldo_total) > 0.01 || t.total_ganho > 0);
   }, [tecnicosFinanceiro, lancamentosFinanceiros, pagamentosTecnicos, isAdmin]);
 
-  const adminResumoTecnicos = React.useMemo(() => {
+  const adminResumoTecnicos = useMemo(() => {
     if (!isAdmin) return { totalGanhoSemana: 0, totalPagoSemana: 0, totalPendente: 0 };
     return {
       totalGanhoSemana: adminTecnicosSemana.reduce((s, t) => s + (t.total_ganho || 0), 0),

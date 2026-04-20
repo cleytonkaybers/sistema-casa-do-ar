@@ -13,6 +13,7 @@ import ReagendarModal from '../components/servicos/ReagendarModal';
 import CompartilharModal from '../components/servicos/CompartilharModal';
 import ConclusaoModal from '../components/servicos/ConclusaoModal';
 import AlertaAtraso from '../components/servicos/AlertaAtraso';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { toast } from 'sonner';
 import { format, parseISO, startOfMonth, isSameMonth, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -33,6 +34,7 @@ export default function ServicosPage() {
   const [showConclusaoModal, setShowConclusaoModal] = useState(false);
   const [servicoParaConcluir, setServicoParaConcluir] = useState(null);
   const [expandedDias, setExpandedDias] = useState({});
+  const [servicoParaDeletar, setServicoParaDeletar] = useState(null);
   const [currentPageSemData, setCurrentPageSemData] = useState(1);
   const SERVICOS_POR_DIA = 5;
   const SERVICOS_POR_PAGINA = 20;
@@ -190,11 +192,18 @@ export default function ServicosPage() {
     setShowForm(true);
   };
 
-  const handleDelete = async (servico) => {
-    if (confirm(`Excluir serviço de ${servico.cliente_nome}?`)) {
-      setIsDeleting(true);
-      await deleteMutation.mutateAsync(servico.id);
+  const handleDelete = (servico) => {
+    setServicoParaDeletar(servico);
+  };
+
+  const confirmarDelete = async () => {
+    if (!servicoParaDeletar) return;
+    setIsDeleting(true);
+    try {
+      await deleteMutation.mutateAsync(servicoParaDeletar.id);
+    } finally {
       setIsDeleting(false);
+      setServicoParaDeletar(null);
     }
   };
 
@@ -773,6 +782,17 @@ export default function ServicosPage() {
         onConfirm={handleConfirmarConclusao}
         servico={servicoParaConcluir}
         isLoading={updateMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={!!servicoParaDeletar}
+        onClose={() => !isDeleting && setServicoParaDeletar(null)}
+        onConfirm={confirmarDelete}
+        title="Excluir serviço"
+        description={servicoParaDeletar ? `Excluir serviço de ${servicoParaDeletar.cliente_nome}? Esta ação não pode ser desfeita.` : ''}
+        confirmText="Excluir"
+        variant="destructive"
+        isLoading={isDeleting}
       />
     </div>
   );

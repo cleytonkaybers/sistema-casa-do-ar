@@ -1,4 +1,4 @@
-import { format, startOfWeek, endOfWeek, addDays, parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
+import { format, parse, startOfWeek, endOfWeek, addDays, parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 // Timezone do app: America/Manaus (UTC-4)
@@ -102,4 +102,36 @@ export function addDaysToDate(date, days) {
   const d = toLocalDate(date);
   if (!d) return null;
   return addDays(d, days);
+}
+
+/**
+ * Faz parse de qualquer formato comum: dd/MM/yyyy [HH:mm], ISO, Date.
+ * Usado principalmente para historico_pagamentos[].data que é salvo como "dd/MM/yyyy HH:mm".
+ */
+export function parseHistoricoData(value) {
+  if (!value) return null;
+  if (value instanceof Date) return isValid(value) ? value : null;
+  const s = String(value).trim();
+  if (!s) return null;
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) {
+    const fmt = s.length > 10 ? 'dd/MM/yyyy HH:mm' : 'dd/MM/yyyy';
+    const d = parse(s, fmt, new Date());
+    return isValid(d) ? d : null;
+  }
+  const iso = parseISO(s);
+  return isValid(iso) ? iso : null;
+}
+
+/**
+ * Cria Date a partir de "YYYY-MM-DD" (ou ISO completa) sem dupla concatenação de 'T'.
+ * Evita strings inválidas como "2026-04-20T00:00:00T12:00:00".
+ */
+export function toLocalDateSafe(value, defaultTime = '12:00:00') {
+  if (!value) return null;
+  if (value instanceof Date) return isValid(value) ? value : null;
+  const s = String(value).trim();
+  if (!s) return null;
+  const iso = s.includes('T') ? s : `${s}T${defaultTime}`;
+  const d = new Date(iso);
+  return isValid(d) ? d : null;
 }

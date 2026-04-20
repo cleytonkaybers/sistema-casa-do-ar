@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { parseHistoricoData } from '@/lib/dateUtils';
 import { gerarPDFCliente, gerarPDFTodos } from '@/components/utils/HistoricoDownload';
 import NoPermission from '../components/NoPermission';
 import { usePermissions } from '../components/auth/PermissionGuard';
@@ -64,11 +65,11 @@ export default function HistoricoClientes() {
   };
 
   const deleteMutation = useMutation({
-    mutationFn: async (idOriginal, tipoObjeto) => {
-      if (tipoObjeto === 'servico') {
-        await base44.entities.Servico.delete(idOriginal);
+    mutationFn: async ({ id, tipo }) => {
+      if (tipo === 'servico') {
+        await base44.entities.Servico.delete(id);
       } else {
-        await base44.entities.Atendimento.delete(idOriginal);
+        await base44.entities.Atendimento.delete(id);
       }
     },
     onSuccess: () => {
@@ -81,7 +82,7 @@ export default function HistoricoClientes() {
 
   const handleDelete = (item) => {
     if (confirm(`Excluir permanentemente este registro #${item.originalId}?`)) {
-      deleteMutation.mutate(item.originalId, item.tipoObjeto);
+      deleteMutation.mutate({ id: item.originalId, tipo: item.tipoObjeto });
     }
   };
 
@@ -183,8 +184,8 @@ export default function HistoricoClientes() {
         grupos[nome].stats.pendentes++;
       }
 
-      const itemDate = new Date(item.data);
-      if (!isNaN(itemDate)) {
+      const itemDate = parseHistoricoData(item.data);
+      if (itemDate) {
         if (!grupos[nome].ultimaData || itemDate > grupos[nome].ultimaData) {
           grupos[nome].ultimaData = itemDate;
         }
@@ -201,7 +202,7 @@ export default function HistoricoClientes() {
       );
 
       if (matchNome || matchItens) {
-        grupo.itens.sort((a, b) => new Date(b.data || 0) - new Date(a.data || 0));
+        grupo.itens.sort((a, b) => (parseHistoricoData(b.data)?.getTime() || 0) - (parseHistoricoData(a.data)?.getTime() || 0));
         clientesFiltrados[grupo.nome] = grupo;
       }
     });
@@ -484,7 +485,7 @@ export default function HistoricoClientes() {
                               byDate[groupKey].servicos[sKey].totalValor += (item.valor || 0);
                             });
 
-                            const sortedGroups = Object.values(byDate).sort((a, b) => new Date(b.data) - new Date(a.data));
+                            const sortedGroups = Object.values(byDate).sort((a, b) => (parseHistoricoData(b.data)?.getTime() || 0) - (parseHistoricoData(a.data)?.getTime() || 0));
                             let rowBg = false;
 
                             return sortedGroups.map((group, gIdx) => {
@@ -496,7 +497,7 @@ export default function HistoricoClientes() {
                                     {sIdx === 0 ? (
                                       <td className="px-4 py-4 align-top" rowSpan={servicoRows.length}>
                                         <div className="font-semibold text-gray-200">
-                                          {group.data ? format(new Date(group.data), 'dd/MM/yyyy', { locale: ptBR }) : '—'}
+                                          {(() => { const d = parseHistoricoData(group.data); return d ? format(d, 'dd/MM/yyyy', { locale: ptBR }) : '—'; })()}
                                         </div>
                                         {group.equipe && (
                                           <div className="text-[11px] text-blue-400 font-medium mt-1">{group.equipe}</div>
@@ -553,7 +554,7 @@ export default function HistoricoClientes() {
                                     <div className="flex items-center gap-2 mt-1">
                                       <Calendar className="w-3 h-3 text-blue-400" />
                                       <span className="text-[11px] text-gray-400 font-medium tracking-wide">
-                                        {item.data ? format(new Date(item.data), "dd/MM/yyyy") : '-'}
+                                        {(() => { const d = parseHistoricoData(item.data); return d ? format(d, "dd/MM/yyyy") : '-'; })()}
                                         {item.status !== 'concluido' && <span className="text-amber-500 ml-2">▲ Sem preço fixado</span>}
                                       </span>
                                     </div>

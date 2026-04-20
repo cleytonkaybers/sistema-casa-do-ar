@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { parseHistoricoData } from '@/lib/dateUtils';
 import { TableSkeleton } from '@/components/LoadingSkeleton';
 import { 
   Search,
@@ -160,8 +161,8 @@ export default function Atendimentos() {
       } else {
         grupos[nome].stats.pendentes++;
       }
-      const itemDate = new Date(item.data);
-      if (!isNaN(itemDate)) {
+      const itemDate = parseHistoricoData(item.data);
+      if (itemDate) {
         if (!grupos[nome].ultimaData || itemDate > grupos[nome].ultimaData) grupos[nome].ultimaData = itemDate;
       }
     });
@@ -184,7 +185,7 @@ export default function Atendimentos() {
       );
 
       if (matchNome || matchItens) {
-        grupo.itens.sort((a, b) => new Date(b.data || 0) - new Date(a.data || 0));
+        grupo.itens.sort((a, b) => (parseHistoricoData(b.data)?.getTime() || 0) - (parseHistoricoData(a.data)?.getTime() || 0));
         clientesFiltrados[grupo.nome] = grupo;
       }
     });
@@ -394,7 +395,7 @@ export default function Atendimentos() {
                                   byDate[groupKey].servicos[uniqueKey].totalValor += (item.valor || 0);
                                 });
 
-                                const sortedGroups = Object.values(byDate).sort((a, b) => new Date(b.data) - new Date(a.data));
+                                const sortedGroups = Object.values(byDate).sort((a, b) => (parseHistoricoData(b.data)?.getTime() || 0) - (parseHistoricoData(a.data)?.getTime() || 0));
                                 let rowBg = false;
 
                                 return sortedGroups.map((group, gIdx) => {
@@ -406,7 +407,7 @@ export default function Atendimentos() {
                                         {sIdx === 0 ? (
                                           <td className="px-4 py-4 align-top" rowSpan={servicoRows.length}>
                                             <div className="font-semibold text-gray-200">
-                                              {group.data ? format(new Date(group.data), 'dd/MM/yyyy', { locale: ptBR }) : '—'}
+                                              {(() => { const d = parseHistoricoData(group.data); return d ? format(d, 'dd/MM/yyyy', { locale: ptBR }) : '—'; })()}
                                             </div>
                                             {group.equipe && (
                                               <div className="text-[11px] text-blue-400 font-medium mt-1">{group.equipe}</div>
