@@ -37,7 +37,7 @@ export default function GanhosSemanaDashboard() {
         const valorPago = pagamentosSemana.reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
         // Saldo acumulado de todas as semanas anteriores (desde SALDO_INICIO)
-        const SALDO_INICIO = new Date('2026-04-20T00:00:00');
+        const SALDO_INICIO = new Date('2026-04-13T00:00:00');
         let saldo_anterior = 0;
         if (inicioSemana > SALDO_INICIO) {
           const comissoesAnt = lancamentos

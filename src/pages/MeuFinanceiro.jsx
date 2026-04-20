@@ -83,7 +83,7 @@ export default function MeuFinanceiro() {
 
   // Saldo acumulado de todas as semanas anteriores ao período selecionado
   // Positivo = empresa deve ao técnico | Negativo = técnico recebeu a mais
-  const SALDO_INICIO = new Date('2026-04-20T00:00:00');
+  const SALDO_INICIO = new Date('2026-04-13T00:00:00');
   const inicioSemana = inicio ? new Date(inicio + 'T00:00:00') : startOfWeek(hoje, { weekStartsOn: 1 });
 
   let saldo_anterior = 0;

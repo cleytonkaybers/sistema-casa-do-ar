@@ -232,7 +232,7 @@ export default function FinanceiroAdmin() {
 
       // Saldo acumulado de todas as semanas anteriores ao período selecionado
       // Positivo = empresa deve ao técnico | Negativo = técnico recebeu a mais (deve devolver)
-      const SALDO_INICIO = new Date('2026-04-20T00:00:00');
+      const SALDO_INICIO = new Date('2026-04-13T00:00:00');
       let saldo_anterior = 0;
       if (inicioSemana > SALDO_INICIO) {
         const comissoesAnteriores = lancamentos
