@@ -1199,32 +1199,22 @@ function PagamentosClientesContent() {
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.PagamentoCliente.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
-      toast.success('Registro removido!');
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] }),
   });
 
   const handleDelete = (pag) => {
-    // Pega todos os records do grupo (pode ser agrupado com múltiplos)
+    // Soft-delete: arquiva em vez de deletar do banco.
+    // Isso mantém o atendimento_id em idsRegistrados e impede que a sincronização
+    // automática recrie o registro ao detectar o atendimento sem pagamento.
     const records = pag._records?.length > 0 ? pag._records : [pag];
-    const atendIdsToBlock = [];
 
     records.forEach(rec => {
-      const atendId = rec.atendimento_id || rec.id;
-      if (atendId) {
-        deletedAtendimentoIds.current.add(atendId);
-        atendIdsToBlock.push(atendId);
+      if (rec.id) {
+        updateMutation.mutate({ id: rec.id, data: { arquivado: true, excluido_manual: true } });
       }
-      // Deleta cada record individual
-      if (rec.id) deleteMutation.mutate(rec.id);
     });
 
-    // Persiste no localStorage
-    if (atendIdsToBlock.length > 0) {
-      const existing = JSON.parse(localStorage.getItem('pag_deleted_atend_ids') || '[]');
-      localStorage.setItem('pag_deleted_atend_ids', JSON.stringify([...new Set([...existing, ...atendIdsToBlock])]));
-    }
+    toast.success('Registro removido!');
   };
 
   const hoje = new Date();
@@ -1636,7 +1626,7 @@ function PagamentosClientesContent() {
 
   const pagsArquivados = useMemo(() =>
     pagamentos
-      .filter(p => p.arquivado === true)
+      .filter(p => p.arquivado === true && !p.excluido_manual)
       .sort((a, b) => new Date(b.data_conclusao || 0) - new Date(a.data_conclusao || 0)),
   [pagamentos]);
 
