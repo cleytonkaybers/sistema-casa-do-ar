@@ -30,7 +30,7 @@ import {
   Wrench,
   ShieldAlert
 } from 'lucide-react';
-import { format, differenceInDays, startOfMonth, endOfMonth, isWithinInterval, isToday } from 'date-fns';
+import { format, parse, differenceInDays, startOfMonth, endOfMonth, isWithinInterval, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getLocalDate, getStartOfWeek, getEndOfWeek, toLocalDate } from '@/lib/dateUtils';
 
@@ -90,7 +90,7 @@ export default function Dashboard() {
   });
 
   const { data: pagamentosClientes = [] } = useQuery({
-    queryKey: ['pagamentos-clientes-dash'],
+    queryKey: ['pagamentos-clientes'],
     queryFn: () => base44.entities.PagamentoCliente.list('-data_conclusao'),
     enabled: isAdmin,
   });
@@ -199,7 +199,13 @@ export default function Dashboard() {
     const parseDate = (dataRef) => {
       if (!dataRef) return null;
       try {
-        const str = typeof dataRef === 'string' && dataRef.includes('T') ? dataRef : dataRef + 'T12:00:00';
+        const s = String(dataRef);
+        // historico_pagamentos[].data is stored as "dd/MM/yyyy HH:mm"
+        if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) {
+          const fmt = s.length > 10 ? 'dd/MM/yyyy HH:mm' : 'dd/MM/yyyy';
+          return parse(s, fmt, new Date());
+        }
+        const str = s.includes('T') ? s : s + 'T12:00:00';
         return toLocalDate(new Date(str));
       } catch { return null; }
     };
