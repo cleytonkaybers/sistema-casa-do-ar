@@ -569,8 +569,8 @@ export default function ServicosPage() {
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h1 className="text-xl sm:text-3xl font-bold text-gray-800">Serviços</h1>
-          <p className="text-gray-500 mt-1 text-xs sm:text-sm">Gerencie serviços diários e semanais</p>
+          <h1 className="text-xl sm:text-3xl font-bold text-gray-200">Serviços</h1>
+          <p className="text-gray-400 mt-1 text-xs sm:text-sm">Gerencie serviços diários e semanais</p>
         </div>
         <Button
           onClick={() => {
@@ -586,17 +586,17 @@ export default function ServicosPage() {
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
           <Input
             placeholder="Buscar por nome ou telefone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 h-11"
+            className="pl-10 h-11 bg-[#0f1a2b] border-white/10 text-gray-200 placeholder:text-gray-500"
           />
         </div>
         {isAdmin && (
           <Select value={equipeFilter} onValueChange={setEquipeFilter}>
-            <SelectTrigger className="w-full sm:w-48 h-11">
+            <SelectTrigger className="w-full sm:w-48 h-11 bg-[#0f1a2b] border-white/10 text-gray-200">
               <SelectValue placeholder="Todas as Equipes" />
             </SelectTrigger>
             <SelectContent>
@@ -616,7 +616,7 @@ export default function ServicosPage() {
           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
         </div>
       ) : filteredServicos.length === 0 ? (
-        <div className="text-center py-12 rounded-xl border-2 border-dashed border-gray-200 bg-white">
+        <div className="text-center py-12 rounded-xl border-2 border-dashed border-white/10 bg-[#152236]">
           <p className="text-gray-400">
             {searchTerm || (isAdmin && equipeFilter !== 'todas')
               ? 'Nenhum serviço encontrado com esses filtros'
@@ -626,7 +626,7 @@ export default function ServicosPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4">
             {diasDaSemana.map(dia => {
               const servicosDoDia = servicosPorDia[dia] || [];
               const isExpanded = !!expandedDias[dia];
@@ -634,7 +634,7 @@ export default function ServicosPage() {
               const extras = servicosDoDia.length - SERVICOS_POR_DIA;
 
               return (
-                <div key={dia} className="rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full bg-white">
+                <div key={dia} className="rounded-xl shadow-sm border border-white/5 overflow-hidden flex flex-col h-full bg-[#152236]">
                   <div className={`bg-gradient-to-r ${diaColors[dia]} px-4 py-3 sticky top-0 z-10`}>
                     <h3 className="font-bold text-white text-center text-sm lg:text-base">
                       {dia}
@@ -646,13 +646,13 @@ export default function ServicosPage() {
 
                   <div className="p-3 space-y-3 flex-1 overflow-y-auto">
                     {servicosDoDia.length === 0 ? (
-                      <p className="text-gray-300 text-center text-sm py-4">
+                      <p className="text-gray-500 text-center text-sm py-4">
                         Nenhum serviço
                       </p>
                     ) : (
                       <>
                         {visiveis.map(servico => (
-                          <div key={servico.id} className="rounded-lg shadow-sm border border-gray-100 overflow-hidden bg-gray-50">
+                          <div key={servico.id} className="rounded-lg shadow-sm border border-white/5 overflow-hidden bg-[#0f1a2b]">
                             <div className="p-3">
                               <ServicoCard
                                 servico={servico}
@@ -672,7 +672,7 @@ export default function ServicosPage() {
                         {extras > 0 && (
                           <button
                             onClick={() => setExpandedDias(prev => ({ ...prev, [dia]: !isExpanded }))}
-                            className="w-full text-xs font-semibold text-center py-2 rounded-lg border border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors"
+                            className="w-full text-xs font-semibold text-center py-2 rounded-lg border border-dashed border-white/15 text-gray-400 hover:border-blue-500/50 hover:text-blue-300 transition-colors"
                           >
                             {isExpanded ? 'Ver menos' : `Ver mais ${extras}`}
                           </button>
@@ -686,7 +686,7 @@ export default function ServicosPage() {
           </div>
 
           {servicosSemData.length > 0 && (
-            <div className="rounded-xl shadow-sm border border-gray-200 overflow-hidden bg-white">
+            <div className="rounded-xl shadow-sm border border-white/5 overflow-hidden bg-[#152236]">
               <div className="px-4 py-3 flex items-center justify-between" style={{ backgroundColor: '#1e3a8a' }}>
                 <div className="flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-white" />
@@ -713,21 +713,21 @@ export default function ServicosPage() {
                 ))}
               </div>
               {totalPagesSemData > 1 && (
-                <div className="flex items-center justify-center gap-2 px-4 py-3 border-t border-gray-100">
+                <div className="flex items-center justify-center gap-2 px-4 py-3 border-t border-white/5">
                   <button
                     onClick={() => setCurrentPageSemData(p => Math.max(1, p - 1))}
                     disabled={currentPageSemData === 1}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-white/10 text-gray-300 hover:border-blue-500/50 hover:text-blue-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors bg-[#0f1a2b]"
                   >
                     Anterior
                   </button>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-400">
                     {currentPageSemData} / {totalPagesSemData}
                   </span>
                   <button
                     onClick={() => setCurrentPageSemData(p => Math.min(totalPagesSemData, p + 1))}
                     disabled={currentPageSemData === totalPagesSemData}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-white/10 text-gray-300 hover:border-blue-500/50 hover:text-blue-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors bg-[#0f1a2b]"
                   >
                     Próxima
                   </button>

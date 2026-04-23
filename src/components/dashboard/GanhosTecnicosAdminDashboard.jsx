@@ -61,8 +61,8 @@ export default function GanhosTecnicosAdminDashboard({ tecnicos, totalGanhoSeman
         </div>
       </div>
 
-      {/* Lista por técnico */}
-      <CardContent className="p-0 overflow-y-auto max-h-[300px]">
+      {/* Lista por técnico — layout compacto em 1 linha cada */}
+      <CardContent className="p-0 overflow-y-auto max-h-[440px]">
         {sortedTecnicos.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-gray-500 text-sm">Nenhum dado financeiro disponível</p>
@@ -76,28 +76,28 @@ export default function GanhosTecnicosAdminDashboard({ tecnicos, totalGanhoSeman
               return (
                 <div
                   key={tec.id || tec.tecnico_id}
-                  className={`px-4 sm:px-5 py-3 transition-colors ${
+                  className={`px-4 sm:px-5 py-2 transition-colors ${
                     saldoPositivo ? 'bg-emerald-900/20 hover:bg-emerald-900/30'
                     : saldoNegativo ? 'bg-red-900/20 hover:bg-red-900/30'
                     : 'hover:bg-white/5'
                   }`}
                 >
                   {/* Nome + saldo badge */}
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-1.5">
                     <div className="min-w-0">
-                      <p className="font-semibold text-sm text-gray-200 truncate">{tec.tecnico_nome}</p>
-                      <p className="text-[11px] text-gray-500 truncate">{tec.equipe_nome || 'Sem equipe'}</p>
+                      <p className="font-semibold text-sm text-gray-200 truncate leading-tight">{tec.tecnico_nome}</p>
+                      <p className="text-[10px] text-gray-500 truncate leading-tight">{tec.equipe_nome || 'Sem equipe'}</p>
                     </div>
                     {/* Saldo em aberto */}
                     <div className="ml-3 shrink-0 text-right">
-                      <div className={`text-sm font-bold tabular-nums ${
+                      <div className={`text-sm font-bold tabular-nums leading-tight ${
                         saldoPositivo ? 'text-emerald-400'
                         : saldoNegativo ? 'text-red-400'
                         : 'text-gray-500'
                       }`}>
                         {saldoPositivo ? '+' : ''}{fmt(saldo)}
                       </div>
-                      <div className={`text-[9px] font-semibold ${
+                      <div className={`text-[9px] font-semibold leading-tight ${
                         saldoPositivo ? 'text-emerald-500'
                         : saldoNegativo ? 'text-red-500'
                         : 'text-gray-600'
@@ -107,21 +107,21 @@ export default function GanhosTecnicosAdminDashboard({ tecnicos, totalGanhoSeman
                     </div>
                   </div>
 
-                  {/* Bruto semana | Pago semana | A receber */}
-                  <div className="flex items-center gap-3 sm:gap-4">
-                    <div className="flex flex-col">
-                      <span className="text-[9px] uppercase font-bold tracking-wider text-gray-600">Bruto sem.</span>
-                      <span className="text-xs font-semibold text-gray-300">{fmt(tec.total_ganho)}</span>
+                  {/* Bruto sem | Pago sem | Crédito pend — inline compacto */}
+                  <div className="flex items-center gap-3 sm:gap-4 text-[11px] tabular-nums">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] uppercase font-bold tracking-wider text-gray-600">Bruto:</span>
+                      <span className="font-semibold text-gray-300">{fmt(tec.total_ganho)}</span>
                     </div>
-                    <div className="w-px h-6 bg-white/10 shrink-0" />
-                    <div className="flex flex-col">
-                      <span className="text-[9px] uppercase font-bold tracking-wider text-gray-600">Pago sem.</span>
-                      <span className="text-xs font-semibold text-blue-400">{fmt(tec.credito_pago)}</span>
+                    <div className="w-px h-3 bg-white/10 shrink-0" />
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] uppercase font-bold tracking-wider text-gray-600">Pago:</span>
+                      <span className="font-semibold text-blue-400">{fmt(tec.credito_pago)}</span>
                     </div>
-                    <div className="w-px h-6 bg-white/10 shrink-0" />
-                    <div className="flex flex-col">
-                      <span className="text-[9px] uppercase font-bold tracking-wider text-gray-600">Crédito pend.</span>
-                      <span className={`text-xs font-bold ${tec.credito_pendente > 0.01 ? 'text-amber-400' : 'text-gray-500'}`}>
+                    <div className="w-px h-3 bg-white/10 shrink-0" />
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] uppercase font-bold tracking-wider text-gray-600">Pend:</span>
+                      <span className={`font-bold ${tec.credito_pendente > 0.01 ? 'text-amber-400' : 'text-gray-500'}`}>
                         {fmt(tec.credito_pendente)}
                       </span>
                     </div>

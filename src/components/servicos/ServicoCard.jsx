@@ -68,29 +68,29 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
   const mapsLink = getGoogleMapsLink();
   const getTipoColor = (tipo) => {
     if (tipo?.startsWith('Limpeza')) {
-      return 'bg-blue-100 text-blue-700 border-blue-200';
+      return 'bg-blue-500/15 text-blue-300 border-blue-500/30';
     }
     if (tipo?.startsWith('Instalação')) {
-      return 'bg-green-100 text-green-700 border-green-200';
+      return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
     }
     if (tipo?.includes('capacitor') || tipo?.includes('gás') || tipo?.includes('defeito')) {
-      return 'bg-orange-100 text-orange-700 border-orange-200';
+      return 'bg-orange-500/15 text-orange-300 border-orange-500/30';
     }
-    return 'bg-gray-100 text-gray-700 border-gray-200';
+    return 'bg-white/5 text-gray-300 border-white/10';
   };
 
   const getStatusConfig = (status) => {
     switch(status) {
       case 'concluido':
-        return { label: 'Concluído', color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle };
+        return { label: 'Concluído', color: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30', icon: CheckCircle };
       case 'andamento':
-        return { label: 'Em Andamento', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Play };
+        return { label: 'Em Andamento', color: 'bg-blue-500/15 text-blue-300 border-blue-500/30', icon: Play };
       case 'agendado':
-        return { label: 'Agendado', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', icon: Calendar };
+        return { label: 'Agendado', color: 'bg-amber-500/15 text-amber-300 border-amber-500/30', icon: Calendar };
       case 'reagendado':
-        return { label: 'Reagendado', color: 'bg-orange-100 text-orange-700 border-orange-200', icon: CalendarClock };
+        return { label: 'Reagendado', color: 'bg-orange-500/15 text-orange-300 border-orange-500/30', icon: CalendarClock };
       default:
-        return { label: 'Aberto', color: 'bg-gray-100 text-gray-700 border-gray-200', icon: Clock };
+        return { label: 'Aberto', color: 'bg-white/5 text-gray-300 border-white/10', icon: Clock };
     }
   };
 
@@ -106,7 +106,7 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
 
   if (compact) {
     return (
-      <div className={`space-y-3 ${isAtrasadoGrave ? 'rounded-lg border-2 border-red-400 bg-red-50 p-1' : ''}`}>
+      <div className={`space-y-3 ${isAtrasadoGrave ? 'rounded-lg border-2 border-red-500/60 bg-red-500/10 p-1' : ''}`}>
         {isAtrasadoGrave && (
           <div className="flex items-center gap-1.5 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md mb-1 animate-pulse">
             <AlertTriangle className="w-3 h-3" />
@@ -116,11 +116,11 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
       <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             {servico.os_numero && (
-              <span className="inline-block text-[10px] font-bold text-blue-500 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded mb-1">
+              <span className="inline-block text-[10px] font-bold text-blue-300 bg-blue-500/15 border border-blue-500/30 px-1.5 py-0.5 rounded mb-1">
                 {servico.os_numero}
               </span>
             )}
-            <h4 className="font-semibold text-gray-800 break-words">{servico.cliente_nome}</h4>
+            <h4 className="font-semibold text-gray-200 break-words">{servico.cliente_nome}</h4>
             <TipoServicoDisplay value={servico.tipo_servico} className="mt-0.5 [&_span.text-sm]:text-xs" />
             <div className="flex items-center gap-1 mt-1.5 flex-wrap">
               <Badge className={`${statusConfig.color} text-xs border`}>
@@ -149,54 +149,54 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
             variant="ghost"
             size="icon"
             onClick={handleShare}
-            className="h-8 w-8 text-gray-400 hover:text-gray-700 flex-shrink-0"
+            className="h-8 w-8 text-gray-400 hover:text-gray-200 hover:bg-white/5 flex-shrink-0"
           >
             <Share2 className="w-4 h-4" />
           </Button>
         </div>
 
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
+          <div className="flex items-center gap-2 text-sm text-gray-300">
             <Phone className="w-3.5 h-3.5 text-blue-400" />
             <span className="text-xs">{formatPhone(servico.telefone)}</span>
           </div>
-          
+
           {servico.horario && (
-            <div className={`flex items-center gap-2 text-sm ${servico.horario_alerta ? 'text-red-600 font-bold' : 'text-gray-600'}`}>
+            <div className={`flex items-center gap-2 text-sm ${servico.horario_alerta ? 'text-red-400 font-bold' : 'text-gray-300'}`}>
               {servico.horario_alerta
-                ? <AlertTriangle className="w-3.5 h-3.5 text-red-500 animate-pulse" />
+                ? <AlertTriangle className="w-3.5 h-3.5 text-red-400 animate-pulse" />
                 : <Clock className="w-3.5 h-3.5 text-blue-400" />
               }
               <span className="text-xs">{servico.horario}</span>
-              {servico.horario_alerta && <span className="text-xs bg-red-100 text-red-600 px-1 rounded">HORA MARCADA</span>}
+              {servico.horario_alerta && <span className="text-xs bg-red-500/20 text-red-300 px-1 rounded">HORA MARCADA</span>}
             </div>
           )}
 
           {servico.descricao && (
-            <div className="text-xs text-gray-500 bg-gray-50 px-2 py-1.5 rounded-md line-clamp-2 border border-gray-100">
+            <div className="text-xs text-gray-400 bg-[#0b1420] px-2 py-1.5 rounded-md line-clamp-2 border border-white/5">
               {servico.descricao}
             </div>
           )}
 
           {servico.valor > 0 && (
-            <div className="flex items-center gap-2 text-sm text-green-600 font-semibold">
+            <div className="flex items-center gap-2 text-sm text-emerald-400 font-semibold">
               <DollarSign className="w-3.5 h-3.5" />
               <span className="text-xs">R$ {servico.valor.toFixed(2)}</span>
             </div>
           )}
         </div>
 
-        <div className="flex gap-2 pt-2 border-t border-gray-100">
+        <div className="flex gap-2 pt-2 border-t border-white/5">
           <button
             onClick={() => openWhatsApp(servico.telefone)}
-            className="flex items-center justify-center w-10 h-10 rounded-lg transition-opacity hover:opacity-80 bg-green-50 border border-green-200"
+            className="flex items-center justify-center w-10 h-10 rounded-lg transition-opacity hover:opacity-80 bg-emerald-500/15 border border-emerald-500/30"
             title="WhatsApp"
           >
             <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" className="w-6 h-6" />
           </button>
           <button
             onClick={() => setShowDetalhes(true)}
-            className="flex items-center justify-center gap-1.5 flex-1 h-10 bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs font-semibold rounded-lg transition-colors"
+            className="flex items-center justify-center gap-1.5 flex-1 h-10 bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 text-xs font-semibold rounded-lg transition-colors border border-purple-500/30"
             title="Ver detalhes"
           >
             <Eye className="w-4 h-4" />
@@ -214,11 +214,11 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="space-y-2">
           {onStatusChange && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" className="flex-1 h-10 text-xs font-semibold">
+                <Button size="sm" variant="outline" className="w-full h-10 text-xs font-semibold bg-[#0f1a2b] border-white/10 text-gray-200 hover:bg-white/5 hover:text-gray-100">
                   <StatusIcon className="w-4 h-4 mr-1" />
                   Status
                 </Button>
@@ -243,25 +243,33 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {onEdit && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onEdit(servico)}
-              className="h-10 w-10 p-0 text-gray-600 hover:text-blue-600 hover:border-blue-300"
-            >
-              <Pencil className="w-4 h-4" />
-            </Button>
-          )}
-          {onDelete && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onDelete(servico)}
-              className="h-10 w-10 p-0 text-gray-600 hover:text-red-600 hover:border-red-300"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+          {(onEdit || onDelete) && (
+            <div className="grid grid-cols-2 gap-2">
+              {onEdit && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onEdit(servico)}
+                  className="h-10 text-xs font-semibold bg-[#0f1a2b] border-white/10 text-blue-300 hover:bg-blue-500/15 hover:border-blue-500/40 hover:text-blue-200"
+                  title="Editar"
+                >
+                  <Pencil className="w-4 h-4 mr-1" />
+                  Editar
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onDelete(servico)}
+                  className="h-10 text-xs font-semibold bg-[#0f1a2b] border-white/10 text-red-300 hover:bg-red-500/15 hover:border-red-500/40 hover:text-red-200"
+                  title="Excluir"
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Excluir
+                </Button>
+              )}
+            </div>
           )}
         </div>
       <ServicoDetalhesModal open={showDetalhes} onClose={() => setShowDetalhes(false)} servico={servico} />
@@ -272,8 +280,8 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
   return (
     <Card className={`group hover:shadow-md transition-all duration-300 shadow-sm ${
       isAtrasadoGrave
-        ? 'border-2 border-red-500 bg-red-50'
-        : 'border border-gray-200 bg-white'
+        ? 'border-2 border-red-500/60 bg-red-500/5'
+        : 'border border-white/5 bg-[#152236]'
     }`}>
       <CardContent className="p-0">
         {isAtrasadoGrave && (
@@ -282,17 +290,17 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
             ⚠ SERVIÇO EM ATRASO — {diasAtraso} {diasAtraso === 1 ? 'DIA' : 'DIAS'} — REQUER ATENÇÃO
           </div>
         )}
-        <div className="p-4 border-b border-gray-100" style={{background: isAtrasadoGrave ? 'linear-gradient(135deg, #fef2f2, #fee2e2)' : 'linear-gradient(135deg, #eff6ff, #fefce8)'}}>
+        <div className={`p-4 border-b border-white/5 ${isAtrasadoGrave ? 'bg-red-500/10' : 'bg-[#0f1a2b]'}`}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">
               {servico.os_numero && (
-                <span className="inline-block text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded mb-1">
+                <span className="inline-block text-xs font-bold text-blue-300 bg-blue-500/15 border border-blue-500/30 px-2 py-0.5 rounded mb-1">
                   {servico.os_numero}
                 </span>
               )}
-              <h3 className="font-semibold text-lg text-gray-800">{servico.cliente_nome}</h3>
+              <h3 className="font-semibold text-lg text-gray-200">{servico.cliente_nome}</h3>
               <div className="flex items-center gap-2 flex-wrap mt-1">
-                <Badge className="bg-blue-100 text-blue-700 border border-blue-200 text-xs">
+                <Badge className="bg-blue-500/15 text-blue-300 border border-blue-500/30 text-xs">
                   {formatTipoServicoCompact(servico.tipo_servico) || '-'}
                 </Badge>
                 <Badge className={`${statusConfig.color} border text-xs`}>
@@ -300,7 +308,7 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
                   {statusConfig.label}
                 </Badge>
                 {isAtrasado && !isAtrasadoGrave && (
-                  <Badge className="bg-red-100 text-red-600 border border-red-300 text-xs font-bold">
+                  <Badge className="bg-red-500/15 text-red-300 border border-red-500/30 text-xs font-bold">
                     <AlertTriangle className="w-3 h-3 mr-1" />
                     Atrasado
                   </Badge>
@@ -311,7 +319,7 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
               variant="ghost"
               size="icon"
               onClick={handleShare}
-              className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0"
+              className="text-gray-400 hover:text-gray-200 hover:bg-white/5 flex-shrink-0"
             >
               <Share2 className="w-5 h-5" />
             </Button>
@@ -320,13 +328,13 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
 
         <div className="p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-gray-700">
+            <div className="flex items-center gap-2 text-gray-300">
               <Phone className="w-4 h-4 text-blue-400" />
               <span className="font-medium text-sm">{formatPhone(servico.telefone)}</span>
             </div>
             <button
               onClick={() => openWhatsApp(servico.telefone)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-lg transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg transition-colors"
             >
               <MessageCircle className="w-4 h-4" />
               <span className="hidden sm:inline">WhatsApp</span>
@@ -334,14 +342,14 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
           </div>
 
           {servico.cpf && (
-            <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+            <div className="flex items-center gap-2 text-sm text-gray-300 bg-[#0b1420] px-3 py-2 rounded-lg border border-white/5">
               <CreditCard className="w-4 h-4 text-blue-400" />
               <span>CPF: {servico.cpf}</span>
             </div>
           )}
 
           {servico.endereco && (
-            <div className="flex items-start gap-2 text-gray-600">
+            <div className="flex items-start gap-2 text-gray-300">
               <MapPin className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
               <span className="text-sm line-clamp-2">{servico.endereco}</span>
             </div>
@@ -352,11 +360,11 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
               href={mapsLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition-colors font-semibold border border-gray-200 hover:border-blue-400 text-gray-600 hover:text-blue-600 bg-gray-50"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition-colors font-semibold border border-white/10 hover:border-blue-500/40 text-gray-300 hover:text-blue-300 bg-[#0b1420]"
             >
               <Navigation className="w-4 h-4" />
               <span className="text-sm">
-                {servico.latitude && servico.longitude 
+                {servico.latitude && servico.longitude
                   ? `📍 ${servico.latitude.toFixed(6)}, ${servico.longitude.toFixed(6)}`
                   : '📍 Ver no Google Maps'
                 }
@@ -366,7 +374,7 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
 
           <div className="flex flex-wrap gap-2">
             {servico.dia_semana && (
-              <div className="flex items-center gap-1.5 text-sm text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg bg-gray-50">
+              <div className="flex items-center gap-1.5 text-sm text-gray-300 border border-white/10 px-3 py-1.5 rounded-lg bg-[#0b1420]">
                 <Calendar className="w-4 h-4 text-blue-400" />
                 {servico.dia_semana}
               </div>
@@ -374,11 +382,11 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
             {servico.horario && (
               <div className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border font-medium ${
                 servico.horario_alerta
-                  ? 'text-red-600 border-red-300 bg-red-50'
-                  : 'text-gray-600 border-gray-200 bg-gray-50'
+                  ? 'text-red-300 border-red-500/30 bg-red-500/10'
+                  : 'text-gray-300 border-white/10 bg-[#0b1420]'
               }`}>
                 {servico.horario_alerta
-                  ? <AlertTriangle className="w-4 h-4 text-red-500 animate-pulse" />
+                  ? <AlertTriangle className="w-4 h-4 text-red-400 animate-pulse" />
                   : <Clock className="w-4 h-4 text-blue-400" />
                 }
                 {servico.horario}
@@ -386,7 +394,7 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
               </div>
             )}
             {servico.valor > 0 && (
-              <div className="flex items-center gap-1.5 text-sm text-green-600 border border-green-200 px-3 py-1.5 rounded-lg font-semibold bg-green-50">
+              <div className="flex items-center gap-1.5 text-sm text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-lg font-semibold bg-emerald-500/10">
                 <DollarSign className="w-4 h-4" />
                 R$ {servico.valor.toFixed(2)}
               </div>
@@ -394,15 +402,15 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
           </div>
 
           {servico.descricao && (
-            <p className="text-sm text-gray-500 border border-gray-100 p-3 rounded-lg line-clamp-2 bg-gray-50">
+            <p className="text-sm text-gray-400 border border-white/5 p-3 rounded-lg line-clamp-2 bg-[#0b1420]">
               {servico.descricao}
             </p>
           )}
 
-          <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+          <div className="flex items-center gap-2 pt-2 border-t border-white/5">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" className="flex-1 text-gray-700 hover:bg-gray-50">
+                <Button size="sm" variant="outline" className="flex-1 bg-[#0f1a2b] border-white/10 text-gray-200 hover:bg-white/5 hover:text-gray-100">
                   <StatusIcon className="w-4 h-4 mr-1.5" />
                   {statusConfig.label}
                 </Button>
@@ -430,7 +438,8 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
               variant="outline"
               size="sm"
               onClick={() => onEdit(servico)}
-              className="text-gray-600 hover:text-blue-600 hover:border-blue-300"
+              className="bg-[#0f1a2b] border-white/10 text-blue-300 hover:bg-blue-500/15 hover:border-blue-500/40 hover:text-blue-200"
+              title="Editar"
             >
               <Pencil className="w-4 h-4" />
             </Button>
@@ -438,7 +447,8 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
               variant="outline"
               size="sm"
               onClick={() => onDelete(servico)}
-              className="text-gray-600 hover:text-red-500 hover:border-red-300"
+              className="bg-[#0f1a2b] border-white/10 text-red-300 hover:bg-red-500/15 hover:border-red-500/40 hover:text-red-200"
+              title="Excluir"
             >
               <Trash2 className="w-4 h-4" />
             </Button>
