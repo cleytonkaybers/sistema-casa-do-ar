@@ -86,6 +86,168 @@ export default function HistoricoClientes() {
     }
   };
 
+  // Regera Atendimento + Comissao + Preventiva para servicos concluidos sem atendimento.
+  // Reproduz o fluxo de Servicos.handleConfirmarConclusao em modo idempotente.
+  const regerarMutation = useMutation({
+    mutationFn: async (servico) => {
+      const user = await base44.auth.me();
+      const agora = new Date().toISOString();
+
+      // 1. Buscar historico de status (best-effort)
+      const historicoStatus = await base44.entities.AlteracaoStatus
+        .filter({ servico_id: servico.id }, 'data_alteracao')
+        .catch(() => []);
+
+      // 2. Criar Atendimento com todos os campos
+      const detalhesCompletos = {
+        dados_ordem_servico: {
+          id: servico.id,
+          cliente_nome: servico.cliente_nome,
+          cpf: servico.cpf || null,
+          telefone: servico.telefone || null,
+          endereco: servico.endereco || null,
+          latitude: servico.latitude || null,
+          longitude: servico.longitude || null,
+          tipo_servico: servico.tipo_servico,
+          descricao: servico.descricao || null,
+          valor: servico.valor || 0,
+          data_programada: servico.data_programada || null,
+          horario: servico.horario || null,
+          dia_semana: servico.dia_semana || null,
+          equipe_id: servico.equipe_id || null,
+          equipe_nome: servico.equipe_nome || null,
+          google_maps_link: servico.google_maps_link || null,
+          data_criacao: servico.created_date || null,
+        },
+        observacoes_conclusao: servico.observacoes_conclusao || null,
+        usuario_conclusao: user?.email,
+        data_conclusao: agora,
+        historico_status: (historicoStatus || []).map(h => ({
+          status_anterior: h.status_anterior,
+          status_novo: h.status_novo,
+          usuario: h.usuario,
+          data_alteracao: h.data_alteracao,
+        })),
+        regerado_em: agora,
+      };
+
+      await base44.entities.Atendimento.create({
+        servico_id: servico.id,
+        os_numero: servico.os_numero || '',
+        cliente_nome: servico.cliente_nome,
+        cpf: servico.cpf || '',
+        telefone: servico.telefone || '',
+        endereco: servico.endereco || '',
+        latitude: servico.latitude || null,
+        longitude: servico.longitude || null,
+        data_atendimento: servico.data_programada,
+        horario: servico.horario || '',
+        dia_semana: servico.dia_semana || '',
+        tipo_servico: servico.tipo_servico,
+        descricao: servico.descricao || '',
+        valor: servico.valor || 0,
+        observacoes_conclusao: servico.observacoes_conclusao || '',
+        equipe_id: servico.equipe_id || '',
+        equipe_nome: servico.equipe_nome || '',
+        usuario_conclusao: user?.email,
+        data_conclusao: agora,
+        google_maps_link: servico.google_maps_link || '',
+        detalhes: JSON.stringify(detalhesCompletos),
+      });
+
+      // 3. Gerar comissao se elegivel e ainda nao gerada
+      const comissaoHabilitada = servico.gerar_comissao !== false;
+      let tecnicosComissionados = 0;
+      if (comissaoHabilitada && servico.equipe_id && servico.valor && !servico.comissao_gerada) {
+        const tecnicos = await base44.entities.TecnicoFinanceiro
+          .filter({ equipe_id: servico.equipe_id })
+          .catch(() => []);
+        if (tecnicos && tecnicos.length > 0) {
+          const valorTotal = servico.valor;
+          const valorComissaoTecnico = valorTotal * 0.15;
+          await Promise.all(tecnicos.map(async (tec) => {
+            await base44.entities.LancamentoFinanceiro.create({
+              servico_id: servico.id,
+              equipe_id: servico.equipe_id,
+              equipe_nome: servico.equipe_nome || '',
+              tecnico_id: tec.tecnico_id,
+              tecnico_nome: tec.tecnico_nome,
+              cliente_nome: servico.cliente_nome,
+              tipo_servico: servico.tipo_servico,
+              valor_total_servico: valorTotal,
+              percentual_equipe: 30,
+              valor_comissao_equipe: valorTotal * 0.3,
+              percentual_tecnico: 15,
+              valor_comissao_tecnico: valorComissaoTecnico,
+              status: 'pendente',
+              data_geracao: agora,
+              usuario_geracao: user?.email,
+            });
+            await base44.entities.TecnicoFinanceiro.update(tec.id, {
+              credito_pendente: (tec.credito_pendente || 0) + valorComissaoTecnico,
+              total_ganho: (tec.total_ganho || 0) + valorComissaoTecnico,
+              data_ultima_atualizacao: agora,
+            });
+          }));
+          await base44.entities.Servico.update(servico.id, { comissao_gerada: true });
+          tecnicosComissionados = tecnicos.length;
+        }
+      }
+
+      // 4. Atualizar preventiva (telefone normalizado + fallback por nome)
+      let preventivaAtualizada = false;
+      if (!servico.sem_registro_cliente) {
+        try {
+          const todosClientes = await base44.entities.Cliente.list();
+          const telefoneLimpo = (servico.telefone || '').replace(/\D/g, '');
+          const nomeNormalizado = (servico.cliente_nome || '').trim().toLowerCase();
+          let clienteMatch = null;
+          if (telefoneLimpo) {
+            clienteMatch = todosClientes.find(c => (c.telefone || '').replace(/\D/g, '') === telefoneLimpo);
+          }
+          if (!clienteMatch && nomeNormalizado) {
+            clienteMatch = todosClientes.find(c => (c.nome || '').trim().toLowerCase() === nomeNormalizado);
+          }
+          if (clienteMatch) {
+            const dataConc = servico.data_programada || new Date().toISOString().split('T')[0];
+            const proxima = new Date(dataConc);
+            proxima.setMonth(proxima.getMonth() + 6);
+            await base44.entities.Cliente.update(clienteMatch.id, {
+              ultima_manutencao: dataConc,
+              proxima_manutencao: proxima.toISOString().split('T')[0],
+            });
+            preventivaAtualizada = true;
+          }
+        } catch (err) {
+          console.error('Erro ao atualizar preventiva (regerar):', err);
+        }
+      }
+
+      return { tecnicosComissionados, preventivaAtualizada };
+    },
+    onSuccess: ({ tecnicosComissionados, preventivaAtualizada }) => {
+      queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
+      queryClient.invalidateQueries({ queryKey: ['servicos'] });
+      queryClient.invalidateQueries({ queryKey: ['clientes'] });
+      queryClient.invalidateQueries({ queryKey: ['lancamentosFinanceiros'] });
+      queryClient.invalidateQueries({ queryKey: ['tecnicosFinanceiros'] });
+      const partes = ['✅ Atendimento criado'];
+      if (tecnicosComissionados > 0) partes.push(`comissao para ${tecnicosComissionados} tecnico(s)`);
+      if (preventivaAtualizada) partes.push('preventiva atualizada');
+      toast.success(partes.join(' + ') + '.');
+    },
+    onError: (err) => {
+      console.error('Erro ao regerar:', err);
+      toast.error('⚠️ Falha ao regerar: ' + (err?.message || 'tente novamente'));
+    },
+  });
+
+  const handleRegerar = (servicoRaw) => {
+    if (!servicoRaw) return;
+    if (regerarMutation.isPending) return;
+    regerarMutation.mutate(servicoRaw);
+  };
+
   const { data: servicos = [] } = useQuery({
     queryKey: ['servicos'],
     queryFn: () => base44.entities.Servico.list('-data_programada'),
@@ -118,12 +280,25 @@ export default function HistoricoClientes() {
     return map;
   }, [pagamentos]);
 
+  // Set O(1) de servico_ids que ja tem atendimento criado.
+  // Usado para detectar servicos concluidos "orfaos" (sem atendimento gerado).
+  const servicosComAtendimento = useMemo(() => {
+    const set = new Set();
+    atendimentos.forEach(a => { if (a.servico_id) set.add(a.servico_id); });
+    return set;
+  }, [atendimentos]);
+
   const agrupadoPorCliente = useMemo(() => {
     const historicoUnificado = [];
 
-    // Adiciona Serviços (Agendados, Abertos, Reagendados, Andamento)
+    // Adiciona Servicos (Agendados, Abertos, Reagendados, Andamento)
+    // E tambem servicos CONCLUIDOS sem atendimento (orfaos) para permitir regeneracao.
     servicos.forEach(s => {
-      if (s.status === 'concluido') return; // Os itens concluídos no ciclo real de app tornam-se Atendimento
+      const isConcluido = s.status === 'concluido';
+      const isOrfao = isConcluido && !servicosComAtendimento.has(s.id);
+
+      // Concluido COM atendimento: ja aparece via atendimentos.forEach abaixo, pula aqui.
+      if (isConcluido && !isOrfao) return;
 
       const pag = pagamentoPorServico.get(s.id);
       let finalValor = s.valor;
@@ -141,9 +316,13 @@ export default function HistoricoClientes() {
         data: s.data_programada,
         horario: s.horario,
         status: s.status,
+        equipe_id: s.equipe_id,
         equipe_nome: s.equipe_nome,
         valor: finalValor,
-        descricao: s.descricao
+        descricao: s.descricao,
+        // Snapshot do servico bruto para a regeneracao saber tudo que precisa
+        _servicoRaw: isOrfao ? s : null,
+        precisaRegerar: isOrfao,
       });
     });
 
@@ -220,7 +399,7 @@ export default function HistoricoClientes() {
     });
 
     return clientesFiltrados;
-  }, [atendimentos, servicos, debouncedSearch, pagamentoPorServico, pagamentoPorAtendimento]);
+  }, [atendimentos, servicos, servicosComAtendimento, debouncedSearch, pagamentoPorServico, pagamentoPorAtendimento]);
 
   const totalServicosHistorico = servicos.length + atendimentos.length;
   const totalValorHistorico = atendimentos.reduce((sum, item) => sum + (item.valor || 0), 0);
@@ -559,9 +738,14 @@ export default function HistoricoClientes() {
                                 
                                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-2">
                                   <div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                        <h5 className="font-bold text-gray-200 text-sm">{formatTipoServicoCompact(item.tipo_servico) || 'Serviço Não Especificado'}</h5>
                                        <span className="text-[10px] font-bold text-gray-500">#{item.originalId}</span>
+                                       {item.precisaRegerar && (
+                                         <Badge className="bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-bold uppercase tracking-wide">
+                                           ⚠️ Sem atendimento
+                                         </Badge>
+                                       )}
                                     </div>
                                     <div className="flex items-center gap-2 mt-1">
                                       <Calendar className="w-3 h-3 text-blue-400" />
@@ -595,6 +779,17 @@ export default function HistoricoClientes() {
                                        <span className="text-[10px] text-red-400 font-bold uppercase tracking-widest">Sem Preço</span>
                                     )}
                                     {getStatusBadge(item.status)}
+                                    {item.precisaRegerar && (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleRegerar(item._servicoRaw)}
+                                        disabled={regerarMutation.isPending}
+                                        className="h-7 px-3 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-[11px] font-bold rounded-full"
+                                        title="Criar atendimento + comissao + preventiva para este servico"
+                                      >
+                                        {regerarMutation.isPending ? '...' : '🔁 Regerar'}
+                                      </Button>
+                                    )}
                                     <Button variant="ghost" size="icon" onClick={() => handleDelete(item)} disabled={deleteMutation.isPending} className="h-6 w-6 ml-2 text-red-500 hover:text-white hover:bg-red-500/80 rounded-full bg-red-500/10 border border-red-500/20" title="Apagar Registro Permanentemente">
                                       <Trash2 className="w-3 h-3" />
                                     </Button>
