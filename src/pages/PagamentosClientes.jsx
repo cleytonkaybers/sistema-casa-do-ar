@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseHistoricoData, toLocalDateSafe } from '@/lib/dateUtils';
+import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 import CompromissoClientePDF from '@/components/financeiro/CompromissoClientePDF';
 import {
   Search, DollarSign, CheckCircle2, AlertCircle, Calendar,
@@ -38,7 +39,6 @@ const getWhatsApp = (phone) => {
   const n = phone.replace(/\D/g, '');
   return `https://wa.me/55${n}`;
 };
-const TIPOS_IGNORADOS = ['Ver defeito', 'Verificar defeito', 'Outro tipo de serviço', 'Serviço avulso'];
 const calcularSaldo = (total, pago) => (total || 0) - (pago || 0);
 
 async function gerarPDFCobranca(pag) {
@@ -1123,7 +1123,7 @@ function PagamentosClientesContent() {
 
     const lista = pagamentos.filter(p =>
       statusFiltros.includes(p.status) &&
-      !TIPOS_IGNORADOS.includes(p.tipo_servico)
+      !isApenasTiposIgnorados(p.tipo_servico)
     );
 
     const agrupado = {};
@@ -1292,7 +1292,7 @@ function PagamentosClientesContent() {
       if (idsRegistrados.has(a.id)) return false;
       if (criandoIds.current.has(a.id)) return false;
       if (deletedAtendimentoIds.current.has(a.id)) return false;
-      if (TIPOS_IGNORADOS.includes(a.tipo_servico)) return false;
+      if (isApenasTiposIgnorados(a.tipo_servico)) return false;
       const dataRef = a.data_conclusao || a.created_date;
       if (!dataRef) return false;
       try {
@@ -1564,7 +1564,7 @@ function PagamentosClientesContent() {
     pagamentos.filter(p =>
       p.arquivado !== true &&
       (!debouncedSearch || p.cliente_nome?.toLowerCase().includes(debouncedSearch.toLowerCase())) &&
-      !TIPOS_IGNORADOS.includes(p.tipo_servico)
+      !isApenasTiposIgnorados(p.tipo_servico)
     )
   , [pagamentos, debouncedSearch]);
 

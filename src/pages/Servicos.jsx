@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { format, parseISO, startOfMonth, isSameMonth, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { usePermissions } from '@/components/auth/PermissionGuard';
+import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 
 export default function ServicosPage() {
   const { hasPermission, isAdmin, user: currentUser, loading: loadingUser } = usePermissions();
@@ -249,8 +250,10 @@ export default function ServicosPage() {
       const statusAnterior = servicoSnapshot.status || 'aberto';
       const agora = new Date().toISOString();
 
-      // "Ver defeito" / "Verificar defeito" não gera atendimento, comissões, histórico nem preventiva
-      const isVerDefeito = servicoSnapshot.tipo_servico === 'Ver defeito' || servicoSnapshot.tipo_servico === 'Verificar defeito';
+      // Servico que SO contem tipos ignorados (ex: "Ver defeito" sozinho) nao gera
+      // atendimento, comissoes, historico nem preventiva. Mas se o tecnico editar
+      // e adicionar outro servico (ex: "Ver defeito + Limpeza 9k"), gera tudo normal.
+      const isVerDefeito = isApenasTiposIgnorados(servicoSnapshot.tipo_servico);
 
       // 1. Atualizar serviço como concluído
       await updateMutation.mutateAsync({ 

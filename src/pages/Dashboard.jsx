@@ -34,6 +34,7 @@ import { format, differenceInDays, startOfMonth, endOfMonth, isWithinInterval, i
 import { ptBR } from 'date-fns/locale';
 import { getLocalDate, getStartOfWeek, getEndOfWeek, toLocalDate, toLocalDateSafe, parseHistoricoData } from '@/lib/dateUtils';
 import { formatPhone } from '@/lib/utils/formatters';
+import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 
 export default function Dashboard() {
   const [filtroServicos, setFiltroServicos] = useState('mes');
@@ -103,9 +104,8 @@ export default function Dashboard() {
   const backupAtrasado = isAdmin && (diasSemBackup === null || diasSemBackup > 7);
 
   // Cards de alerta para admin
-  const TIPOS_IGNORADOS = ['Ver defeito', 'Verificar defeito', 'Outro tipo de serviço', 'Serviço avulso'];
   const semPrecificacao = pagamentosClientes.filter(p =>
-    p.status !== 'pago' && !p.arquivado && (p.valor_total === 0 || p.valor_total === 1) && !TIPOS_IGNORADOS.includes(p.tipo_servico)
+    p.status !== 'pago' && !p.arquivado && (p.valor_total === 0 || p.valor_total === 1) && !isApenasTiposIgnorados(p.tipo_servico)
   );
   const cobrarHoje = pagamentosClientes.filter(p => {
     if (p.status === 'pago') return false;
