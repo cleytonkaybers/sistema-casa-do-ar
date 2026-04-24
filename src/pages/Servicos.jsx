@@ -298,9 +298,13 @@ export default function ServicosPage() {
           usuario: user?.email,
           data_alteracao: agora,
           tipo_registro: 'servico'
-        }).catch(err => console.error('Erro ao criar status:', err)),
+        }).catch(err => {
+          console.error('Erro ao criar AlteracaoStatus:', err);
+          // nao bloqueia: AlteracaoStatus eh apenas log de historico
+        }),
 
         base44.entities.AlteracaoStatus.filter({ servico_id: servicoSnapshot.id }, 'data_alteracao')
+          .catch(() => [])
           .then(historicoStatus => {
             const detalhesCompletos = {
               dados_ordem_servico: {
@@ -355,14 +359,26 @@ export default function ServicosPage() {
               google_maps_link: servicoSnapshot.google_maps_link || '',
               detalhes: JSON.stringify(detalhesCompletos),
             });
-          }).catch(err => console.error('Erro ao criar atendimento:', err)),
+          }).catch(err => {
+            console.error('Erro ao criar atendimento:', err);
+            toast.error('⚠️ Falha ao criar atendimento — abra Servicos > este cliente > Concluir novamente.');
+          }),
 
-        // Gerar comissões automaticamente ao concluir
+        // Gerar comissoes automaticamente ao concluir.
+        // gerar_comissao: o schema define default=true, entao tratamos undefined como true
+        // (so pulamos se foi explicitamente setado para false).
         (async () => {
-          if (!servicoSnapshot.gerar_comissao || !servicoSnapshot.equipe_id || !servicoSnapshot.valor || servicoSnapshot.comissao_gerada) return;
+          const comissaoHabilitada = servicoSnapshot.gerar_comissao !== false;
+          if (!comissaoHabilitada) return;
+          if (!servicoSnapshot.equipe_id) return;
+          if (!servicoSnapshot.valor) return;
+          if (servicoSnapshot.comissao_gerada) return;
           try {
             const tecnicos = await base44.entities.TecnicoFinanceiro.filter({ equipe_id: servicoSnapshot.equipe_id });
-            if (!tecnicos || tecnicos.length === 0) return;
+            if (!tecnicos || tecnicos.length === 0) {
+              toast.error(`⚠️ Comissao nao gerada: nenhum tecnico cadastrado na equipe "${servicoSnapshot.equipe_nome || servicoSnapshot.equipe_id}".`);
+              return;
+            }
             const valorTotal = servicoSnapshot.valor;
             const valorComissaoTecnico = valorTotal * 0.15;
             await Promise.all(tecnicos.map(async (tec) => {
@@ -392,33 +408,55 @@ export default function ServicosPage() {
             await base44.entities.Servico.update(servicoSnapshot.id, { comissao_gerada: true });
             queryClient.invalidateQueries({ queryKey: ['lancamentosFinanceiros'] });
             queryClient.invalidateQueries({ queryKey: ['tecnicosFinanceiros'] });
+            toast.success(`💰 Comissao gerada para ${tecnicos.length} tecnico(s).`);
           } catch (e) {
-            console.error('Erro ao gerar comissões:', e);
+            console.error('Erro ao gerar comissoes:', e);
+            toast.error('⚠️ Falha ao gerar comissao — verifique no Financeiro.');
           }
         })(),
       ]).then(() => {
         queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
         queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
       }).catch(err => {
-        console.error('Erro em operações secundárias:', err);
-        toast.error('Atenção: parte das operações pode ter falhado. Verifique comissões e atendimentos.');
+        console.error('Erro em operacoes secundarias:', err);
       });
 
-      // Atualizar preventiva do cliente em background
+      // Atualizar preventiva do cliente em background.
+      // Match por telefone normalizado (so digitos) com fallback por nome,
+      // para nao perder clientes cadastrados sem telefone ou com formatacao diferente.
       if (!isVerDefeito && !servicoSnapshot.sem_registro_cliente) {
-        base44.entities.Cliente.filter({ telefone: servicoSnapshot.telefone })
-          .then(clientesMatch => {
-            if (clientesMatch.length > 0) {
-              const dataConc = servicoSnapshot.data_programada || new Date().toISOString().split('T')[0];
-              const proxima = new Date(dataConc);
-              proxima.setMonth(proxima.getMonth() + 6);
-              return base44.entities.Cliente.update(clientesMatch[0].id, {
-                ultima_manutencao: dataConc,
-                proxima_manutencao: proxima.toISOString().split('T')[0]
-              });
+        (async () => {
+          try {
+            const todosClientes = await base44.entities.Cliente.list();
+            const telefoneLimpo = (servicoSnapshot.telefone || '').replace(/\D/g, '');
+            const nomeNormalizado = (servicoSnapshot.cliente_nome || '').trim().toLowerCase();
+
+            let clienteMatch = null;
+            if (telefoneLimpo) {
+              clienteMatch = todosClientes.find(c => (c.telefone || '').replace(/\D/g, '') === telefoneLimpo);
             }
-          }).then(() => queryClient.invalidateQueries({ queryKey: ['clientes'] }))
-          .catch(err => console.error('Erro ao atualizar preventiva:', err));
+            if (!clienteMatch && nomeNormalizado) {
+              clienteMatch = todosClientes.find(c => (c.nome || '').trim().toLowerCase() === nomeNormalizado);
+            }
+
+            if (!clienteMatch) {
+              toast.warning('⚠️ Preventiva nao atualizada: cliente nao encontrado no cadastro.');
+              return;
+            }
+
+            const dataConc = servicoSnapshot.data_programada || new Date().toISOString().split('T')[0];
+            const proxima = new Date(dataConc);
+            proxima.setMonth(proxima.getMonth() + 6);
+            await base44.entities.Cliente.update(clienteMatch.id, {
+              ultima_manutencao: dataConc,
+              proxima_manutencao: proxima.toISOString().split('T')[0],
+            });
+            queryClient.invalidateQueries({ queryKey: ['clientes'] });
+          } catch (err) {
+            console.error('Erro ao atualizar preventiva:', err);
+            toast.error('⚠️ Falha ao atualizar preventiva do cliente.');
+          }
+        })();
       }
 
     } catch (error) {
