@@ -97,6 +97,28 @@ export default function Atendimentos() {
   const isLoading = loadA || loadS || loadP;
   const equipeIdUsuario = currentUser?.equipe_id || null;
 
+  // Índices O(1) para lookup de pagamentos — evita filter() O(N) por item.
+  // Sem isso, processar 30k servicos × 50k pagamentos = 1.5B ops por render.
+  const pagamentosPorServico = useMemo(() => {
+    const map = new Map();
+    pagamentos.forEach(p => {
+      if (!p.servico_id) return;
+      const arr = map.get(p.servico_id);
+      if (arr) arr.push(p); else map.set(p.servico_id, [p]);
+    });
+    return map;
+  }, [pagamentos]);
+
+  const pagamentosPorAtendimento = useMemo(() => {
+    const map = new Map();
+    pagamentos.forEach(p => {
+      if (!p.atendimento_id) return;
+      const arr = map.get(p.atendimento_id);
+      if (arr) arr.push(p); else map.set(p.atendimento_id, [p]);
+    });
+    return map;
+  }, [pagamentos]);
+
   const agrupadoPorCliente = useMemo(() => {
     if (loadingUser) return {};
     const historicoUnificado = [];
@@ -108,12 +130,15 @@ export default function Atendimentos() {
         if (!equipeIdUsuario && s.equipe_id) return;
       }
 
-      const pagsDoServico = pagamentos.filter(p => p.servico_id === s.id);
+      const pagsDoServico = pagamentosPorServico.get(s.id) || [];
       let finalValor = s.valor || 0;
       let valorPago = 0;
       if (pagsDoServico.length > 0) {
-        const somaTotal = pagsDoServico.reduce((sum, p) => sum + (p.valor_total || 0), 0);
-        valorPago = pagsDoServico.reduce((sum, p) => sum + (p.valor_pago || 0), 0);
+        let somaTotal = 0;
+        for (const p of pagsDoServico) {
+          somaTotal += (p.valor_total || 0);
+          valorPago += (p.valor_pago || 0);
+        }
         if (somaTotal > 0) finalValor = somaTotal;
       }
 
@@ -134,16 +159,19 @@ export default function Atendimentos() {
         if (!equipeIdUsuario && a.equipe_id) return;
       }
 
-      // Sincroniza valor com PagamentoCliente: prioridade por atendimento_id, depois servico_id
-      const pagsDoAtendimento = pagamentos.filter(p =>
-        (a.id && p.atendimento_id === a.id) ||
-        (a.servico_id && p.servico_id === a.servico_id)
-      );
+      // Lookup O(1): primeiro por atendimento_id, fallback por servico_id
+      let pagsDoAtendimento = a.id ? pagamentosPorAtendimento.get(a.id) : null;
+      if ((!pagsDoAtendimento || pagsDoAtendimento.length === 0) && a.servico_id) {
+        pagsDoAtendimento = pagamentosPorServico.get(a.servico_id);
+      }
       let finalValor = a.valor || 0;
       let valorPago = 0;
-      if (pagsDoAtendimento.length > 0) {
-        const somaTotal = pagsDoAtendimento.reduce((s, p) => s + (p.valor_total || 0), 0);
-        valorPago = pagsDoAtendimento.reduce((s, p) => s + (p.valor_pago || 0), 0);
+      if (pagsDoAtendimento && pagsDoAtendimento.length > 0) {
+        let somaTotal = 0;
+        for (const p of pagsDoAtendimento) {
+          somaTotal += (p.valor_total || 0);
+          valorPago += (p.valor_pago || 0);
+        }
         if (somaTotal > 0) finalValor = somaTotal;
       }
 
@@ -205,7 +233,7 @@ export default function Atendimentos() {
     });
 
     return clientesFiltrados;
-  }, [atendimentos, servicos, loadingUser, isAdmin, equipeIdUsuario, filterTipo, debouncedSearch]);
+  }, [atendimentos, servicos, pagamentosPorServico, pagamentosPorAtendimento, loadingUser, isAdmin, equipeIdUsuario, filterTipo, debouncedSearch]);
 
   const tiposServico = useMemo(() => {
     const tipos = new Set();

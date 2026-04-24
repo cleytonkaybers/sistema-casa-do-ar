@@ -106,14 +106,26 @@ export default function HistoricoClientes() {
     queryFn: () => base44.entities.PagamentoCliente.list(),
   });
 
+  // Índices O(1) por servico_id e atendimento_id — substituem .find() O(N) por item.
+  const pagamentoPorServico = useMemo(() => {
+    const map = new Map();
+    pagamentos.forEach(p => { if (p.servico_id && !map.has(p.servico_id)) map.set(p.servico_id, p); });
+    return map;
+  }, [pagamentos]);
+  const pagamentoPorAtendimento = useMemo(() => {
+    const map = new Map();
+    pagamentos.forEach(p => { if (p.atendimento_id && !map.has(p.atendimento_id)) map.set(p.atendimento_id, p); });
+    return map;
+  }, [pagamentos]);
+
   const agrupadoPorCliente = useMemo(() => {
     const historicoUnificado = [];
 
     // Adiciona Serviços (Agendados, Abertos, Reagendados, Andamento)
     servicos.forEach(s => {
       if (s.status === 'concluido') return; // Os itens concluídos no ciclo real de app tornam-se Atendimento
-      
-      let pag = pagamentos.find(p => p.servico_id === s.id);
+
+      const pag = pagamentoPorServico.get(s.id);
       let finalValor = s.valor;
       if (pag) {
         finalValor = pag.valor_total !== undefined ? pag.valor_total : (pag.valor !== undefined ? pag.valor : s.valor);
@@ -137,7 +149,7 @@ export default function HistoricoClientes() {
 
     // Adiciona Atendimentos (Concluídos)
     atendimentos.forEach(a => {
-      let pag = pagamentos.find(p => p.servico_id === a.servico_id || p.id === a.id);
+      const pag = (a.id && pagamentoPorAtendimento.get(a.id)) || (a.servico_id && pagamentoPorServico.get(a.servico_id)) || null;
       let finalValor = a.valor;
       if (pag) {
         finalValor = pag.valor_total !== undefined ? pag.valor_total : (pag.valor !== undefined ? pag.valor : a.valor);
@@ -208,7 +220,7 @@ export default function HistoricoClientes() {
     });
 
     return clientesFiltrados;
-  }, [atendimentos, servicos, debouncedSearch, pagamentos]);
+  }, [atendimentos, servicos, debouncedSearch, pagamentoPorServico, pagamentoPorAtendimento]);
 
   const totalServicosHistorico = servicos.length + atendimentos.length;
   const totalValorHistorico = atendimentos.reduce((sum, item) => sum + (item.valor || 0), 0);
@@ -254,9 +266,9 @@ export default function HistoricoClientes() {
     if (item.status !== 'concluido') return null;
     let pag = null;
     if (item.tipoObjeto === 'atendimento') {
-      pag = pagamentos.find(p => p.servico_id === item.servico_id || p.id === item.originalId);
+      pag = (item.originalId && pagamentoPorAtendimento.get(item.originalId)) || (item.servico_id && pagamentoPorServico.get(item.servico_id)) || null;
     } else {
-      pag = pagamentos.find(p => p.servico_id === item.originalId);
+      pag = pagamentoPorServico.get(item.originalId) || null;
     }
     
     if (!pag) {

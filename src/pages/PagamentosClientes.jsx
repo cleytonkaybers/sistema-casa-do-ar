@@ -1192,6 +1192,20 @@ function PagamentosClientesContent() {
     queryFn: () => base44.entities.PagamentoCliente.list('-data_conclusao'),
   });
 
+  // Índice O(1) por nome de cliente normalizado.
+  // Sem isso, o auto-sync de atendimentos→pagamentos roda O(N×M) — a 30k atendimentos × 50k pagamentos
+  // o navegador trava no useEffect de montagem.
+  const pagamentosPorNome = useMemo(() => {
+    const map = new Map();
+    pagamentos.forEach(p => {
+      const key = (p.cliente_nome || '').trim().toLowerCase();
+      if (!key) return;
+      const arr = map.get(key);
+      if (arr) arr.push(p); else map.set(key, [p]);
+    });
+    return map;
+  }, [pagamentos]);
+
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.PagamentoCliente.create(data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] }),
@@ -1289,15 +1303,15 @@ function PagamentosClientesContent() {
 
     novos.forEach(a => {
       criandoIds.current.add(a.id);
-      
+
       const nomeNormalizado = (a.cliente_nome || '').trim().toLowerCase();
       const telefoneLimpo = (a.telefone || '').replace(/\D/g, '');
-      
-      const debitosAtrasados = pagamentos.filter(p => {
-        const pNomeNormalizado = (p.cliente_nome || '').trim().toLowerCase();
+
+      // Lookup O(1) por nome — antes era .filter() sobre pagamentos inteiro (N×M).
+      const candidatosDoCliente = pagamentosPorNome.get(nomeNormalizado) || [];
+      const debitosAtrasados = candidatosDoCliente.filter(p => {
         const pTelefoneLimpo = (p.telefone || '').replace(/\D/g, '');
         const debitoPendente = calcularSaldo(p.valor_total, p.valor_pago);
-        if (pNomeNormalizado !== nomeNormalizado) return false;
         if (telefoneLimpo && pTelefoneLimpo && telefoneLimpo !== pTelefoneLimpo) return false;
         if (debitoPendente <= 0.01) return false;
         if (p.data_conclusao) {
@@ -1334,10 +1348,8 @@ function PagamentosClientesContent() {
   const handleSalvarPrecos = async (pag, precosGrupo) => {
     // Busca registros frescos direto do pagamentos (evita dados desatualizados de _records)
     const nomeKey = (pag.cliente_nome || '').trim().toLowerCase();
-    const recordsFrescos = pagamentos.filter(p =>
-      (p.cliente_nome || '').trim().toLowerCase() === nomeKey &&
-      p.status !== 'pago'
-    );
+    const candidatos = pagamentosPorNome.get(nomeKey) || [];
+    const recordsFrescos = candidatos.filter(p => p.status !== 'pago');
     const records = recordsFrescos.length > 0 ? recordsFrescos : (pag._records || [pag]);
 
     let atualizados = 0;
