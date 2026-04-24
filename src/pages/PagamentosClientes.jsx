@@ -1323,11 +1323,10 @@ function PagamentosClientesContent() {
       });
       
       const debitoTotal = debitosAtrasados.reduce((sum, p) => sum + ((p.valor_total || 0) - (p.valor_pago || 0)), 0);
-      // Usa o valor definido no servico (a.valor) somado aos debitos atrasados.
-      // Antes ia direto para placeholder 1.0 ignorando o preco do servico.
-      const valorDoServico = a.valor || 0;
-      const valorTotalInicial = debitoTotal + valorDoServico;
 
+      // Comportamento intencional: sempre placeholder 1.00 para novos servicos
+      // (sem debitos). ADM precifica manualmente no painel de pagamentos.
+      // Quando ha debitos atrasados, consolida o valor.
       createMutation.mutate({
         atendimento_id: a.id,
         servico_id: a.servico_id || '',
@@ -1335,7 +1334,7 @@ function PagamentosClientesContent() {
         telefone: a.telefone || '',
         tipo_servico: a.tipo_servico || '',
         data_conclusao: a.data_conclusao || a.created_date,
-        valor_total: valorTotalInicial > 0 ? valorTotalInicial : 1.0,
+        valor_total: debitoTotal > 0 ? debitoTotal : 1.0,
         valor_pago: 0,
         status: 'pendente',
         equipe_nome: a.equipe_nome || '',

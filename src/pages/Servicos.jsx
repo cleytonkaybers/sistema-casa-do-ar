@@ -303,6 +303,29 @@ export default function ServicosPage() {
           // nao bloqueia: AlteracaoStatus eh apenas log de historico
         }),
 
+        // Notificar ADMs para definir o preco no painel de PagamentosClientes
+        // (o pagamento entra com placeholder R$ 1,00; ADM precifica manualmente).
+        (async () => {
+          try {
+            const admins = (usuarios || []).filter(u => u?.role === 'admin' && u?.email);
+            if (admins.length === 0) return;
+            await Promise.all(admins.map(adm =>
+              base44.entities.Notificacao.create({
+                usuario_email: adm.email,
+                titulo: '💲 Definir preco do servico',
+                mensagem: `Servico de "${servicoSnapshot.tipo_servico || 'tipo nao informado'}" para ${servicoSnapshot.cliente_nome || 'cliente'} concluido. Defina o preco em Pagamentos de Clientes.`,
+                tipo: 'pagamento_agendado',
+                atendimento_id: servicoSnapshot.id,
+                cliente_nome: servicoSnapshot.cliente_nome || '',
+                lida: false,
+              })
+            ));
+            queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
+          } catch (err) {
+            console.error('Erro ao notificar ADMs sobre precificacao:', err);
+          }
+        })(),
+
         base44.entities.AlteracaoStatus.filter({ servico_id: servicoSnapshot.id }, 'data_alteracao')
           .catch(() => [])
           .then(historicoStatus => {

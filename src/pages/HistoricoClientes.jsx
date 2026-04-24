@@ -223,6 +223,27 @@ export default function HistoricoClientes() {
         }
       }
 
+      // 5. Notificar ADMs para precificar no PagamentosClientes
+      try {
+        const todosUsuarios = await base44.entities.User.list();
+        const admins = todosUsuarios.filter(u => u?.role === 'admin' && u?.email);
+        if (admins.length > 0) {
+          await Promise.all(admins.map(adm =>
+            base44.entities.Notificacao.create({
+              usuario_email: adm.email,
+              titulo: '💲 Definir preco do servico',
+              mensagem: `Servico de "${servico.tipo_servico || 'tipo nao informado'}" para ${servico.cliente_nome || 'cliente'} concluido (regerado). Defina o preco em Pagamentos de Clientes.`,
+              tipo: 'pagamento_agendado',
+              atendimento_id: servico.id,
+              cliente_nome: servico.cliente_nome || '',
+              lida: false,
+            })
+          ));
+        }
+      } catch (err) {
+        console.error('Erro ao notificar ADMs (regerar):', err);
+      }
+
       return { tecnicosComissionados, preventivaAtualizada };
     },
     onSuccess: ({ tecnicosComissionados, preventivaAtualizada }) => {
