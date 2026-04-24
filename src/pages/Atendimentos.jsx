@@ -102,23 +102,27 @@ export default function Atendimentos() {
     const historicoUnificado = [];
 
     servicos.forEach(s => {
-      if (s.status === 'concluido') return; 
+      if (s.status === 'concluido') return;
       if (!isAdmin) {
         if (equipeIdUsuario && s.equipe_id !== equipeIdUsuario) return;
         if (!equipeIdUsuario && s.equipe_id) return;
       }
 
-      let pag = pagamentos.find(p => p.servico_id === s.id);
-      let finalValor = s.valor;
-      if (pag) {
-        finalValor = pag.valor_total !== undefined ? pag.valor_total : (pag.valor !== undefined ? pag.valor : s.valor);
+      const pagsDoServico = pagamentos.filter(p => p.servico_id === s.id);
+      let finalValor = s.valor || 0;
+      let valorPago = 0;
+      if (pagsDoServico.length > 0) {
+        const somaTotal = pagsDoServico.reduce((sum, p) => sum + (p.valor_total || 0), 0);
+        valorPago = pagsDoServico.reduce((sum, p) => sum + (p.valor_pago || 0), 0);
+        if (somaTotal > 0) finalValor = somaTotal;
       }
 
       historicoUnificado.push({
         id: `s-${s.id}`, originalId: s.id, tipoObjeto: 'servico',
         cliente_nome: s.cliente_nome, telefone: s.telefone, tipo_servico: s.tipo_servico,
         data: s.data_programada, horario: s.horario, status: s.status,
-        equipe_nome: s.equipe_nome, valor: finalValor, descricao: s.descricao,
+        equipe_id: s.equipe_id, equipe_nome: s.equipe_nome,
+        valor: finalValor, valor_pago: valorPago, descricao: s.descricao,
         latitude: s.latitude, longitude: s.longitude, endereco: s.endereco,
         google_maps_link: s.google_maps_link, os_numero: s.os_numero || ''
       });
@@ -130,15 +134,25 @@ export default function Atendimentos() {
         if (!equipeIdUsuario && a.equipe_id) return;
       }
 
-      let pag = pagamentos.find(p => p.servico_id === a.servico_id || p.id === a.id);
-      let finalValor = a.valor;
-      if (pag) {
-        finalValor = pag.valor_total !== undefined ? pag.valor_total : (pag.valor !== undefined ? pag.valor : a.valor);
+      // Sincroniza valor com PagamentoCliente: prioridade por atendimento_id, depois servico_id
+      const pagsDoAtendimento = pagamentos.filter(p =>
+        (a.id && p.atendimento_id === a.id) ||
+        (a.servico_id && p.servico_id === a.servico_id)
+      );
+      let finalValor = a.valor || 0;
+      let valorPago = 0;
+      if (pagsDoAtendimento.length > 0) {
+        const somaTotal = pagsDoAtendimento.reduce((s, p) => s + (p.valor_total || 0), 0);
+        valorPago = pagsDoAtendimento.reduce((s, p) => s + (p.valor_pago || 0), 0);
+        if (somaTotal > 0) finalValor = somaTotal;
       }
 
       historicoUnificado.push({
         id: `a-${a.id}`, originalId: a.id, tipoObjeto: 'atendimento',
         cliente_nome: a.cliente_nome, telefone: a.telefone, tipo_servico: a.tipo_servico,
+        data: a.data_atendimento, horario: a.horario, status: 'concluido',
+        equipe_id: a.equipe_id, equipe_nome: a.equipe_nome,
+        valor: finalValor, valor_pago: valorPago, descricao: a.descricao,
         observacoes: a.observacoes_conclusao, servico_id: a.servico_id,
         latitude: a.latitude, longitude: a.longitude, endereco: a.endereco,
         google_maps_link: a.google_maps_link, os_numero: a.os_numero || ''
@@ -381,7 +395,7 @@ export default function Atendimentos() {
                                   const groupKey = `${dateKey}||${equipeKey}`;
 
                                   if (!byDate[groupKey]) {
-                                    byDate[groupKey] = { data: dateKey, equipe: equipeKey, servicos: {} };
+                                    byDate[groupKey] = { data: dateKey, horario: item.horario, equipe: equipeKey, servicos: {} };
                                   }
 
                                   const sKey = formatServiceText(item.tipo_servico || item.descricao || 'Serviço');
@@ -389,10 +403,11 @@ export default function Atendimentos() {
                                   const uniqueKey = osKey ? `${osKey}||${sKey}` : `${sKey}||${dateKey}||${item.id}`;
 
                                   if (!byDate[groupKey].servicos[uniqueKey]) {
-                                    byDate[groupKey].servicos[uniqueKey] = { descricao: sKey, qty: 0, valorUnit: item.valor || 0, totalValor: 0, os_numero: osKey };
+                                    byDate[groupKey].servicos[uniqueKey] = { descricao: sKey, qty: 0, valorUnit: item.valor || 0, totalValor: 0, totalPago: 0, os_numero: osKey, status: item.status };
                                   }
                                   byDate[groupKey].servicos[uniqueKey].qty += 1;
                                   byDate[groupKey].servicos[uniqueKey].totalValor += (item.valor || 0);
+                                  byDate[groupKey].servicos[uniqueKey].totalPago += (item.valor_pago || 0);
                                 });
 
                                 const sortedGroups = Object.values(byDate).sort((a, b) => (parseHistoricoData(b.data)?.getTime() || 0) - (parseHistoricoData(a.data)?.getTime() || 0));
@@ -402,6 +417,10 @@ export default function Atendimentos() {
                                   const servicoRows = Object.values(group.servicos);
                                   return servicoRows.map((s, sIdx) => {
                                     rowBg = !rowBg;
+                                    const saldo = (s.totalValor || 0) - (s.totalPago || 0);
+                                    const isPago = s.totalValor > 0 && saldo <= 0.01;
+                                    const isParcial = s.totalPago > 0 && saldo > 0.01;
+                                    const isPendente = s.totalValor > 0 && s.totalPago === 0;
                                     return (
                                       <tr key={`${gIdx}-${sIdx}`} className={`border-b border-white/5 ${rowBg ? 'bg-[#152236]' : 'bg-[#121d2f]'} hover:bg-white/5 transition-colors`}>
                                         {sIdx === 0 ? (
@@ -409,8 +428,13 @@ export default function Atendimentos() {
                                             <div className="font-semibold text-gray-200">
                                               {(() => { const d = parseHistoricoData(group.data); return d ? format(d, 'dd/MM/yyyy', { locale: ptBR }) : '—'; })()}
                                             </div>
-                                            {group.equipe && (
+                                            {group.horario && (
+                                              <div className="text-[11px] text-gray-400 mt-0.5">{group.horario}</div>
+                                            )}
+                                            {group.equipe ? (
                                               <div className="text-[11px] text-blue-400 font-medium mt-1">{group.equipe}</div>
+                                            ) : (
+                                              <div className="text-[11px] text-gray-500 italic mt-1">Sem equipe</div>
                                             )}
                                           </td>
                                         ) : null}
@@ -424,12 +448,32 @@ export default function Atendimentos() {
                                             </span>
                                           )}
                                           {s.descricao}
+                                          {s.status === 'concluido' && (
+                                            <span className="ml-2 inline-block text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
+                                              Concluído
+                                            </span>
+                                          )}
                                         </td>
-                                        <td className="px-4 py-3 align-middle text-right text-gray-400 font-medium">
-                                          {s.valorUnit ? `R$ ${s.valorUnit.toLocaleString('pt-BR')}` : '—'}
+                                        <td className="px-4 py-3 align-middle text-right text-gray-300 font-medium tabular-nums">
+                                          {s.valorUnit ? `R$ ${s.valorUnit.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '—'}
                                         </td>
-                                        <td className="px-4 py-3 align-middle text-right font-bold text-emerald-400">
-                                          {s.totalValor ? `R$ ${s.totalValor.toLocaleString('pt-BR')}` : '—'}
+                                        <td className="px-4 py-3 align-middle text-right font-bold tabular-nums">
+                                          {s.totalValor ? (
+                                            <div className="flex flex-col items-end gap-0.5">
+                                              <span className="text-emerald-400">R$ {s.totalValor.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                                              {isPago && (
+                                                <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 rounded">✓ Pago</span>
+                                              )}
+                                              {isParcial && (
+                                                <span className="text-[10px] font-semibold text-amber-300 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded">
+                                                  Parcial: R$ {s.totalPago.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                                </span>
+                                              )}
+                                              {isPendente && (
+                                                <span className="text-[10px] font-semibold text-gray-400 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded">A receber</span>
+                                              )}
+                                            </div>
+                                          ) : '—'}
                                         </td>
                                       </tr>
                                     );
