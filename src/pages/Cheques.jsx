@@ -28,9 +28,12 @@ function calcDebitoEmprestimo(e) {
   if (!e.valor_principal || !e.percentual_mes || !e.data_emprestimo) return e.valor_principal || 0;
   const inicio = parseISO(e.data_emprestimo);
   if (!isValid(inicio)) return e.valor_principal;
-  const dias = differenceInDays(new Date(), inicio);
+  const dias = Math.max(0, differenceInDays(new Date(), inicio));
+  // Juros SIMPLES (nao composto): % ao mes proporcional aos dias decorridos.
+  // Ex.: 10% a.m., 15 dias = 5% sobre o principal.
   const taxaDiaria = e.percentual_mes / 100 / 30;
-  return Math.max(0, e.valor_principal * Math.pow(1 + taxaDiaria, dias) - (e.total_abatido || 0));
+  const juros = e.valor_principal * taxaDiaria * dias;
+  return Math.max(0, e.valor_principal + juros - (e.total_abatido || 0));
 }
 import { toast } from 'sonner';
 import ConfirmDialog from '@/components/ConfirmDialog';
