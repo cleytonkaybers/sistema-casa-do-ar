@@ -84,17 +84,12 @@ export default function Atendimentos() {
     queryFn: () => base44.entities.Atendimento.list('-data_atendimento'),
   });
 
-  const { data: servicos = [], isLoading: loadS } = useQuery({
-    queryKey: ['servicos'],
-    queryFn: () => base44.entities.Servico.list('-data_programada'),
-  });
-
   const { data: pagamentos = [], isLoading: loadP } = useQuery({
     queryKey: ['pagamentos-atendimentos'],
     queryFn: () => base44.entities.PagamentoCliente.list(),
   });
 
-  const isLoading = loadA || loadS || loadP;
+  const isLoading = loadA || loadP;
   const equipeIdUsuario = currentUser?.equipe_id || null;
 
   // Índices O(1) para lookup de pagamentos — evita filter() O(N) por item.
@@ -123,36 +118,8 @@ export default function Atendimentos() {
     if (loadingUser) return {};
     const historicoUnificado = [];
 
-    servicos.forEach(s => {
-      if (s.status === 'concluido') return;
-      if (!isAdmin) {
-        if (equipeIdUsuario && s.equipe_id !== equipeIdUsuario) return;
-        if (!equipeIdUsuario && s.equipe_id) return;
-      }
-
-      const pagsDoServico = pagamentosPorServico.get(s.id) || [];
-      let finalValor = s.valor || 0;
-      let valorPago = 0;
-      if (pagsDoServico.length > 0) {
-        let somaTotal = 0;
-        for (const p of pagsDoServico) {
-          somaTotal += (p.valor_total || 0);
-          valorPago += (p.valor_pago || 0);
-        }
-        if (somaTotal > 0) finalValor = somaTotal;
-      }
-
-      historicoUnificado.push({
-        id: `s-${s.id}`, originalId: s.id, tipoObjeto: 'servico',
-        cliente_nome: s.cliente_nome, telefone: s.telefone, tipo_servico: s.tipo_servico,
-        data: s.data_programada, horario: s.horario, status: s.status,
-        equipe_id: s.equipe_id, equipe_nome: s.equipe_nome,
-        valor: finalValor, valor_pago: valorPago, descricao: s.descricao,
-        latitude: s.latitude, longitude: s.longitude, endereco: s.endereco,
-        google_maps_link: s.google_maps_link, os_numero: s.os_numero || ''
-      });
-    });
-
+    // Apenas atendimentos (servicos concluidos) entram aqui — itens em aberto/agendados
+    // ficam na pagina Servicos. Atendimentos sao criados automaticamente na conclusao.
     atendimentos.forEach(a => {
       if (!isAdmin) {
         if (equipeIdUsuario && a.equipe_id !== equipeIdUsuario) return;
@@ -233,14 +200,13 @@ export default function Atendimentos() {
     });
 
     return clientesFiltrados;
-  }, [atendimentos, servicos, pagamentosPorServico, pagamentosPorAtendimento, loadingUser, isAdmin, equipeIdUsuario, filterTipo, debouncedSearch]);
+  }, [atendimentos, pagamentosPorServico, pagamentosPorAtendimento, loadingUser, isAdmin, equipeIdUsuario, filterTipo, debouncedSearch]);
 
   const tiposServico = useMemo(() => {
     const tipos = new Set();
     atendimentos.forEach(a => { if (a.tipo_servico) tipos.add(a.tipo_servico); });
-    servicos.forEach(a => { if (a.tipo_servico) tipos.add(a.tipo_servico); });
     return Array.from(tipos).sort();
-  }, [atendimentos, servicos]);
+  }, [atendimentos]);
 
   const clearFilters = () => {
     setSearchTerm('');
