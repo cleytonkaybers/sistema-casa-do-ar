@@ -10,26 +10,28 @@ import { Plus, Trash2, MinusCircle, TrendingUp, ChevronDown, ChevronRight, Clock
 import { differenceInDays, parseISO, isValid, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+// Juros SIMPLES: % ao mes proporcional aos dias decorridos. Atualizado diariamente.
+// Ex.: R$ 1.000 a 10% a.m. apos 15 dias = R$ 1.000 + (1.000 * 0,1/30 * 15) = R$ 1.050.
 function calcularDebitoAtual(emprestimo) {
   const { valor_principal, percentual_mes, data_emprestimo, total_abatido } = emprestimo;
   if (!valor_principal || !percentual_mes || !data_emprestimo) return valor_principal || 0;
   const inicio = parseISO(data_emprestimo);
   if (!isValid(inicio)) return valor_principal;
-  const dias = differenceInDays(new Date(), inicio);
+  const dias = Math.max(0, differenceInDays(new Date(), inicio));
   const taxaDiaria = percentual_mes / 100 / 30;
-  const debito = valor_principal * Math.pow(1 + taxaDiaria, dias);
-  return Math.max(0, debito - (total_abatido || 0));
+  const juros = valor_principal * taxaDiaria * dias;
+  return Math.max(0, valor_principal + juros - (total_abatido || 0));
 }
 
 function calcularJurosAcumulados(emprestimo) {
-  const { valor_principal, percentual_mes, data_emprestimo, total_abatido } = emprestimo;
+  const { valor_principal, percentual_mes, data_emprestimo } = emprestimo;
   if (!valor_principal || !percentual_mes || !data_emprestimo) return 0;
   const inicio = parseISO(data_emprestimo);
   if (!isValid(inicio)) return 0;
-  const dias = differenceInDays(new Date(), inicio);
+  const dias = Math.max(0, differenceInDays(new Date(), inicio));
   const taxaDiaria = percentual_mes / 100 / 30;
-  const totalComJuros = valor_principal * Math.pow(1 + taxaDiaria, dias);
-  return Math.max(0, totalComJuros - valor_principal);
+  const juros = valor_principal * taxaDiaria * dias;
+  return Math.max(0, juros);
 }
 
 function formatMoney(v) {
