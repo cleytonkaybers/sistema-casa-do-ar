@@ -93,6 +93,15 @@ export default function HistoricoClientes() {
       const user = await base44.auth.me();
       const agora = new Date().toISOString();
 
+      // 0. Guard: se ja existe atendimento para esse servico, abortar.
+      // Evita criar duplicata (que causaria "Troca de local x2" em PagamentosClientes).
+      const atendimentosExistentes = await base44.entities.Atendimento
+        .filter({ servico_id: servico.id })
+        .catch(() => []);
+      if (atendimentosExistentes && atendimentosExistentes.length > 0) {
+        throw new Error('JA_EXISTE_ATENDIMENTO');
+      }
+
       // 1. Buscar historico de status (best-effort)
       const historicoStatus = await base44.entities.AlteracaoStatus
         .filter({ servico_id: servico.id }, 'data_alteracao')
@@ -259,6 +268,11 @@ export default function HistoricoClientes() {
     },
     onError: (err) => {
       console.error('Erro ao regerar:', err);
+      if (err?.message === 'JA_EXISTE_ATENDIMENTO') {
+        toast.error('⚠️ Atendimento ja existe para esse servico — nao precisa regerar.');
+        queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
+        return;
+      }
       toast.error('⚠️ Falha ao regerar: ' + (err?.message || 'tente novamente'));
     },
   });

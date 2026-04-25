@@ -189,18 +189,40 @@ function groupPagamentos(lista) {
     } else {
       const novoRecords = p._records || [p];
       groups[key]._records = [...(groups[key]._records || [groups[key]]), ...novoRecords];
-      groups[key].valor_total = (groups[key].valor_total || 0) + (p.valor_total || 0);
-      groups[key].valor_pago = (groups[key].valor_pago || 0) + (p.valor_pago || 0);
     }
   });
   return Object.values(groups).map(g => {
-    const saldo = (g.valor_total || 0) - (g.valor_pago || 0);
-    const valorPago = g.valor_pago || 0;
-    // Tolerância de R$1 só se houve algum pagamento (cobre arredondamento). Sem pagamento = pendente.
+    // Dedup por servico_id (mantem o mais recente). Sem servico_id passa direto.
+    // Evita "Troca de local x2" quando ha 2 PagamentoCliente para o mesmo servico
+    // (causado por regerar duplicado ou race no sync).
+    const porServico = new Map();
+    const semServicoId = [];
+    g._records.forEach(r => {
+      if (!r.servico_id) { semServicoId.push(r); return; }
+      const existente = porServico.get(r.servico_id);
+      const dataR = new Date(r.data_conclusao || r.created_date || 0);
+      const dataE = existente ? new Date(existente.data_conclusao || existente.created_date || 0) : null;
+      if (!existente || dataR > dataE) {
+        porServico.set(r.servico_id, r);
+      }
+    });
+    const recordsDedup = [...porServico.values(), ...semServicoId];
+    const valorTotal = recordsDedup.reduce((s, r) => s + (r.valor_total || 0), 0);
+    const valorPago = recordsDedup.reduce((s, r) => s + (r.valor_pago || 0), 0);
+    const saldo = valorTotal - valorPago;
+    // Tolerancia de R$1 so se houve algum pagamento (cobre arredondamento). Sem pagamento = pendente.
     const status = saldo <= 0.01 || (valorPago > 0 && saldo <= 1.0) ? 'pago' : valorPago > 0 ? 'parcial' : 'pendente';
-    // Mescla historico_pagamentos de todos os records
-    const historicoMesclado = g._records.flatMap(r => r.historico_pagamentos || []);
-    return { ...g, status, historico_pagamentos: historicoMesclado, _tipoResumido: resumirServicos(g._records) };
+    // Mescla historico_pagamentos dos records deduplicados
+    const historicoMesclado = recordsDedup.flatMap(r => r.historico_pagamentos || []);
+    return {
+      ...g,
+      _records: recordsDedup,
+      valor_total: valorTotal,
+      valor_pago: valorPago,
+      status,
+      historico_pagamentos: historicoMesclado,
+      _tipoResumido: resumirServicos(recordsDedup),
+    };
   });
 }
 
@@ -1287,9 +1309,14 @@ function PagamentosClientesContent() {
     if (isLoading || !atendimentos.length || !pagamentos) return;
     // Aguarda pagamentos estarem carregados (evita criar duplicatas na montagem)
     const idsRegistrados = new Set(pagamentos.map(p => p.atendimento_id).filter(Boolean));
+    // Defesa em profundidade: tambem deduplica por servico_id (evita 2 pagamentos
+    // para o mesmo servico mesmo se vierem de atendimentos diferentes — caso raro
+    // de regerar duplicado ou race no fluxo de conclusao).
+    const servicosRegistrados = new Set(pagamentos.map(p => p.servico_id).filter(Boolean));
 
     const novos = atendimentos.filter(a => {
       if (idsRegistrados.has(a.id)) return false;
+      if (a.servico_id && servicosRegistrados.has(a.servico_id)) return false;
       if (criandoIds.current.has(a.id)) return false;
       if (deletedAtendimentoIds.current.has(a.id)) return false;
       if (isApenasTiposIgnorados(a.tipo_servico)) return false;
