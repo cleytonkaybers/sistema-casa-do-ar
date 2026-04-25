@@ -65,7 +65,6 @@ function LayoutContent({ children }) {
     { name: 'Dashboard', href: createPageUrl('Dashboard'), icon: LayoutDashboard },
     { name: 'Serviços', href: createPageUrl('Servicos'), icon: ClipboardList },
     { name: 'Atendimentos', href: createPageUrl('Atendimentos'), icon: ClipboardList },
-    { name: 'Preventivas Futuras', href: createPageUrl('PreventivasFuturas'), icon: ClipboardList },
     { name: 'Meu Financeiro', href: createPageUrl('MeuFinanceiro'), icon: DollarSign },
     { name: 'Ranking de Técnicos', href: '/RankingTecnicos', icon: Trophy },
   ];

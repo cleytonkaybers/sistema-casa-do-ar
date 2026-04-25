@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Phone, MapPin, Calendar, MessageCircle, Navigation, Search, Loader2, Clock, Wrench, Share2, Eye, Plus, Trash2, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import { usePermissions } from '../components/auth/PermissionGuard';
+import TechnicianAccessBlock from '@/components/TechnicianAccessBlock';
 import { 
   Table,
   TableBody,
@@ -30,6 +31,14 @@ import { TableSkeleton } from '@/components/LoadingSkeleton';
 import { formatTipoServicoCompact } from '@/utils';
 
 export default function PreventivasFuturasPage() {
+  return (
+    <TechnicianAccessBlock>
+      <PreventivasFuturasContent />
+    </TechnicianAccessBlock>
+  );
+}
+
+function PreventivasFuturasContent() {
   const { isAdmin } = usePermissions();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm);
