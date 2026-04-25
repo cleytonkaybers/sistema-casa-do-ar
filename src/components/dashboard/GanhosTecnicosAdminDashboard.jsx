@@ -53,10 +53,10 @@ export default function GanhosTecnicosAdminDashboard({ tecnicos, totalGanhoSeman
 
         <div className="flex flex-col items-center justify-center px-2 py-3 gap-0.5">
           <div className="flex items-center gap-1 mb-0.5">
-            <TrendingDown className="w-3 h-3 text-red-400" />
+            <TrendingDown className="w-3 h-3 text-emerald-400" />
             <span className="text-[9px] uppercase font-bold tracking-wider text-gray-500">Débitos</span>
           </div>
-          <span className="text-sm font-bold text-red-400 tabular-nums">{fmt(totalDevendo)}</span>
+          <span className="text-sm font-bold text-emerald-400 tabular-nums">{fmt(totalDevendo)}</span>
           <span className="text-[9px] text-gray-600">técnicos devem</span>
         </div>
       </div>
@@ -77,8 +77,8 @@ export default function GanhosTecnicosAdminDashboard({ tecnicos, totalGanhoSeman
                 <div
                   key={tec.id || tec.tecnico_id}
                   className={`px-4 sm:px-5 py-2 transition-colors ${
-                    saldoPositivo ? 'bg-emerald-900/20 hover:bg-emerald-900/30'
-                    : saldoNegativo ? 'bg-red-900/20 hover:bg-red-900/30'
+                    saldoPositivo ? 'bg-red-900/20 hover:bg-red-900/30'
+                    : saldoNegativo ? 'bg-emerald-900/20 hover:bg-emerald-900/30'
                     : 'hover:bg-white/5'
                   }`}
                 >
@@ -91,15 +91,15 @@ export default function GanhosTecnicosAdminDashboard({ tecnicos, totalGanhoSeman
                     {/* Saldo em aberto */}
                     <div className="ml-3 shrink-0 text-right">
                       <div className={`text-sm font-bold tabular-nums leading-tight ${
-                        saldoPositivo ? 'text-emerald-400'
-                        : saldoNegativo ? 'text-red-400'
+                        saldoPositivo ? 'text-red-400'
+                        : saldoNegativo ? 'text-emerald-400'
                         : 'text-gray-500'
                       }`}>
                         {saldoPositivo ? '+' : ''}{fmt(saldo)}
                       </div>
                       <div className={`text-[9px] font-semibold leading-tight ${
-                        saldoPositivo ? 'text-emerald-500'
-                        : saldoNegativo ? 'text-red-500'
+                        saldoPositivo ? 'text-red-500'
+                        : saldoNegativo ? 'text-emerald-500'
                         : 'text-gray-600'
                       }`}>
                         {saldoPositivo ? '▲ a receber' : saldoNegativo ? '▼ recebeu a mais' : '— zerado'}
