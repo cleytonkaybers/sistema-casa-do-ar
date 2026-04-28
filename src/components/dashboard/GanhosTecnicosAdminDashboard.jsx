@@ -54,10 +54,10 @@ export default function GanhosTecnicosAdminDashboard({ tecnicos, totalGanhoSeman
         <div className="flex flex-col items-center justify-center px-2 py-3 gap-0.5">
           <div className="flex items-center gap-1 mb-0.5">
             <TrendingDown className="w-3 h-3 text-emerald-400" />
-            <span className="text-[9px] uppercase font-bold tracking-wider text-gray-500">Débitos</span>
+            <span className="text-[9px] uppercase font-bold tracking-wider text-gray-500">Crédito da Empresa</span>
           </div>
           <span className="text-sm font-bold text-emerald-400 tabular-nums">{fmt(totalDevendo)}</span>
-          <span className="text-[9px] text-gray-600">técnicos devem</span>
+          <span className="text-[9px] text-gray-600">a receber dos técnicos</span>
         </div>
       </div>
 
