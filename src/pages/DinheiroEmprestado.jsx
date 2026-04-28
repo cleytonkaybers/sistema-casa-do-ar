@@ -21,6 +21,10 @@ import { Plus, DollarSign, History, Pencil, Trash2, CheckCircle, HandCoins, Sear
 import ConfirmDialog from '@/components/ConfirmDialog';
 import TechnicianAccessBlock from '@/components/TechnicianAccessBlock';
 
+// Esta pagina reutiliza a entidade Emprestimo do Base44, salvando com
+// percentual_mes = 0 (sem juros). EmprestimosTable em Cheques filtra os
+// com juros (> 0) — esta pagina cuida APENAS dos emprestimos sem juros.
+
 const formatBRL = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v) || 0);
 const parseBRL = (str) => {
   if (str === '' || str === null || str === undefined) return 0;
@@ -29,7 +33,7 @@ const parseBRL = (str) => {
   return isNaN(n) ? 0 : n;
 };
 
-const calcularSaldo = (emp) => Math.max(0, (emp.valor_emprestado || 0) - (emp.valor_pago || 0));
+const calcularSaldo = (emp) => Math.max(0, (emp.valor_principal || 0) - (emp.total_abatido || 0));
 
 export default function DinheiroEmprestadoPage() {
   return (
@@ -50,50 +54,57 @@ function DinheiroEmprestadoContent() {
   const [emprestimoHistorico, setEmprestimoHistorico] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  const { data: emprestimos = [], isLoading } = useQuery({
-    queryKey: ['dinheiroEmprestados'],
-    queryFn: () => base44.entities.DinheiroEmprestado.list('-data_emprestimo'),
+  const { data: emprestimosTodos = [], isLoading } = useQuery({
+    queryKey: ['emprestimos'],
+    queryFn: () => base44.entities.Emprestimo.list('-data_emprestimo'),
   });
 
+  // Filtra apenas emprestimos sem juros (esta pagina) — os com juros ficam em Cheques
+  const emprestimos = useMemo(
+    () => emprestimosTodos.filter(e => !e.percentual_mes || e.percentual_mes === 0),
+    [emprestimosTodos]
+  );
+
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.DinheiroEmprestado.create(data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dinheiroEmprestados'] }),
+    mutationFn: (data) => base44.entities.Emprestimo.create(data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['emprestimos'] }),
   });
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.DinheiroEmprestado.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dinheiroEmprestados'] }),
+    mutationFn: ({ id, data }) => base44.entities.Emprestimo.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['emprestimos'] }),
   });
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.DinheiroEmprestado.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dinheiroEmprestados'] }),
+    mutationFn: (id) => base44.entities.Emprestimo.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['emprestimos'] }),
   });
 
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     if (!termo) return emprestimos;
-    return emprestimos.filter(e => (e.pessoa_nome || '').toLowerCase().includes(termo));
+    return emprestimos.filter(e => (e.cliente_nome || '').toLowerCase().includes(termo));
   }, [emprestimos, busca]);
 
   const totais = useMemo(() => {
     const ativos = emprestimos.filter(e => e.status !== 'quitado');
     return {
-      totalEmprestado: emprestimos.reduce((s, e) => s + (e.valor_emprestado || 0), 0),
-      totalPago: emprestimos.reduce((s, e) => s + (e.valor_pago || 0), 0),
+      totalEmprestado: emprestimos.reduce((s, e) => s + (e.valor_principal || 0), 0),
+      totalPago: emprestimos.reduce((s, e) => s + (e.total_abatido || 0), 0),
       saldoAReceber: ativos.reduce((s, e) => s + calcularSaldo(e), 0),
       qtdAtivos: ativos.length,
     };
   }, [emprestimos]);
 
   const handleSalvarEmprestimo = async (form) => {
-    if (!form.pessoa_nome.trim()) return toast.error('Informe o nome da pessoa');
-    const valor = parseBRL(form.valor_emprestado);
+    if (!form.cliente_nome.trim()) return toast.error('Informe o nome da pessoa');
+    const valor = parseBRL(form.valor_principal);
     if (!valor || valor <= 0) return toast.error('Informe um valor valido');
     if (!form.data_emprestimo) return toast.error('Informe a data do emprestimo');
 
     const dados = {
-      pessoa_nome: form.pessoa_nome.trim(),
-      valor_emprestado: valor,
+      cliente_nome: form.cliente_nome.trim(),
+      valor_principal: valor,
       data_emprestimo: form.data_emprestimo,
+      percentual_mes: 0, // SEM JUROS — marcador desta pagina
       observacoes: form.observacoes || '',
     };
 
@@ -104,14 +115,14 @@ function DinheiroEmprestadoContent() {
       } else {
         await createMutation.mutateAsync({
           ...dados,
-          valor_pago: 0,
+          total_abatido: 0,
           status: 'ativo',
           historico_pagamentos: [{
             data: format(new Date(), 'dd/MM/yyyy HH:mm'),
             valor: valor,
             tipo: 'emprestimo',
-            saldo_antes: 0,
-            saldo_depois: valor,
+            debito_antes: 0,
+            debito_depois: valor,
             observacao: 'Emprestimo registrado',
           }],
         });
@@ -130,16 +141,16 @@ function DinheiroEmprestadoContent() {
     const saldoAtual = calcularSaldo(emprestimo);
     if (v > saldoAtual + 0.01) return toast.error(`Valor maior que o saldo (${formatBRL(saldoAtual)})`);
 
-    const novoValorPago = (emprestimo.valor_pago || 0) + v;
-    const novoSaldo = (emprestimo.valor_emprestado || 0) - novoValorPago;
+    const novoTotalAbatido = (emprestimo.total_abatido || 0) + v;
+    const novoSaldo = (emprestimo.valor_principal || 0) - novoTotalAbatido;
     const quitou = novoSaldo <= 0.01;
 
     const novaEntrada = {
       data: format(new Date(), 'dd/MM/yyyy HH:mm'),
       valor: v,
       tipo: 'pagamento',
-      saldo_antes: saldoAtual,
-      saldo_depois: Math.max(0, novoSaldo),
+      debito_antes: saldoAtual,
+      debito_depois: Math.max(0, novoSaldo),
       observacao: obs || '',
     };
 
@@ -147,7 +158,7 @@ function DinheiroEmprestadoContent() {
       await updateMutation.mutateAsync({
         id: emprestimo.id,
         data: {
-          valor_pago: novoValorPago,
+          total_abatido: novoTotalAbatido,
           status: quitou ? 'quitado' : 'ativo',
           historico_pagamentos: [...(emprestimo.historico_pagamentos || []), novaEntrada],
         },
@@ -265,7 +276,7 @@ function DinheiroEmprestadoContent() {
                       <TableRow key={emp.id} className={quitado ? 'opacity-60' : ''}>
                         <TableCell>
                           <div>
-                            <p className="font-medium">{emp.pessoa_nome}</p>
+                            <p className="font-medium">{emp.cliente_nome}</p>
                             {emp.observacoes && (
                               <p className="text-[11px] text-gray-500 max-w-xs truncate" title={emp.observacoes}>{emp.observacoes}</p>
                             )}
@@ -274,8 +285,8 @@ function DinheiroEmprestadoContent() {
                         <TableCell className="text-sm whitespace-nowrap">
                           {emp.data_emprestimo ? format(parseISO(emp.data_emprestimo), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
                         </TableCell>
-                        <TableCell className="text-right font-medium">{formatBRL(emp.valor_emprestado)}</TableCell>
-                        <TableCell className="text-right text-emerald-600 font-medium">{formatBRL(emp.valor_pago)}</TableCell>
+                        <TableCell className="text-right font-medium">{formatBRL(emp.valor_principal)}</TableCell>
+                        <TableCell className="text-right text-emerald-600 font-medium">{formatBRL(emp.total_abatido)}</TableCell>
                         <TableCell className={`text-right font-bold ${quitado ? 'text-gray-400' : 'text-red-600'}`}>
                           {formatBRL(saldo)}
                         </TableCell>
@@ -369,7 +380,7 @@ function DinheiroEmprestadoContent() {
         onClose={() => setConfirmDelete(null)}
         onConfirm={() => confirmDelete && handleExcluir(confirmDelete)}
         title="Excluir Emprestimo"
-        description={`Tem certeza que deseja excluir o emprestimo de ${confirmDelete?.pessoa_nome} (${formatBRL(confirmDelete?.valor_emprestado)})? Todo o historico sera perdido.`}
+        description={`Tem certeza que deseja excluir o emprestimo de ${confirmDelete?.cliente_nome} (${formatBRL(confirmDelete?.valor_principal)})? Todo o historico sera perdido.`}
         confirmText="Excluir"
         variant="destructive"
       />
@@ -378,22 +389,22 @@ function DinheiroEmprestadoContent() {
 }
 
 function FormModal({ open, onClose, emprestimo, onSave }) {
-  const [form, setForm] = useState({ pessoa_nome: '', valor_emprestado: '', data_emprestimo: '', observacoes: '' });
+  const [form, setForm] = useState({ cliente_nome: '', valor_principal: '', data_emprestimo: '', observacoes: '' });
   const [saving, setSaving] = useState(false);
 
   React.useEffect(() => {
     if (!open) return;
     if (emprestimo) {
       setForm({
-        pessoa_nome: emprestimo.pessoa_nome || '',
-        valor_emprestado: emprestimo.valor_emprestado ? String(emprestimo.valor_emprestado).replace('.', ',') : '',
+        cliente_nome: emprestimo.cliente_nome || '',
+        valor_principal: emprestimo.valor_principal ? String(emprestimo.valor_principal).replace('.', ',') : '',
         data_emprestimo: emprestimo.data_emprestimo || '',
         observacoes: emprestimo.observacoes || '',
       });
     } else {
       setForm({
-        pessoa_nome: '',
-        valor_emprestado: '',
+        cliente_nome: '',
+        valor_principal: '',
         data_emprestimo: format(new Date(), 'yyyy-MM-dd'),
         observacoes: '',
       });
@@ -417,8 +428,8 @@ function FormModal({ open, onClose, emprestimo, onSave }) {
             <Label>Nome da pessoa</Label>
             <Input
               placeholder="Ex: Gabriel"
-              value={form.pessoa_nome}
-              onChange={e => setForm({ ...form, pessoa_nome: e.target.value })}
+              value={form.cliente_nome}
+              onChange={e => setForm({ ...form, cliente_nome: e.target.value })}
               autoFocus
             />
           </div>
@@ -427,8 +438,8 @@ function FormModal({ open, onClose, emprestimo, onSave }) {
               <Label>Valor (R$)</Label>
               <Input
                 placeholder="0,00"
-                value={form.valor_emprestado}
-                onChange={e => setForm({ ...form, valor_emprestado: e.target.value })}
+                value={form.valor_principal}
+                onChange={e => setForm({ ...form, valor_principal: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
@@ -486,10 +497,10 @@ function PagamentoModal({ open, onClose, emprestimo, onSave }) {
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-            <p className="font-bold text-gray-800 text-base mb-2">{emprestimo.pessoa_nome}</p>
+            <p className="font-bold text-gray-800 text-base mb-2">{emprestimo.cliente_nome}</p>
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div><p className="text-xs text-gray-400">Original</p><p className="font-bold text-gray-800 text-sm">{formatBRL(emprestimo.valor_emprestado)}</p></div>
-              <div><p className="text-xs text-gray-400">Pago</p><p className="font-bold text-emerald-600 text-sm">{formatBRL(emprestimo.valor_pago)}</p></div>
+              <div><p className="text-xs text-gray-400">Original</p><p className="font-bold text-gray-800 text-sm">{formatBRL(emprestimo.valor_principal)}</p></div>
+              <div><p className="text-xs text-gray-400">Pago</p><p className="font-bold text-emerald-600 text-sm">{formatBRL(emprestimo.total_abatido)}</p></div>
               <div><p className="text-xs text-gray-400">Saldo</p><p className="font-bold text-red-600 text-sm">{formatBRL(saldo)}</p></div>
             </div>
           </div>
@@ -536,12 +547,12 @@ function HistoricoModal({ open, onClose, emprestimo }) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Historico — {emprestimo.pessoa_nome}</DialogTitle>
+          <DialogTitle>Historico — {emprestimo.cliente_nome}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
           <div className="grid grid-cols-3 gap-2 text-center bg-gray-50 rounded-lg p-3 border border-gray-100">
-            <div><p className="text-xs text-gray-400">Original</p><p className="font-bold text-sm">{formatBRL(emprestimo.valor_emprestado)}</p></div>
-            <div><p className="text-xs text-gray-400">Pago</p><p className="font-bold text-emerald-600 text-sm">{formatBRL(emprestimo.valor_pago)}</p></div>
+            <div><p className="text-xs text-gray-400">Original</p><p className="font-bold text-sm">{formatBRL(emprestimo.valor_principal)}</p></div>
+            <div><p className="text-xs text-gray-400">Pago</p><p className="font-bold text-emerald-600 text-sm">{formatBRL(emprestimo.total_abatido)}</p></div>
             <div><p className="text-xs text-gray-400">Saldo</p><p className="font-bold text-red-600 text-sm">{formatBRL(calcularSaldo(emprestimo))}</p></div>
           </div>
 
@@ -573,7 +584,7 @@ function HistoricoModal({ open, onClose, emprestimo }) {
                       <TableCell className={`text-right font-medium ${h.tipo === 'pagamento' ? 'text-emerald-600' : 'text-amber-600'}`}>
                         {h.tipo === 'pagamento' ? '-' : '+'}{formatBRL(h.valor)}
                       </TableCell>
-                      <TableCell className="text-right text-sm text-gray-600">{formatBRL(h.saldo_depois)}</TableCell>
+                      <TableCell className="text-right text-sm text-gray-600">{formatBRL(h.debito_depois)}</TableCell>
                       <TableCell className="text-sm text-gray-600 max-w-xs">{h.observacao || '-'}</TableCell>
                     </TableRow>
                   ))}

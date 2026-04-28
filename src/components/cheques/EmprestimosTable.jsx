@@ -70,11 +70,15 @@ export default function EmprestimosTable() {
   const [valorAporte, setValorAporte] = useState('');
   const [obsAporte, setObsAporte] = useState('');
 
-  const { data: emprestimos = [], isLoading } = useQuery({
+  const { data: emprestimosTodos = [], isLoading } = useQuery({
     queryKey: ['emprestimos'],
     queryFn: () => base44.entities.Emprestimo.list('-data_emprestimo'),
     refetchInterval: 60000,
   });
+
+  // Esta tabela mostra APENAS emprestimos COM juros. Os sem juros (percentual_mes = 0)
+  // ficam na pagina dedicada "Dinheiro Emprestado".
+  const emprestimos = emprestimosTodos.filter(e => (e.percentual_mes || 0) > 0);
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Emprestimo.create(data),
