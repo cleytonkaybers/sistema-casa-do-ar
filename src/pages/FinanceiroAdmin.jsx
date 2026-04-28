@@ -25,7 +25,9 @@ export default function FinanceiroAdmin() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [filtroEquipe, setFiltroEquipe] = useState('todas');
-  const [filtroTecnico, setFiltroTecnico] = useState('');
+  // filtroTecnico e filtroSemana agora sao GLOBAIS — afetam Gestao de Creditos,
+  // Relatorio de Comissoes e Historico de Pagamentos.
+  const [filtroTecnico, setFiltroTecnico] = useState('todos');
   const [filtroSemana, setFiltroSemana] = useState('atual');
   const [showModalPagamento, setShowModalPagamento] = useState(false);
   const [tecnicoSelecionado, setTecnicoSelecionado] = useState(null);
@@ -36,7 +38,6 @@ export default function FinanceiroAdmin() {
   const [confirmCancelPagamento, setConfirmCancelPagamento] = useState(null);
   const [estornando, setEstornando] = useState(false);
   const [showPDFModal, setShowPDFModal] = useState(false);
-  const [filtroTecnicoRelatorio, setFiltroTecnicoRelatorio] = useState('all');
   const [pagamentoDetalhes, setPagamentoDetalhes] = useState(null);
   
   const { data: lancamentos = [], refetch: refetchLancamentos } = useQuery({
@@ -184,11 +185,20 @@ export default function FinanceiroAdmin() {
   const fimSemanaPassada = new Date(fimSemanaAtual);
   fimSemanaPassada.setDate(fimSemanaPassada.getDate() - 7);
 
+  // Lista de tecnicos disponiveis no Select global, respeitando filtro de equipe.
+  const tecnicosDisponiveis = tecnicos.filter(t => {
+    return filtroEquipe === 'todas' || t.equipe_id === filtroEquipe;
+  });
+
+  // Map auxiliar para descobrir equipe_id pelo tecnico_id (usado em filtros do
+  // Historico de Pagamentos, onde o registro nao tras equipe_id).
+  const equipePorTecnicoId = new Map(tecnicos.map(t => [t.tecnico_id, t.equipe_id]));
+
   // Filtrar técnicos e recalcular seus valores baseado apenas na semana selecionada
   const filteredTecnicos = tecnicos
     .filter(t => {
-      const matchEquipe = filtroEquipe === 'todas' || !filtroEquipe || t.equipe_id === filtroEquipe;
-      const matchTecnico = !filtroTecnico || t.tecnico_id.includes(filtroTecnico);
+      const matchEquipe = filtroEquipe === 'todas' || t.equipe_id === filtroEquipe;
+      const matchTecnico = filtroTecnico === 'todos' || t.tecnico_id === filtroTecnico;
       return matchEquipe && matchTecnico;
     })
     .map(t => {
@@ -278,8 +288,24 @@ export default function FinanceiroAdmin() {
       : filtroSemana === 'passada'
       ? dataLancamento >= inicioSemanaPassada && dataLancamento <= fimSemanaPassada
       : true;
-    const matchTecnico = !filtroTecnicoRelatorio || filtroTecnicoRelatorio === 'all' || l.tecnico_id === filtroTecnicoRelatorio;
-    return matchSemana && matchTecnico;
+    const matchEquipe = filtroEquipe === 'todas' || l.equipe_id === filtroEquipe;
+    const matchTecnico = filtroTecnico === 'todos' || l.tecnico_id === filtroTecnico;
+    return matchSemana && matchEquipe && matchTecnico;
+  });
+
+  // Histórico de pagamentos com filtros globais (equipe + tecnico + periodo)
+  const inicioPeriodo = filtroSemana === 'passada' ? inicioSemanaPassada : inicioSemanaAtual;
+  const fimPeriodo = filtroSemana === 'passada' ? fimSemanaPassada : fimSemanaAtual;
+  const pagamentosFiltrados = pagamentos.filter(pag => {
+    if (!pag.created_date) return false;
+    const dataPag = new Date(pag.created_date);
+    if (dataPag < inicioPeriodo || dataPag > fimPeriodo) return false;
+    if (filtroTecnico !== 'todos' && pag.tecnico_id !== filtroTecnico) return false;
+    if (filtroEquipe !== 'todas') {
+      const equipeDoPag = equipePorTecnicoId.get(pag.tecnico_id);
+      if (equipeDoPag !== filtroEquipe) return false;
+    }
+    return true;
   });
 
   // Técnicos com saldo não-zero (tempo real)
@@ -308,6 +334,62 @@ export default function FinanceiroAdmin() {
         }}
       />
       <div className="space-y-6">
+      {/* Painel de filtros globais — afeta Gestao de Creditos, Relatorio de Comissoes e Historico de Pagamentos */}
+      <Card className="border-blue-500/20 bg-blue-950/10">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-blue-300">Filtros Globais</CardTitle>
+          <p className="text-xs text-gray-500">Filtra todos os cards abaixo (Gestão de Créditos, Comissões e Histórico).</p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2"><Calendar className="w-4 h-4" /> Período</Label>
+              <Select value={filtroSemana} onValueChange={setFiltroSemana}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="atual">Semana Atual</SelectItem>
+                  <SelectItem value="passada">Semana Passada</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Equipe</Label>
+              <Select
+                value={filtroEquipe}
+                onValueChange={(v) => {
+                  setFiltroEquipe(v);
+                  // Se o tecnico atual nao pertence a equipe nova, resetar.
+                  if (filtroTecnico !== 'todos') {
+                    const tec = tecnicos.find(t => t.tecnico_id === filtroTecnico);
+                    if (v !== 'todas' && tec?.equipe_id !== v) setFiltroTecnico('todos');
+                  }
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Todas as equipes" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas as equipes</SelectItem>
+                  {equipes.map(eq => (
+                    <SelectItem key={eq.id} value={eq.id}>{eq.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Técnico</Label>
+              <Select value={filtroTecnico} onValueChange={setFiltroTecnico}>
+                <SelectTrigger><SelectValue placeholder="Todos os técnicos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os técnicos</SelectItem>
+                  {tecnicosDisponiveis.map(t => (
+                    <SelectItem key={t.tecnico_id} value={t.tecnico_id}>{t.tecnico_nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-3">
@@ -363,43 +445,6 @@ export default function FinanceiroAdmin() {
            </div>
            </CardHeader>
          <CardContent className="space-y-4">
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-             <div className="space-y-2">
-               <Label className="flex items-center gap-2"><Calendar className="w-4 h-4" /> Período</Label>
-               <Select value={filtroSemana} onValueChange={setFiltroSemana}>
-                 <SelectTrigger>
-                   <SelectValue />
-                 </SelectTrigger>
-                 <SelectContent>
-                   <SelectItem value="atual">Semana Atual</SelectItem>
-                   <SelectItem value="passada">Semana Passada</SelectItem>
-                 </SelectContent>
-               </Select>
-             </div>
-            <div className="space-y-2">
-              <Label>Filtrar por Equipe</Label>
-              <Select value={filtroEquipe} onValueChange={setFiltroEquipe}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todas as equipes" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todas as equipes</SelectItem>
-                  {equipes.map(eq => (
-                    <SelectItem key={eq.id} value={eq.id}>{eq.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Buscar Técnico</Label>
-              <Input
-                placeholder="Nome ou email..."
-                value={filtroTecnico}
-                onChange={(e) => setFiltroTecnico(e.target.value)}
-              />
-            </div>
-            </div>
-
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -539,20 +584,6 @@ export default function FinanceiroAdmin() {
            <CardTitle className="flex items-center gap-2"><FileText className="w-4 h-4" /> Relatório de Comissões por Serviço</CardTitle>
          </CardHeader>
          <CardContent>
-           <div className="mb-4 flex items-center gap-3">
-             <Label className="text-sm whitespace-nowrap">Filtrar por Técnico:</Label>
-             <Select value={filtroTecnicoRelatorio} onValueChange={setFiltroTecnicoRelatorio}>
-               <SelectTrigger className="w-64">
-                 <SelectValue placeholder="Todos os técnicos" />
-               </SelectTrigger>
-               <SelectContent>
-                 <SelectItem value="all">Todos os técnicos</SelectItem>
-                 {tecnicos.map(t => (
-                   <SelectItem key={t.tecnico_id} value={t.tecnico_id}>{t.tecnico_nome}</SelectItem>
-                 ))}
-               </SelectContent>
-             </Select>
-           </div>
            <div className="overflow-x-auto">
              <Table>
                <TableHeader>
@@ -688,11 +719,7 @@ export default function FinanceiroAdmin() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pagamentos.filter(pag => {
-                  if (!pag.created_date) return false;
-                  const dataPag = new Date(pag.created_date);
-                  return dataPag >= inicioSemanaAtual && dataPag <= fimSemanaAtual;
-                }).map(pag => (
+                {pagamentosFiltrados.map(pag => (
                   <TableRow key={pag.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setPagamentoDetalhes(pag)}>
                     <TableCell>
                       <div>
