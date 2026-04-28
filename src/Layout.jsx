@@ -24,7 +24,8 @@ import {
   ChevronRight,
   ChevronDown,
   DollarSign,
-  Trophy } from
+  Trophy,
+  HandCoins } from
 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -91,6 +92,7 @@ function LayoutContent({ children }) {
         ...(isAdminEmpresa() || isSuperAdmin() ? [{ name: 'Pagamentos dos Clientes', href: createPageUrl('PagamentosClientes'), icon: DollarSign }] : []),
         { name: 'Financeiro', href: createPageUrl('FinanceiroAdmin'), icon: DollarSign },
         { name: 'Cheques', href: createPageUrl('Cheques'), icon: DollarSign },
+        { name: 'Dinheiro Emprestado', href: createPageUrl('DinheiroEmprestado'), icon: HandCoins },
         { name: 'Relatório Comissões', href: createPageUrl('RelatorioComissoes'), icon: DollarSign },
         { name: 'Tabela de Serviços', href: createPageUrl('TabelaServicos'), icon: Database },
       ],

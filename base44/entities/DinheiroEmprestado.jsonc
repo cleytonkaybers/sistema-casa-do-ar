@@ -1,0 +1,57 @@
+{
+  "name": "DinheiroEmprestado",
+  "type": "object",
+  "properties": {
+    "pessoa_nome": {
+      "type": "string",
+      "description": "Nome da pessoa que pegou o dinheiro emprestado"
+    },
+    "valor_emprestado": {
+      "type": "number",
+      "description": "Valor original emprestado (sem juros)"
+    },
+    "data_emprestimo": {
+      "type": "string",
+      "format": "date",
+      "description": "Data em que o emprestimo foi feito"
+    },
+    "valor_pago": {
+      "type": "number",
+      "default": 0,
+      "description": "Total ja pago / abatido"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ativo",
+        "quitado"
+      ],
+      "default": "ativo",
+      "description": "Status do emprestimo"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observacoes gerais sobre o emprestimo"
+    },
+    "historico_pagamentos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "string" },
+          "valor": { "type": "number" },
+          "tipo": { "type": "string" },
+          "saldo_antes": { "type": "number" },
+          "saldo_depois": { "type": "number" },
+          "observacao": { "type": "string" }
+        }
+      },
+      "description": "Historico de todos pagamentos e alteracoes"
+    }
+  },
+  "required": [
+    "pessoa_nome",
+    "valor_emprestado",
+    "data_emprestimo"
+  ]
+}

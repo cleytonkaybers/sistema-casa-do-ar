@@ -18,6 +18,7 @@ import Cheques from '@/pages/Cheques';
 import PagamentosClientes from '@/pages/PagamentosClientes';
 import Agendamentos from '@/pages/Agendamentos';
 import RankingTecnicos from '@/pages/RankingTecnicos';
+import DinheiroEmprestado from '@/pages/DinheiroEmprestado';
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -118,6 +119,11 @@ const AuthenticatedApp = () => {
         <Route path="/RankingTecnicos" element={
           <LayoutWrapper currentPageName="RankingTecnicos">
             <RankingTecnicos />
+          </LayoutWrapper>
+        } />
+        <Route path="/DinheiroEmprestado" element={
+          <LayoutWrapper currentPageName="DinheiroEmprestado">
+            <DinheiroEmprestado />
           </LayoutWrapper>
         } />
         <Route path="*" element={<PageNotFound />} />
