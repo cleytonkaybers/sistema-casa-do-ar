@@ -1647,11 +1647,11 @@ function PagamentosClientesContent() {
         }
         const saldo = (p.valor_total || 0) - (p.valor_pago || 0);
         const valorPago = p.valor_pago || 0;
-        // Excluir placeholders: preço padrão ≤ R$1 sem nenhum pagamento (não é débito real)
-        if ((p.valor_total || 0) <= 1.0 && valorPago === 0) return false;
-        // Excluir se "pago por tolerância" (saldo ≤ R$1 com algum pagamento feito)
+        // Pagamentos com valor placeholder (R$ 1,00) sem pagamento DEVEM aparecer
+        // como pendentes para o ADM precificar. Nao remover.
+        // Excluir apenas se "pago por tolerancia" (saldo <= R$1 com algum pagamento feito)
         if (valorPago > 0 && saldo <= 1.0) return false;
-        // Mostrar: saldo real > R$0,01 OU serviço sem preço definido (> R$1)
+        // Mostrar: saldo real > R$0,01 OU servico sem preco definido (valor_total = 0)
         return saldo > 0.01 || !p.valor_total;
       })
       .sort((a, b) => {
