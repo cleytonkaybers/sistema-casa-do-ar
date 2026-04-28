@@ -353,6 +353,7 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
   const [novaData, setNovaData] = useState('');
   const [novoValorParcela, setNovoValorParcela] = useState('');
   const [valorRegistrar, setValorRegistrar] = useState('');
+  const [desconto, setDesconto] = useState('');
   const [dataPagamentoAgendado, setDataPagamentoAgendado] = useState('');
   // Preços salvos (somente leitura neste modal)
   const [precosGrupo, setPrecosGrupo] = useState({});
@@ -375,6 +376,7 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
     setNovaData('');
     setNovoValorParcela('');
     setValorRegistrar('');
+    setDesconto('');
 
     // Busca preços dos records mais frescos
     const records = pagamento?._records || (pagamento ? [pagamento] : []);
@@ -413,9 +415,13 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
 
   const totalPago = (pagamento?._records || (pagamento ? [pagamento] : [])).reduce((s, r) => s + (r.valor_pago || 0), 0);
   const saldo = totalDefinido - totalPago;
+  const descontoNum = Math.max(0, parseFloat((desconto || '').replace(',', '.')) || 0);
+  // Desconto nao pode ser maior que o saldo
+  const descontoEfetivo = Math.min(descontoNum, Math.max(0, saldo));
+  const saldoComDesconto = Math.max(0, saldo - descontoEfetivo);
   const totalAgendado = parcelas.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
   const valorAtualNum = parseFloat((valorRegistrar || '').replace(',', '.')) || 0;
-  const saldoRestante = saldo - valorAtualNum - totalAgendado;
+  const saldoRestante = saldoComDesconto - valorAtualNum - totalAgendado;
   const todosPrecosDefinidos = servicosGrupos.every(g => parseFloat((precosGrupo[g.tipo] || '').replace(',', '.')) > 0);
 
   const adicionarParcela = () => {
@@ -441,16 +447,18 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
   const handleSave = async () => {
     if (!todosPrecosDefinidos) return toast.error('Preços não definidos. Use o botão 🏷️ Preços primeiro.');
     if (dataPagamentoAgendado && !isValidDate(dataPagamentoAgendado)) return toast.error('Data inválida');
-    const v = parseFloat((valorRegistrar || '').replace(',', '.'));
-    if (!v || v <= 0) return toast.error('Informe um valor válido');
-    if (v > saldo + 0.01) return toast.error(`Valor maior que o saldo (${formatCurrency(saldo)})`);
+    const v = parseFloat((valorRegistrar || '').replace(',', '.')) || 0;
+    // Aceita valor zero APENAS se houver desconto (cobre caso de quitar so com desconto)
+    if (v <= 0 && descontoEfetivo <= 0) return toast.error('Informe um valor ou desconto');
+    if (v > saldoComDesconto + 0.01) return toast.error(`Valor maior que o saldo (${formatCurrency(saldoComDesconto)})`);
     setLoading(true);
     const obsCompleta = [metodoPagamento, obs].filter(Boolean).join(' | ');
-    await onSave(pagamento, v, obsCompleta, parcelas, precosGrupo, dataPagamentoAgendado);
+    await onSave(pagamento, v, obsCompleta, parcelas, precosGrupo, dataPagamentoAgendado, descontoEfetivo);
     setLoading(false);
     setValorRegistrar('');
     setObs('');
     setParcelas([]);
+    setDesconto('');
     setDataPagamentoAgendado('');
     onClose();
   };
@@ -471,12 +479,17 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
             <div className="space-y-2 pt-3 border-t border-gray-200">
               <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
                 <p className="text-xs text-red-600 font-semibold mb-0.5">💰 Débito Total</p>
-                <p className="font-bold text-red-700 text-base">{totalDefinido > 0 ? formatCurrency(saldo) : <span className="text-amber-500">A definir</span>}</p>
+                <p className="font-bold text-red-700 text-base">{totalDefinido > 0 ? formatCurrency(saldoComDesconto) : <span className="text-amber-500">A definir</span>}</p>
+                {descontoEfetivo > 0.01 && (
+                  <p className="text-[11px] text-orange-600 font-semibold mt-1">
+                    🏷️ Desconto: -{formatCurrency(descontoEfetivo)} (saldo original: {formatCurrency(saldo)})
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div><p className="text-xs text-gray-400">Total</p><p className="font-bold text-gray-800 text-sm">{totalDefinido > 0 ? formatCurrency(totalDefinido) : <span className="text-amber-500 text-xs">A definir</span>}</p></div>
                 <div><p className="text-xs text-gray-400">Pago</p><p className="font-bold text-green-600 text-sm">{formatCurrency(totalPago)}</p></div>
-                <div><p className="text-xs text-gray-400">Saldo</p><p className="font-bold text-red-600 text-sm">{formatCurrency(Math.max(0, saldo))}</p></div>
+                <div><p className="text-xs text-gray-400">Saldo</p><p className="font-bold text-red-600 text-sm">{formatCurrency(saldoComDesconto)}</p></div>
               </div>
             </div>
           </div>
@@ -490,10 +503,26 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
           <div>
            <label className="text-xs sm:text-sm font-medium text-gray-700 mb-1.5 block">Valor a registrar (R$)</label>
            <Input placeholder="0,00" value={valorRegistrar} onChange={e => setValorRegistrar(e.target.value)} className="h-11 sm:h-12 text-base sm:text-lg font-semibold" autoFocus />
-           {saldo > 0.01 && (
-             <button onClick={() => setValorRegistrar(saldo.toFixed(2).replace('.', ','))} className="text-xs text-blue-600 mt-2 underline">
-               Preencher total ({formatCurrency(Math.max(0, saldo))})
+           {saldoComDesconto > 0.01 && (
+             <button onClick={() => setValorRegistrar(saldoComDesconto.toFixed(2).replace('.', ','))} className="text-xs text-blue-600 mt-2 underline">
+               Preencher total ({formatCurrency(saldoComDesconto)})
              </button>
+           )}
+          </div>
+
+          <div>
+           <label className="text-xs sm:text-sm font-medium text-gray-700 mb-1.5 block">🏷️ Desconto (R$) — opcional</label>
+           <Input
+             placeholder="0,00"
+             value={desconto}
+             onChange={e => setDesconto(e.target.value)}
+             className="h-10 text-sm"
+           />
+           <p className="text-[11px] text-gray-500 mt-1">Sera abatido do saldo do cliente.</p>
+           {descontoNum > 0 && descontoNum > saldo + 0.01 && (
+             <p className="text-[11px] text-amber-600 font-semibold mt-1">
+               ⚠ Desconto maior que o saldo — sera limitado a {formatCurrency(saldo)}
+             </p>
            )}
           </div>
 
@@ -526,7 +555,13 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={loading || !parseFloat((valorRegistrar || '').replace(',', '.')) || saldo <= 0 || !metodoPagamento || !todosPrecosDefinidos} className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50">
+          <Button onClick={handleSave} disabled={
+            loading
+            || saldo <= 0
+            || !todosPrecosDefinidos
+            || (valorAtualNum <= 0 && descontoEfetivo <= 0)
+            || (valorAtualNum > 0 && !metodoPagamento)
+          } className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50">
             {loading ? 'Salvando...' : '✓ Confirmar Pagamento'}
           </Button>
         </DialogFooter>
@@ -1399,9 +1434,10 @@ function PagamentosClientesContent() {
     setPrecosSyncKey(k => k + 1);
   };
 
-  const handleRegistrarPagamento = async (pag, valor, obs, parcelas = [], precosGrupo = {}, dataPagamentoAgendado = '') => {
+  const handleRegistrarPagamento = async (pag, valor, obs, parcelas = [], precosGrupo = {}, dataPagamentoAgendado = '', desconto = 0) => {
     const records = pag._records?.length > 1 ? pag._records : [pag];
     let remaining = valor;
+    let descontoRemaining = Math.max(0, desconto || 0);
     const dataStr = format(new Date(), "dd/MM/yyyy HH:mm");
 
     const calcularValorRecord = (rec) => {
@@ -1418,32 +1454,59 @@ function PagamentosClientesContent() {
       return { ...rec, valor_total: novoPreco > 0 ? novoPreco : rec.valor_total };
     });
 
+    // Saldo total para distribuir desconto proporcionalmente entre os records
+    const saldoTotalRecords = recordsAtualizados.reduce((s, r) => s + Math.max(0, calcularSaldo(r.valor_total, r.valor_pago)), 0);
+
     // Rastrear estado atualizado de cada record para repassar ao modal do PDF
     const recordsParaModal = recordsAtualizados.map(r => ({ ...r }));
 
     for (let i = 0; i < recordsAtualizados.length; i++) {
       const rec = recordsAtualizados[i];
-      if (remaining <= 0.01) break;
       const recSaldo = calcularSaldo(rec.valor_total, rec.valor_pago);
       if (recSaldo <= 0.01) continue;
-      const toPay = Math.min(remaining, recSaldo);
-      remaining -= toPay;
+
+      // Distribui desconto proporcional ao saldo do record (ultimo absorve sobra)
+      let descontoRec = 0;
+      if (descontoRemaining > 0.01 && saldoTotalRecords > 0) {
+        const isUltimoComSaldo = recordsAtualizados.slice(i + 1).every(r => calcularSaldo(r.valor_total, r.valor_pago) <= 0.01);
+        if (isUltimoComSaldo) {
+          descontoRec = Math.min(descontoRemaining, recSaldo);
+        } else {
+          const proporcao = recSaldo / saldoTotalRecords;
+          descontoRec = Math.min(descontoRemaining, recSaldo, desconto * proporcao);
+        }
+        descontoRemaining = Math.max(0, descontoRemaining - descontoRec);
+      }
+
+      const novoValorTotal = (rec.valor_total || 0) - descontoRec;
+      const saldoAposDesconto = recSaldo - descontoRec;
+      const toPay = remaining > 0.01 ? Math.min(remaining, saldoAposDesconto) : 0;
+      remaining = Math.max(0, remaining - toPay);
       const novoPago = (rec.valor_pago || 0) + toPay;
+
       const parcelasAgendadas = parcelas.map(p => ({
         valor: p.valor,
         data: format(new Date(p.data + 'T12:00:00'), 'dd/MM/yyyy'),
         observacao: '📅 Parcela agendada',
         agendada: true,
       }));
+      const histDesconto = descontoRec > 0.01
+        ? [{ valor: descontoRec, data: dataStr, observacao: '🏷️ Desconto aplicado', desconto: true }]
+        : [];
+      const histPagamento = toPay > 0.01
+        ? [{ valor: toPay, data: dataStr, observacao: obs }]
+        : [];
       const novoHistorico = [
         ...(rec.historico_pagamentos || []),
-        { valor: toPay, data: dataStr, observacao: obs },
+        ...histDesconto,
+        ...histPagamento,
         ...parcelasAgendadas,
       ];
-      const isQuitado = novoPago >= (rec.valor_total || 0) - 0.01;
+      const isQuitado = novoPago >= novoValorTotal - 0.01;
       const statusFinal = isQuitado ? 'pago' : (dataPagamentoAgendado ? 'agendado' : 'parcial');
       await updateMutation.mutateAsync({
         id: rec.id, data: {
+          valor_total: novoValorTotal,
           valor_pago: novoPago,
           status: statusFinal,
           historico_pagamentos: novoHistorico,
@@ -1452,10 +1515,14 @@ function PagamentosClientesContent() {
         },
       });
       // Atualizar snapshot para o modal com os valores já gravados
-      recordsParaModal[i] = { ...rec, valor_pago: novoPago, historico_pagamentos: novoHistorico, status: statusFinal };
+      recordsParaModal[i] = { ...rec, valor_total: novoValorTotal, valor_pago: novoPago, historico_pagamentos: novoHistorico, status: statusFinal };
     }
 
-    toast.success('✅ Pagamento registrado!');
+    if (desconto > 0.01) {
+      toast.success(`✅ Pagamento registrado com desconto de ${formatCurrency(desconto)}!`);
+    } else {
+      toast.success('✅ Pagamento registrado!');
+    }
 
     // Montar pag atualizado para o PDF — usando os valores efetivamente gravados, não o snapshot antigo
     const totalPagoAtualizado = recordsParaModal.reduce((s, r) => s + (r.valor_pago || 0), 0);
