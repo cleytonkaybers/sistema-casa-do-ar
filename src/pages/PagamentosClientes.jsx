@@ -238,6 +238,13 @@ function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], on
       const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
       tipos.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
     });
+    // Fallback: se nenhum tipo foi extraido mas existem records (ex: tipo_servico
+    // vazio ou apenas "+"), usar tipo bruto ou placeholder generico para nao
+    // bloquear a precificacao (modal abria vazio sem este fallback).
+    if (Object.keys(counts).length === 0 && records.length > 0) {
+      const tipoBruto = (pagamento?.tipo_servico || '').trim() || 'Servico';
+      counts[tipoBruto] = records.length;
+    }
     return Object.entries(counts).map(([tipo, qtd]) => ({ tipo, qtd }));
   }, [pagamento]);
 
@@ -254,14 +261,20 @@ function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], on
       });
       if (rec) {
         const tipos = (rec.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-        const precoUnitario = (rec.valor_total || 0) / tipos.length;
+        const precoUnitario = tipos.length > 0 ? (rec.valor_total || 0) / tipos.length : (rec.valor_total || 0);
         inicial[tipo] = Number(precoUnitario).toFixed(2).replace('.', ',');
       } else {
-        inicial[tipo] = '';
+        // Se algum record ja tem valor_total > 1 (mas nao matchou regex), usar como base
+        const recComValor = records.find(r => (r.valor_total || 0) > 1);
+        if (recComValor) {
+          inicial[tipo] = Number(recComValor.valor_total).toFixed(2).replace('.', ',');
+        } else {
+          inicial[tipo] = '';
+        }
       }
     });
     setPrecosGrupo(inicial);
-  }, [open, pagamento?.id]);
+  }, [open, pagamento?.id, servicosGrupos]);
 
   const handleSave = async () => {
     if (Object.values(precosGrupo).every(v => !parseFloat((v || '').replace(',', '.')))) {
@@ -1415,10 +1428,17 @@ function PagamentosClientesContent() {
     let atualizados = 0;
     for (const rec of records) {
       const tipos = (rec.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-      const novoPreco = tipos.reduce((sum, t) => {
+      let novoPreco = tipos.reduce((sum, t) => {
         const val = parseFloat((precosGrupo[t] || '').replace(',', '.')) || 0;
         return sum + val;
       }, 0);
+      // Fallback: se nao casou nenhum tipo (tipo_servico vazio/sem split valido),
+      // soma todos os precos do grupo definidos pelo usuario.
+      if (novoPreco === 0) {
+        novoPreco = Object.values(precosGrupo).reduce((sum, v) => {
+          return sum + (parseFloat((v || '').replace(',', '.')) || 0);
+        }, 0);
+      }
       if (novoPreco > 0) {
         const novoStatus = rec.data_pagamento_agendado ? 'agendado' : 'pendente';
         await updateMutation.mutateAsync({ id: rec.id, data: { valor_total: novoPreco, status: novoStatus } });
