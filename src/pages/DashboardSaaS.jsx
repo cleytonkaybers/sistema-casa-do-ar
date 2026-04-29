@@ -3,10 +3,9 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BarChart3, Users, FileText, Clock, AlertCircle, TrendingUp, DollarSign, Calendar } from 'lucide-react';
+import { Users, FileText, Clock, AlertCircle, DollarSign, Calendar } from 'lucide-react';
 import { useSaaSAuth } from '@/components/saas/SaaSAuthGuard';
 import { Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
 import { formatTipoServicoCompact } from '@/utils';
 
 export default function DashboardSaaS() {

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { base44 } from '@/api/base44Client';
 import { usePermissions } from '@/components/auth/PermissionGuard';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -14,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseHistoricoData } from '@/lib/dateUtils';
@@ -22,7 +21,6 @@ import { TableSkeleton } from '@/components/LoadingSkeleton';
 import { 
   Search,
   ClipboardList,
-  Calendar,
   X,
   ChevronDown,
   ChevronUp,
@@ -60,7 +58,6 @@ const formatServiceText = (text) => {
 };
 
 export default function Atendimentos() {
-  const queryClient = useQueryClient();
   const { user: currentUser, loading: loadingUser, isAdmin } = usePermissions();
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -222,24 +219,6 @@ export default function Atendimentos() {
   const paginatedClientes = clientesArray.slice(startIndex, endIndex);
 
   React.useEffect(() => { setCurrentPage(1); }, [debouncedSearch, filterTipo]);
-
-  const formatCurrency = (value) => {
-    if (!value) return 'R$ 0,00';
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-  };
-
-  const getStatusBadge = (status) => {
-    const s = status?.toLowerCase() || '';
-    if (s === 'concluido' || s === 'concluído') return <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold shadow-inner w- max text-[11px]">Concluída</Badge>;
-    if (s === 'faturada' || s === 'faturado') return <Badge className="bg-purple-500/10 text-purple-400 border border-purple-500/20 font-semibold shadow-inner w-max text-[11px]">Faturada</Badge>;
-    if (s === 'agendado' || s === 'reagendado') return <Badge className="bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold shadow-inner w-max text-[11px]">Agendada</Badge>;
-    return <Badge className="bg-gray-500/10 text-gray-400 border border-gray-500/20 font-semibold shadow-inner w-max text-[11px] capitalize">{status}</Badge>;
-  };
-
-  const handleVerDetalhes = (item) => {
-    setSelectedAtendimento(item);
-    setDetalhesOpen(true);
-  };
 
   return (
     <div className="space-y-6 max-w-full overflow-hidden">

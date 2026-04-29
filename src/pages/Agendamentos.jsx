@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, MapPin, Phone, User, Calendar, Clock, Search, X, MessageCircle, ClipboardList } from 'lucide-react';
+import { Plus, Pencil, Trash2, MapPin, User, Calendar, Clock, Search, X, MessageCircle, ClipboardList } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ServicoForm from '@/components/servicos/ServicoForm';
@@ -208,7 +208,7 @@ export default function Agendamentos() {
       toast.success(`Serviço ${os_numero} criado com sucesso!`);
       setNovoServicoOpen(false);
       setNovoServicoData(null);
-    } catch (err) {
+    } catch {
       toast.error('Erro ao criar serviço');
     }
   };

@@ -22,8 +22,8 @@ import { parseHistoricoData, toLocalDateSafe } from '@/lib/dateUtils';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 import CompromissoClientePDF from '@/components/financeiro/CompromissoClientePDF';
 import {
-  Search, DollarSign, CheckCircle2, AlertCircle, Calendar,
-  MessageCircle, Filter, X, Pencil, Tag,
+  Search, CheckCircle2, AlertCircle, Calendar,
+  MessageCircle, Filter, X, Tag,
   Clock, History, Trash2, Eye, Check, FileDown, AlertTriangle, RotateCcw, Archive, ArchiveRestore
 } from 'lucide-react';
 
@@ -419,21 +419,8 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
   // Desconto nao pode ser maior que o saldo
   const descontoEfetivo = Math.min(descontoNum, Math.max(0, saldo));
   const saldoComDesconto = Math.max(0, saldo - descontoEfetivo);
-  const totalAgendado = parcelas.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
   const valorAtualNum = parseFloat((valorRegistrar || '').replace(',', '.')) || 0;
-  const saldoRestante = saldoComDesconto - valorAtualNum - totalAgendado;
   const todosPrecosDefinidos = servicosGrupos.every(g => parseFloat((precosGrupo[g.tipo] || '').replace(',', '.')) > 0);
-
-  const adicionarParcela = () => {
-    if (!novaData) return toast.error('Informe a data da parcela');
-    const v = parseFloat(novoValorParcela.replace(',', '.'));
-    if (!v || v <= 0) return toast.error('Informe o valor da parcela');
-    setParcelas(prev => [...prev, { data: novaData, valor: v }]);
-    setNovaData('');
-    setNovoValorParcela('');
-  };
-
-  const removerParcela = (idx) => setParcelas(prev => prev.filter((_, i) => i !== idx));
 
   const isValidDate = (dateStr) => {
     try {
@@ -1273,11 +1260,6 @@ function PagamentosClientesContent() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] }),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.PagamentoCliente.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] }),
-  });
-
   const handleDelete = (pag) => {
     // Soft-delete: arquiva em vez de deletar do banco.
     // Isso mantém o atendimento_id em idsRegistrados e impede que a sincronização
@@ -1336,7 +1318,7 @@ function PagamentosClientesContent() {
         try { await updateMutation.mutateAsync({ id: p.id, data: { arquivado: true } }); } catch {}
       }
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [pagamentos.length, isAdmin]);
 
   // Sincronizar apenas ATENDIMENTOS DA SEMANA ATUAL — 1 registro por atendimento
@@ -1575,7 +1557,7 @@ function PagamentosClientesContent() {
         });
       }
       toast.success('✅ Pagamento marcado como pago!');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao marcar como pago');
     }
   };
@@ -1619,7 +1601,7 @@ function PagamentosClientesContent() {
       }
       if (reverteuAlgum) toast.success('↩ Pagamento revertido!');
       else toast.error('Nenhum pagamento encontrado para reverter.');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao reverter pagamento');
     }
   };

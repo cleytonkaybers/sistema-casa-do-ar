@@ -166,7 +166,7 @@ export function DinheiroEmprestadoContent() {
       toast.success(quitou ? '✅ Emprestimo quitado!' : '💰 Pagamento registrado!');
       setShowPagamentoModal(false);
       setEmprestimoPagando(null);
-    } catch (err) {
+    } catch {
       toast.error('Erro ao registrar pagamento');
     }
   };
@@ -176,7 +176,7 @@ export function DinheiroEmprestadoContent() {
       await deleteMutation.mutateAsync(emprestimo.id);
       toast.success('Emprestimo excluido');
       setConfirmDelete(null);
-    } catch (err) {
+    } catch {
       toast.error('Erro ao excluir');
     }
   };

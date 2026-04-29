@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Building2, Plus, Pencil, Users, Loader2, UserPlus } from 'lucide-react';
+import { Building2, Plus, Pencil, Loader2, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useEmpresa } from '@/components/auth/EmpresaGuard';
 import NoPermission from '@/components/NoPermission';

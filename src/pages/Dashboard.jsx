@@ -23,10 +23,8 @@ import {
   Clock,
   CheckCircle2,
   Plus,
-  Filter,
   Tag,
   Bell,
-  DollarSign,
   Wrench,
   ShieldAlert
 } from 'lucide-react';

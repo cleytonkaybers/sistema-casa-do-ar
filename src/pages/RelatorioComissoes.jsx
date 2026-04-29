@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FileText, DollarSign, TrendingUp, Calendar, Filter, Trophy, Users, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatCurrency } from '@/lib/utils/formatters';
 import { calcularTotalComissoes, agruparPorPeriodo } from '@/lib/utils/calculations';
 import { TableSkeleton, CardSkeleton } from '@/components/LoadingSkeleton';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -479,7 +478,7 @@ export default function RelatorioComissoes() {
       }
       queryClient.invalidateQueries({ queryKey: ['lancamentos-financeiros'] });
       toast.success('Lançamento removido');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao remover');
     } finally {
       setDeletando(false);

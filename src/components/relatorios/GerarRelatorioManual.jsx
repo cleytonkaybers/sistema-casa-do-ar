@@ -13,7 +13,6 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import { formatTipoServicoCompact } from '@/utils';
 
 export default function GerarRelatorioManual({ open, onClose }) {

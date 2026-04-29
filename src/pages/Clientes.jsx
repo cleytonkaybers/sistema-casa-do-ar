@@ -4,13 +4,8 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+
+
 import { toast } from 'sonner';
 import { 
   Plus, 
@@ -28,7 +23,6 @@ import ClientesTable from '@/components/clientes/ClientesTable';
 import DeleteConfirmDialog from '@/components/clientes/DeleteConfirmDialog';
 import HistoricoModal from '@/components/atendimentos/HistoricoModal';
 import AtendimentoForm from '@/components/atendimentos/AtendimentoForm';
-import LoadingSpinner from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import { useEmpresa } from '@/components/auth/EmpresaGuard';
@@ -253,7 +247,7 @@ export default function Clientes() {
           duration: 8000,
         });
       }
-    } catch (e) {
+    } catch {
       toast.error('Erro ao exportar para o Google Drive');
     } finally {
       setExportandoDrive(false);

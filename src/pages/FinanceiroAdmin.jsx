@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, Users, TrendingUp, TrendingDown, Check, X, FileText, Download, Calendar, Edit2, Trash2, Save, XCircle, Eye, MessageSquare } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, X, FileText, Download, Calendar, Edit2, Trash2, Save, XCircle, Eye, MessageSquare } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { format, parseISO, startOfWeek, endOfWeek } from 'date-fns';
@@ -30,8 +30,6 @@ export default function FinanceiroAdmin() {
   const [filtroTecnico, setFiltroTecnico] = useState('todos');
   const [filtroSemana, setFiltroSemana] = useState('atual');
   const [showModalPagamento, setShowModalPagamento] = useState(false);
-  const [tecnicoSelecionado, setTecnicoSelecionado] = useState(null);
-  const [loadingPagamento, setLoadingPagamento] = useState(false);
   const [editandoLancamento, setEditandoLancamento] = useState(null);
   const [editValor, setEditValor] = useState('');
   const [editPercentual, setEditPercentual] = useState('');
@@ -93,7 +91,7 @@ export default function FinanceiroAdmin() {
 
       toast.success('Lançamento e ganhos atualizados');
       setEditandoLancamento(null);
-    } catch (error) {
+    } catch {
       toast.error('Erro ao atualizar lançamento');
     }
   };
@@ -149,7 +147,7 @@ export default function FinanceiroAdmin() {
       }
 
       toast.success('Lançamento excluído e ganhos atualizados');
-    } catch (error) {
+    } catch {
       toast.error('Erro ao excluir lançamento');
     }
     setConfirmDeleteLanc(null);
@@ -772,7 +770,7 @@ export default function FinanceiroAdmin() {
                                     await base44.entities.PagamentoTecnico.delete(pag.id);
                                     toast.success('Pagamento removido da lista');
                                     refetchPagamentos();
-                                  } catch (error) {
+                                  } catch {
                                     toast.error('Erro ao remover pagamento');
                                   }
                                 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import {
@@ -21,13 +21,11 @@ import {
   Cloud,
   Droplets,
   RotateCw,
-  ChevronRight,
   ChevronDown,
   DollarSign,
   Trophy } from
 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import { Button } from '@/components/ui/button';
 import ErrorBoundary from '@/components/ErrorBoundary';
 
 import NotificationCenter from '@/components/NotificationCenter';

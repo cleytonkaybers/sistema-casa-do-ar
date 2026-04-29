@@ -12,10 +12,9 @@ import ServicoCard from '../components/servicos/ServicoCard';
 import ReagendarModal from '../components/servicos/ReagendarModal';
 import CompartilharModal from '../components/servicos/CompartilharModal';
 import ConclusaoModal from '../components/servicos/ConclusaoModal';
-import AlertaAtraso from '../components/servicos/AlertaAtraso';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { toast } from 'sonner';
-import { format, parseISO, startOfMonth, isSameMonth, isBefore, startOfDay } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
@@ -52,7 +51,7 @@ export default function ServicosPage() {
     queryFn: () => base44.entities.Equipe.list(),
   });
 
-  const { data: usuarios = [], isLoading: isLoadingUsuarios } = useQuery({
+  const { data: usuarios = [] } = useQuery({
     queryKey: ['usuarios'],
     queryFn: () => base44.entities.User.list(),
   });
@@ -534,8 +533,6 @@ export default function ServicosPage() {
       toast.error('Erro ao reagendar serviço: ' + (error.message || 'Tente novamente'));
     }
   };
-
-  const today = startOfDay(new Date());
 
   // equipe_id vem direto do auth.me() — sem depender da lista de usuários
   const equipeIdUsuario = currentUser?.equipe_id || null;

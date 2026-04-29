@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
-import { Phone, MapPin, Calendar, Pencil, Trash2, MessageCircle, Navigation, Clock, DollarSign, Share2, CreditCard, CheckCircle, Pause, Play, CalendarClock, Eye, AlertTriangle } from 'lucide-react';
+import { Phone, MapPin, Calendar, Pencil, Trash2, MessageCircle, Navigation, Clock, DollarSign, Share2, CreditCard, CheckCircle, Play, CalendarClock, Eye, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DropdownMenu,

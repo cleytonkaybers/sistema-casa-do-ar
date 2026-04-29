@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Calendar, Clock } from 'lucide-react';
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { formatTipoServicoCompact } from '@/utils';
 
 export default function ReagendarModal({ open, onClose, onSave, servico, isLoading }) {

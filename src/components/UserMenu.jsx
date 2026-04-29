@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { LogOut, User, ChevronDown, Smartphone, X, Share } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { LogOut, User, ChevronDown, Smartphone, X } from 'lucide-react';
 
 export default function UserMenu({ user }) {
   const [open, setOpen] = useState(false);

@@ -7,8 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
-  Search, Calendar, User, DollarSign, CheckCircle2,
-  Clock, Download, FileText, Eye, X, Trash2, 
+  Search, Calendar, User, DollarSign, CheckCircle2, Download, FileText, Trash2, 
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -439,13 +438,7 @@ export default function HistoricoClientes() {
   const totalServicosHistorico = servicos.length + atendimentos.length;
   const totalValorHistorico = atendimentos.reduce((sum, item) => sum + (item.valor || 0), 0);
 
-  const clearFilters = () => {
-    setSearchTerm('');
-    setCurrentPage(1);
-  };
-
   const clientesArray = Object.values(agrupadoPorCliente).sort((a, b) => (b.ultimaData || 0) - (a.ultimaData || 0));
-  const hasActiveFilters = searchTerm !== '';
   const totalPages = Math.ceil(clientesArray.length / clientesPerPage);
   const startIndex = (currentPage - 1) * clientesPerPage;
   const endIndex = startIndex + clientesPerPage;
@@ -474,24 +467,6 @@ export default function HistoricoClientes() {
       return <Badge className="bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold shadow-inner w-max text-[11px]">Agendada</Badge>;
     }
     return <Badge className="bg-gray-500/10 text-gray-400 border border-gray-500/20 font-semibold shadow-inner w-max text-[11px] capitalize">{status}</Badge>;
-  };
-
-  const getPagamentoStatus = (item) => {
-    if (item.status !== 'concluido') return null;
-    let pag = null;
-    if (item.tipoObjeto === 'atendimento') {
-      pag = (item.originalId && pagamentoPorAtendimento.get(item.originalId)) || (item.servico_id && pagamentoPorServico.get(item.servico_id)) || null;
-    } else {
-      pag = pagamentoPorServico.get(item.originalId) || null;
-    }
-    
-    if (!pag) {
-      if (item.valor === 0) return { label: 'Sem Preço', style: 'bg-red-500/10 text-red-500 border border-red-500/20' };
-      return { label: 'Aguardando', style: 'bg-gray-500/10 text-gray-400 border border-gray-500/20' };   
-    }
-
-    if (pag.status === 'pago') return { label: 'Pago', style: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' };
-    return { label: 'Aguardando', style: 'bg-orange-500/10 text-orange-400 border border-orange-500/20' };
   };
 
   return (

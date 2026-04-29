@@ -3,7 +3,6 @@ import EmprestimosTable from '@/components/cheques/EmprestimosTable';
 import { DinheiroEmprestadoContent } from '@/pages/DinheiroEmprestado';
 import { base44 } from '@/api/base44Client';
 import { format, parseISO, isToday, isPast, differenceInDays, isTomorrow, isValid } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';

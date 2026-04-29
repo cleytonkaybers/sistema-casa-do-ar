@@ -102,7 +102,7 @@ export default function CompartilharModal({ open, onClose, servico, isConclusao 
       setCopied(true);
       toast.success('Texto copiado!');
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
+    } catch {
       toast.error('Erro ao copiar');
     }
   };

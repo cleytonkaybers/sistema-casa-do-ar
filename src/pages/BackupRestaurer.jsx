@@ -107,7 +107,6 @@ export default function BackupRestaurerPage() {
   // ─── Import state ────────────────────────────────────────────────────────
   const [importFile, setImportFile] = useState(null);
   const [importPreview, setImportPreview] = useState(null);
-  const [importMode, setImportMode] = useState('add'); // 'add' | 'replace'
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(null);
   const [importResult, setImportResult] = useState(null);

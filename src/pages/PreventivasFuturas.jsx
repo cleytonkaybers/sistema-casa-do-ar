@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Phone, MapPin, Calendar, MessageCircle, Navigation, Search, Loader2, Clock, Wrench, Share2, Eye, Plus, Trash2, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Phone, MapPin, Calendar, MessageCircle, Navigation, Search, Loader2, Share2, Eye, Plus, Trash2, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import { usePermissions } from '../components/auth/PermissionGuard';
 import TechnicianAccessBlock from '@/components/TechnicianAccessBlock';
 import { 

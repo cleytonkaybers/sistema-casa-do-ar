@@ -34,7 +34,7 @@ export default function ExportButtons({ reportData, dateRange }) {
       document.body.removeChild(element);
       
       toast.success('CSV exportado com sucesso');
-    } catch (error) {
+    } catch {
       toast.error('Erro ao exportar CSV');
     }
   };
@@ -76,7 +76,7 @@ export default function ExportButtons({ reportData, dateRange }) {
 
       pdf.save(`relatorio_${new Date().getTime()}.pdf`);
       toast.success('PDF exportado com sucesso');
-    } catch (error) {
+    } catch {
       toast.error('Erro ao exportar PDF');
     }
   };

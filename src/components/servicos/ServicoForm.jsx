@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, MapPin, Search, ExternalLink, Users, Plus, X, Minus, Wrench, Calendar, User } from 'lucide-react';
+import { Loader2, Search, ExternalLink, Plus, X, Minus, Wrench, Calendar, User } from 'lucide-react';
 import { toast } from 'sonner';
 import TimePickerClock from '@/components/ui/time-picker-clock';
 import { base44 } from '@/api/base44Client';
@@ -16,7 +16,6 @@ import { MARCAS_AR, isInstalacao, embutirMarca, extrairMarca, removerMarca } fro
 
 export default function ServicoForm({ open, onClose, onSave, servico, isLoading, prefilledData, equipes = [], currentUserEquipeId = null, isAdmin = false }) {
   const [loadingLocation, setLoadingLocation] = useState(false);
-  const [loadingContacts, setLoadingContacts] = useState(false);
   const [clienteSearch, setClienteSearch] = useState('');
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
   const [servicoSearch, setServicoSearch] = useState('');
@@ -320,7 +319,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
           toast.success(`Coordenadas encontradas: ${result.latitude}, ${result.longitude}`);
         }
       }
-    } catch (error) {
+    } catch {
       toast.error('Erro ao buscar localização');
     } finally {
       setLoadingLocation(false);
