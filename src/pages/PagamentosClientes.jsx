@@ -232,18 +232,21 @@ function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], on
   const [loading, setLoading] = useState(false);
 
   const servicosGrupos = useMemo(() => {
-    const records = pagamento?._records || (pagamento ? [pagamento] : []);
+    if (!pagamento) return [];
+    const records = (pagamento._records && pagamento._records.length > 0)
+      ? pagamento._records
+      : [pagamento];
     const counts = {};
     records.forEach(r => {
       const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
       tipos.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
     });
-    // Fallback: se nenhum tipo foi extraido mas existem records (ex: tipo_servico
-    // vazio ou apenas "+"), usar tipo bruto ou placeholder generico para nao
-    // bloquear a precificacao (modal abria vazio sem este fallback).
-    if (Object.keys(counts).length === 0 && records.length > 0) {
-      const tipoBruto = (pagamento?.tipo_servico || '').trim() || 'Servico';
-      counts[tipoBruto] = records.length;
+    // Fallback ROBUSTO: se nenhum tipo foi extraido (tipo_servico vazio, "+",
+    // null, etc), garantir pelo menos 1 entrada para que o modal mostre 1 input
+    // e o ADM possa precificar.
+    if (Object.keys(counts).length === 0) {
+      const tipoBruto = (pagamento.tipo_servico || '').trim() || 'Servico';
+      counts[tipoBruto] = Math.max(1, records.length);
     }
     return Object.entries(counts).map(([tipo, qtd]) => ({ tipo, qtd }));
   }, [pagamento]);
