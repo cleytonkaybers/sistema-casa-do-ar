@@ -3,8 +3,9 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Loader2, TrendingUp, DollarSign, CheckCircle, Clock, Filter, BarChart2, List, BookOpen, FileSpreadsheet, FileText, Wrench } from 'lucide-react';
-import { extrairMarca, isInstalacao } from '@/lib/marcasAr';
+import { extrairMarca, isInstalacao, removerMarca } from '@/lib/marcasAr';
 import NotionExportModal from '../components/relatorios/NotionExportModal';
 import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO, startOfWeek, endOfWeek, startOfYear, endOfYear, subWeeks } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
@@ -68,6 +69,8 @@ export default function RelatóriosPage() {
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [viewMode, setViewMode] = useState('resumo'); // 'resumo' | 'detalhado' | 'instalacoes'
   const [filtroMarca, setFiltroMarca] = useState('todas');
+  const [filtroEquipeInst, setFiltroEquipeInst] = useState('todas');
+  const [instalacaoDetalhes, setInstalacaoDetalhes] = useState(null);
   const [notionModal, setNotionModal] = useState(false);
 
   const dateRange = useMemo(() => {
@@ -112,11 +115,19 @@ export default function RelatóriosPage() {
     }));
 
     const detalheInstalacoes = instalacoesExpandidas.map(i => ({
+      'Data Conclusão': i.dataConclusao ? format(parseISO(i.dataConclusao), 'dd/MM/yyyy') : '-',
+      'Data Programada': i.dataProgramada ? format(parseISO(i.dataProgramada), 'dd/MM/yyyy') : '-',
+      'OS': i.os || '-',
       'Cliente': i.cliente,
+      'Telefone': i.telefone || '-',
+      'Endereço': i.endereco || '-',
       'Marca': i.marca,
       'Tipo de Instalação': i.tipo,
-      'Data': i.data ? format(parseISO(i.data), 'dd/MM/yyyy') : '-',
+      'Local / Ambiente': i.local,
       'Equipe': i.equipe,
+      'Valor (R$)': (i.valor || 0).toFixed(2),
+      'Observações Conclusão': i.observacoesConclusao || '-',
+      'Descrição Original': i.descricao || '-',
     }));
 
     await exportarExcel(
@@ -125,7 +136,7 @@ export default function RelatóriosPage() {
         { name: 'Resumo por Tipo', data: resumoTipo, colWidths: [35, 22, 12, 18, 12] },
         { name: 'Serviços Detalhados', data: detalhes, colWidths: [28, 35, 22, 18, 14, 12, 14] },
         { name: 'Instalações por Marca', data: resumoMarca, colWidths: [25, 18] },
-        { name: 'Detalhe Instalações', data: detalheInstalacoes, colWidths: [28, 22, 28, 14, 22] },
+        { name: 'Detalhe Instalações', data: detalheInstalacoes, colWidths: [14, 14, 12, 28, 16, 36, 18, 24, 22, 22, 14, 36, 28] },
       ],
       `relatorio_servicos_${periodo}.xlsx`
     );
@@ -195,12 +206,15 @@ export default function RelatóriosPage() {
 
   // Instalacoes expandidas: cada item de instalacao dentro de um servico vira uma linha.
   // Ex: tipo_servico = "Instalacao 9k [Marca: LG | Sala] + Limpeza 9k" gera 1 instalacao.
+  // Valor e rateado igualmente entre os itens do servico.
   const instalacoesExpandidas = useMemo(() => {
     const out = [];
     servicosFiltrados
       .filter(s => s.status === 'concluido')
       .forEach(s => {
         const partes = (s.tipo_servico || '').split(' + ').filter(Boolean);
+        const totalItens = partes.length || 1;
+        const valorPorItem = totalItens > 0 ? (s.valor || 0) / totalItens : (s.valor || 0);
         partes.forEach((p, idx) => {
           const match = p.match(/^(.+?)\s*\[(.+)\]$/);
           const tipoBase = match ? match[1].trim() : p.trim();
@@ -208,22 +222,55 @@ export default function RelatóriosPage() {
           if (!isInstalacao(tipoBase)) return;
           out.push({
             key: `${s.id}-${idx}`,
+            servicoId: s.id,
+            os: s.os_numero || '',
             cliente: s.cliente_nome || '-',
+            telefone: s.telefone || '',
+            endereco: s.endereco || '',
+            googleMaps: s.google_maps_link || '',
             marca: extrairMarca(equipamentoBruto) || 'Não informada',
+            local: removerMarca(equipamentoBruto) || '-',
             tipo: tipoBase,
-            data: s.data_programada,
+            dataProgramada: s.data_programada,
+            dataConclusao: s.data_conclusao || s.data_programada,
+            diaSemana: s.dia_semana || '',
+            horario: s.horario || '',
             equipe: s.equipe_nome || '-',
+            equipeId: s.equipe_id || '',
+            valor: valorPorItem,
+            valorTotalServico: s.valor || 0,
+            totalItensServico: totalItens,
+            descricao: s.descricao || '',
+            observacoesConclusao: s.observacoes_conclusao || '',
+            tipoServicoOriginal: s.tipo_servico || '',
           });
         });
       });
     return out;
   }, [servicosFiltrados]);
 
+  const equipesNoPeriodo = useMemo(() => {
+    const map = new Map();
+    instalacoesExpandidas.forEach(i => {
+      if (i.equipe && i.equipe !== '-') map.set(i.equipe, i.equipeId);
+    });
+    return [...map.keys()].sort();
+  }, [instalacoesExpandidas]);
+
   const instalacoesFiltradas = useMemo(() =>
-    filtroMarca === 'todas'
-      ? instalacoesExpandidas
-      : instalacoesExpandidas.filter(i => i.marca === filtroMarca)
-  , [instalacoesExpandidas, filtroMarca]);
+    instalacoesExpandidas
+      .filter(i => filtroMarca === 'todas' || i.marca === filtroMarca)
+      .filter(i => filtroEquipeInst === 'todas' || i.equipe === filtroEquipeInst)
+      .sort((a, b) => new Date(b.dataConclusao || 0) - new Date(a.dataConclusao || 0))
+  , [instalacoesExpandidas, filtroMarca, filtroEquipeInst]);
+
+  const totalValorInstalado = useMemo(
+    () => instalacoesFiltradas.reduce((s, i) => s + (i.valor || 0), 0),
+    [instalacoesFiltradas]
+  );
+  const ticketMedio = instalacoesFiltradas.length > 0
+    ? totalValorInstalado / instalacoesFiltradas.length
+    : 0;
 
   const marcasNoPeriodo = useMemo(() => {
     const set = new Set(instalacoesExpandidas.map(i => i.marca));
@@ -482,78 +529,142 @@ export default function RelatóriosPage() {
 
                 {viewMode === 'instalacoes' && (
                 <div className="space-y-4">
-                  {/* Card resumo */}
+                  {/* Cards de resumo: total, valor total, ticket medio, marca top */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50">
+                      <p className="text-xs text-emerald-600 font-semibold uppercase tracking-wider">Total Instalado</p>
+                      <p className="text-3xl font-bold text-emerald-700">{instalacoesFiltradas.length}</p>
+                      <p className="text-[10px] text-emerald-600/70">ar-condicionados</p>
+                    </div>
+                    <div className="p-4 rounded-xl border border-blue-200 bg-blue-50">
+                      <p className="text-xs text-blue-600 font-semibold uppercase tracking-wider">Valor Total</p>
+                      <p className="text-3xl font-bold text-blue-700">
+                        {totalValorInstalado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </p>
+                      <p className="text-[10px] text-blue-600/70">valor instalado</p>
+                    </div>
+                    <div className="p-4 rounded-xl border border-purple-200 bg-purple-50">
+                      <p className="text-xs text-purple-600 font-semibold uppercase tracking-wider">Ticket Médio</p>
+                      <p className="text-3xl font-bold text-purple-700">
+                        {ticketMedio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </p>
+                      <p className="text-[10px] text-purple-600/70">por instalação</p>
+                    </div>
+                    <div className="p-4 rounded-xl border border-amber-200 bg-amber-50">
+                      <p className="text-xs text-amber-600 font-semibold uppercase tracking-wider">Marca Top</p>
+                      <p className="text-2xl font-bold text-amber-700 truncate">
+                        {contagemPorMarca[0]?.marca || '-'}
+                      </p>
+                      <p className="text-[10px] text-amber-600/70">{contagemPorMarca[0]?.qtd || 0} unidades</p>
+                    </div>
+                  </div>
+
+                  {/* Marcas — grid de chips */}
+                  {contagemPorMarca.length > 0 && (
+                    <Card className="bg-white border border-gray-200 shadow-sm rounded-2xl">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-gray-800 text-sm font-semibold">Distribuição por Marca</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-wrap gap-2">
+                          {contagemPorMarca.map(c => (
+                            <button
+                              key={c.marca}
+                              onClick={() => setFiltroMarca(filtroMarca === c.marca ? 'todas' : c.marca)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                                filtroMarca === c.marca
+                                  ? 'bg-emerald-600 border-emerald-500 text-white'
+                                  : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-emerald-50 hover:border-emerald-300'
+                              }`}
+                            >
+                              {c.marca}
+                              <span className={`ml-2 px-1.5 py-0.5 rounded ${
+                                filtroMarca === c.marca ? 'bg-white/20' : 'bg-gray-200'
+                              }`}>{c.qtd}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Tabela detalhada com filtros locais */}
                   <Card className="bg-white border border-gray-200 shadow-sm rounded-2xl">
                     <CardHeader>
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <CardTitle className="text-gray-800 text-base font-semibold flex items-center gap-2">
-                          <Wrench className="w-4 h-4 text-emerald-500" /> Instalações por Marca
+                          <Wrench className="w-4 h-4 text-emerald-500" />
+                          Relatório Completo de Instalações
                         </CardTitle>
                         <Button onClick={handleExportarExcel} size="sm" className="h-8 text-xs gap-1.5 rounded-lg" style={{ backgroundColor: '#22c55e', color: '#fff' }}>
                           <FileSpreadsheet className="w-3.5 h-3.5" /> Exportar Excel
                         </Button>
                       </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Período: {format(dateRange.start, 'dd/MM/yyyy')} — {format(dateRange.end, 'dd/MM/yyyy')}.
+                        Use os filtros do topo da página para ajustar.
+                      </p>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                        <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50">
-                          <p className="text-xs text-emerald-600 font-semibold uppercase tracking-wider">Total</p>
-                          <p className="text-2xl font-bold text-emerald-700">{instalacoesExpandidas.length}</p>
-                          <p className="text-[10px] text-emerald-600/70">ar-condicionados instalados</p>
+                      {/* Filtros locais */}
+                      <div className="flex flex-wrap items-center gap-3 mb-4 pb-3 border-b border-gray-100">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500">Marca:</span>
+                          <select
+                            value={filtroMarca}
+                            onChange={e => setFiltroMarca(e.target.value)}
+                            className="bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-1.5 text-xs"
+                          >
+                            <option value="todas">Todas</option>
+                            {marcasNoPeriodo.map(m => (
+                              <option key={m} value={m}>{m}</option>
+                            ))}
+                          </select>
                         </div>
-                        {contagemPorMarca.slice(0, 3).map(c => (
-                          <div key={c.marca} className="p-3 rounded-xl border border-gray-200 bg-gray-50">
-                            <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider truncate">{c.marca}</p>
-                            <p className="text-2xl font-bold text-gray-700">{c.qtd}</p>
-                            <p className="text-[10px] text-gray-400">unidades</p>
-                          </div>
-                        ))}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500">Equipe:</span>
+                          <select
+                            value={filtroEquipeInst}
+                            onChange={e => setFiltroEquipeInst(e.target.value)}
+                            className="bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-1.5 text-xs"
+                          >
+                            <option value="todas">Todas</option>
+                            {equipesNoPeriodo.map(eq => (
+                              <option key={eq} value={eq}>{eq}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <span className="text-xs text-gray-400 ml-auto">
+                          {instalacoesFiltradas.length} instalação(ões) · {totalValorInstalado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
                       </div>
 
-                      {/* Grid completo de marcas (se houver mais de 3) */}
-                      {contagemPorMarca.length > 3 && (
-                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 mb-4">
-                          {contagemPorMarca.slice(3).map(c => (
-                            <div key={c.marca} className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-center">
-                              <p className="text-[10px] text-gray-500 truncate">{c.marca}</p>
-                              <p className="text-base font-bold text-gray-700">{c.qtd}</p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Filtro por marca */}
-                      <div className="flex items-center gap-3 mb-3">
-                        <p className="text-xs text-gray-500">Filtrar por marca:</p>
-                        <select
-                          value={filtroMarca}
-                          onChange={e => setFiltroMarca(e.target.value)}
-                          className="bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-1.5 text-sm"
-                        >
-                          <option value="todas">Todas as marcas</option>
-                          {marcasNoPeriodo.map(m => (
-                            <option key={m} value={m}>{m}</option>
-                          ))}
-                        </select>
-                        <span className="text-xs text-gray-400">{instalacoesFiltradas.length} instalações</span>
-                      </div>
-
-                      {/* Tabela detalhada */}
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b border-gray-200 text-gray-500 text-xs uppercase bg-gray-50">
-                              <th className="text-left py-2.5 px-3">Cliente</th>
-                              <th className="text-left py-2.5 px-3">Marca</th>
-                              <th className="text-left py-2.5 px-3">Tipo de Instalação</th>
                               <th className="text-left py-2.5 px-3">Data</th>
+                              <th className="text-left py-2.5 px-3">Cliente / Telefone</th>
+                              <th className="text-left py-2.5 px-3">Marca</th>
+                              <th className="text-left py-2.5 px-3">Tipo / Local</th>
                               <th className="text-left py-2.5 px-3">Equipe</th>
+                              <th className="text-right py-2.5 px-3">Valor</th>
+                              <th className="text-center py-2.5 px-3">Detalhes</th>
                             </tr>
                           </thead>
                           <tbody>
                             {instalacoesFiltradas.map(i => (
                               <tr key={i.key} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                                <td className="py-2.5 px-3 text-gray-800 font-semibold">{i.cliente}</td>
+                                <td className="py-2.5 px-3 text-gray-600 text-xs whitespace-nowrap">
+                                  <div className="font-semibold text-gray-700">
+                                    {i.dataConclusao ? format(parseISO(i.dataConclusao), 'dd/MM/yyyy') : '-'}
+                                  </div>
+                                  {i.os && <div className="text-[10px] text-gray-400">OS {i.os}</div>}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <div className="font-semibold text-gray-800">{i.cliente}</div>
+                                  {i.telefone && <div className="text-[11px] text-gray-500">{i.telefone}</div>}
+                                </td>
                                 <td className="py-2.5 px-3">
                                   <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                                     i.marca === 'Não informada'
@@ -563,16 +674,38 @@ export default function RelatóriosPage() {
                                     {i.marca}
                                   </span>
                                 </td>
-                                <td className="py-2.5 px-3 text-gray-600 text-xs">{i.tipo}</td>
-                                <td className="py-2.5 px-3 text-gray-500 text-xs">
-                                  {i.data ? format(parseISO(i.data), 'dd/MM/yyyy') : '-'}
+                                <td className="py-2.5 px-3">
+                                  <div className="text-gray-700 text-xs font-medium">{i.tipo}</div>
+                                  {i.local && i.local !== '-' && (
+                                    <div className="text-[11px] text-gray-500">📍 {i.local}</div>
+                                  )}
                                 </td>
-                                <td className="py-2.5 px-3 text-gray-500 text-xs">{i.equipe}</td>
+                                <td className="py-2.5 px-3 text-gray-600 text-xs">{i.equipe}</td>
+                                <td className="py-2.5 px-3 text-right">
+                                  <div className="text-green-600 font-semibold text-sm">
+                                    {(i.valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                  </div>
+                                  {i.totalItensServico > 1 && (
+                                    <div className="text-[10px] text-gray-400" title="Valor rateado entre os itens do serviço">
+                                      rateio de {i.totalItensServico} itens
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setInstalacaoDetalhes(i)}
+                                    className="h-7 text-xs text-blue-600 hover:bg-blue-50"
+                                  >
+                                    Ver
+                                  </Button>
+                                </td>
                               </tr>
                             ))}
                             {instalacoesFiltradas.length === 0 && (
-                              <tr><td colSpan={5} className="text-center py-8 text-gray-400">
-                                Nenhuma instalação concluída no período com os filtros selecionados
+                              <tr><td colSpan={7} className="text-center py-8 text-gray-400">
+                                Nenhuma instalação concluída no período com os filtros selecionados.
                               </td></tr>
                             )}
                           </tbody>
@@ -652,6 +785,113 @@ export default function RelatóriosPage() {
                 </>
                 )}
                 <NotionExportModal open={notionModal} onClose={() => setNotionModal(false)} />
+
+                {/* Modal de detalhes da instalacao */}
+                <Dialog open={!!instalacaoDetalhes} onOpenChange={() => setInstalacaoDetalhes(null)}>
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <Wrench className="w-5 h-5 text-emerald-500" />
+                        Detalhes da Instalação
+                      </DialogTitle>
+                    </DialogHeader>
+                    {instalacaoDetalhes && (
+                      <div className="space-y-4 py-2">
+                        {/* Banner principal */}
+                        <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-xl p-4 text-white">
+                          <p className="text-white/80 text-xs mb-1">{instalacaoDetalhes.tipo}</p>
+                          <h3 className="font-bold text-xl">{instalacaoDetalhes.cliente}</h3>
+                          <p className="text-2xl font-bold mt-2">
+                            {(instalacaoDetalhes.valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </p>
+                          {instalacaoDetalhes.totalItensServico > 1 && (
+                            <p className="text-white/70 text-[11px] mt-1">
+                              Valor rateado de R$ {instalacaoDetalhes.valorTotalServico.toFixed(2)} entre {instalacaoDetalhes.totalItensServico} itens
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <Field label="Marca" value={instalacaoDetalhes.marca} />
+                          <Field label="Local / Ambiente" value={instalacaoDetalhes.local !== '-' ? instalacaoDetalhes.local : 'Não informado'} />
+                          <Field label="Equipe" value={instalacaoDetalhes.equipe} />
+                          <Field label="OS" value={instalacaoDetalhes.os || '-'} />
+                          <Field
+                            label="Data Programada"
+                            value={instalacaoDetalhes.dataProgramada
+                              ? format(parseISO(instalacaoDetalhes.dataProgramada), 'dd/MM/yyyy')
+                              : '-'}
+                          />
+                          <Field
+                            label="Data Conclusão"
+                            value={instalacaoDetalhes.dataConclusao
+                              ? format(parseISO(instalacaoDetalhes.dataConclusao), 'dd/MM/yyyy')
+                              : '-'}
+                          />
+                          {instalacaoDetalhes.diaSemana && (
+                            <Field label="Dia da Semana" value={instalacaoDetalhes.diaSemana} />
+                          )}
+                          {instalacaoDetalhes.horario && (
+                            <Field label="Horário" value={instalacaoDetalhes.horario} />
+                          )}
+                          {instalacaoDetalhes.telefone && (
+                            <Field label="Telefone" value={instalacaoDetalhes.telefone} />
+                          )}
+                        </div>
+
+                        {instalacaoDetalhes.endereco && (
+                          <div className="rounded-lg bg-gray-50 p-3 border border-gray-100">
+                            <p className="text-xs text-gray-400 mb-1 uppercase tracking-wider">📍 Endereço</p>
+                            <p className="text-gray-700 text-sm">{instalacaoDetalhes.endereco}</p>
+                            {instalacaoDetalhes.googleMaps && (
+                              <a
+                                href={instalacaoDetalhes.googleMaps}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-block mt-2 text-xs text-blue-600 underline"
+                              >
+                                Abrir no Google Maps →
+                              </a>
+                            )}
+                          </div>
+                        )}
+
+                        {instalacaoDetalhes.descricao && (
+                          <div className="rounded-lg bg-blue-50 p-3 border border-blue-100">
+                            <p className="text-xs text-blue-500 mb-1 uppercase tracking-wider">Descrição original</p>
+                            <p className="text-gray-700 text-sm whitespace-pre-wrap">{instalacaoDetalhes.descricao}</p>
+                          </div>
+                        )}
+
+                        {instalacaoDetalhes.observacoesConclusao && (
+                          <div className="rounded-lg bg-emerald-50 p-3 border border-emerald-100">
+                            <p className="text-xs text-emerald-600 mb-1 uppercase tracking-wider">Observações da Conclusão</p>
+                            <p className="text-gray-700 text-sm whitespace-pre-wrap">{instalacaoDetalhes.observacoesConclusao}</p>
+                          </div>
+                        )}
+
+                        {instalacaoDetalhes.totalItensServico > 1 && (
+                          <div className="rounded-lg bg-amber-50 p-3 border border-amber-100">
+                            <p className="text-xs text-amber-600 mb-1 uppercase tracking-wider">Serviço completo</p>
+                            <p className="text-gray-700 text-xs">{instalacaoDetalhes.tipoServicoOriginal}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setInstalacaoDetalhes(null)}>Fechar</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
                 </div>
                 );
                 }
+
+function Field({ label, value }) {
+  return (
+    <div className="rounded-lg bg-gray-50 p-2.5 border border-gray-100">
+      <p className="text-[10px] text-gray-400 uppercase tracking-wider">{label}</p>
+      <p className="text-gray-700 text-sm font-medium mt-0.5">{value || '-'}</p>
+    </div>
+  );
+}
