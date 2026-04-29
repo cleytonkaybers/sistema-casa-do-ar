@@ -12,6 +12,7 @@ import { base44 } from '@/api/base44Client';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
+import { MARCAS_AR, isInstalacao, embutirMarca, extrairMarca, removerMarca } from '@/lib/marcasAr';
 
 export default function ServicoForm({ open, onClose, onSave, servico, isLoading, prefilledData, equipes = [], currentUserEquipeId = null, isAdmin = false }) {
   const [loadingLocation, setLoadingLocation] = useState(false);
@@ -99,7 +100,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
     google_maps_link: '',
     latitude: null,
     longitude: null,
-    tipos_servico: [{ tipo: 'Limpeza de 9k', quantidade: 1, equipamento: '' }],
+    tipos_servico: [{ tipo: 'Limpeza de 9k', quantidade: 1, equipamento: '', marca: '' }],
     dia_semana: '',
     data_programada: '',
     horario: '',
@@ -147,7 +148,9 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         google_maps_link: prefilledData.google_maps_link || '',
         latitude: prefilledData.latitude || null,
         longitude: prefilledData.longitude || null,
-        tipos_servico: prefilledData.tipos_servico || [{ tipo: 'Limpeza de 9k', quantidade: 1, equipamento: '' }],
+        tipos_servico: prefilledData.tipos_servico
+          ? prefilledData.tipos_servico.map(t => ({ ...t, marca: t.marca || '' }))
+          : [{ tipo: 'Limpeza de 9k', quantidade: 1, equipamento: '', marca: '' }],
         dia_semana: prefilledData.dia_semana || '',
         data_programada: prefilledData.data_programada || '',
         horario: prefilledData.horario || '',
@@ -167,7 +170,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         google_maps_link: '',
         latitude: null,
         longitude: null,
-        tipos_servico: [{ tipo: 'Limpeza de 9k', quantidade: 1, equipamento: '' }],
+        tipos_servico: [{ tipo: 'Limpeza de 9k', quantidade: 1, equipamento: '', marca: '' }],
         dia_semana: '',
         data_programada: '',
         horario: '',
@@ -189,16 +192,19 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
   }, [formData.tipos_servico, tiposServicoValores]);
 
   const parseTiposServico = (tipoServicoStr) => {
-    if (!tipoServicoStr) return [{ tipo: 'Limpeza de 9k', quantidade: 1, equipamento: '' }];
+    if (!tipoServicoStr) return [{ tipo: 'Limpeza de 9k', quantidade: 1, equipamento: '', marca: '' }];
     const partes = tipoServicoStr.split(' + ').filter(Boolean);
     const chaves = [];
     const contagem = {};
     partes.forEach(p => {
       const match = p.match(/^(.+?)\s*\[(.+)\]$/);
       const tipo = match ? match[1].trim() : p.trim();
-      const equipamento = match ? match[2].trim() : '';
-      const key = `${tipo}||${equipamento}`;
-      if (!contagem[key]) { contagem[key] = { tipo, quantidade: 0, equipamento }; chaves.push(key); }
+      const equipamentoBruto = match ? match[2].trim() : '';
+      // Extrai marca do equipamento (formato "Marca: LG | Sala")
+      const marca = extrairMarca(equipamentoBruto) || '';
+      const equipamento = removerMarca(equipamentoBruto);
+      const key = `${tipo}||${marca}||${equipamento}`;
+      if (!contagem[key]) { contagem[key] = { tipo, quantidade: 0, marca, equipamento }; chaves.push(key); }
       contagem[key].quantidade += 1;
     });
     return chaves.map(k => contagem[k]);
@@ -356,7 +362,12 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
     const equipeSelecionada = equipes.find(e => e.id === formData.equipe_id);
 
     const tiposExpandidos = formData.tipos_servico.flatMap(item => {
-      const label = item.equipamento ? `${item.tipo} [${item.equipamento}]` : item.tipo;
+      // Embute marca apenas para Instalacao; demais tipos so usam equipamento
+      const equipFinal = embutirMarca(
+        isInstalacao(item.tipo) ? (item.marca || '') : '',
+        item.equipamento || ''
+      );
+      const label = equipFinal ? `${item.tipo} [${equipFinal}]` : item.tipo;
       return Array(Number(item.quantidade) || 1).fill(label);
     });
 
@@ -638,7 +649,29 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                         )}
                       </div>
 
-                      {/* Linha 2: Equipamento */}
+                      {/* Linha 2a: Marca do AR (so para Instalacao) */}
+                      {isInstalacao(item.tipo) && (
+                        <Select
+                          value={item.marca || ''}
+                          onValueChange={(value) => {
+                            const newTipos = [...formData.tipos_servico];
+                            newTipos[index] = { ...newTipos[index], marca: value };
+                            setFormData({ ...formData, tipos_servico: newTipos });
+                          }}
+                        >
+                          <SelectTrigger className={`h-8 text-sm ${selectDark}`}>
+                            <SelectValue placeholder="🏷️ Marca do ar-condicionado (opcional)" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#1e2a3a] border-[#2d3f55] text-white max-h-72">
+                            {MARCAS_AR.map(m => (
+                              <SelectItem key={m} value={m} className="text-white hover:bg-white/10">{m}</SelectItem>
+                            ))}
+                            <SelectItem value="Outra" className="text-white hover:bg-white/10 italic">Outra (digite no equipamento)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+
+                      {/* Linha 2b: Equipamento */}
                       <Input
                         value={item.equipamento || ''}
                         onChange={(e) => {
@@ -646,14 +679,16 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                           newTipos[index] = { ...newTipos[index], equipamento: e.target.value };
                           setFormData({ ...formData, tipos_servico: newTipos });
                         }}
-                        placeholder="Equipamento (ex: Sala, Quarto, 9.000 BTUs...)"
+                        placeholder={isInstalacao(item.tipo)
+                          ? "Local / detalhes (ex: Sala, Quarto, 220V...)"
+                          : "Equipamento (ex: Sala, Quarto, 9.000 BTUs...)"}
                         className={`h-8 text-sm ${inputDark}`}
                       />
                     </div>
                   ))}
                   <Button
                     type="button" variant="outline"
-                    onClick={() => setFormData({ ...formData, tipos_servico: [...formData.tipos_servico, { tipo: servicosFiltrados[0] || 'Limpeza de 9k', quantidade: 1, equipamento: '' }] })}
+                    onClick={() => setFormData({ ...formData, tipos_servico: [...formData.tipos_servico, { tipo: servicosFiltrados[0] || 'Limpeza de 9k', quantidade: 1, equipamento: '', marca: '' }] })}
                     className="w-full border-dashed border-[#2d3f55] bg-transparent text-gray-400 hover:bg-white/5 hover:text-white text-xs"
                   >
                     <Plus className="w-3 h-3 mr-1" /> Adicionar tipo de serviço

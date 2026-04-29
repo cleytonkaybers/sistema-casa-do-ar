@@ -3,7 +3,8 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, TrendingUp, DollarSign, CheckCircle, Clock, Filter, BarChart2, List, BookOpen, FileSpreadsheet, FileText } from 'lucide-react';
+import { Loader2, TrendingUp, DollarSign, CheckCircle, Clock, Filter, BarChart2, List, BookOpen, FileSpreadsheet, FileText, Wrench } from 'lucide-react';
+import { extrairMarca, isInstalacao } from '@/lib/marcasAr';
 import NotionExportModal from '../components/relatorios/NotionExportModal';
 import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO, startOfWeek, endOfWeek, startOfYear, endOfYear, subWeeks } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
@@ -65,7 +66,8 @@ export default function RelatóriosPage() {
   const [filtroCategoria, setFiltroCategoria] = useState('todas');
   const [filtroTipoEspecifico, setFiltroTipoEspecifico] = useState('todos');
   const [filtroStatus, setFiltroStatus] = useState('todos');
-  const [viewMode, setViewMode] = useState('resumo'); // 'resumo' | 'detalhado'
+  const [viewMode, setViewMode] = useState('resumo'); // 'resumo' | 'detalhado' | 'instalacoes'
+  const [filtroMarca, setFiltroMarca] = useState('todas');
   const [notionModal, setNotionModal] = useState(false);
 
   const dateRange = useMemo(() => {
@@ -104,11 +106,26 @@ export default function RelatóriosPage() {
 
     const periodo = `${format(dateRange.start, 'dd-MM-yyyy')}_${format(dateRange.end, 'dd-MM-yyyy')}`;
 
+    const resumoMarca = contagemPorMarca.map(c => ({
+      'Marca': c.marca,
+      'Quantidade Instalada': c.qtd,
+    }));
+
+    const detalheInstalacoes = instalacoesExpandidas.map(i => ({
+      'Cliente': i.cliente,
+      'Marca': i.marca,
+      'Tipo de Instalação': i.tipo,
+      'Data': i.data ? format(parseISO(i.data), 'dd/MM/yyyy') : '-',
+      'Equipe': i.equipe,
+    }));
+
     await exportarExcel(
       [
         { name: 'Resumo por Categoria', data: resumoCat, colWidths: [22, 12, 18, 12] },
         { name: 'Resumo por Tipo', data: resumoTipo, colWidths: [35, 22, 12, 18, 12] },
         { name: 'Serviços Detalhados', data: detalhes, colWidths: [28, 35, 22, 18, 14, 12, 14] },
+        { name: 'Instalações por Marca', data: resumoMarca, colWidths: [25, 18] },
+        { name: 'Detalhe Instalações', data: detalheInstalacoes, colWidths: [28, 22, 28, 14, 22] },
       ],
       `relatorio_servicos_${periodo}.xlsx`
     );
@@ -176,6 +193,53 @@ export default function RelatóriosPage() {
     return [...set].sort();
   }, [servicos, dateRange]);
 
+  // Instalacoes expandidas: cada item de instalacao dentro de um servico vira uma linha.
+  // Ex: tipo_servico = "Instalacao 9k [Marca: LG | Sala] + Limpeza 9k" gera 1 instalacao.
+  const instalacoesExpandidas = useMemo(() => {
+    const out = [];
+    servicosFiltrados
+      .filter(s => s.status === 'concluido')
+      .forEach(s => {
+        const partes = (s.tipo_servico || '').split(' + ').filter(Boolean);
+        partes.forEach((p, idx) => {
+          const match = p.match(/^(.+?)\s*\[(.+)\]$/);
+          const tipoBase = match ? match[1].trim() : p.trim();
+          const equipamentoBruto = match ? match[2].trim() : '';
+          if (!isInstalacao(tipoBase)) return;
+          out.push({
+            key: `${s.id}-${idx}`,
+            cliente: s.cliente_nome || '-',
+            marca: extrairMarca(equipamentoBruto) || 'Não informada',
+            tipo: tipoBase,
+            data: s.data_programada,
+            equipe: s.equipe_nome || '-',
+          });
+        });
+      });
+    return out;
+  }, [servicosFiltrados]);
+
+  const instalacoesFiltradas = useMemo(() =>
+    filtroMarca === 'todas'
+      ? instalacoesExpandidas
+      : instalacoesExpandidas.filter(i => i.marca === filtroMarca)
+  , [instalacoesExpandidas, filtroMarca]);
+
+  const marcasNoPeriodo = useMemo(() => {
+    const set = new Set(instalacoesExpandidas.map(i => i.marca));
+    return [...set].sort();
+  }, [instalacoesExpandidas]);
+
+  const contagemPorMarca = useMemo(() => {
+    const map = {};
+    instalacoesExpandidas.forEach(i => {
+      map[i.marca] = (map[i.marca] || 0) + 1;
+    });
+    return Object.entries(map)
+      .map(([marca, qtd]) => ({ marca, qtd }))
+      .sort((a, b) => b.qtd - a.qtd);
+  }, [instalacoesExpandidas]);
+
   if (!isAdmin) return <NoPermission />;
 
   return (
@@ -202,6 +266,9 @@ export default function RelatóriosPage() {
             </Button>
             <Button onClick={() => setViewMode('detalhado')} className={`h-9 text-sm rounded-xl gap-2 ${viewMode === 'detalhado' ? 'bg-yellow-400 text-gray-900 font-bold' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'}`}>
               <List className="w-4 h-4" /> Detalhado
+            </Button>
+            <Button onClick={() => setViewMode('instalacoes')} className={`h-9 text-sm rounded-xl gap-2 ${viewMode === 'instalacoes' ? 'bg-yellow-400 text-gray-900 font-bold' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'}`}>
+              <Wrench className="w-4 h-4" /> Instalações por Marca
             </Button>
           </div>
         </div>
@@ -410,6 +477,109 @@ export default function RelatóriosPage() {
                   </div>
                 </CardContent>
                 </Card>
+                </div>
+                )}
+
+                {viewMode === 'instalacoes' && (
+                <div className="space-y-4">
+                  {/* Card resumo */}
+                  <Card className="bg-white border border-gray-200 shadow-sm rounded-2xl">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-gray-800 text-base font-semibold flex items-center gap-2">
+                          <Wrench className="w-4 h-4 text-emerald-500" /> Instalações por Marca
+                        </CardTitle>
+                        <Button onClick={handleExportarExcel} size="sm" className="h-8 text-xs gap-1.5 rounded-lg" style={{ backgroundColor: '#22c55e', color: '#fff' }}>
+                          <FileSpreadsheet className="w-3.5 h-3.5" /> Exportar Excel
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                        <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50">
+                          <p className="text-xs text-emerald-600 font-semibold uppercase tracking-wider">Total</p>
+                          <p className="text-2xl font-bold text-emerald-700">{instalacoesExpandidas.length}</p>
+                          <p className="text-[10px] text-emerald-600/70">ar-condicionados instalados</p>
+                        </div>
+                        {contagemPorMarca.slice(0, 3).map(c => (
+                          <div key={c.marca} className="p-3 rounded-xl border border-gray-200 bg-gray-50">
+                            <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider truncate">{c.marca}</p>
+                            <p className="text-2xl font-bold text-gray-700">{c.qtd}</p>
+                            <p className="text-[10px] text-gray-400">unidades</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Grid completo de marcas (se houver mais de 3) */}
+                      {contagemPorMarca.length > 3 && (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 mb-4">
+                          {contagemPorMarca.slice(3).map(c => (
+                            <div key={c.marca} className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-center">
+                              <p className="text-[10px] text-gray-500 truncate">{c.marca}</p>
+                              <p className="text-base font-bold text-gray-700">{c.qtd}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Filtro por marca */}
+                      <div className="flex items-center gap-3 mb-3">
+                        <p className="text-xs text-gray-500">Filtrar por marca:</p>
+                        <select
+                          value={filtroMarca}
+                          onChange={e => setFiltroMarca(e.target.value)}
+                          className="bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-1.5 text-sm"
+                        >
+                          <option value="todas">Todas as marcas</option>
+                          {marcasNoPeriodo.map(m => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
+                        <span className="text-xs text-gray-400">{instalacoesFiltradas.length} instalações</span>
+                      </div>
+
+                      {/* Tabela detalhada */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-200 text-gray-500 text-xs uppercase bg-gray-50">
+                              <th className="text-left py-2.5 px-3">Cliente</th>
+                              <th className="text-left py-2.5 px-3">Marca</th>
+                              <th className="text-left py-2.5 px-3">Tipo de Instalação</th>
+                              <th className="text-left py-2.5 px-3">Data</th>
+                              <th className="text-left py-2.5 px-3">Equipe</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {instalacoesFiltradas.map(i => (
+                              <tr key={i.key} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                <td className="py-2.5 px-3 text-gray-800 font-semibold">{i.cliente}</td>
+                                <td className="py-2.5 px-3">
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                    i.marca === 'Não informada'
+                                      ? 'bg-gray-100 text-gray-500'
+                                      : 'bg-emerald-100 text-emerald-700'
+                                  }`}>
+                                    {i.marca}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-gray-600 text-xs">{i.tipo}</td>
+                                <td className="py-2.5 px-3 text-gray-500 text-xs">
+                                  {i.data ? format(parseISO(i.data), 'dd/MM/yyyy') : '-'}
+                                </td>
+                                <td className="py-2.5 px-3 text-gray-500 text-xs">{i.equipe}</td>
+                              </tr>
+                            ))}
+                            {instalacoesFiltradas.length === 0 && (
+                              <tr><td colSpan={5} className="text-center py-8 text-gray-400">
+                                Nenhuma instalação concluída no período com os filtros selecionados
+                              </td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
                 )}
 
