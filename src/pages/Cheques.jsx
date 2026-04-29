@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import EmprestimosTable from '@/components/cheques/EmprestimosTable';
+import { DinheiroEmprestadoContent } from '@/pages/DinheiroEmprestado';
 import { base44 } from '@/api/base44Client';
 import { format, parseISO, isToday, isPast, differenceInDays, isTomorrow, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, CheckCircle, XCircle, Bell, AlertTriangle, Clock, DollarSign, Pencil, Landmark } from 'lucide-react';
+import { Plus, Trash2, CheckCircle, XCircle, Bell, AlertTriangle, Clock, DollarSign, Pencil, Landmark, HandCoins, FileText } from 'lucide-react';
 
 function parseBRL(str) {
   if (!str) return '';
@@ -63,6 +64,8 @@ export default function Cheques() {
   const [alertas, setAlertas] = useState([]);
   const [chequeParaDeletar, setChequeParaDeletar] = useState(null);
   const [deletando, setDeletando] = useState(false);
+  // Toggle entre Cheques e Dinheiro Emprestado (mesma pagina, dois conteudos)
+  const [viewMode, setViewMode] = useState('cheques'); // 'cheques' | 'emprestado'
 
   const loadCheques = async () => {
     setLoading(true);
@@ -202,6 +205,42 @@ export default function Cheques() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
+      {/* Toggle de view: Cheques vs Dinheiro Emprestado */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <Landmark className="w-4 h-4" />
+          <span className="font-medium">Controle Financeiro</span>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setViewMode('cheques')}
+            size="sm"
+            className={`h-9 text-sm rounded-xl gap-2 ${
+              viewMode === 'cheques'
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <FileText className="w-4 h-4" /> Cheques
+          </Button>
+          <Button
+            onClick={() => setViewMode('emprestado')}
+            size="sm"
+            className={`h-9 text-sm rounded-xl gap-2 ${
+              viewMode === 'emprestado'
+                ? 'bg-amber-500 text-white hover:bg-amber-600'
+                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <HandCoins className="w-4 h-4" /> Dinheiro Emprestado
+          </Button>
+        </div>
+      </div>
+
+      {viewMode === 'emprestado' ? (
+        <DinheiroEmprestadoContent />
+      ) : (
+      <>
       {/* Banner Total Aplicado */}
       <div className="rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3" style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #6d28d9 100%)' }}>
         <div>
@@ -400,6 +439,8 @@ export default function Cheques() {
       <div className="border-t border-gray-200 pt-6">
         <EmprestimosTable />
       </div>
+      </>
+      )}
 
       {/* Modal Form */}
       <Dialog open={showForm} onOpenChange={(v) => { setShowForm(v); if (!v) { setEditingCheque(null); setForm(emptyForm); } }}>

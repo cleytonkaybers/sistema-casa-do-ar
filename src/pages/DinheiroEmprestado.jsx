@@ -43,7 +43,7 @@ export default function DinheiroEmprestadoPage() {
   );
 }
 
-function DinheiroEmprestadoContent() {
+export function DinheiroEmprestadoContent() {
   const queryClient = useQueryClient();
   const [busca, setBusca] = useState('');
   const [showFormModal, setShowFormModal] = useState(false);
