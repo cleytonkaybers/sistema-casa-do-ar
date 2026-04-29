@@ -422,6 +422,17 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
   const valorAtualNum = parseFloat((valorRegistrar || '').replace(',', '.')) || 0;
   const todosPrecosDefinidos = servicosGrupos.every(g => parseFloat((precosGrupo[g.tipo] || '').replace(',', '.')) > 0);
 
+  // Auto-ajuste: quando o usuario adiciona/altera o desconto e o valor digitado
+  // passa do saldo com desconto, ajusta o valor para nao bloquear a confirmacao.
+  // Caso comum: usuario clica "Preencher total" antes de colocar o desconto.
+  useEffect(() => {
+    if (!open) return;
+    if (valorAtualNum > saldoComDesconto + 0.01) {
+      setValorRegistrar(saldoComDesconto > 0.01 ? saldoComDesconto.toFixed(2).replace('.', ',') : '');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [descontoEfetivo]);
+
   const isValidDate = (dateStr) => {
     try {
       const date = new Date(dateStr + 'T12:00:00');
@@ -437,7 +448,9 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
     const v = parseFloat((valorRegistrar || '').replace(',', '.')) || 0;
     // Aceita valor zero APENAS se houver desconto (cobre caso de quitar so com desconto)
     if (v <= 0 && descontoEfetivo <= 0) return toast.error('Informe um valor ou desconto');
-    if (v > saldoComDesconto + 0.01) return toast.error(`Valor maior que o saldo (${formatCurrency(saldoComDesconto)})`);
+    if (v + descontoEfetivo > saldo + 0.01) {
+      return toast.error(`Pagamento (${formatCurrency(v)}) + desconto (${formatCurrency(descontoEfetivo)}) excede o saldo (${formatCurrency(saldo)})`);
+    }
     setLoading(true);
     const obsCompleta = [metodoPagamento, obs].filter(Boolean).join(' | ');
     await onSave(pagamento, v, obsCompleta, parcelas, precosGrupo, dataPagamentoAgendado, descontoEfetivo);
