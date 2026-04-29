@@ -1279,6 +1279,40 @@ function PagamentosClientesContent() {
     return map;
   }, [pagamentos]);
 
+  // Lookups por ID para resolver tipo_servico de pagamentos com campo vazio
+  // (ex: sync antigo que nao copiou tipo_servico do atendimento/servico).
+  const atendimentoPorId = useMemo(() => {
+    const map = new Map();
+    atendimentos.forEach(a => { if (a.id) map.set(a.id, a); });
+    return map;
+  }, [atendimentos]);
+
+  const servicoPorId = useMemo(() => {
+    const map = new Map();
+    servicosConcluidos.forEach(s => { if (s.id) map.set(s.id, s); });
+    return map;
+  }, [servicosConcluidos]);
+
+  // Enriquece um pagamento com tipo_servico resolvido via atendimento_id ou
+  // servico_id quando o campo esta vazio. Retorna o objeto pagamento clonado
+  // com tipo_servico preenchido (ou o original se ja tinha).
+  const enriquecerTipoServico = (pag) => {
+    if (!pag) return pag;
+    const enrich = (rec) => {
+      if (rec.tipo_servico && rec.tipo_servico.trim()) return rec;
+      // Tenta atendimento primeiro, depois servico
+      const aMatch = rec.atendimento_id ? atendimentoPorId.get(rec.atendimento_id) : null;
+      const sMatch = rec.servico_id ? servicoPorId.get(rec.servico_id) : null;
+      const tipoResolvido = (aMatch?.tipo_servico || sMatch?.tipo_servico || '').trim();
+      return tipoResolvido ? { ...rec, tipo_servico: tipoResolvido } : rec;
+    };
+    const enriquecido = enrich(pag);
+    if (pag._records && pag._records.length > 0) {
+      enriquecido._records = pag._records.map(enrich);
+    }
+    return enriquecido;
+  };
+
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.PagamentoCliente.create(data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] }),
@@ -1959,7 +1993,7 @@ function PagamentosClientesContent() {
             <TabelaPagamentos
               lista={pagsSemana}
               onPagar={setPagarModal}
-              onDefinirPreco={setPrecosModal}
+              onDefinirPreco={(p) => setPrecosModal(enriquecerTipoServico(p))}
               onEditarValor={setEditarModal}
               onHistorico={setHistoricoModal}
               onDetalhes={setDetalhesModal}
@@ -1996,7 +2030,7 @@ function PagamentosClientesContent() {
               <TabelaPagamentos
                 lista={pagsPendencias}
                 onPagar={setPagarModal}
-                onDefinirPreco={setPrecosModal}
+                onDefinirPreco={(p) => setPrecosModal(enriquecerTipoServico(p))}
                 onEditarValor={setEditarModal}
                 onHistorico={setHistoricoModal}
                 onDetalhes={setDetalhesModal}
@@ -2145,7 +2179,7 @@ function PagamentosClientesContent() {
           <TabelaPagamentos
             lista={pagsRelatorio}
             onPagar={setPagarModal}
-            onDefinirPreco={setPrecosModal}
+            onDefinirPreco={(p) => setPrecosModal(enriquecerTipoServico(p))}
             onEditarValor={setEditarModal}
             onHistorico={setHistoricoModal}
             onDetalhes={setDetalhesModal}
