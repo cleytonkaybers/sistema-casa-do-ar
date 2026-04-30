@@ -361,7 +361,7 @@ function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], on
 }
 
 // Modal exclusivo para REGISTRAR PAGAMENTO
-function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [], syncKey = 0 }) {
+function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [], syncKey = 0, tecnicos = [] }) {
   const [obs, setObs] = useState('');
   const [metodoPagamento, setMetodoPagamento] = useState('');
   const [loading, setLoading] = useState(false);
@@ -370,6 +370,7 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
   const [novoValorParcela, setNovoValorParcela] = useState('');
   const [valorRegistrar, setValorRegistrar] = useState('');
   const [desconto, setDesconto] = useState('');
+  const [tecnicoRecebeu, setTecnicoRecebeu] = useState('adm');
   const [dataPagamentoAgendado, setDataPagamentoAgendado] = useState('');
   // Preços salvos (somente leitura neste modal)
   const [precosGrupo, setPrecosGrupo] = useState({});
@@ -393,6 +394,7 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
     setNovoValorParcela('');
     setValorRegistrar('');
     setDesconto('');
+    setTecnicoRecebeu('adm');
 
     // Busca preços dos records mais frescos
     const records = pagamento?._records || (pagamento ? [pagamento] : []);
@@ -469,12 +471,13 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
     }
     setLoading(true);
     const obsCompleta = [metodoPagamento, obs].filter(Boolean).join(' | ');
-    await onSave(pagamento, v, obsCompleta, parcelas, precosGrupo, dataPagamentoAgendado, descontoEfetivo);
+    await onSave(pagamento, v, obsCompleta, parcelas, precosGrupo, dataPagamentoAgendado, descontoEfetivo, tecnicoRecebeu, metodoPagamento);
     setLoading(false);
     setValorRegistrar('');
     setObs('');
     setParcelas([]);
     setDesconto('');
+    setTecnicoRecebeu('adm');
     setDataPagamentoAgendado('');
     onClose();
   };
@@ -561,6 +564,25 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
                );
              })}
             </div>
+          </div>
+
+          <div>
+            <label className="text-xs sm:text-sm font-medium text-gray-700 mb-1.5 block">👤 Quem recebeu este valor?</label>
+            <select
+              value={tecnicoRecebeu}
+              onChange={e => setTecnicoRecebeu(e.target.value)}
+              className="w-full h-10 px-3 text-sm rounded-lg border border-gray-200 bg-white text-gray-700 focus:outline-none focus:border-blue-500"
+            >
+              <option value="adm">ADM (caixa da empresa)</option>
+              {tecnicos.map(t => (
+                <option key={t.tecnico_id} value={t.tecnico_id}>{t.tecnico_nome}</option>
+              ))}
+            </select>
+            {tecnicoRecebeu !== 'adm' && valorAtualNum > 0 && (
+              <p className="text-[11px] text-blue-600 font-medium mt-1.5">
+                ✓ Sera creditado como pagamento ao tecnico (debita do credito pendente).
+              </p>
+            )}
           </div>
 
           <div>
@@ -1265,6 +1287,12 @@ function PagamentosClientesContent() {
     queryFn: () => base44.entities.PagamentoCliente.list('-data_conclusao'),
   });
 
+  // Lista de tecnicos para o Select "Quem recebeu este valor?" no modal de pagamento.
+  const { data: tecnicosFinanceiros = [] } = useQuery({
+    queryKey: ['tecnicos-financeiro-pag'],
+    queryFn: () => base44.entities.TecnicoFinanceiro.list(),
+  });
+
   // Índice O(1) por nome de cliente normalizado.
   // Sem isso, o auto-sync de atendimentos→pagamentos roda O(N×M) — a 30k atendimentos × 50k pagamentos
   // o navegador trava no useEffect de montagem.
@@ -1486,7 +1514,7 @@ function PagamentosClientesContent() {
     setPrecosSyncKey(k => k + 1);
   };
 
-  const handleRegistrarPagamento = async (pag, valor, obs, parcelas = [], precosGrupo = {}, dataPagamentoAgendado = '', desconto = 0) => {
+  const handleRegistrarPagamento = async (pag, valor, obs, parcelas = [], precosGrupo = {}, dataPagamentoAgendado = '', desconto = 0, tecnicoRecebeu = 'adm', metodoPagamento = '') => {
     const records = pag._records?.length > 1 ? pag._records : [pag];
     let remaining = valor;
     let descontoRemaining = Math.max(0, desconto || 0);
@@ -1574,6 +1602,35 @@ function PagamentosClientesContent() {
       toast.success(`✅ Pagamento registrado com desconto de ${formatCurrency(desconto)}!`);
     } else {
       toast.success('✅ Pagamento registrado!');
+    }
+
+    // Sincroniza com Financeiro: cria PagamentoTecnico se foi um tecnico que recebeu o
+    // dinheiro direto do cliente. Reutiliza a funcao registrarPagamentoTecnico que ja
+    // debita credito_pendente e atualiza credito_pago do TecnicoFinanceiro.
+    if (tecnicoRecebeu && tecnicoRecebeu !== 'adm' && valor > 0.01) {
+      const tec = tecnicosFinanceiros.find(t => t.tecnico_id === tecnicoRecebeu);
+      const dataStr = format(new Date(), 'dd/MM/yyyy');
+      const obsTec = `Recebido direto do cliente ${pag.cliente_nome || ''}` +
+        (pag.telefone ? ` (Tel: ${pag.telefone})` : '') +
+        ` em ${dataStr}` +
+        (metodoPagamento ? ` via ${metodoPagamento}` : '') +
+        `. Valor: ${formatCurrency(valor)}`;
+      try {
+        await base44.functions.invoke('registrarPagamentoTecnico', {
+          tecnico_id: tecnicoRecebeu,
+          valor_pago: valor,
+          data_pagamento: format(new Date(), 'yyyy-MM-dd'),
+          metodo_pagamento: metodoPagamento || 'Outro',
+          observacao: obsTec,
+          lancamentos_id: [],
+        });
+        queryClient.invalidateQueries({ queryKey: ['tecnicos'] });
+        queryClient.invalidateQueries({ queryKey: ['pagamentos'] });
+        queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro-pag'] });
+        toast.success(`💰 ${formatCurrency(valor)} creditado ao tecnico ${tec?.tecnico_nome || ''}`);
+      } catch (err) {
+        toast.error('⚠ Pagamento do cliente OK, mas falhou ao creditar tecnico: ' + (err?.message || 'tente novamente em Financeiro'));
+      }
     }
 
     // Montar pag atualizado para o PDF — usando os valores efetivamente gravados, não o snapshot antigo
@@ -2192,7 +2249,7 @@ function PagamentosClientesContent() {
       )}
 
       <DefinirPrecoModal open={!!precosModal} onClose={() => setPrecosModal(null)} pagamento={precosModal} pagamentosAtuais={pagamentos} onSave={handleSalvarPrecos} />
-      <PagamentoModal open={!!pagarModal} onClose={() => setPagarModal(null)} pagamento={pagarModal} onSave={handleRegistrarPagamento} pagamentosAtuais={pagamentos} syncKey={precosSyncKey} />
+      <PagamentoModal open={!!pagarModal} onClose={() => setPagarModal(null)} pagamento={pagarModal} onSave={handleRegistrarPagamento} pagamentosAtuais={pagamentos} syncKey={precosSyncKey} tecnicos={tecnicosFinanceiros} />
       <AgendarDataModal open={!!agendarDataModal} onClose={() => setAgendarDataModal(null)} pagamento={agendarDataModal} onSave={handleAgendarData} />
       <EditarValorModal open={!!editarModal} onClose={() => setEditarModal(null)} pagamento={editarModal} onSave={handleEditarValor} />
       <HistoricoModal open={!!historicoModal} onClose={() => setHistoricoModal(null)} pagamento={historicoModal} />
