@@ -33,10 +33,15 @@ const ENTIDADES = [
   { key: 'emprestimos',           entity: 'Emprestimo',             label: 'Empréstimos',                    icon: '🤝', categoria: 'Financeiro' },
   { key: 'manutencaoPreventiva',  entity: 'ManutencaoPreventiva',   label: 'Manutenções Preventivas',         icon: '🛡️', categoria: 'Preventivas' },
   { key: 'preventivasFuturas',    entity: 'PreventivaFutura',       label: 'Preventivas Futuras',             icon: '📆', categoria: 'Preventivas' },
+  { key: 'companySettings',       entity: 'CompanySettings',        label: 'Configurações da Empresa',        icon: '🏢', categoria: 'Configurações' },
+  { key: 'pdfSettings',           entity: 'PDFSettings',            label: 'Configurações de PDF',            icon: '📑', categoria: 'Configurações' },
   { key: 'notificacoes',          entity: 'Notificacao',            label: 'Notificações',                   icon: '🔔', categoria: 'Sistema' },
   { key: 'preferenciasNotif',     entity: 'PreferenciaNotificacao', label: 'Preferências de Notificação',     icon: '⚙️', categoria: 'Sistema' },
   { key: 'configuracaoRelat',     entity: 'ConfiguracaoRelatorio',  label: 'Config. de Relatórios',           icon: '📈', categoria: 'Sistema' },
   { key: 'relatoriosGerados',     entity: 'RelatorioGerado',        label: 'Relatórios Gerados',              icon: '📄', categoria: 'Sistema' },
+  { key: 'logsAuditoria',         entity: 'LogAuditoria',           label: 'Logs de Auditoria',               icon: '📜', categoria: 'Sistema' },
+  { key: 'chatConversations',     entity: 'ChatConversation',       label: 'Conversas (Chat)',                icon: '💬', categoria: 'Sistema' },
+  { key: 'chatMessages',          entity: 'ChatMessage',            label: 'Mensagens (Chat)',                icon: '✉️', categoria: 'Sistema' },
   { key: 'usuarios',              entity: 'User',                   label: 'Usuários',                       icon: '🔑', categoria: 'Sistema' },
 ];
 
