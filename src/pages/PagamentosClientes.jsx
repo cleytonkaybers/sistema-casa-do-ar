@@ -1616,7 +1616,11 @@ function PagamentosClientesContent() {
         (metodoPagamento ? ` via ${metodoPagamento}` : '') +
         `. Valor: ${formatCurrency(valor)}`;
       try {
-        await base44.functions.invoke('registrarPagamentoTecnico', {
+        // Validacao defensiva — tecnico precisa existir no TecnicoFinanceiro
+        if (!tec) {
+          throw new Error(`Tecnico nao encontrado em TecnicoFinanceiro (id: ${tecnicoRecebeu}). Cadastre-o em Financeiro antes.`);
+        }
+        const response = await base44.functions.invoke('registrarPagamentoTecnico', {
           tecnico_id: tecnicoRecebeu,
           valor_pago: valor,
           data_pagamento: format(new Date(), 'yyyy-MM-dd'),
@@ -1624,12 +1628,19 @@ function PagamentosClientesContent() {
           observacao: obsTec,
           lancamentos_id: [],
         });
-        queryClient.invalidateQueries({ queryKey: ['tecnicos'] });
-        queryClient.invalidateQueries({ queryKey: ['pagamentos'] });
-        queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro-pag'] });
-        toast.success(`💰 ${formatCurrency(valor)} creditado ao tecnico ${tec?.tecnico_nome || ''}`);
+        // base44 functions.invoke nao dispara throw em status >= 400 — checar manualmente
+        const respData = response?.data || {};
+        if (respData.error || respData.success === false) {
+          throw new Error(respData.error || 'Erro desconhecido no backend');
+        }
+        // Forca refetch (refetchType: active garante que componentes ativos refazem a query)
+        await queryClient.invalidateQueries({ queryKey: ['tecnicos'], refetchType: 'all' });
+        await queryClient.invalidateQueries({ queryKey: ['pagamentos'], refetchType: 'all' });
+        await queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro-pag'], refetchType: 'all' });
+        toast.success(`💰 ${formatCurrency(valor)} creditado ao tecnico ${tec.tecnico_nome}`);
       } catch (err) {
-        toast.error('⚠ Pagamento do cliente OK, mas falhou ao creditar tecnico: ' + (err?.message || 'tente novamente em Financeiro'));
+        console.error('[PagamentosClientes] Falha ao creditar tecnico:', err);
+        toast.error(`⚠ Pagamento do cliente OK, mas falhou ao creditar tecnico ${tec?.tecnico_nome || tecnicoRecebeu}: ${err?.message || 'tente novamente em Financeiro'}`, { duration: 8000 });
       }
     }
 
