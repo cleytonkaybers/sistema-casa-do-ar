@@ -73,6 +73,25 @@ export default function RelatóriosPage() {
   const [instalacaoDetalhes, setInstalacaoDetalhes] = useState(null);
   const [notionModal, setNotionModal] = useState(false);
 
+  // Arquivamento de instalacoes (controle de garantia confirmada).
+  // Persiste localmente: cada chave de instalacao (servicoId-idx) marcada como
+  // arquivada nao aparece na lista principal — fica acessivel pelo toggle.
+  const [instalacoesArquivadas, setInstalacoesArquivadas] = useState(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem('instalacoes_arquivadas') || '[]'));
+    } catch { return new Set(); }
+  });
+  const [verArquivadas, setVerArquivadas] = useState(false);
+
+  const toggleArquivada = (key) => {
+    setInstalacoesArquivadas(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      try { localStorage.setItem('instalacoes_arquivadas', JSON.stringify([...next])); } catch (_e) { /* ignore */ }
+      return next;
+    });
+  };
+
   const dateRange = useMemo(() => {
     if (periodoSelecionado === 5 && customStart && customEnd) {
       return { start: new Date(customStart), end: new Date(customEnd + 'T23:59:59') };
@@ -259,10 +278,16 @@ export default function RelatóriosPage() {
 
   const instalacoesFiltradas = useMemo(() =>
     instalacoesExpandidas
+      .filter(i => verArquivadas ? instalacoesArquivadas.has(i.key) : !instalacoesArquivadas.has(i.key))
       .filter(i => filtroMarca === 'todas' || i.marca === filtroMarca)
       .filter(i => filtroEquipeInst === 'todas' || i.equipe === filtroEquipeInst)
       .sort((a, b) => new Date(b.dataConclusao || 0) - new Date(a.dataConclusao || 0))
-  , [instalacoesExpandidas, filtroMarca, filtroEquipeInst]);
+  , [instalacoesExpandidas, filtroMarca, filtroEquipeInst, verArquivadas, instalacoesArquivadas]);
+
+  const qtdArquivadas = useMemo(
+    () => instalacoesExpandidas.filter(i => instalacoesArquivadas.has(i.key)).length,
+    [instalacoesExpandidas, instalacoesArquivadas]
+  );
 
   const totalValorInstalado = useMemo(
     () => instalacoesFiltradas.reduce((s, i) => s + (i.valor || 0), 0),
@@ -594,15 +619,26 @@ export default function RelatóriosPage() {
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <CardTitle className="text-gray-800 text-base font-semibold flex items-center gap-2">
                           <Wrench className="w-4 h-4 text-emerald-500" />
-                          Relatório Completo de Instalações
+                          {verArquivadas ? 'Instalações Arquivadas (Garantia Confirmada)' : 'Relatório Completo de Instalações'}
                         </CardTitle>
-                        <Button onClick={handleExportarExcel} size="sm" className="h-8 text-xs gap-1.5 rounded-lg" style={{ backgroundColor: '#22c55e', color: '#fff' }}>
-                          <FileSpreadsheet className="w-3.5 h-3.5" /> Exportar Excel
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={() => setVerArquivadas(!verArquivadas)}
+                            size="sm"
+                            variant="outline"
+                            className={`h-8 text-xs gap-1.5 rounded-lg ${verArquivadas ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100' : 'border-gray-300'}`}
+                          >
+                            {verArquivadas ? '📋 Ver Ativas' : `📦 Ver Arquivadas (${qtdArquivadas})`}
+                          </Button>
+                          <Button onClick={handleExportarExcel} size="sm" className="h-8 text-xs gap-1.5 rounded-lg" style={{ backgroundColor: '#22c55e', color: '#fff' }}>
+                            <FileSpreadsheet className="w-3.5 h-3.5" /> Exportar Excel
+                          </Button>
+                        </div>
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
-                        Período: {format(dateRange.start, 'dd/MM/yyyy')} — {format(dateRange.end, 'dd/MM/yyyy')}.
-                        Use os filtros do topo da página para ajustar.
+                        {verArquivadas
+                          ? `Visualizando ${qtdArquivadas} instalação(ões) marcada(s) como concluída(s).`
+                          : <>Período: {format(dateRange.start, 'dd/MM/yyyy')} — {format(dateRange.end, 'dd/MM/yyyy')}. Use os filtros do topo da página para ajustar.</>}
                       </p>
                     </CardHeader>
                     <CardContent>
@@ -649,6 +685,7 @@ export default function RelatóriosPage() {
                               <th className="text-left py-2.5 px-3">Tipo / Local</th>
                               <th className="text-left py-2.5 px-3">Equipe</th>
                               <th className="text-right py-2.5 px-3">Valor</th>
+                              <th className="text-center py-2.5 px-3">{verArquivadas ? 'Restaurar' : 'Concluir'}</th>
                               <th className="text-center py-2.5 px-3">Detalhes</th>
                             </tr>
                           </thead>
@@ -695,6 +732,17 @@ export default function RelatóriosPage() {
                                   <Button
                                     size="sm"
                                     variant="ghost"
+                                    onClick={() => toggleArquivada(i.key)}
+                                    className={`h-7 text-xs ${verArquivadas ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
+                                    title={verArquivadas ? 'Restaurar para lista ativa' : 'Marcar como concluída e arquivar'}
+                                  >
+                                    {verArquivadas ? '↩ Restaurar' : '✓ Concluir'}
+                                  </Button>
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
                                     onClick={() => setInstalacaoDetalhes(i)}
                                     className="h-7 text-xs text-blue-600 hover:bg-blue-50"
                                   >
@@ -704,8 +752,10 @@ export default function RelatóriosPage() {
                               </tr>
                             ))}
                             {instalacoesFiltradas.length === 0 && (
-                              <tr><td colSpan={7} className="text-center py-8 text-gray-400">
-                                Nenhuma instalação concluída no período com os filtros selecionados.
+                              <tr><td colSpan={8} className="text-center py-8 text-gray-400">
+                                {verArquivadas
+                                  ? 'Nenhuma instalação arquivada ainda.'
+                                  : 'Nenhuma instalação concluída no período com os filtros selecionados.'}
                               </td></tr>
                             )}
                           </tbody>
