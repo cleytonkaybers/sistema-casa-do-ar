@@ -86,24 +86,29 @@ export default function ServicosPage() {
         }
       }
 
-      // Notificar membros da equipe atribuída
+      // Notificar membros da equipe atribuída sobre o novo servico
       if (data.equipe_id) {
         try {
           const todosUsuarios = await base44.entities.User.list();
-          const membrosDaEquipe = todosUsuarios.filter(u => u.equipe_id === data.equipe_id);
+          const membrosDaEquipe = todosUsuarios.filter(u => u.equipe_id === data.equipe_id && u.email);
           await Promise.all(
             membrosDaEquipe.map(u =>
               base44.entities.Notificacao.create({
                 usuario_email: u.email,
-                titulo: 'Novo serviço atribuído',
-                mensagem: `${data.tipo_servico || 'Serviço'} para ${data.cliente_nome || 'cliente'}${data.data_programada ? ` em ${data.data_programada}` : ''}`,
-                tipo: 'novo_servico',
+                // Schema aceita: atendimento_criado, atendimento_atualizado,
+                // atendimento_concluido, pagamento_agendado.
+                // 'novo_servico' nao existe e fazia a criacao falhar silenciosamente.
+                tipo: 'atendimento_criado',
+                titulo: '🔧 Novo serviço atribuído',
+                mensagem: `${data.tipo_servico || 'Serviço'} para ${data.cliente_nome || 'cliente'}${data.data_programada ? ` em ${data.data_programada}` : ''}${data.horario ? ` às ${data.horario}` : ''}.`,
                 cliente_nome: data.cliente_nome || '',
+                atendimento_id: servico?.id || '',
                 lida: false,
               })
             )
           );
-        } catch (_) {
+        } catch (err) {
+          console.error('Falha ao notificar equipe sobre novo servico:', err);
           // Falha em notificar não deve bloquear o cadastro
         }
       }

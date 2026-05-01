@@ -58,6 +58,31 @@ Deno.serve(async (req) => {
     // Sistema simplificado: não vincular pagamentos a lançamentos específicos
     // O valor pago é apenas abatido do crédito pendente do técnico
 
+    // Notificar o tecnico sobre o pagamento recebido. Best-effort: nao bloqueia
+    // a resposta mesmo se falhar (transient erro de notificacao nao deve travar
+    // o pagamento ja persistido).
+    try {
+      const dataFmt = data_pagamento
+        ? new Date(data_pagamento + 'T12:00:00').toLocaleDateString('pt-BR')
+        : new Date().toLocaleDateString('pt-BR');
+      const partes = [
+        `Voce recebeu R$ ${valor_pago.toFixed(2)}`,
+        metodo_pagamento ? `via ${metodo_pagamento}` : '',
+        `em ${dataFmt}`,
+      ].filter(Boolean);
+      const observacaoExtra = (nota || observacao || '').trim();
+      const mensagem = partes.join(' ') + '.' + (observacaoExtra ? ` Obs: ${observacaoExtra}` : '');
+      await base44.asServiceRole.entities.Notificacao.create({
+        usuario_email: tecnico_id, // tecnico_id e o email do User
+        tipo: 'pagamento_agendado',
+        titulo: '💰 Pagamento recebido',
+        mensagem,
+        lida: false,
+      });
+    } catch (notifErr) {
+      console.error('Falha ao criar notificacao de pagamento ao tecnico:', notifErr);
+    }
+
     return Response.json({
       success: true,
       pagamento,
