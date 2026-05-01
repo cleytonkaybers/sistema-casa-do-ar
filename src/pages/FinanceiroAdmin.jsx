@@ -292,19 +292,26 @@ export default function FinanceiroAdmin() {
   });
 
   // Histórico de pagamentos com filtros globais (equipe + tecnico + periodo)
-  const inicioPeriodo = filtroSemana === 'passada' ? inicioSemanaPassada : inicioSemanaAtual;
-  const fimPeriodo = filtroSemana === 'passada' ? fimSemanaPassada : fimSemanaAtual;
   const pagamentosFiltrados = pagamentos.filter(pag => {
-    if (!pag.created_date) return false;
-    const dataPag = new Date(pag.created_date);
-    if (dataPag < inicioPeriodo || dataPag > fimPeriodo) return false;
+    // Fallback: usa created_date, mas se ausente tenta data_pagamento.
+    const dataRef = pag.created_date || pag.data_pagamento;
+    if (!dataRef) return false;
+    const dataPag = new Date(dataRef);
+    // "todos" desabilita filtro de periodo (mostra historico completo)
+    if (filtroSemana === 'atual') {
+      if (dataPag < inicioSemanaAtual || dataPag > fimSemanaAtual) return false;
+    } else if (filtroSemana === 'passada') {
+      if (dataPag < inicioSemanaPassada || dataPag > fimSemanaPassada) return false;
+    }
     if (filtroTecnico !== 'todos' && pag.tecnico_id !== filtroTecnico) return false;
     if (filtroEquipe !== 'todas') {
       const equipeDoPag = equipePorTecnicoId.get(pag.tecnico_id);
       if (equipeDoPag !== filtroEquipe) return false;
     }
     return true;
-  });
+  })
+  // Mais recentes primeiro
+  .sort((a, b) => new Date(b.created_date || b.data_pagamento || 0) - new Date(a.created_date || a.data_pagamento || 0));
 
   // Técnicos com saldo não-zero (tempo real)
   const tecnicosComSaldoAnterior = filteredTecnicos.filter(t => Math.abs(t.saldo_total || 0) > 0.01);
@@ -347,6 +354,7 @@ export default function FinanceiroAdmin() {
                 <SelectContent>
                   <SelectItem value="atual">Semana Atual</SelectItem>
                   <SelectItem value="passada">Semana Passada</SelectItem>
+                  <SelectItem value="todos">Todos os pagamentos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
