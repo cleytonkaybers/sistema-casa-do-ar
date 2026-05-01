@@ -8,6 +8,7 @@ import { exportarExcel } from '@/lib/excelUtils';
 import TechnicianAccessBlock from '@/components/TechnicianAccessBlock';
 import jsPDF from 'jspdf';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation, useNavigate } from 'react-router-dom';
 import RelatorioClientesPagamentoModal from '@/components/financeiro/RelatorioClientesPagamentoModal';
 import BotaoGerarRelatorioCobranca from '@/components/financeiro/BotaoGerarRelatorioCobranca';
 import { Button } from '@/components/ui/button';
@@ -1153,6 +1154,8 @@ export default function PagamentosClientes() {
 function PagamentosClientesContent() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   // Bloquear acesso para não-admins
   const isAdmin = user?.role === 'admin';
@@ -1880,6 +1883,32 @@ function PagamentosClientesContent() {
 
   const totalSemana = pagsSemana.reduce((s, p) => s + (p.valor_total || 0), 0);
   const totalPendencias = pagsPendencias.reduce((s, p) => s + Math.max(0, (p.valor_total || 0) - (p.valor_pago || 0)), 0);
+
+  // Auto-abrir o modal "Definir Preços" quando vier via Dashboard com ?highlight=sempreco.
+  // Procura o primeiro grupo (semana ou pendencias) que tenha algum record com
+  // valor_total <= 1 (placeholder de precificacao pendente).
+  useEffect(() => {
+    if (!isAdmin) return;
+    const params = new URLSearchParams(location.search);
+    if (params.get('highlight') !== 'sempreco') return;
+    if (isLoading) return; // espera carregar pagamentos
+    if (precosModal) return; // ja esta aberto
+
+    const temPlaceholder = (g) => {
+      const records = (g._records && g._records.length > 0) ? g._records : [g];
+      return records.some(r => (r.valor_total || 0) <= 1.0);
+    };
+    const todos = [...pagsSemana, ...pagsPendencias];
+    const alvo = todos.find(temPlaceholder);
+    if (alvo) {
+      setPrecosModal(enriquecerTipoServico(alvo));
+    } else {
+      toast.info('Nenhum servico aguardando precificacao no momento.');
+    }
+    // Limpa o query param para nao reabrir ao re-renderizar
+    navigate(location.pathname, { replace: true });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, location.search]);
 
 
   // Recebido na semana: soma via historico_pagamentos (data real do recebimento)
