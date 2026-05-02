@@ -500,46 +500,50 @@ export default function Dashboard() {
               <GanhosSemanaDashboard />
             </div>
           )}
-          <div className="col-span-1">
-            <StatCard
-              title="Total Clientes"
-              value={totalClientes}
-              icon={Users}
-              colorClass="text-blue-400"
-              subtitle="Na base"
-              href={createPageUrl('Clientes')}
-            />
-          </div>
-          <div className="col-span-1">
-            <StatCard
-              title="Concluídos no Mês"
-              value={atendimentosDoMes.length}
-              icon={ClipboardList}
-              colorClass="text-emerald-400"
-              subtitle="Mês atual"
-              href={createPageUrl('Atendimentos')}
-            />
-          </div>
-          <div className="col-span-1">
-            <StatCard
-              title="Manutenções Programadas"
-              value={manutencoesPendentes.length}
-              icon={Calendar}
-              colorClass="text-amber-400"
-              subtitle="Próximos 30 dias"
-              href={createPageUrl('PreventivasFuturas')}
-            />
-          </div>
-          <div className="col-span-1">
-            <StatCard
-              title="Histórico Concluídos"
-              value={atendimentosConcluidos}
-              icon={CheckCircle2}
-              colorClass="text-purple-400"
-              subtitle="Desde o início"
-              href={createPageUrl('Atendimentos')}
-            />
-          </div>
+          {isAdmin && (
+            <>
+              <div className="col-span-1">
+                <StatCard
+                  title="Total Clientes"
+                  value={totalClientes}
+                  icon={Users}
+                  colorClass="text-blue-400"
+                  subtitle="Na base"
+                  href={createPageUrl('Clientes')}
+                />
+              </div>
+              <div className="col-span-1">
+                <StatCard
+                  title="Concluídos no Mês"
+                  value={atendimentosDoMes.length}
+                  icon={ClipboardList}
+                  colorClass="text-emerald-400"
+                  subtitle="Mês atual"
+                  href={createPageUrl('Atendimentos')}
+                />
+              </div>
+              <div className="col-span-1">
+                <StatCard
+                  title="Manutenções Programadas"
+                  value={manutencoesPendentes.length}
+                  icon={Calendar}
+                  colorClass="text-amber-400"
+                  subtitle="Próximos 30 dias"
+                  href={createPageUrl('PreventivasFuturas')}
+                />
+              </div>
+              <div className="col-span-1">
+                <StatCard
+                  title="Histórico Concluídos"
+                  value={atendimentosConcluidos}
+                  icon={CheckCircle2}
+                  colorClass="text-purple-400"
+                  subtitle="Desde o início"
+                  href={createPageUrl('Atendimentos')}
+                />
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -599,6 +603,7 @@ export default function Dashboard() {
           )}
 
           {/* Painel de Serviços com Filtro Moderno */}
+          {isAdmin && (
           <Card className="bg-[#152236] border border-white/5 shadow-sm rounded-2xl flex-1 flex flex-col">
             <CardHeader className="pb-4 pt-5 px-5 sm:px-6 border-b border-white/5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -656,6 +661,7 @@ export default function Dashboard() {
               </p>
             </CardContent>
           </Card>
+          )}
         </div>
 
         {/* Coluna Direita: Listas Menores e Equipes */}
@@ -710,7 +716,8 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Últimos Clientes Clean */}
+          {/* Últimos Clientes Clean — apenas para ADM */}
+          {isAdmin && (
           <Card className="bg-[#152236] border border-white/5 shadow-sm rounded-2xl">
              <CardHeader className="pb-3 px-5 pt-5 border-b border-white/5 flex flex-row items-center justify-between">
                <CardTitle className="text-sm font-bold text-gray-200 tracking-wide uppercase">
@@ -745,6 +752,7 @@ export default function Dashboard() {
                )}
              </CardContent>
           </Card>
+          )}
 
         </div>
       </div>
