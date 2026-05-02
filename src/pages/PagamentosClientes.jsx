@@ -1500,9 +1500,11 @@ function PagamentosClientesContent() {
         const val = parseFloat((precosGrupo[t] || '').replace(',', '.')) || 0;
         return sum + val;
       }, 0);
-      // Fallback: se nao casou nenhum tipo (tipo_servico vazio/sem split valido),
-      // soma todos os precos do grupo definidos pelo usuario.
-      if (novoPreco === 0) {
+      // Fallback APENAS quando ha 1 unico record com tipo_servico vazio
+      // (caso historico do Wesley). Se ha varios records, NAO somar tudo —
+      // isso multiplicaria o valor total do cliente. Records sem match ficam
+      // com seu valor atual.
+      if (novoPreco === 0 && records.length === 1 && tipos.length === 0) {
         novoPreco = Object.values(precosGrupo).reduce((sum, v) => {
           return sum + (parseFloat((v || '').replace(',', '.')) || 0);
         }, 0);
