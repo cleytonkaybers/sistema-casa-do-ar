@@ -506,50 +506,6 @@ export default function Dashboard() {
               </div>
             </>
           )}
-          {isAdmin && (
-            <>
-              <div className="col-span-1">
-                <StatCard
-                  title="Total Clientes"
-                  value={totalClientes}
-                  icon={Users}
-                  colorClass="text-blue-400"
-                  subtitle="Na base"
-                  href={createPageUrl('Clientes')}
-                />
-              </div>
-              <div className="col-span-1">
-                <StatCard
-                  title="Concluídos no Mês"
-                  value={atendimentosDoMes.length}
-                  icon={ClipboardList}
-                  colorClass="text-emerald-400"
-                  subtitle="Mês atual"
-                  href={createPageUrl('Atendimentos')}
-                />
-              </div>
-              <div className="col-span-1">
-                <StatCard
-                  title="Manutenções Programadas"
-                  value={manutencoesPendentes.length}
-                  icon={Calendar}
-                  colorClass="text-amber-400"
-                  subtitle="Próximos 30 dias"
-                  href={createPageUrl('PreventivasFuturas')}
-                />
-              </div>
-              <div className="col-span-1">
-                <StatCard
-                  title="Histórico Concluídos"
-                  value={atendimentosConcluidos}
-                  icon={CheckCircle2}
-                  colorClass="text-purple-400"
-                  subtitle="Desde o início"
-                  href={createPageUrl('Atendimentos')}
-                />
-              </div>
-            </>
-          )}
         </div>
       )}
 
@@ -608,66 +564,6 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Painel de Serviços com Filtro Moderno */}
-          {isAdmin && (
-          <Card className="bg-[#152236] border border-white/5 shadow-sm rounded-2xl flex-1 flex flex-col">
-            <CardHeader className="pb-4 pt-5 px-5 sm:px-6 border-b border-white/5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-500/10 border border-blue-500/20">
-                    <Wrench className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <CardTitle className="text-lg font-bold text-gray-100">Controle de Serviços</CardTitle>
-                </div>
-                <Select value={filtroServicos} onValueChange={setFiltroServicos}>
-                  <SelectTrigger className="w-full sm:w-48 bg-[#0d1826] border-white/10 text-gray-200 rounded-xl h-10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#152236] border-white/10 text-gray-200">
-                    <SelectItem value="dia" className="hover:bg-white/5 rounded-lg py-2">Hoje</SelectItem>
-                    <SelectItem value="semana" className="hover:bg-white/5 rounded-lg py-2">Esta Semana</SelectItem>
-                    <SelectItem value="mes" className="hover:bg-white/5 rounded-lg py-2">Este Mês</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardHeader>
-            <CardContent className="p-5 sm:p-6 flex-1 flex flex-col">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 flex-1">
-                <div className="rounded-2xl p-4 bg-emerald-500/5 border border-emerald-500/20 flex flex-col justify-center">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span className="text-xs font-semibold text-emerald-400 uppercase tracking-widest">Concluídos</span>
-                  </div>
-                  <p className="text-3xl font-bold text-emerald-100">{servicosConcluidos}</p>
-                </div>
-                <div className="rounded-2xl p-4 bg-blue-500/5 border border-blue-500/20 flex flex-col justify-center">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-2 h-2 rounded-full bg-blue-500" />
-                    <span className="text-xs font-semibold text-blue-400 uppercase tracking-widest">Em Andamento</span>
-                  </div>
-                  <p className="text-3xl font-bold text-blue-100">{servicosAndamento}</p>
-                </div>
-                <div className="rounded-2xl p-4 bg-amber-500/5 border border-amber-500/20 flex flex-col justify-center">
-                  <div className="flex items-center gap-2 mb-3">
-                     <div className="w-2 h-2 rounded-full bg-amber-500" />
-                    <span className="text-xs font-semibold text-amber-400 uppercase tracking-widest">Agendados</span>
-                  </div>
-                  <p className="text-3xl font-bold text-amber-100">{servicosAgendados}</p>
-                </div>
-                <div className="rounded-2xl p-4 bg-gray-500/10 border border-gray-500/20 flex flex-col justify-center">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-2 h-2 rounded-full bg-gray-400" />
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Abertos</span>
-                  </div>
-                  <p className="text-3xl font-bold text-gray-100">{servicosAbertos}</p>
-                </div>
-              </div>
-              <p className="text-xs text-gray-500 mt-5 pt-4 border-t border-white/5 text-center">
-                Visualizando <span className="font-bold text-gray-300">{servicosFiltrados.length}</span> serviços no total
-              </p>
-            </CardContent>
-          </Card>
-          )}
         </div>
 
         {/* Coluna Direita: Listas Menores e Equipes */}
@@ -720,44 +616,6 @@ export default function Dashboard() {
                 ))}
               </CardContent>
             </Card>
-          )}
-
-          {/* Últimos Clientes Clean — apenas para ADM */}
-          {isAdmin && (
-          <Card className="bg-[#152236] border border-white/5 shadow-sm rounded-2xl">
-             <CardHeader className="pb-3 px-5 pt-5 border-b border-white/5 flex flex-row items-center justify-between">
-               <CardTitle className="text-sm font-bold text-gray-200 tracking-wide uppercase">
-                 Recentes
-               </CardTitle>
-               <Link to={createPageUrl('Clientes')}>
-                 <Button variant="ghost" size="sm" className="text-xs text-blue-400 hover:text-blue-300 h-8 px-2 -mr-2">Ver Base</Button>
-               </Link>
-             </CardHeader>
-             <CardContent className="p-0">
-               {clientes.length === 0 ? (
-                  <div className="text-center py-6">
-                    <p className="text-gray-500 text-sm">Nenhum cliente cadastrado</p>
-                  </div>
-               ) : (
-                 <div className="divide-y divide-white/5">
-                    {clientes.slice(0, 4).map((cliente) => (
-                      <Link key={cliente.id} to={createPageUrl('Clientes')} className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors group">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 font-bold text-xs uppercase shadow-inner">
-                             {cliente.nome?.charAt(0)}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-200 text-sm group-hover:text-blue-400 transition-colors w-[150px] truncate">{cliente.nome}</p>
-                            <p className="text-[11px] text-gray-500 w-[150px] truncate">{cliente.cidade || 'Sem cidade'}</p>
-                          </div>
-                        </div>
-                        <p className="text-[10px] text-gray-500 whitespace-nowrap hidden sm:block">{format(new Date(cliente.created_date), "dd/MMM", { locale: ptBR })}</p>
-                      </Link>
-                    ))}
-                 </div>
-               )}
-             </CardContent>
-          </Card>
           )}
 
         </div>
