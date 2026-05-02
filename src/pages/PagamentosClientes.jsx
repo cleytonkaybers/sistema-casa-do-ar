@@ -1424,6 +1424,14 @@ function PagamentosClientesContent() {
     // para o mesmo servico mesmo se vierem de atendimentos diferentes — caso raro
     // de regerar duplicado ou race no fluxo de conclusao).
     const servicosRegistrados = new Set(pagamentos.map(p => p.servico_id).filter(Boolean));
+    // Chave composta cliente+tipo+data para casos onde servico_id e atendimento_id
+    // mudam mas o pagamento e logicamente o mesmo (ex: regerar atendimento ao
+    // mesmo tempo que outra aba criou um pagamento — sem essa proteção dava duplicata).
+    const compoundKey = (cliente, tipo, dataRef) =>
+      `${(cliente || '').trim().toLowerCase()}|${(tipo || '').trim()}|${(dataRef || '').slice(0, 10)}`;
+    const compoundsRegistrados = new Set(
+      pagamentos.map(p => compoundKey(p.cliente_nome, p.tipo_servico, p.data_conclusao))
+    );
 
     const novos = atendimentos.filter(a => {
       if (idsRegistrados.has(a.id)) return false;
@@ -1433,57 +1441,73 @@ function PagamentosClientesContent() {
       if (isApenasTiposIgnorados(a.tipo_servico)) return false;
       const dataRef = a.data_conclusao || a.created_date;
       if (!dataRef) return false;
+      // Protege contra duplicacao via compound key (cliente+tipo+data)
+      if (compoundsRegistrados.has(compoundKey(a.cliente_nome, a.tipo_servico, dataRef))) return false;
       try {
         const data = parseISO(dataRef);
         return isWithinInterval(data, { start: inicioSemana, end: fimSemana });
       } catch { return false; }
     });
 
-    novos.forEach(a => {
-      criandoIds.current.add(a.id);
+    if (novos.length === 0) return;
 
-      const nomeNormalizado = (a.cliente_nome || '').trim().toLowerCase();
-      const telefoneLimpo = (a.telefone || '').replace(/\D/g, '');
+    // Sequencializa as criacoes (mutateAsync) para que cada nova insercao
+    // adicione seu compound key ao Set ANTES da proxima iteracao — evita
+    // criar 2 pagamentos do mesmo cliente+tipo+data se a query nao refetchar
+    // a tempo entre as iteracoes.
+    (async () => {
+      for (const a of novos) {
+        const dataRef = a.data_conclusao || a.created_date;
+        const ck = compoundKey(a.cliente_nome, a.tipo_servico, dataRef);
+        if (compoundsRegistrados.has(ck)) continue; // dupla checagem em caso de race
+        compoundsRegistrados.add(ck);
+        criandoIds.current.add(a.id);
 
-      // Lookup O(1) por nome — antes era .filter() sobre pagamentos inteiro (N×M).
-      const candidatosDoCliente = pagamentosPorNome.get(nomeNormalizado) || [];
-      const debitosAtrasados = candidatosDoCliente.filter(p => {
-        const pTelefoneLimpo = (p.telefone || '').replace(/\D/g, '');
-        const debitoPendente = calcularSaldo(p.valor_total, p.valor_pago);
-        if (telefoneLimpo && pTelefoneLimpo && telefoneLimpo !== pTelefoneLimpo) return false;
-        if (debitoPendente <= 0.01) return false;
-        if (p.data_conclusao) {
-          try {
-            if (isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana })) return false;
-          } catch {}
+        const nomeNormalizado = (a.cliente_nome || '').trim().toLowerCase();
+        const telefoneLimpo = (a.telefone || '').replace(/\D/g, '');
+
+        // Lookup O(1) por nome
+        const candidatosDoCliente = pagamentosPorNome.get(nomeNormalizado) || [];
+        const debitosAtrasados = candidatosDoCliente.filter(p => {
+          const pTelefoneLimpo = (p.telefone || '').replace(/\D/g, '');
+          const debitoPendente = calcularSaldo(p.valor_total, p.valor_pago);
+          if (telefoneLimpo && pTelefoneLimpo && telefoneLimpo !== pTelefoneLimpo) return false;
+          if (debitoPendente <= 0.01) return false;
+          if (p.data_conclusao) {
+            try {
+              if (isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana })) return false;
+            } catch {}
+          }
+          return true;
+        });
+
+        const debitoTotal = debitosAtrasados.reduce((sum, p) => sum + ((p.valor_total || 0) - (p.valor_pago || 0)), 0);
+
+        try {
+          await createMutation.mutateAsync({
+            atendimento_id: a.id,
+            servico_id: a.servico_id || '',
+            cliente_nome: a.cliente_nome || '',
+            telefone: a.telefone || '',
+            tipo_servico: a.tipo_servico || '',
+            data_conclusao: a.data_conclusao || a.created_date,
+            valor_total: debitoTotal > 0 ? debitoTotal : 1.0,
+            valor_pago: 0,
+            status: 'pendente',
+            equipe_nome: a.equipe_nome || '',
+            historico_pagamentos: debitoTotal > 0 ? [{
+              valor: debitoTotal,
+              data: format(new Date(), 'dd/MM/yyyy HH:mm'),
+              observacao: '🔗 Débitos anteriores consolidados',
+              consolidado: true
+            }] : [],
+          });
+        } catch (err) {
+          console.error('Falha ao criar PagamentoCliente do atendimento', a.id, err);
+          criandoIds.current.delete(a.id);
         }
-        return true;
-      });
-      
-      const debitoTotal = debitosAtrasados.reduce((sum, p) => sum + ((p.valor_total || 0) - (p.valor_pago || 0)), 0);
-
-      // Comportamento intencional: sempre placeholder 1.00 para novos servicos
-      // (sem debitos). ADM precifica manualmente no painel de pagamentos.
-      // Quando ha debitos atrasados, consolida o valor.
-      createMutation.mutate({
-        atendimento_id: a.id,
-        servico_id: a.servico_id || '',
-        cliente_nome: a.cliente_nome || '',
-        telefone: a.telefone || '',
-        tipo_servico: a.tipo_servico || '',
-        data_conclusao: a.data_conclusao || a.created_date,
-        valor_total: debitoTotal > 0 ? debitoTotal : 1.0,
-        valor_pago: 0,
-        status: 'pendente',
-        equipe_nome: a.equipe_nome || '',
-        historico_pagamentos: debitoTotal > 0 ? [{
-          valor: debitoTotal,
-          data: format(new Date(), 'dd/MM/yyyy HH:mm'),
-          observacao: '🔗 Débitos anteriores consolidados',
-          consolidado: true
-        }] : [],
-      });
-    });
+      }
+    })();
   }, [atendimentos, isLoading, pagamentos.length]);
 
   const handleSalvarPrecos = async (pag, precosGrupo) => {
