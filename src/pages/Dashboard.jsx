@@ -12,6 +12,7 @@ import { createPageUrl } from '@/utils';
 import GanhosSemanaDashboard from '@/components/dashboard/GanhosSemanaDashboard';
 import ResumoMesAdminDashboard from '@/components/dashboard/ResumoMesAdminDashboard';
 import GanhosTecnicosAdminDashboard from '@/components/dashboard/GanhosTecnicosAdminDashboard';
+import CalendarioPlantao from '@/components/dashboard/CalendarioPlantao';
 import { DashboardStatCardSkeleton, DashboardAdminSkeleton } from '@/components/LoadingSkeleton';
 import {
   Users,
@@ -485,6 +486,9 @@ export default function Dashboard() {
           </div>
         )
       )}
+
+      {/* Calendario de Plantao de Sabado (visivel para tecnico e admin) */}
+      <CalendarioPlantao equipes={equipes} />
 
       {/* Grid Principal (Bento Style) */}
       {isLoading ? (
