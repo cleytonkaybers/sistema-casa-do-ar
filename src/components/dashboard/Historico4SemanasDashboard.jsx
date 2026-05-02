@@ -19,14 +19,17 @@ export default function Historico4SemanasDashboard() {
     queryKey: ['historico4semanas', user?.email],
     queryFn: async () => {
       if (!user?.email) return { semanas: [], saldoTotal: 0 };
-      const [lancamentos, pagamentos, tecnicos] = await Promise.all([
+      const [lancamentos, pagamentos] = await Promise.all([
         base44.entities.LancamentoFinanceiro.list(),
         base44.entities.PagamentoTecnico.list(),
-        base44.entities.TecnicoFinanceiro.list(),
       ]);
 
       const meusLancamentos = lancamentos.filter(l => l.tecnico_id === user.email);
       const meusPagamentos = pagamentos.filter(p => p.tecnico_id === user.email && p.status === 'Confirmado');
+
+      // Marco zero do saldo: alinhado com GanhosSemanaDashboard.
+      // Antes desta data, comissoes e pagamentos sao ignorados no calculo do saldo.
+      const SALDO_INICIO = new Date('2026-04-13T00:00:00');
 
       const hoje = new Date();
       // Ultimas 4 semanas (atual + 3 anteriores)
@@ -69,12 +72,27 @@ export default function Historico4SemanasDashboard() {
         };
       });
 
-      // Saldo total real do TecnicoFinanceiro (fonte da verdade)
-      const meuRegistro = tecnicos.find(t => t.tecnico_id === user.email);
-      // saldo_total positivo = empresa deve ao tecnico; negativo = tecnico deve a empresa
-      const saldoTotal = meuRegistro?.saldo_total
-        ?? ((meuRegistro?.credito_pendente || 0) - (meuRegistro?.credito_pago || 0)) // fallback aproximado
-        ?? 0;
+      // Saldo total = soma de TUDO desde SALDO_INICIO (comissoes - pagamentos).
+      // Mesma logica de GanhosSemanaDashboard para garantir consistencia entre
+      // os 2 cards do Dashboard e a pagina MeuFinanceiro.
+      const totalComissoes = meusLancamentos
+        .filter(l => {
+          if (!l.data_geracao) return false;
+          try { const d = toLocalDate(l.data_geracao); return d && d >= SALDO_INICIO; } catch { return false; }
+        })
+        .reduce((s, l) => s + (l.valor_comissao_tecnico || 0), 0);
+      const totalPagamentos = meusPagamentos
+        .filter(p => {
+          const ref = p.data_pagamento || p.created_date;
+          if (!ref) return false;
+          try {
+            const d = ref.includes && ref.includes('T') ? toLocalDate(ref) : new Date(ref);
+            return d && d >= SALDO_INICIO;
+          } catch { return false; }
+        })
+        .reduce((s, p) => s + (p.valor_pago || 0), 0);
+      // Positivo = empresa deve ao tecnico; negativo = tecnico recebeu a mais.
+      const saldoTotal = totalComissoes - totalPagamentos;
 
       return { semanas, saldoTotal };
     },
