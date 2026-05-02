@@ -5,11 +5,21 @@ import { useAuth } from '@/lib/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
-import { startOfWeek, endOfWeek, subWeeks, format, isWithinInterval } from 'date-fns';
+import { startOfWeek, endOfWeek, subWeeks, format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { toLocalDate } from '@/lib/dateUtils';
 
 const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v) || 0);
+
+// Mesmo parseDateSafe usado em MeuFinanceiro: parseISO trata corretamente
+// strings tanto "yyyy-MM-dd" (sem fuso) quanto ISO completo, evitando shift
+// de timezone que fazia pagamentos cairem na semana errada.
+function parseDateSafe(str) {
+  if (!str) return null;
+  try {
+    const d = parseISO(str);
+    return isValid(d) ? d : null;
+  } catch { return null; }
+}
 
 export default function Historico4SemanasDashboard() {
   const { user } = useAuth();
@@ -37,26 +47,26 @@ export default function Historico4SemanasDashboard() {
         const ref = subWeeks(hoje, i);
         const inicio = startOfWeek(ref, { weekStartsOn: 1 });
         const fim = endOfWeek(ref, { weekStartsOn: 1 });
-        const range = { start: inicio, end: fim };
+        // Compara como string yyyy-MM-dd para evitar problemas de fuso —
+        // mesma logica de MeuFinanceiro.
+        const inicioStr = format(inicio, 'yyyy-MM-dd');
+        const fimStr = format(fim, 'yyyy-MM-dd');
 
         const produzido = meusLancamentos
           .filter(l => {
-            if (!l.data_geracao) return false;
-            try {
-              const d = toLocalDate(l.data_geracao);
-              return d && isWithinInterval(d, range);
-            } catch { return false; }
+            const d = parseDateSafe(l.data_geracao);
+            if (!d) return false;
+            const ds = format(d, 'yyyy-MM-dd');
+            return ds >= inicioStr && ds <= fimStr;
           })
           .reduce((s, l) => s + (l.valor_comissao_tecnico || 0), 0);
 
         const recebido = meusPagamentos
           .filter(p => {
-            const ref = p.data_pagamento || p.created_date;
-            if (!ref) return false;
-            try {
-              const d = ref.includes && ref.includes('T') ? toLocalDate(ref) : new Date(ref);
-              return d && isWithinInterval(d, range);
-            } catch { return false; }
+            const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date);
+            if (!d) return false;
+            const ds = format(d, 'yyyy-MM-dd');
+            return ds >= inicioStr && ds <= fimStr;
           })
           .reduce((s, p) => s + (p.valor_pago || 0), 0);
 
@@ -73,22 +83,17 @@ export default function Historico4SemanasDashboard() {
       });
 
       // Saldo total = soma de TUDO desde SALDO_INICIO (comissoes - pagamentos).
-      // Mesma logica de GanhosSemanaDashboard para garantir consistencia entre
-      // os 2 cards do Dashboard e a pagina MeuFinanceiro.
+      // Mesma logica de MeuFinanceiro/GanhosSemanaDashboard para consistencia.
       const totalComissoes = meusLancamentos
         .filter(l => {
-          if (!l.data_geracao) return false;
-          try { const d = toLocalDate(l.data_geracao); return d && d >= SALDO_INICIO; } catch { return false; }
+          const d = parseDateSafe(l.data_geracao);
+          return d && d >= SALDO_INICIO;
         })
         .reduce((s, l) => s + (l.valor_comissao_tecnico || 0), 0);
       const totalPagamentos = meusPagamentos
         .filter(p => {
-          const ref = p.data_pagamento || p.created_date;
-          if (!ref) return false;
-          try {
-            const d = ref.includes && ref.includes('T') ? toLocalDate(ref) : new Date(ref);
-            return d && d >= SALDO_INICIO;
-          } catch { return false; }
+          const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date);
+          return d && d >= SALDO_INICIO;
         })
         .reduce((s, p) => s + (p.valor_pago || 0), 0);
       // Positivo = empresa deve ao tecnico; negativo = tecnico recebeu a mais.
