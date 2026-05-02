@@ -17,7 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO, isAfter } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO, isAfter, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseHistoricoData, toLocalDateSafe } from '@/lib/dateUtils';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
@@ -1954,6 +1954,17 @@ function PagamentosClientesContent() {
   }), [pagamentos, inicioMes, fimMes]);
   const totalMes = pagsMes.reduce((s, p) => s + (p.valor_total || 0), 0);
   const totalPagoMes = pagsMes.reduce((s, p) => s + (p.valor_pago || 0), 0);
+
+  // Mes anterior — para comparativo
+  const inicioMesAnterior = startOfMonth(subMonths(hoje, 1));
+  const fimMesAnterior = endOfMonth(subMonths(hoje, 1));
+  const pagsMesAnterior = useMemo(() => pagamentos.filter(p => {
+    if (!p.data_conclusao) return false;
+    try { return isWithinInterval(parseISO(p.data_conclusao), { start: inicioMesAnterior, end: fimMesAnterior }); }
+    catch { return false; }
+  }), [pagamentos, inicioMesAnterior, fimMesAnterior]);
+  const totalMesAnterior = pagsMesAnterior.reduce((s, p) => s + (p.valor_total || 0), 0);
+  const totalPagoMesAnterior = pagsMesAnterior.reduce((s, p) => s + (p.valor_pago || 0), 0);
   const totalRel = pagsRelatorio.reduce((s, p) => s + (p.valor_total || 0), 0);
   const totalPagoRel = pagsRelatorio.reduce((s, p) => s + (p.valor_pago || 0), 0);
 
@@ -1988,7 +1999,7 @@ function PagamentosClientesContent() {
               <span>Semana: {format(inicioSemana, "dd/MM", { locale: ptBR })} – {format(fimSemana, "dd/MM/yyyy", { locale: ptBR })}</span>
             </p>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
             <div className="bg-white/10 rounded-lg px-2 sm:px-3 py-2 text-center">
               <p className="text-white font-bold text-sm sm:text-lg">{formatCurrency(totalMes).replace('R$', '').trim()}</p>
               <p className="text-blue-200 text-xs">Faturado Mês</p>
@@ -2004,6 +2015,15 @@ function PagamentosClientesContent() {
             <div className="bg-green-500/20 rounded-lg px-2 sm:px-3 py-2 text-center">
               <p className="text-green-300 font-bold text-sm sm:text-lg">{formatCurrency(totalPagoSemana).replace('R$', '').trim()}</p>
               <p className="text-blue-200 text-xs">Recebido Sem.</p>
+            </div>
+            {/* Comparativo do mes anterior */}
+            <div className="bg-white/5 rounded-lg px-2 sm:px-3 py-2 text-center border border-white/10">
+              <p className="text-gray-200 font-bold text-sm sm:text-lg">{formatCurrency(totalMesAnterior).replace('R$', '').trim()}</p>
+              <p className="text-blue-300/80 text-[10px] sm:text-xs">Faturado Mês Ant.</p>
+            </div>
+            <div className="bg-emerald-500/10 rounded-lg px-2 sm:px-3 py-2 text-center border border-emerald-500/20">
+              <p className="text-emerald-200 font-bold text-sm sm:text-lg">{formatCurrency(totalPagoMesAnterior).replace('R$', '').trim()}</p>
+              <p className="text-blue-300/80 text-[10px] sm:text-xs">Recebido Mês Ant.</p>
             </div>
           </div>
         </div>
