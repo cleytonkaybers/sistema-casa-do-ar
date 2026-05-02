@@ -13,6 +13,7 @@ import GanhosSemanaDashboard from '@/components/dashboard/GanhosSemanaDashboard'
 import ResumoMesAdminDashboard from '@/components/dashboard/ResumoMesAdminDashboard';
 import GanhosTecnicosAdminDashboard from '@/components/dashboard/GanhosTecnicosAdminDashboard';
 import CalendarioPlantao from '@/components/dashboard/CalendarioPlantao';
+import Historico4SemanasDashboard from '@/components/dashboard/Historico4SemanasDashboard';
 import { DashboardStatCardSkeleton, DashboardAdminSkeleton } from '@/components/LoadingSkeleton';
 import {
   Users,
@@ -496,9 +497,14 @@ export default function Dashboard() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-6">
           {!isAdmin && (
-            <div className="col-span-2 xl:col-span-2">
-              <GanhosSemanaDashboard />
-            </div>
+            <>
+              <div className="col-span-2 xl:col-span-2">
+                <GanhosSemanaDashboard />
+              </div>
+              <div className="col-span-2 xl:col-span-2">
+                <Historico4SemanasDashboard />
+              </div>
+            </>
           )}
           {isAdmin && (
             <>
