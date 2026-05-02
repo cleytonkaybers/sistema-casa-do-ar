@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import { startOfWeek, endOfWeek, subWeeks, format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -36,10 +36,6 @@ export default function Historico4SemanasDashboard() {
 
       const meusLancamentos = lancamentos.filter(l => l.tecnico_id === user.email);
       const meusPagamentos = pagamentos.filter(p => p.tecnico_id === user.email && p.status === 'Confirmado');
-
-      // Marco zero do saldo: alinhado com GanhosSemanaDashboard.
-      // Antes desta data, comissoes e pagamentos sao ignorados no calculo do saldo.
-      const SALDO_INICIO = new Date('2026-04-13T00:00:00');
 
       const hoje = new Date();
       // Ultimas 4 semanas (atual + 3 anteriores)
@@ -82,24 +78,7 @@ export default function Historico4SemanasDashboard() {
         };
       });
 
-      // Saldo total = soma de TUDO desde SALDO_INICIO (comissoes - pagamentos).
-      // Mesma logica de MeuFinanceiro/GanhosSemanaDashboard para consistencia.
-      const totalComissoes = meusLancamentos
-        .filter(l => {
-          const d = parseDateSafe(l.data_geracao);
-          return d && d >= SALDO_INICIO;
-        })
-        .reduce((s, l) => s + (l.valor_comissao_tecnico || 0), 0);
-      const totalPagamentos = meusPagamentos
-        .filter(p => {
-          const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date);
-          return d && d >= SALDO_INICIO;
-        })
-        .reduce((s, p) => s + (p.valor_pago || 0), 0);
-      // Positivo = empresa deve ao tecnico; negativo = tecnico recebeu a mais.
-      const saldoTotal = totalComissoes - totalPagamentos;
-
-      return { semanas, saldoTotal };
+      return { semanas };
     },
     enabled: !!user?.email,
     staleTime: 60_000,
@@ -108,9 +87,6 @@ export default function Historico4SemanasDashboard() {
   if (!user) return null;
 
   const semanas = data?.semanas || [];
-  const saldoTotal = data?.saldoTotal || 0;
-  const aReceber = saldoTotal > 0.01;
-  const deve = saldoTotal < -0.01;
 
   return (
     <Card
@@ -178,23 +154,6 @@ export default function Historico4SemanasDashboard() {
               );
             })}
 
-            {/* Rodape: saldo total */}
-            <div className={`mt-2 rounded-xl p-3 flex items-center justify-between border ${
-              aReceber ? 'bg-emerald-500/10 border-emerald-500/30'
-              : deve ? 'bg-red-500/10 border-red-500/30'
-              : 'bg-white/[0.02] border-white/5'
-            }`}>
-              <div className="flex items-center gap-2">
-                {aReceber && <TrendingUp className="w-4 h-4 text-emerald-400" />}
-                {deve && <TrendingDown className="w-4 h-4 text-red-400" />}
-                <span className={`text-xs font-semibold ${aReceber ? 'text-emerald-300' : deve ? 'text-red-300' : 'text-gray-400'}`}>
-                  {aReceber ? 'Você tem a receber' : deve ? 'Você deve' : 'Saldo zerado'}
-                </span>
-              </div>
-              <span className={`text-base font-bold tabular-nums ${aReceber ? 'text-emerald-400' : deve ? 'text-red-400' : 'text-gray-300'}`}>
-                {aReceber ? '+' : ''}{fmt(saldoTotal)}
-              </span>
-            </div>
           </>
         )}
       </CardContent>
