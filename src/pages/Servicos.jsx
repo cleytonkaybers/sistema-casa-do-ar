@@ -18,6 +18,7 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
+import { matchClienteSearch } from '@/lib/utils/buscaCliente';
 
 export default function ServicosPage() {
   const { hasPermission, isAdmin, user: currentUser, loading: loadingUser } = usePermissions();
@@ -562,18 +563,12 @@ export default function ServicosPage() {
 
     // Serviços abertos ou em andamento ficam SEMPRE na agenda, independente da data
     if (s.status === 'aberto' || s.status === 'andamento') {
-      const matchSearch = s.cliente_nome?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                         s.telefone?.includes(debouncedSearch);
-      return matchSearch;
+      return matchClienteSearch(s.cliente_nome, s.telefone, debouncedSearch);
     }
 
     // Serviços agendados/reagendados: mostrar os de hoje em diante E os em atraso (ainda não concluídos)
     // Serviços em atraso ficam visíveis até serem concluídos ou reagendados
-
-    const matchSearch = s.cliente_nome?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                       s.telefone?.includes(debouncedSearch);
-    
-    return matchSearch;
+    return matchClienteSearch(s.cliente_nome, s.telefone, debouncedSearch);
   });
 
   const servicosComData = filteredServicos.filter(s => s.data_programada);

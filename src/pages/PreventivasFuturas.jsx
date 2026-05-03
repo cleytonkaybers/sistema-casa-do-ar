@@ -29,6 +29,7 @@ import { ptBR } from 'date-fns/locale';
 import ServicoForm from '../components/servicos/ServicoForm';
 import { TableSkeleton } from '@/components/LoadingSkeleton';
 import { formatTipoServicoCompact } from '@/utils';
+import { matchClienteSearch } from '@/lib/utils/buscaCliente';
 
 export default function PreventivasFuturasPage() {
   return (
@@ -161,12 +162,7 @@ function PreventivasFuturasContent() {
     .filter(c => c.proximaManutencao && c.status);
 
   const todosItens = [...clientesComManutencao]
-    .filter(item => {
-      const matchNome = item.nome?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                       item.cliente_nome?.toLowerCase().includes(debouncedSearch.toLowerCase());
-      const matchTelefone = item.telefone?.includes(debouncedSearch);
-      return matchNome || matchTelefone;
-    })
+    .filter(item => matchClienteSearch(item.nome || item.cliente_nome, item.telefone, debouncedSearch))
     .sort((a, b) => {
       const daysA = a.status?.days ?? 999;
       const daysB = b.status?.days ?? 999;

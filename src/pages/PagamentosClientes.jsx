@@ -21,6 +21,7 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInter
 import { ptBR } from 'date-fns/locale';
 import { parseHistoricoData, toLocalDateSafe } from '@/lib/dateUtils';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
+import { matchClienteSearch } from '@/lib/utils/buscaCliente';
 import CompromissoClientePDF from '@/components/financeiro/CompromissoClientePDF';
 import {
   Search, CheckCircle2, AlertCircle, Calendar,
@@ -1806,7 +1807,7 @@ function PagamentosClientesContent() {
   const pagsFiltrados = useMemo(() =>
     pagamentos.filter(p =>
       p.arquivado !== true &&
-      (!debouncedSearch || p.cliente_nome?.toLowerCase().includes(debouncedSearch.toLowerCase())) &&
+      matchClienteSearch(p.cliente_nome, p.telefone, debouncedSearch) &&
       !isApenasTiposIgnorados(p.tipo_servico)
     )
   , [pagamentos, debouncedSearch]);
@@ -1897,7 +1898,7 @@ function PagamentosClientesContent() {
       inicio = new Date(relDataInicio); fim = new Date(relDataFim + 'T23:59:59');
     }
     return pagamentos.filter(p => {
-      const matchCliente = !relCliente || p.cliente_nome?.toLowerCase().includes(relCliente.toLowerCase());
+      const matchCliente = matchClienteSearch(p.cliente_nome, p.telefone, relCliente);
       let matchData = true;
       if (inicio && fim && p.data_conclusao) {
         try { matchData = isWithinInterval(parseISO(p.data_conclusao), { start: inicio, end: fim }); }

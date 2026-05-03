@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 
 import { Link } from 'react-router-dom';
 import { createPageUrl, formatTipoServicoCompact } from '@/utils';
+import { matchClienteSearch } from '@/lib/utils/buscaCliente';
 
 // Helper de telefone extraído dos padrões
 const formatPhone = (phone) => {
@@ -418,15 +419,15 @@ export default function HistoricoClientes() {
     });
 
     const clientesFiltrados = {};
+    const searchLower = debouncedSearch.toLowerCase();
     Object.values(grupos).forEach(grupo => {
-      const searchLower = debouncedSearch.toLowerCase();
-      const matchNome = grupo.nome.toLowerCase().includes(searchLower);
-      const matchItens = grupo.itens.some(i =>
+      const matchClienteNomeOuTel = matchClienteSearch(grupo.nome, grupo.telefone, debouncedSearch);
+      const matchItens = !!debouncedSearch && grupo.itens.some(i =>
         i.tipo_servico?.toLowerCase().includes(searchLower) ||
         i.descricao?.toLowerCase().includes(searchLower)
       );
 
-      if (matchNome || matchItens) {
+      if (matchClienteNomeOuTel || matchItens) {
         grupo.itens.sort((a, b) => (parseHistoricoData(b.data)?.getTime() || 0) - (parseHistoricoData(a.data)?.getTime() || 0));
         clientesFiltrados[grupo.nome] = grupo;
       }

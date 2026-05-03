@@ -17,6 +17,7 @@ import ServicoForm from '@/components/servicos/ServicoForm';
 import { toast } from 'sonner';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import { formatTipoServicoCompact } from '@/utils';
+import { matchClienteSearch } from '@/lib/utils/buscaCliente';
 
 const STATUS_CONFIG = {
   agendado:   { label: 'Agendado',   color: 'bg-blue-500/15 text-blue-300 border-blue-500/30' },
@@ -213,11 +214,7 @@ export default function Agendamentos() {
     }
   };
 
-  const lista = agendamentos.filter(a =>
-    !search ||
-    a.nome?.toLowerCase().includes(search.toLowerCase()) ||
-    a.telefone?.includes(search)
-  );
+  const lista = agendamentos.filter(a => matchClienteSearch(a.nome, a.telefone, search));
 
   // Agrupar por data
   const grupos = lista.reduce((acc, ag) => {

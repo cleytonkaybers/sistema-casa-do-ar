@@ -13,6 +13,7 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
 import { MARCAS_AR, isInstalacao, embutirMarca, extrairMarca, removerMarca } from '@/lib/marcasAr';
+import { matchClienteSearch } from '@/lib/utils/buscaCliente';
 
 export default function ServicoForm({ open, onClose, onSave, servico, isLoading, prefilledData, equipes = [], currentUserEquipeId = null, isAdmin = false }) {
   const [loadingLocation, setLoadingLocation] = useState(false);
@@ -46,10 +47,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
   }, []);
 
   const clientesFiltrados = clienteSearch.trim().length > 0
-    ? clientes.filter(c =>
-        c.nome?.toLowerCase().includes(clienteSearch.toLowerCase()) ||
-        c.telefone?.includes(clienteSearch)
-      )
+    ? clientes.filter(c => matchClienteSearch(c.nome, c.telefone, clienteSearch))
     : clientes.slice(0, 8);
 
   const servicosDisponiveis = tiposServicoValores.map(t => t.tipo_servico);
