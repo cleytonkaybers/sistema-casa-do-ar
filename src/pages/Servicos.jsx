@@ -413,6 +413,13 @@ export default function ServicosPage() {
             const valorTotal = servicoSnapshot.valor;
             const valorComissaoTecnico = valorTotal * 0.15;
             await Promise.all(tecnicos.map(async (tec) => {
+              // Dedup atomico: evita duplicar lancamento se conclusao foi disparada
+              // 2x rapidamente (race com flag comissao_gerada que so e setada DEPOIS).
+              const ja = await base44.entities.LancamentoFinanceiro
+                .filter({ servico_id: servicoSnapshot.id, tecnico_id: tec.tecnico_id })
+                .catch(() => []);
+              if (ja && ja.length > 0) return;
+
               await base44.entities.LancamentoFinanceiro.create({
                 servico_id: servicoSnapshot.id,
                 equipe_id: servicoSnapshot.equipe_id,

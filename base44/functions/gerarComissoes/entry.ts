@@ -122,6 +122,12 @@ Deno.serve(async (req) => {
     // Gerar lançamentos para cada técnico
     const lancamentos = [];
     for (const tecnico of tecnicos) {
+      // Dedup atomico: evita duplicar lancamento se a funcao for chamada
+      // mais de uma vez para o mesmo servico (ex: clique duplo + automacao).
+      const existentes = await base44.asServiceRole.entities.LancamentoFinanceiro
+        .filter({ servico_id: servico.id, tecnico_id: tecnico.email });
+      if (existentes && existentes.length > 0) continue;
+
       const lancamento = {
         servico_id: servico.id,
         equipe_id: servico.equipe_id,

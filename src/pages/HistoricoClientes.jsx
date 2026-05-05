@@ -175,6 +175,12 @@ export default function HistoricoClientes() {
           const valorTotal = servico.valor;
           const valorComissaoTecnico = valorTotal * 0.15;
           await Promise.all(tecnicos.map(async (tec) => {
+            // Dedup atomico: evita duplicar comissao em chamadas paralelas de regerar
+            const ja = await base44.entities.LancamentoFinanceiro
+              .filter({ servico_id: servico.id, tecnico_id: tec.tecnico_id })
+              .catch(() => []);
+            if (ja && ja.length > 0) return;
+
             await base44.entities.LancamentoFinanceiro.create({
               servico_id: servico.id,
               equipe_id: servico.equipe_id,
