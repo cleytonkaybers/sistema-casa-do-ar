@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,10 @@ import { formatTipoServicoCompact } from '@/utils';
 
 export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange, onShare, compact = false, equipes = [] }) {
   const [showDetalhes, setShowDetalhes] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  // Detecta tap intencional vs scroll: se o usuario mover o dedo enquanto
+  // toca no botao, NAO abre o menu (ele estava tentando rolar a pagina).
+  const tapStart = useRef({ x: 0, y: 0, time: 0, moved: false });
   const formatPhone = (phone) => {
     if (!phone) return '';
     const cleaned = phone.replace(/\D/g, '');
@@ -216,10 +220,39 @@ export default function ServicoCard({ servico, onEdit, onDelete, onStatusChange,
 
         <div className="space-y-2">
           {onStatusChange && (
-            <DropdownMenu>
+            <DropdownMenu open={statusOpen} onOpenChange={setStatusOpen} modal={false}>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" className="w-full h-10 text-xs font-semibold bg-[#0f1a2b] border-white/10 text-gray-200 hover:bg-white/5 hover:text-gray-100">
-                  <StatusIcon className="w-4 h-4 mr-1" />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  // Botao menor (h-9) e nao mais full-width — sobra mais area de
+                  // scroll segura ao redor.
+                  className="h-9 text-xs font-semibold bg-[#0f1a2b] border-white/10 text-gray-200 hover:bg-white/5 hover:text-gray-100 px-3"
+                  style={{ touchAction: 'manipulation' }}
+                  onPointerDown={(e) => {
+                    // Bloqueia abertura padrao do Radix (que e em pointerdown);
+                    // controla via state na onClick (so dispara apos tap valido).
+                    e.preventDefault();
+                    tapStart.current = { x: e.clientX, y: e.clientY, time: Date.now(), moved: false };
+                  }}
+                  onPointerMove={(e) => {
+                    const { x, y } = tapStart.current;
+                    if (Math.abs(e.clientX - x) > 8 || Math.abs(e.clientY - y) > 8) {
+                      tapStart.current.moved = true;
+                    }
+                  }}
+                  onClick={(e) => {
+                    // So abre se foi tap "limpo" (sem movimento de scroll, < 400ms)
+                    const { time, moved } = tapStart.current;
+                    const dt = Date.now() - time;
+                    if (moved || dt > 400) {
+                      e.preventDefault();
+                      return;
+                    }
+                    setStatusOpen(true);
+                  }}
+                >
+                  <StatusIcon className="w-3.5 h-3.5 mr-1" />
                   Status
                 </Button>
               </DropdownMenuTrigger>
