@@ -29,6 +29,7 @@ import { useEmpresa } from '@/components/auth/EmpresaGuard';
 import { TableSkeleton } from '@/components/LoadingSkeleton';
 import NoPermission from '@/components/NoPermission';
 import { useNavigate } from 'react-router-dom';
+import { propagarAlteracaoCliente } from '@/lib/utils/propagarCliente';
 
 export default function Clientes() {
   const queryClient = useQueryClient();
@@ -111,12 +112,38 @@ export default function Clientes() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Cliente.update(id, data),
-    onSuccess: () => {
+    mutationFn: async ({ id, data, antigo }) => {
+      await base44.entities.Cliente.update(id, data);
+      // Propaga as mudancas para entidades que tem cache do nome/telefone/endereco
+      // (Servico, Atendimento, PagamentoCliente, Agendamento, LancamentoFinanceiro).
+      // Best-effort: erros nao bloqueiam o sucesso da atualizacao do cliente.
+      try {
+        const resultado = await propagarAlteracaoCliente(antigo, data);
+        return resultado;
+      } catch (err) {
+        console.error('Falha ao propagar alteracao do cliente:', err);
+        return { atualizados: 0, erros: [err?.message || 'erro'] };
+      }
+    },
+    onSuccess: (resultado) => {
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
+      // Invalida tudo que pode ter snapshot do cliente para refresh imediato
+      queryClient.invalidateQueries({ queryKey: ['servicos'] });
+      queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
+      queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
+      queryClient.invalidateQueries({ queryKey: ['agendamentos'] });
+      queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
       setFormOpen(false);
       setEditingCliente(null);
-      toast.success('Cliente atualizado com sucesso!');
+      const totalProp = resultado?.atualizados || 0;
+      if (totalProp > 0) {
+        toast.success(`Cliente atualizado! ${totalProp} registro(s) relacionado(s) sincronizado(s).`);
+      } else {
+        toast.success('Cliente atualizado com sucesso!');
+      }
+      if (resultado?.erros?.length > 0) {
+        console.warn('Avisos na propagacao:', resultado.erros);
+      }
     },
     onError: () => toast.error('Erro ao atualizar cliente'),
   });
@@ -185,7 +212,9 @@ export default function Clientes() {
 
   const handleSave = (data) => {
     if (editingCliente) {
-      updateMutation.mutate({ id: editingCliente.id, data });
+      // Passa o cliente ANTIGO (snapshot pre-edicao) para propagacao localizar
+      // os registros que ainda usam o nome/telefone antigos.
+      updateMutation.mutate({ id: editingCliente.id, data, antigo: editingCliente });
     } else {
       const clienteData = { ...data };
       if (currentEmpresa?.id) {

@@ -13,6 +13,7 @@ import ClientHealthSummary from '../components/clientes/ClientHealthSummary';
 import ClientHistoryTimeline from '../components/clientes/ClientHistoryTimeline';
 import { createPageUrl } from '../utils';
 import { useNavigate } from 'react-router-dom';
+import { propagarAlteracaoCliente } from '@/lib/utils/propagarCliente';
 
 export default function ClienteDetalhes() {
   const [searchParams] = useSearchParams();
@@ -51,12 +52,32 @@ export default function ClienteDetalhes() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data) => base44.entities.Cliente.update(clienteId, data),
-    onSuccess: () => {
+    mutationFn: async (data) => {
+      const antigo = cliente;
+      await base44.entities.Cliente.update(clienteId, data);
+      try {
+        const resultado = await propagarAlteracaoCliente(antigo, data);
+        return resultado;
+      } catch (err) {
+        console.error('Falha ao propagar alteracao do cliente:', err);
+        return { atualizados: 0, erros: [err?.message || 'erro'] };
+      }
+    },
+    onSuccess: (resultado) => {
       queryClient.invalidateQueries({ queryKey: ['cliente', clienteId] });
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
+      queryClient.invalidateQueries({ queryKey: ['servicos'] });
+      queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
+      queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
+      queryClient.invalidateQueries({ queryKey: ['agendamentos'] });
+      queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
       setEditMode(false);
-      toast.success('Cliente atualizado com sucesso!');
+      const totalProp = resultado?.atualizados || 0;
+      if (totalProp > 0) {
+        toast.success(`Cliente atualizado! ${totalProp} registro(s) relacionado(s) sincronizado(s).`);
+      } else {
+        toast.success('Cliente atualizado com sucesso!');
+      }
     },
     onError: () => toast.error('Erro ao atualizar cliente')
   });
