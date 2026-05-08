@@ -14,7 +14,7 @@ import CompartilharModal from '../components/servicos/CompartilharModal';
 import ConclusaoModal from '../components/servicos/ConclusaoModal';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { toast } from 'sonner';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfWeek, endOfWeek, isWithinInterval, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
@@ -37,6 +37,9 @@ export default function ServicosPage() {
   const [expandedDias, setExpandedDias] = useState({});
   const [servicoParaDeletar, setServicoParaDeletar] = useState(null);
   const [currentPageSemData, setCurrentPageSemData] = useState(1);
+  // Por padrao mostra so a semana atual; toggle abre semanas futuras
+  // (evita confusao do tecnico com servicos agendados pra proxima semana).
+  const [verFuturos, setVerFuturos] = useState(false);
   const SERVICOS_POR_DIA = 5;
   const SERVICOS_POR_PAGINA = 20;
 
@@ -578,8 +581,32 @@ export default function ServicosPage() {
     return matchClienteSearch(s.cliente_nome, s.telefone, debouncedSearch);
   });
 
-  const servicosComData = filteredServicos.filter(s => s.data_programada);
+  // Separa por semana: semana atual (default), futuros (toggle) e atrasados (sempre visiveis)
+  const inicioSemanaAtual = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const fimSemanaAtual = endOfWeek(new Date(), { weekStartsOn: 1 });
+
+  const servicosTodos = filteredServicos.filter(s => s.data_programada);
   const servicosSemData = filteredServicos.filter(s => !s.data_programada);
+
+  // Atrasados (data passada, nao concluido) sempre aparecem na semana atual
+  // para nao serem esquecidos. Futuros so aparecem quando o toggle esta ativo.
+  const servicosSemanaAtual = servicosTodos.filter(s => {
+    try {
+      const d = parseISO(s.data_programada);
+      // Inclui semana atual + qualquer servico atrasado (data < inicio da semana)
+      return isWithinInterval(d, { start: inicioSemanaAtual, end: fimSemanaAtual })
+        || d < inicioSemanaAtual;
+    } catch { return false; }
+  });
+  const servicosFuturos = servicosTodos.filter(s => {
+    try {
+      const d = parseISO(s.data_programada);
+      return isAfter(d, fimSemanaAtual);
+    } catch { return false; }
+  });
+
+  // Lista renderizada nos cards de dia depende do toggle
+  const servicosComData = verFuturos ? servicosFuturos : servicosSemanaAtual;
 
   // Reset page when filter changes
   React.useEffect(() => { setCurrentPageSemData(1); setExpandedDias({}); }, [debouncedSearch, equipeFilter]);
@@ -638,18 +665,40 @@ export default function ServicosPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h1 className="text-xl sm:text-3xl font-bold text-gray-200">Serviços</h1>
-          <p className="text-gray-400 mt-1 text-xs sm:text-sm">Gerencie serviços diários e semanais</p>
+          <p className="text-gray-400 mt-1 text-xs sm:text-sm">
+            {verFuturos
+              ? `Mostrando serviços agendados para semanas futuras (${servicosFuturos.length})`
+              : `Mostrando semana atual: ${format(inicioSemanaAtual, "dd/MM", { locale: ptBR })} – ${format(fimSemanaAtual, "dd/MM", { locale: ptBR })}`}
+          </p>
         </div>
-        <Button
-          onClick={() => {
-            setEditingServico(null);
-            setShowForm(true);
-          }}
-          className="text-white font-bold" style={{background: 'linear-gradient(135deg, #1e40af, #f59e0b)'}}
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Novo Serviço
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            type="button"
+            onClick={() => setVerFuturos(v => !v)}
+            variant="outline"
+            className={`h-10 text-xs font-semibold rounded-xl border ${
+              verFuturos
+                ? 'bg-amber-500/15 border-amber-500/40 text-amber-300 hover:bg-amber-500/25'
+                : 'bg-[#0f1a2b] border-white/10 text-gray-300 hover:bg-white/5'
+            }`}
+            title={verFuturos ? 'Voltar para a semana atual' : 'Ver serviços agendados para próximas semanas'}
+          >
+            <Calendar className="w-4 h-4 mr-1.5" />
+            {verFuturos
+              ? '← Semana Atual'
+              : `Próximas semanas${servicosFuturos.length > 0 ? ` (${servicosFuturos.length})` : ''}`}
+          </Button>
+          <Button
+            onClick={() => {
+              setEditingServico(null);
+              setShowForm(true);
+            }}
+            className="text-white font-bold" style={{background: 'linear-gradient(135deg, #1e40af, #f59e0b)'}}
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Novo Serviço
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
