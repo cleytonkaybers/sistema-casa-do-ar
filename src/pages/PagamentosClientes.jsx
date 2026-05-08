@@ -1452,22 +1452,20 @@ function PagamentosClientesContent() {
 
     if (novos.length === 0) return;
 
-    // Sequencializa as criacoes (mutateAsync) para que cada nova insercao
-    // adicione seu compound key ao Set ANTES da proxima iteracao — evita
-    // criar 2 pagamentos do mesmo cliente+tipo+data se a query nao refetchar
-    // a tempo entre as iteracoes.
+    // Paraleliza criacoes: o dedup (compoundsRegistrados.add) e SINCRONO
+    // e roda ANTES do dispatch de cada mutateAsync — entao paralelo e seguro.
+    // Antes era for...await (sequencial); agora Promise.all (paralelo) — mais rapido.
     (async () => {
-      for (const a of novos) {
+      await Promise.all(novos.map(async (a) => {
         const dataRef = a.data_conclusao || a.created_date;
         const ck = compoundKey(a.cliente_nome, a.tipo_servico, dataRef);
-        if (compoundsRegistrados.has(ck)) continue; // dupla checagem em caso de race
+        if (compoundsRegistrados.has(ck)) return; // dupla checagem em caso de race
         compoundsRegistrados.add(ck);
         criandoIds.current.add(a.id);
 
         const nomeNormalizado = (a.cliente_nome || '').trim().toLowerCase();
         const telefoneLimpo = (a.telefone || '').replace(/\D/g, '');
 
-        // Lookup O(1) por nome
         const candidatosDoCliente = pagamentosPorNome.get(nomeNormalizado) || [];
         const debitosAtrasados = candidatosDoCliente.filter(p => {
           const pTelefoneLimpo = (p.telefone || '').replace(/\D/g, '');
@@ -1507,7 +1505,7 @@ function PagamentosClientesContent() {
           console.error('Falha ao criar PagamentoCliente do atendimento', a.id, err);
           criandoIds.current.delete(a.id);
         }
-      }
+      }));
     })();
   }, [atendimentos, isLoading, pagamentos.length]);
 
@@ -1638,40 +1636,41 @@ function PagamentosClientesContent() {
     // dinheiro direto do cliente. Reutiliza a funcao registrarPagamentoTecnico que ja
     // debita credito_pendente e atualiza credito_pago do TecnicoFinanceiro.
     if (tecnicoRecebeu && tecnicoRecebeu !== 'adm' && valor > 0.01) {
-      const tec = tecnicosFinanceiros.find(t => t.tecnico_id === tecnicoRecebeu);
-      const dataStr = format(new Date(), 'dd/MM/yyyy');
-      const obsTec = `Recebido direto do cliente ${pag.cliente_nome || ''}` +
-        (pag.telefone ? ` (Tel: ${pag.telefone})` : '') +
-        ` em ${dataStr}` +
-        (metodoPagamento ? ` via ${metodoPagamento}` : '') +
-        `. Valor: ${formatCurrency(valor)}`;
-      try {
-        // Validacao defensiva — tecnico precisa existir no TecnicoFinanceiro
-        if (!tec) {
-          throw new Error(`Tecnico nao encontrado em TecnicoFinanceiro (id: ${tecnicoRecebeu}). Cadastre-o em Financeiro antes.`);
+      // Background — UI nao espera o backend creditar o tecnico para fechar
+      // o modal. Toast secundario aparece ao terminar.
+      (async () => {
+        const tec = tecnicosFinanceiros.find(t => t.tecnico_id === tecnicoRecebeu);
+        const dataStr = format(new Date(), 'dd/MM/yyyy');
+        const obsTec = `Recebido direto do cliente ${pag.cliente_nome || ''}` +
+          (pag.telefone ? ` (Tel: ${pag.telefone})` : '') +
+          ` em ${dataStr}` +
+          (metodoPagamento ? ` via ${metodoPagamento}` : '') +
+          `. Valor: ${formatCurrency(valor)}`;
+        try {
+          if (!tec) {
+            throw new Error(`Tecnico nao encontrado em TecnicoFinanceiro (id: ${tecnicoRecebeu}).`);
+          }
+          const response = await base44.functions.invoke('registrarPagamentoTecnico', {
+            tecnico_id: tecnicoRecebeu,
+            valor_pago: valor,
+            data_pagamento: format(new Date(), 'yyyy-MM-dd'),
+            metodo_pagamento: metodoPagamento || 'Outro',
+            observacao: obsTec,
+            lancamentos_id: [],
+          });
+          const respData = response?.data || {};
+          if (respData.error || respData.success === false) {
+            throw new Error(respData.error || 'Erro desconhecido no backend');
+          }
+          queryClient.invalidateQueries({ queryKey: ['tecnicos'] });
+          queryClient.invalidateQueries({ queryKey: ['pagamentos'] });
+          queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro-pag'] });
+          toast.success(`💰 ${formatCurrency(valor)} creditado ao tecnico ${tec.tecnico_nome}`);
+        } catch (err) {
+          console.error('[PagamentosClientes] Falha ao creditar tecnico:', err);
+          toast.error(`⚠ Pagamento do cliente OK, mas falhou ao creditar tecnico ${tec?.tecnico_nome || tecnicoRecebeu}: ${err?.message || 'tente novamente em Financeiro'}`, { duration: 8000 });
         }
-        const response = await base44.functions.invoke('registrarPagamentoTecnico', {
-          tecnico_id: tecnicoRecebeu,
-          valor_pago: valor,
-          data_pagamento: format(new Date(), 'yyyy-MM-dd'),
-          metodo_pagamento: metodoPagamento || 'Outro',
-          observacao: obsTec,
-          lancamentos_id: [],
-        });
-        // base44 functions.invoke nao dispara throw em status >= 400 — checar manualmente
-        const respData = response?.data || {};
-        if (respData.error || respData.success === false) {
-          throw new Error(respData.error || 'Erro desconhecido no backend');
-        }
-        // Forca refetch (refetchType: active garante que componentes ativos refazem a query)
-        await queryClient.invalidateQueries({ queryKey: ['tecnicos'], refetchType: 'all' });
-        await queryClient.invalidateQueries({ queryKey: ['pagamentos'], refetchType: 'all' });
-        await queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro-pag'], refetchType: 'all' });
-        toast.success(`💰 ${formatCurrency(valor)} creditado ao tecnico ${tec.tecnico_nome}`);
-      } catch (err) {
-        console.error('[PagamentosClientes] Falha ao creditar tecnico:', err);
-        toast.error(`⚠ Pagamento do cliente OK, mas falhou ao creditar tecnico ${tec?.tecnico_nome || tecnicoRecebeu}: ${err?.message || 'tente novamente em Financeiro'}`, { duration: 8000 });
-      }
+      })().catch(err => console.error('[PagamentosClientes] tarefa secundaria:', err));
     }
 
     // Montar pag atualizado para o PDF — usando os valores efetivamente gravados, não o snapshot antigo

@@ -54,30 +54,27 @@ export default function ClienteDetalhes() {
   const updateMutation = useMutation({
     mutationFn: async (data) => {
       const antigo = cliente;
+      // SO atualizacao principal aqui. Propagacao roda em background depois.
       await base44.entities.Cliente.update(clienteId, data);
-      try {
-        const resultado = await propagarAlteracaoCliente(antigo, data);
-        return resultado;
-      } catch (err) {
-        console.error('Falha ao propagar alteracao do cliente:', err);
-        return { atualizados: 0, erros: [err?.message || 'erro'] };
-      }
+      return { antigo, novo: data };
     },
-    onSuccess: (resultado) => {
+    onSuccess: ({ antigo, novo }) => {
       queryClient.invalidateQueries({ queryKey: ['cliente', clienteId] });
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
-      queryClient.invalidateQueries({ queryKey: ['servicos'] });
-      queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
-      queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
-      queryClient.invalidateQueries({ queryKey: ['agendamentos'] });
-      queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
       setEditMode(false);
-      const totalProp = resultado?.atualizados || 0;
-      if (totalProp > 0) {
-        toast.success(`Cliente atualizado! ${totalProp} registro(s) relacionado(s) sincronizado(s).`);
-      } else {
-        toast.success('Cliente atualizado com sucesso!');
-      }
+      toast.success('Cliente atualizado com sucesso!');
+      // Propagacao em background — nao bloqueia o "Salvo!"
+      propagarAlteracaoCliente(antigo, novo).then(({ atualizados, erros }) => {
+        if (atualizados > 0) {
+          toast.success(`✓ ${atualizados} registro(s) relacionado(s) sincronizado(s)`);
+          queryClient.invalidateQueries({ queryKey: ['servicos'] });
+          queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
+          queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
+          queryClient.invalidateQueries({ queryKey: ['agendamentos'] });
+          queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
+        }
+        if (erros?.length > 0) console.warn('[ClienteDetalhes] avisos:', erros);
+      }).catch(err => console.error('[ClienteDetalhes] propagacao falhou:', err));
     },
     onError: () => toast.error('Erro ao atualizar cliente')
   });

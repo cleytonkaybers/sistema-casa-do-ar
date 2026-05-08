@@ -127,28 +127,35 @@ export async function propagarAlteracaoCliente(antigo, novo) {
     },
   ];
 
-  for (const ent of entidades) {
-    try {
-      const todos = await ent.api.list().catch(() => []);
-      const meus = todos.filter(r => matchPeloAntigo(r, antigo, ent.campoNomeCliente));
-      if (meus.length === 0) continue;
+  // Lista TODAS as entidades em PARALELO (era sequencial). Cada list e
+  // independente — paralelizar economiza segundos quando ha varias entidades.
+  const fetched = await Promise.all(
+    entidades.map(ent =>
+      ent.api.list()
+        .then(todos => ({ ent, todos, error: null }))
+        .catch(err => ({ ent, todos: [], error: err }))
+    )
+  );
 
-      const payload = buildUpdatePayload(novo, ent.mapeamento);
-      if (Object.keys(payload).length === 0) continue;
-
-      // Sequencial para evitar overload no backend
-      for (const reg of meus) {
-        try {
-          await ent.api.update(reg.id, payload);
-          atualizados++;
-        } catch (err) {
-          erros.push(`${ent.nome}#${reg.id}: ${err?.message || 'erro desconhecido'}`);
-        }
-      }
-    } catch (err) {
-      erros.push(`${ent.nome}: ${err?.message || 'erro desconhecido'}`);
+  // Para cada entidade, dispara updates em PARALELO (era sequencial).
+  // O backend Base44 lida bem com paralelismo — mais rapido.
+  await Promise.all(fetched.map(async ({ ent, todos, error }) => {
+    if (error) {
+      erros.push(`${ent.nome}: ${error?.message || 'erro desconhecido'}`);
+      return;
     }
-  }
+    const meus = todos.filter(r => matchPeloAntigo(r, antigo, ent.campoNomeCliente));
+    if (meus.length === 0) return;
+
+    const payload = buildUpdatePayload(novo, ent.mapeamento);
+    if (Object.keys(payload).length === 0) return;
+
+    await Promise.all(meus.map(reg =>
+      ent.api.update(reg.id, payload)
+        .then(() => { atualizados++; })
+        .catch(err => erros.push(`${ent.nome}#${reg.id}: ${err?.message || 'erro desconhecido'}`))
+    ));
+  }));
 
   return { atualizados, erros };
 }

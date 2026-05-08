@@ -65,57 +65,60 @@ export default function ServicosPage() {
       const { sem_registro_cliente, ...servicoData } = data;
       const servico = await base44.entities.Servico.create(servicoData);
 
-      if (!sem_registro_cliente) {
-        // Verificar duplicata por telefone OU por nome (normalizado)
-        const telefoneLimpo = data.telefone?.replace(/\D/g, '') || '';
-        const nomeLower = data.cliente_nome?.trim().toLowerCase() || '';
-
-        const [porTelefone, porNome] = await Promise.all([
-          telefoneLimpo ? base44.entities.Cliente.filter({ telefone: data.telefone }) : Promise.resolve([]),
-          base44.entities.Cliente.list(),
-        ]);
-
-        const jaExistePorTelefone = porTelefone.length > 0;
-        const jaExistePorNome = porNome.some(c => c.nome?.trim().toLowerCase() === nomeLower);
-
-        if (!jaExistePorTelefone && !jaExistePorNome) {
-          await base44.entities.Cliente.create({
-            nome: data.cliente_nome,
-            telefone: data.telefone,
-            endereco: data.endereco || '',
-            latitude: data.latitude || null,
-            longitude: data.longitude || null,
-          });
-          toast.success('Cliente cadastrado automaticamente!');
+      // Trabalhos secundarios em BACKGROUND — nao bloqueia o "Salvo!".
+      // O modal fecha imediatamente apos o create. Cliente automatico e
+      // notificacoes aparecem em segundo plano via toast adicional.
+      (async () => {
+        // 1) Cadastro automatico de cliente (se nao for "sem_registro_cliente")
+        if (!sem_registro_cliente) {
+          try {
+            const telefoneLimpo = data.telefone?.replace(/\D/g, '') || '';
+            const nomeLower = data.cliente_nome?.trim().toLowerCase() || '';
+            const [porTelefone, porNome] = await Promise.all([
+              telefoneLimpo ? base44.entities.Cliente.filter({ telefone: data.telefone }) : Promise.resolve([]),
+              base44.entities.Cliente.list(),
+            ]);
+            const jaExistePorTelefone = porTelefone.length > 0;
+            const jaExistePorNome = porNome.some(c => c.nome?.trim().toLowerCase() === nomeLower);
+            if (!jaExistePorTelefone && !jaExistePorNome) {
+              await base44.entities.Cliente.create({
+                nome: data.cliente_nome,
+                telefone: data.telefone,
+                endereco: data.endereco || '',
+                latitude: data.latitude || null,
+                longitude: data.longitude || null,
+              });
+              toast.success('Cliente cadastrado automaticamente!');
+              queryClient.invalidateQueries({ queryKey: ['clientes'] });
+            }
+          } catch (err) {
+            console.error('[Servicos] cadastro automatico cliente falhou:', err);
+          }
         }
-      }
 
-      // Notificar membros da equipe atribuída sobre o novo servico
-      if (data.equipe_id) {
-        try {
-          const todosUsuarios = await base44.entities.User.list();
-          const membrosDaEquipe = todosUsuarios.filter(u => u.equipe_id === data.equipe_id && u.email);
-          await Promise.all(
-            membrosDaEquipe.map(u =>
-              base44.entities.Notificacao.create({
-                usuario_email: u.email,
-                // Schema aceita: atendimento_criado, atendimento_atualizado,
-                // atendimento_concluido, pagamento_agendado.
-                // 'novo_servico' nao existe e fazia a criacao falhar silenciosamente.
-                tipo: 'atendimento_criado',
-                titulo: '🔧 Novo serviço atribuído',
-                mensagem: `${data.tipo_servico || 'Serviço'} para ${data.cliente_nome || 'cliente'}${data.data_programada ? ` em ${data.data_programada}` : ''}${data.horario ? ` às ${data.horario}` : ''}.`,
-                cliente_nome: data.cliente_nome || '',
-                atendimento_id: servico?.id || '',
-                lida: false,
-              })
-            )
-          );
-        } catch (err) {
-          console.error('Falha ao notificar equipe sobre novo servico:', err);
-          // Falha em notificar não deve bloquear o cadastro
+        // 2) Notificar membros da equipe (em paralelo)
+        if (data.equipe_id) {
+          try {
+            const todosUsuarios = await base44.entities.User.list();
+            const membrosDaEquipe = todosUsuarios.filter(u => u.equipe_id === data.equipe_id && u.email);
+            await Promise.all(
+              membrosDaEquipe.map(u =>
+                base44.entities.Notificacao.create({
+                  usuario_email: u.email,
+                  tipo: 'atendimento_criado',
+                  titulo: '🔧 Novo serviço atribuído',
+                  mensagem: `${data.tipo_servico || 'Serviço'} para ${data.cliente_nome || 'cliente'}${data.data_programada ? ` em ${data.data_programada}` : ''}${data.horario ? ` às ${data.horario}` : ''}.`,
+                  cliente_nome: data.cliente_nome || '',
+                  atendimento_id: servico?.id || '',
+                  lida: false,
+                })
+              )
+            );
+          } catch (err) {
+            console.error('[Servicos] notificar equipe falhou:', err);
+          }
         }
-      }
+      })().catch(err => console.error('[Servicos] tarefa secundaria falhou:', err));
 
       return servico;
     },

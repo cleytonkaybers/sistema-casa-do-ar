@@ -113,37 +113,29 @@ export default function Clientes() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data, antigo }) => {
+      // Operacao principal SO: atualizar Cliente. UI fecha modal imediatamente.
       await base44.entities.Cliente.update(id, data);
-      // Propaga as mudancas para entidades que tem cache do nome/telefone/endereco
-      // (Servico, Atendimento, PagamentoCliente, Agendamento, LancamentoFinanceiro).
-      // Best-effort: erros nao bloqueiam o sucesso da atualizacao do cliente.
-      try {
-        const resultado = await propagarAlteracaoCliente(antigo, data);
-        return resultado;
-      } catch (err) {
-        console.error('Falha ao propagar alteracao do cliente:', err);
-        return { atualizados: 0, erros: [err?.message || 'erro'] };
-      }
+      return { antigo, novo: data };
     },
-    onSuccess: (resultado) => {
+    onSuccess: ({ antigo, novo }) => {
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
-      // Invalida tudo que pode ter snapshot do cliente para refresh imediato
-      queryClient.invalidateQueries({ queryKey: ['servicos'] });
-      queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
-      queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
-      queryClient.invalidateQueries({ queryKey: ['agendamentos'] });
-      queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
       setFormOpen(false);
       setEditingCliente(null);
-      const totalProp = resultado?.atualizados || 0;
-      if (totalProp > 0) {
-        toast.success(`Cliente atualizado! ${totalProp} registro(s) relacionado(s) sincronizado(s).`);
-      } else {
-        toast.success('Cliente atualizado com sucesso!');
-      }
-      if (resultado?.erros?.length > 0) {
-        console.warn('Avisos na propagacao:', resultado.erros);
-      }
+      toast.success('Cliente atualizado com sucesso!');
+      // Propaga em BACKGROUND para entidades que tem snapshot do nome/telefone
+      // (Servico, Atendimento, PagamentoCliente, Agendamento, LancamentoFinanceiro).
+      // Toast secundario quando terminar; nao bloqueia o "Salvo!".
+      propagarAlteracaoCliente(antigo, novo).then(({ atualizados, erros }) => {
+        if (atualizados > 0) {
+          toast.success(`✓ ${atualizados} registro(s) relacionado(s) sincronizado(s)`);
+          queryClient.invalidateQueries({ queryKey: ['servicos'] });
+          queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
+          queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
+          queryClient.invalidateQueries({ queryKey: ['agendamentos'] });
+          queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
+        }
+        if (erros?.length > 0) console.warn('[Clientes] avisos propagacao:', erros);
+      }).catch(err => console.error('[Clientes] propagacao falhou:', err));
     },
     onError: () => toast.error('Erro ao atualizar cliente'),
   });
