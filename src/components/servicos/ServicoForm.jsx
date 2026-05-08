@@ -560,7 +560,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                 <div className="space-y-3">
                   {formData.tipos_servico.map((item, index) => (
                     <div key={index} className="rounded-lg border border-[#2d3f55] bg-[#152236] p-2.5 space-y-2">
-                      {/* Linha 1: Select + Quantidade + Remover */}
+                      {/* Linha 1: Select de tipo + botao remover */}
                       <div className="flex gap-2 items-center">
                         <Select
                           value={item.tipo}
@@ -597,53 +597,62 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                           </SelectContent>
                         </Select>
 
-                        {/* Quantidade */}
-                        <div className="flex items-center gap-1">
+                        {formData.tipos_servico.length > 1 && (
                           <Button
                             type="button" variant="outline" size="icon"
-                            className="h-9 w-9 border-[#2d3f55] bg-[#1e2a3a] text-white hover:bg-white/10"
+                            onClick={() => setFormData({ ...formData, tipos_servico: formData.tipos_servico.filter((_, i) => i !== index) })}
+                            className="h-10 w-10 border-red-800 bg-red-900/30 text-red-400 hover:bg-red-900/50 flex-shrink-0"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+
+                      {/* Linha de quantidade — em mobile fica em sua propria linha
+                          com botoes maiores (40x40px, easy-to-tap) e contador grande */}
+                      <div className="flex items-center justify-between gap-2 bg-[#0f1a2b] rounded-md px-3 py-2 border border-[#2d3f55]">
+                        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Quantidade</span>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button" variant="outline" size="icon"
+                            className="h-10 w-10 border-[#2d3f55] bg-[#1e2a3a] text-white hover:bg-white/10 flex-shrink-0"
+                            style={{ touchAction: 'manipulation' }}
                             onClick={() => {
                               const newTipos = [...formData.tipos_servico];
                               newTipos[index] = { ...newTipos[index], quantidade: Math.max(1, (Number(item.quantidade) || 1) - 1) };
                               setFormData({ ...formData, tipos_servico: newTipos });
                             }}
                             disabled={item.quantidade <= 1}
+                            aria-label="Diminuir quantidade"
                           >
-                            <Minus className="w-3 h-3" />
+                            <Minus className="w-4 h-4" />
                           </Button>
                           <Input
                             type="number" min={1} max={99}
+                            inputMode="numeric"
                             value={item.quantidade}
                             onChange={(e) => {
                               const newTipos = [...formData.tipos_servico];
                               newTipos[index] = { ...newTipos[index], quantidade: Math.max(1, Math.min(99, parseInt(e.target.value) || 1)) };
                               setFormData({ ...formData, tipos_servico: newTipos });
                             }}
-                            className={`w-12 text-center font-bold px-1 ${inputDark}`}
+                            className={`w-14 h-10 text-center font-bold text-base px-1 ${inputDark}`}
                           />
                           <Button
                             type="button" variant="outline" size="icon"
-                            className="h-9 w-9 border-[#2d3f55] bg-[#1e2a3a] text-white hover:bg-white/10"
+                            className="h-10 w-10 border-[#2d3f55] bg-[#1e2a3a] text-white hover:bg-white/10 flex-shrink-0"
+                            style={{ touchAction: 'manipulation' }}
                             onClick={() => {
                               const newTipos = [...formData.tipos_servico];
                               newTipos[index] = { ...newTipos[index], quantidade: Math.min(99, (Number(item.quantidade) || 1) + 1) };
                               setFormData({ ...formData, tipos_servico: newTipos });
                             }}
                             disabled={item.quantidade >= 99}
+                            aria-label="Aumentar quantidade"
                           >
-                            <Plus className="w-3 h-3" />
+                            <Plus className="w-4 h-4" />
                           </Button>
                         </div>
-
-                        {formData.tipos_servico.length > 1 && (
-                          <Button
-                            type="button" variant="outline" size="icon"
-                            onClick={() => setFormData({ ...formData, tipos_servico: formData.tipos_servico.filter((_, i) => i !== index) })}
-                            className="h-9 w-9 border-red-800 bg-red-900/30 text-red-400 hover:bg-red-900/50"
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
-                        )}
                       </div>
 
                       {/* Linha 2a: Marca do AR (so para Instalacao) */}
