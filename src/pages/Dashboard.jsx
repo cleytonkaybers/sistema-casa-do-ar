@@ -28,7 +28,8 @@ import {
   Tag,
   Bell,
   Wrench,
-  ShieldAlert
+  ShieldAlert,
+  Landmark
 } from 'lucide-react';
 import { format, differenceInDays, startOfMonth, endOfMonth, isWithinInterval, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -88,6 +89,13 @@ export default function Dashboard() {
     enabled: isAdmin,
   });
 
+  // Cheques pendentes (para alertar ADM no Dashboard)
+  const { data: cheques = [] } = useQuery({
+    queryKey: ['cheques'],
+    queryFn: () => base44.entities.Cheque.list('-data_compensacao'),
+    enabled: isAdmin,
+  });
+
   // Verificar último backup (admin) — entidade pode não existir em todos os ambientes
   const { data: ultimosBackups = [] } = useQuery({
     queryKey: ['ultimo-backup'],
@@ -117,6 +125,25 @@ export default function Dashboard() {
     return agendado.getDate() === hoje.getDate() &&
       agendado.getMonth() === hoje.getMonth() &&
       agendado.getFullYear() === hoje.getFullYear();
+  });
+
+  // Cheques que precisam atencao do ADM (vencidos, hoje, amanha) — pendentes
+  // e nao depositados. notificacao_enviada=true significa "ja foi ao banco".
+  const chequesParaDepositar = (cheques || []).filter(c => {
+    if (c.status !== 'pendente') return false;
+    if (c.notificacao_enviada) return false; // ja depositado
+    if (!c.data_compensacao) return false;
+    const hojeMs = new Date().setHours(0, 0, 0, 0);
+    const dataCheque = toLocalDateSafe(c.data_compensacao);
+    if (!dataCheque) return false;
+    const dataMs = dataCheque.setHours(0, 0, 0, 0);
+    const diffDias = Math.floor((dataMs - hojeMs) / (1000 * 60 * 60 * 24));
+    // Mostra: vencido (diff<0), hoje (=0), amanha (=1)
+    return diffDias <= 1;
+  }).sort((a, b) => {
+    const da = toLocalDateSafe(a.data_compensacao)?.getTime() || 0;
+    const db = toLocalDateSafe(b.data_compensacao)?.getTime() || 0;
+    return da - db;
   });
 
   // Estatísticas
@@ -407,7 +434,7 @@ export default function Dashboard() {
       )}
 
       {/* Alertas Admin Modernos (Glass Blocks) */}
-      {isAdmin && (semPrecificacao.length > 0 || cobrarHoje.length > 0) && (
+      {isAdmin && (semPrecificacao.length > 0 || cobrarHoje.length > 0 || chequesParaDepositar.length > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {semPrecificacao.length > 0 && (
             <Link to={createPageUrl('PagamentosClientes') + '?highlight=sempreco'} className="outline-none">
@@ -433,6 +460,68 @@ export default function Dashboard() {
               </div>
             </Link>
           )}
+
+          {chequesParaDepositar.length > 0 && (() => {
+            const hojeMs = new Date().setHours(0, 0, 0, 0);
+            const vencidos = chequesParaDepositar.filter(c => {
+              const d = toLocalDateSafe(c.data_compensacao);
+              return d && d.setHours(0, 0, 0, 0) < hojeMs;
+            }).length;
+            const hoje = chequesParaDepositar.filter(c => {
+              const d = toLocalDateSafe(c.data_compensacao);
+              return d && d.setHours(0, 0, 0, 0) === hojeMs;
+            }).length;
+            const corPrincipal = vencidos > 0 ? 'red' : hoje > 0 ? 'orange' : 'amber';
+            return (
+            <Link to={createPageUrl('Cheques')} className="outline-none">
+              <div className={`rounded-2xl p-5 border bg-${corPrincipal}-500/5 border-${corPrincipal}-500/20 hover:bg-${corPrincipal}-500/10 hover:border-${corPrincipal}-500/30 transition-all cursor-pointer group relative overflow-hidden`}>
+                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
+                  <Landmark className={`w-24 h-24 text-${corPrincipal}-500 ${vencidos > 0 ? 'animate-pulse' : ''}`} />
+                </div>
+                <div className="relative z-10 flex items-start gap-4">
+                  <div className={`w-12 h-12 rounded-xl bg-${corPrincipal}-500/20 flex items-center justify-center flex-shrink-0 border border-${corPrincipal}-500/30`}>
+                    <Landmark className={`w-6 h-6 text-${corPrincipal}-400`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-bold text-${corPrincipal}-400 text-base mb-1`}>
+                      {vencidos > 0 ? '⚠ Cheques Vencidos!' : hoje > 0 ? 'Cheques para Depositar HOJE' : 'Cheques Próximos'}
+                    </p>
+                    <p className={`text-sm text-${corPrincipal}-200/70 mb-3`}>
+                      {vencidos > 0 && `${vencidos} vencido(s) · `}
+                      {hoje > 0 && `${hoje} hoje · `}
+                      {chequesParaDepositar.length - vencidos - hoje > 0 && `${chequesParaDepositar.length - vencidos - hoje} amanhã`}
+                    </p>
+                    <div className="flex flex-col gap-1.5">
+                      {chequesParaDepositar.slice(0, 3).map(c => {
+                        const d = toLocalDateSafe(c.data_compensacao);
+                        const dMs = d?.setHours(0, 0, 0, 0);
+                        const isVencido = dMs < hojeMs;
+                        const isHoje = dMs === hojeMs;
+                        return (
+                          <div key={c.id} className={`flex items-center justify-between gap-2 text-[11px] px-2.5 py-1.5 rounded-md font-medium border ${
+                            isVencido ? 'bg-red-500/20 text-red-300 border-red-500/30'
+                            : isHoje ? 'bg-orange-500/20 text-orange-300 border-orange-500/30'
+                            : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                          }`}>
+                            <span className="truncate">{c.nome}</span>
+                            <span className="font-bold whitespace-nowrap">
+                              R$ {(c.valor || 0).toFixed(2)} · {isVencido ? 'VENCIDO' : isHoje ? 'HOJE' : 'AMANHÃ'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      {chequesParaDepositar.length > 3 && (
+                        <span className={`text-[11px] text-${corPrincipal}-400 font-semibold`}>
+                          +{chequesParaDepositar.length - 3} cheque(s) — abrir Cheques para ver todos
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Link>
+            );
+          })()}
 
           {cobrarHoje.length > 0 && (
             <Link to={createPageUrl('PagamentosClientes') + '?highlight=cobrar'} className="outline-none">
