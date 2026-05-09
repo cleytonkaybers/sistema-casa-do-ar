@@ -254,11 +254,13 @@ export default function Dashboard() {
       return sum + pagoNaSemana;
     }, 0);
 
-    // Comissões: pagamentos efetivamente realizados aos técnicos no mês
+    // Comissões: pagamentos efetivamente realizados aos técnicos no mês.
+    // Prefere data_pagamento (data real do pagamento ao tecnico) sobre
+    // created_date (timestamp do registro). Alinha com MeuFinanceiro e
+    // GanhosSemanaDashboard.
     const comissoes = pagamentosTecnicos.filter(p => {
       if (p.status !== 'Confirmado') return false;
-      if (!p.created_date) return false;
-      const dt = toLocalDate(new Date(p.created_date));
+      const dt = parseDate(p.data_pagamento) || parseDate(p.created_date);
       if (!dt) return false;
       return isWithinInterval(dt, { start: inicioMes, end: fimMes });
     }).reduce((sum, p) => sum + (p.valor_pago || 0), 0);
