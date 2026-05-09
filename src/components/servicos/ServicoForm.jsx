@@ -572,7 +572,12 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                           }}
                         >
                           <SelectTrigger className={`flex-1 ${selectDark}`}>
-                            <SelectValue placeholder="Selecione o serviço" />
+                            {/* Children explicito garante que o tipo SALVO no servico
+                                aparece mesmo se a TabelaServicos atual nao tiver
+                                exatamente o mesmo nome (tipo renomeado/excluido). */}
+                            <SelectValue placeholder="Selecione o serviço">
+                              {item.tipo || 'Selecione o serviço'}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent
                             className="bg-[#1e2a3a] border-[#2d3f55] text-white max-h-80"
@@ -590,6 +595,18 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                               />
                             </div>
                             <div className="max-h-64 overflow-y-auto">
+                              {/* Garante que o tipo atual sempre esta na lista
+                                  (mesmo se foi removido do TipoServicoValor, evita
+                                  ficar selecionado um valor que nao existe nos items). */}
+                              {item.tipo && !servicosFiltrados.includes(item.tipo) && (
+                                <SelectItem
+                                  key={`__atual_${item.tipo}`}
+                                  value={item.tipo}
+                                  className="text-amber-300 hover:bg-white/10 italic"
+                                >
+                                  {item.tipo} <span className="text-[10px] text-amber-400/70">(atual)</span>
+                                </SelectItem>
+                              )}
                               {servicosFiltrados.map(s => (
                                 <SelectItem key={s} value={s} className="text-white hover:bg-white/10">{s}</SelectItem>
                               ))}
