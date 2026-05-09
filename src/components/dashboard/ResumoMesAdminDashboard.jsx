@@ -4,13 +4,11 @@ import { Activity } from 'lucide-react';
 
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
-export default function ResumoMesAdminDashboard({ servicosConcluidos, faturadoMes, faturadoSemana, recebidoMes, recebidoSemana, comissoes }) {
-  // Lucro Liquido = caixa real do mes (entradas - saidas).
-  // Antes era faturadoMes - comissoes (lucro "de producao") — mas isso e
-  // enganoso pq mistura criterios: faturado e por data_conclusao do servico,
-  // e comissoes sao por data_pagamento. Um pagamento recebido este mes de
-  // divida antiga nao entrava no faturado mas estava "no caixa".
-  const lucroLiquido = recebidoMes - comissoes;
+export default function ResumoMesAdminDashboard({ servicosConcluidos, faturadoMes, faturadoSemana, recebidoMes, recebidoSemana, comissoes, despesasMes = 0 }) {
+  // Lucro Liquido = caixa real do mes (entradas - saidas - despesas).
+  // Despesas: gastos da empresa (combustivel, ferramentas, manutencao etc),
+  // lancados em PagamentosClientes > Despesas.
+  const lucroLiquido = recebidoMes - comissoes - despesasMes;
 
   return (
     <Card className="bg-[#152236] border-white/5 shadow-sm hover:border-white/10 transition-all rounded-2xl flex-1 flex flex-col">
@@ -40,8 +38,14 @@ export default function ResumoMesAdminDashboard({ servicosConcluidos, faturadoMe
           <span className="text-xs sm:text-sm font-bold text-amber-500">−{formatCurrency(comissoes)}</span>
         </div>
 
+        {/* Despesas do mes (gastos da empresa) */}
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-white/5 hover:bg-white/10 transition-colors" title="Gastos da empresa registrados em PagamentosClientes > Despesas (combustível, ferramentas, manutenção, etc) com data neste mês.">
+          <span className="text-xs sm:text-sm font-medium text-gray-400">Despesas do Mês</span>
+          <span className="text-xs sm:text-sm font-bold text-red-400">−{formatCurrency(despesasMes)}</span>
+        </div>
+
         {/* Lucro líquido */}
-        <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-[#0d1826]/50" title="Caixa real do mês: o que entrou (recebido) menos o que saiu (pago a técnicos).">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-[#0d1826]/50" title="Caixa real do mês: o que entrou (recebido) menos o que saiu (pago a técnicos + despesas).">
           <span className="text-sm font-bold text-blue-400">Lucro Líquido</span>
           <span className={`text-sm sm:text-base font-bold px-2 sm:px-3 py-1 rounded-full ${
             lucroLiquido < 0
