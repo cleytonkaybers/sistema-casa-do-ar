@@ -2053,40 +2053,48 @@ function PagamentosClientesContent() {
   }, [isLoading, location.search]);
 
 
-  // Recebido na semana: soma via historico_pagamentos (data real do recebimento)
-  // Fallback: se o registro tem valor_pago mas historico vazio, usa updated_date ou data_pagamento_completo
-  const totalPagoSemana = useMemo(() => {
-    const isNaSemana = (d) => {
-      try { return d && isWithinInterval(d, { start: inicioSemana, end: fimSemana }); }
+  // Helper: calcula RECEBIDO em um intervalo qualquer baseado na DATA REAL
+  // do recebimento (historico_pagamentos). Antes a versao "mes" usava
+  // data_conclusao do servico — isso fazia "Recebido Mes" ser MENOR que
+  // "Recebido Sem.", pois recebimentos de divida antiga (servico concluido
+  // antes do mes) entravam na semana mas nao no mes.
+  const calcularRecebidoNoIntervalo = useCallback((inicio, fim) => {
+    const isNoIntervalo = (d) => {
+      try { return d && isWithinInterval(d, { start: inicio, end: fim }); }
       catch { return false; }
     };
-
     let total = 0;
-    const contabilizados = new Set(); // evita double-count
-
+    const contabilizados = new Set();
     pagamentos.forEach(p => {
       const hist = (p.historico_pagamentos || []).filter(h => !h.agendada && !h.consolidado);
       if (hist.length > 0) {
-        // Método primário: somar entradas do histórico que caem na semana
         hist.forEach(h => {
           const d = parseHistoricoData(h.data);
-          if (isNaSemana(d)) total += h.valor || 0;
+          if (isNoIntervalo(d)) total += h.valor || 0;
         });
       } else if ((p.valor_pago || 0) > 0) {
-        // Fallback: sem histórico, verifica se a data do pagamento completo ou updated_date está na semana
+        // Fallback: sem historico, usa data_pagamento_completo ou updated_date
         const dataRef = p.data_pagamento_completo || p.updated_date;
         let d = null;
         try { d = dataRef ? parseISO(dataRef) : null; } catch {}
-        if (isNaSemana(d) && !contabilizados.has(p.id)) {
+        if (isNoIntervalo(d) && !contabilizados.has(p.id)) {
           total += p.valor_pago || 0;
           contabilizados.add(p.id);
         }
       }
     });
     return total;
-  }, [pagamentos, inicioSemana, fimSemana]);
+  }, [pagamentos]);
 
+  // Recebido na SEMANA: data real do recebimento dentro da semana atual
+  const totalPagoSemana = useMemo(
+    () => calcularRecebidoNoIntervalo(inicioSemana, fimSemana),
+    [calcularRecebidoNoIntervalo, inicioSemana, fimSemana]
+  );
 
+  // Faturado/Recebido do MES atual.
+  // FATURADO = serviços CONCLUIDOS no mes (data_conclusao no mes)
+  // RECEBIDO = pagamentos REAIS recebidos no mes (mesma logica da semana)
   const inicioMes = startOfMonth(hoje);
   const fimMes = endOfMonth(hoje);
   const pagsMes = useMemo(() => pagamentos.filter(p => {
@@ -2095,9 +2103,12 @@ function PagamentosClientesContent() {
     catch { return false; }
   }), [pagamentos, inicioMes, fimMes]);
   const totalMes = pagsMes.reduce((s, p) => s + (p.valor_total || 0), 0);
-  const totalPagoMes = pagsMes.reduce((s, p) => s + (p.valor_pago || 0), 0);
+  const totalPagoMes = useMemo(
+    () => calcularRecebidoNoIntervalo(inicioMes, fimMes),
+    [calcularRecebidoNoIntervalo, inicioMes, fimMes]
+  );
 
-  // Mes anterior — para comparativo
+  // Mes anterior — para comparativo (mesma logica)
   const inicioMesAnterior = startOfMonth(subMonths(hoje, 1));
   const fimMesAnterior = endOfMonth(subMonths(hoje, 1));
   const pagsMesAnterior = useMemo(() => pagamentos.filter(p => {
@@ -2106,7 +2117,10 @@ function PagamentosClientesContent() {
     catch { return false; }
   }), [pagamentos, inicioMesAnterior, fimMesAnterior]);
   const totalMesAnterior = pagsMesAnterior.reduce((s, p) => s + (p.valor_total || 0), 0);
-  const totalPagoMesAnterior = pagsMesAnterior.reduce((s, p) => s + (p.valor_pago || 0), 0);
+  const totalPagoMesAnterior = useMemo(
+    () => calcularRecebidoNoIntervalo(inicioMesAnterior, fimMesAnterior),
+    [calcularRecebidoNoIntervalo, inicioMesAnterior, fimMesAnterior]
+  );
   const totalRel = pagsRelatorio.reduce((s, p) => s + (p.valor_total || 0), 0);
   const totalPagoRel = pagsRelatorio.reduce((s, p) => s + (p.valor_pago || 0), 0);
 
