@@ -259,24 +259,24 @@ function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], on
 
     const inicial = {};
     servicosGrupos.forEach(({ tipo }) => {
-      // Busca um record onde TODOS os tipos são iguais a este tipo (mesmo tipo repetido N vezes)
-      const rec = records.find(r => {
+      // Busca record onde TODOS os tipos sao iguais a este tipo (preço unitario
+      // pode ser calculado com seguranca: valor_total / qtd_tipos).
+      const recPuro = records.find(r => {
         const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
         return tipos.length > 0 && tipos.every(t => t === tipo) && (r.valor_total || 0) > 1;
       });
-      if (rec) {
-        const tipos = (rec.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-        const precoUnitario = tipos.length > 0 ? (rec.valor_total || 0) / tipos.length : (rec.valor_total || 0);
+      if (recPuro) {
+        const tipos = (recPuro.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
+        const precoUnitario = tipos.length > 0 ? (recPuro.valor_total || 0) / tipos.length : (recPuro.valor_total || 0);
         inicial[tipo] = Number(precoUnitario).toFixed(2).replace('.', ',');
-      } else {
-        // Se algum record ja tem valor_total > 1 (mas nao matchou regex), usar como base
-        const recComValor = records.find(r => (r.valor_total || 0) > 1);
-        if (recComValor) {
-          inicial[tipo] = Number(recComValor.valor_total).toFixed(2).replace('.', ',');
-        } else {
-          inicial[tipo] = '';
-        }
+        return;
       }
+      // Fallback: se este tipo aparece em records mistos (com outros tipos), nao
+      // ha como determinar seu preco unitario individual a partir do valor_total
+      // total do record. DEIXAR VAZIO — usuario decide. Antes pegava valor_total
+      // do primeiro record com valor > 1, gerando precos aleatorios e iguais
+      // entre tipos diferentes.
+      inicial[tipo] = '';
     });
     setPrecosGrupo(inicial);
   }, [open, pagamento?.id, servicosGrupos]);
