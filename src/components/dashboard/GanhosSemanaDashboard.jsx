@@ -6,7 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { DollarSign, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
-import { getStartOfWeek, getEndOfWeek, toLocalDate } from '@/lib/dateUtils';
+import { getStartOfWeek, getEndOfWeek } from '@/lib/dateUtils';
+import { parseISO, isValid } from 'date-fns';
+
+// Mesma logica de MeuFinanceiro — parseISO trata corretamente strings
+// "yyyy-MM-dd" sem shift de fuso horario.
+function parseDateSafe(str) {
+  if (!str) return null;
+  try { const d = parseISO(str); return isValid(d) ? d : null; } catch { return null; }
+}
 
 export default function GanhosSemanaDashboard() {
   const { user } = useAuth();
@@ -22,17 +30,20 @@ export default function GanhosSemanaDashboard() {
         const inicioSemana = getStartOfWeek();
         const fimSemana = getEndOfWeek();
 
-        // Comissões da semana atual
+        // Comissões da semana atual — usa parseDateSafe igual MeuFinanceiro
         const comissoesSemana = lancamentos.filter(c => {
           if (c.tecnico_id !== user.email || !c.data_geracao) return false;
-          try { const d = toLocalDate(c.data_geracao); return d && d >= inicioSemana && d <= fimSemana; } catch { return false; }
+          const d = parseDateSafe(c.data_geracao);
+          return d && d >= inicioSemana && d <= fimSemana;
         });
         const totalGanho = comissoesSemana.reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
 
-        // Pagamentos na semana atual
+        // Pagamentos na semana atual — prefere data_pagamento (data real) ao
+        // created_date (timestamp do registro). Alinha com MeuFinanceiro.
         const pagamentosSemana = pagamentos.filter(p => {
-          if (p.tecnico_id !== user.email || p.status !== 'Confirmado' || !p.created_date) return false;
-          try { const d = toLocalDate(p.created_date); return d && d >= inicioSemana && d <= fimSemana; } catch { return false; }
+          if (p.tecnico_id !== user.email || p.status !== 'Confirmado') return false;
+          const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date);
+          return d && d >= inicioSemana && d <= fimSemana;
         });
         const valorPago = pagamentosSemana.reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
@@ -43,14 +54,16 @@ export default function GanhosSemanaDashboard() {
           const comissoesAnt = lancamentos
             .filter(l => {
               if (l.tecnico_id !== user.email || !l.data_geracao) return false;
-              try { const d = toLocalDate(l.data_geracao); return d && d >= SALDO_INICIO && d < inicioSemana; } catch { return false; }
+              const d = parseDateSafe(l.data_geracao);
+              return d && d >= SALDO_INICIO && d < inicioSemana;
             })
             .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
           const pagamentosAnt = pagamentos
             .filter(p => {
-              if (p.tecnico_id !== user.email || p.status !== 'Confirmado' || !p.created_date) return false;
-              try { const d = toLocalDate(p.created_date); return d && d >= SALDO_INICIO && d < inicioSemana; } catch { return false; }
+              if (p.tecnico_id !== user.email || p.status !== 'Confirmado') return false;
+              const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date);
+              return d && d >= SALDO_INICIO && d < inicioSemana;
             })
             .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
@@ -60,6 +73,17 @@ export default function GanhosSemanaDashboard() {
         // Saldo em tempo real: semanas anteriores + semana atual
         const saldo_total = saldo_anterior + totalGanho - valorPago;
         const creditoPendente = Math.max(0, saldo_total);
+
+        // Diagnostico: log estruturado pra ajudar identificar saldos errados
+        // (ex: pagamento duplicado, lancamento orfao). Fica no DevTools so.
+        if (typeof window !== 'undefined' && window.localStorage?.getItem('debug_saldo') === '1') {
+          // eslint-disable-next-line no-console
+          console.log('[SaldoTecnico]', user.email, {
+            saldo_anterior, totalGanho, valorPago, saldo_total,
+            comissoes_total: lancamentos.filter(l => l.tecnico_id === user.email && parseDateSafe(l.data_geracao) >= SALDO_INICIO).length,
+            pagamentos_total: pagamentos.filter(p => p.tecnico_id === user.email && p.status === 'Confirmado' && (parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date)) >= SALDO_INICIO).length,
+          });
+        }
 
         return { totalGanho, valorPago, creditoPendente, saldo_total, saldo_anterior };
       } catch (error) {
