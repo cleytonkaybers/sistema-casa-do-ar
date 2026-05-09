@@ -372,7 +372,9 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
   const [novoValorParcela, setNovoValorParcela] = useState('');
   const [valorRegistrar, setValorRegistrar] = useState('');
   const [desconto, setDesconto] = useState('');
-  const [tecnicoRecebeu, setTecnicoRecebeu] = useState('adm');
+  // Divisao do pagamento entre tecnicos (fracionamento). Cada entrada:
+  // {tecnico_id, valor}. Vazio = ADM caixa recebe tudo.
+  const [divisoesTecnicos, setDivisoesTecnicos] = useState([]);
   const [dataPagamentoAgendado, setDataPagamentoAgendado] = useState('');
   // Preços salvos (somente leitura neste modal)
   const [precosGrupo, setPrecosGrupo] = useState({});
@@ -396,7 +398,7 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
     setNovoValorParcela('');
     setValorRegistrar('');
     setDesconto('');
-    setTecnicoRecebeu('adm');
+    setDivisoesTecnicos([]);
 
     // Busca preços dos records mais frescos
     const records = pagamento?._records || (pagamento ? [pagamento] : []);
@@ -471,15 +473,31 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
     if (v + descontoEfetivo > saldo + 0.01) {
       return toast.error(`Pagamento (${formatCurrency(v)}) + desconto (${formatCurrency(descontoEfetivo)}) excede o saldo (${formatCurrency(saldo)})`);
     }
+    // Validacao das divisoes entre tecnicos
+    const divisoesValidas = (divisoesTecnicos || []).filter(d => d.tecnico_id && parseFloat((d.valor || '').replace?.(',', '.') || d.valor) > 0);
+    const somaDivisoes = divisoesValidas.reduce((s, d) => s + (parseFloat((d.valor || '').replace?.(',', '.') || d.valor) || 0), 0);
+    if (somaDivisoes > v + 0.01) {
+      return toast.error(`Divisão entre técnicos (${formatCurrency(somaDivisoes)}) excede o valor a registrar (${formatCurrency(v)}).`);
+    }
+    // Verifica tecnicos duplicados na divisao
+    const tecnicosUnicos = new Set(divisoesValidas.map(d => d.tecnico_id));
+    if (tecnicosUnicos.size !== divisoesValidas.length) {
+      return toast.error('Cada técnico só pode aparecer uma vez na divisão.');
+    }
     setLoading(true);
     const obsCompleta = [metodoPagamento, obs].filter(Boolean).join(' | ');
-    await onSave(pagamento, v, obsCompleta, parcelas, precosGrupo, dataPagamentoAgendado, descontoEfetivo, tecnicoRecebeu, metodoPagamento);
+    // Normaliza divisoes para passar como [{tecnico_id, valor:number}]
+    const divisoesNormalizadas = divisoesValidas.map(d => ({
+      tecnico_id: d.tecnico_id,
+      valor: parseFloat((d.valor || '').replace?.(',', '.') || d.valor) || 0,
+    }));
+    await onSave(pagamento, v, obsCompleta, parcelas, precosGrupo, dataPagamentoAgendado, descontoEfetivo, divisoesNormalizadas, metodoPagamento);
     setLoading(false);
     setValorRegistrar('');
     setObs('');
     setParcelas([]);
     setDesconto('');
-    setTecnicoRecebeu('adm');
+    setDivisoesTecnicos([]);
     setDataPagamentoAgendado('');
     onClose();
   };
@@ -568,22 +586,98 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
             </div>
           </div>
 
-          <div>
-            <label className="text-xs sm:text-sm font-medium text-gray-700 mb-1.5 block">👤 Quem recebeu este valor?</label>
-            <select
-              value={tecnicoRecebeu}
-              onChange={e => setTecnicoRecebeu(e.target.value)}
-              className="w-full h-10 px-3 text-sm rounded-lg border border-gray-200 bg-white text-gray-700 focus:outline-none focus:border-blue-500"
-            >
-              <option value="adm">ADM (caixa da empresa)</option>
-              {tecnicos.map(t => (
-                <option key={t.tecnico_id} value={t.tecnico_id}>{t.tecnico_nome}</option>
-              ))}
-            </select>
-            {tecnicoRecebeu !== 'adm' && valorAtualNum > 0 && (
-              <p className="text-[11px] text-blue-600 font-medium mt-1.5">
-                ✓ Sera creditado como pagamento ao tecnico (debita do credito pendente).
-              </p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs sm:text-sm font-medium text-gray-700">👤 Quem recebeu este valor?</label>
+              <button
+                type="button"
+                onClick={() => setDivisoesTecnicos(prev => [...prev, { tecnico_id: '', valor: '' }])}
+                className="text-[11px] text-blue-600 hover:text-blue-700 font-semibold underline"
+              >
+                + Dividir entre técnicos
+              </button>
+            </div>
+
+            {divisoesTecnicos.length === 0 ? (
+              <div className="px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-600">
+                💼 ADM (caixa da empresa) — clique em "+ Dividir" para repassar a um ou mais técnicos
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {divisoesTecnicos.map((div, idx) => {
+                  const tec = tecnicos.find(t => t.tecnico_id === div.tecnico_id);
+                  return (
+                    <div key={idx} className="flex items-center gap-2 p-2 rounded-lg border border-blue-200 bg-blue-50/50">
+                      <select
+                        value={div.tecnico_id}
+                        onChange={e => {
+                          const arr = [...divisoesTecnicos];
+                          arr[idx] = { ...arr[idx], tecnico_id: e.target.value };
+                          setDivisoesTecnicos(arr);
+                        }}
+                        className="flex-1 h-9 px-2 text-sm rounded border border-gray-200 bg-white text-gray-700 focus:outline-none focus:border-blue-500"
+                      >
+                        <option value="">Selecione técnico...</option>
+                        {tecnicos.map(t => (
+                          <option key={t.tecnico_id} value={t.tecnico_id}>{t.tecnico_nome}</option>
+                        ))}
+                      </select>
+                      <Input
+                        placeholder="Valor R$"
+                        value={div.valor}
+                        onChange={e => {
+                          const arr = [...divisoesTecnicos];
+                          arr[idx] = { ...arr[idx], valor: e.target.value };
+                          setDivisoesTecnicos(arr);
+                        }}
+                        className="w-24 h-9 text-sm font-semibold text-right"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setDivisoesTecnicos(prev => prev.filter((_, i) => i !== idx))}
+                        className="h-9 w-9 flex items-center justify-center rounded text-red-500 hover:bg-red-50 flex-shrink-0"
+                        aria-label="Remover divisão"
+                        title="Remover técnico"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+
+                {/* Resumo da divisao */}
+                {(() => {
+                  const soma = divisoesTecnicos.reduce((s, d) => s + (parseFloat((d.valor || '').replace?.(',', '.') || d.valor) || 0), 0);
+                  const restoAdm = Math.max(0, valorAtualNum - soma);
+                  const excedeu = soma > valorAtualNum + 0.01;
+                  return (
+                    <div className={`flex items-center justify-between text-[11px] px-2 py-1.5 rounded ${
+                      excedeu
+                        ? 'bg-red-50 text-red-700 border border-red-200'
+                        : 'bg-gray-50 text-gray-600 border border-gray-200'
+                    }`}>
+                      <span>
+                        Total dividido: <span className="font-bold">{formatCurrency(soma)}</span>
+                      </span>
+                      <span>
+                        {excedeu
+                          ? `⚠ Excede em ${formatCurrency(soma - valorAtualNum)}`
+                          : restoAdm > 0.01
+                            ? <>Resto p/ ADM: <span className="font-bold">{formatCurrency(restoAdm)}</span></>
+                            : '✓ Distribuído integralmente'}
+                      </span>
+                    </div>
+                  );
+                })()}
+
+                <button
+                  type="button"
+                  onClick={() => setDivisoesTecnicos(prev => [...prev, { tecnico_id: '', valor: '' }])}
+                  className="w-full text-xs text-blue-600 hover:text-blue-700 font-medium border border-dashed border-blue-300 rounded-lg py-1.5 hover:bg-blue-50"
+                >
+                  + Adicionar outro técnico
+                </button>
+              </div>
             )}
           </div>
 
@@ -1542,7 +1636,7 @@ function PagamentosClientesContent() {
     setPrecosSyncKey(k => k + 1);
   };
 
-  const handleRegistrarPagamento = async (pag, valor, obs, parcelas = [], precosGrupo = {}, dataPagamentoAgendado = '', desconto = 0, tecnicoRecebeu = 'adm', metodoPagamento = '') => {
+  const handleRegistrarPagamento = async (pag, valor, obs, parcelas = [], precosGrupo = {}, dataPagamentoAgendado = '', desconto = 0, divisoesTecnicos = [], metodoPagamento = '') => {
     const records = pag._records?.length > 1 ? pag._records : [pag];
     let remaining = valor;
     let descontoRemaining = Math.max(0, desconto || 0);
@@ -1632,45 +1726,67 @@ function PagamentosClientesContent() {
       toast.success('✅ Pagamento registrado!');
     }
 
-    // Sincroniza com Financeiro: cria PagamentoTecnico se foi um tecnico que recebeu o
-    // dinheiro direto do cliente. Reutiliza a funcao registrarPagamentoTecnico que ja
-    // debita credito_pendente e atualiza credito_pago do TecnicoFinanceiro.
-    if (tecnicoRecebeu && tecnicoRecebeu !== 'adm' && valor > 0.01) {
-      // Background — UI nao espera o backend creditar o tecnico para fechar
-      // o modal. Toast secundario aparece ao terminar.
+    // Sincroniza com Financeiro: cria 1 PagamentoTecnico para cada tecnico
+    // listado em divisoesTecnicos. Cada um recebe sua fatia do pagamento do
+    // cliente. Reutiliza a funcao registrarPagamentoTecnico que ja debita
+    // credito_pendente e atualiza credito_pago do TecnicoFinanceiro.
+    const divisoesValidas = (divisoesTecnicos || []).filter(d => d.tecnico_id && (d.valor || 0) > 0.01);
+    if (divisoesValidas.length > 0 && valor > 0.01) {
+      // Background — UI nao espera o backend creditar os tecnicos.
       (async () => {
-        const tec = tecnicosFinanceiros.find(t => t.tecnico_id === tecnicoRecebeu);
         const dataStr = format(new Date(), 'dd/MM/yyyy');
-        const obsTec = `Recebido direto do cliente ${pag.cliente_nome || ''}` +
-          (pag.telefone ? ` (Tel: ${pag.telefone})` : '') +
-          ` em ${dataStr}` +
-          (metodoPagamento ? ` via ${metodoPagamento}` : '') +
-          `. Valor: ${formatCurrency(valor)}`;
-        try {
-          if (!tec) {
-            throw new Error(`Tecnico nao encontrado em TecnicoFinanceiro (id: ${tecnicoRecebeu}).`);
+        const dataIso = format(new Date(), 'yyyy-MM-dd');
+        const resultados = await Promise.all(divisoesValidas.map(async (div) => {
+          const tec = tecnicosFinanceiros.find(t => t.tecnico_id === div.tecnico_id);
+          const obsTec = `Recebido direto do cliente ${pag.cliente_nome || ''}` +
+            (pag.telefone ? ` (Tel: ${pag.telefone})` : '') +
+            ` em ${dataStr}` +
+            (metodoPagamento ? ` via ${metodoPagamento}` : '') +
+            `. Valor: ${formatCurrency(div.valor)}` +
+            (divisoesValidas.length > 1 ? ` (parte de ${formatCurrency(valor)} dividido entre ${divisoesValidas.length} tecnicos)` : '');
+          try {
+            if (!tec) {
+              throw new Error(`Tecnico nao encontrado em TecnicoFinanceiro (id: ${div.tecnico_id}).`);
+            }
+            const response = await base44.functions.invoke('registrarPagamentoTecnico', {
+              tecnico_id: div.tecnico_id,
+              valor_pago: div.valor,
+              data_pagamento: dataIso,
+              metodo_pagamento: metodoPagamento || 'Outro',
+              observacao: obsTec,
+              lancamentos_id: [],
+            });
+            const respData = response?.data || {};
+            if (respData.error || respData.success === false) {
+              throw new Error(respData.error || 'Erro desconhecido no backend');
+            }
+            return { ok: true, tec, valor: div.valor };
+          } catch (err) {
+            console.error('[PagamentosClientes] Falha ao creditar tecnico:', err);
+            return { ok: false, tec, valor: div.valor, erro: err?.message };
           }
-          const response = await base44.functions.invoke('registrarPagamentoTecnico', {
-            tecnico_id: tecnicoRecebeu,
-            valor_pago: valor,
-            data_pagamento: format(new Date(), 'yyyy-MM-dd'),
-            metodo_pagamento: metodoPagamento || 'Outro',
-            observacao: obsTec,
-            lancamentos_id: [],
-          });
-          const respData = response?.data || {};
-          if (respData.error || respData.success === false) {
-            throw new Error(respData.error || 'Erro desconhecido no backend');
+        }));
+        // Refetch das queries afetadas
+        queryClient.invalidateQueries({ queryKey: ['tecnicos'] });
+        queryClient.invalidateQueries({ queryKey: ['pagamentos'] });
+        queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro-pag'] });
+        // Toasts agregados
+        const sucessos = resultados.filter(r => r.ok);
+        const falhas = resultados.filter(r => !r.ok);
+        if (sucessos.length > 0) {
+          if (sucessos.length === 1) {
+            toast.success(`💰 ${formatCurrency(sucessos[0].valor)} creditado ao tecnico ${sucessos[0].tec?.tecnico_nome || ''}`);
+          } else {
+            const total = sucessos.reduce((s, r) => s + r.valor, 0);
+            toast.success(`💰 ${formatCurrency(total)} dividido entre ${sucessos.length} tecnicos com sucesso`);
           }
-          queryClient.invalidateQueries({ queryKey: ['tecnicos'] });
-          queryClient.invalidateQueries({ queryKey: ['pagamentos'] });
-          queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro-pag'] });
-          toast.success(`💰 ${formatCurrency(valor)} creditado ao tecnico ${tec.tecnico_nome}`);
-        } catch (err) {
-          console.error('[PagamentosClientes] Falha ao creditar tecnico:', err);
-          toast.error(`⚠ Pagamento do cliente OK, mas falhou ao creditar tecnico ${tec?.tecnico_nome || tecnicoRecebeu}: ${err?.message || 'tente novamente em Financeiro'}`, { duration: 8000 });
         }
-      })().catch(err => console.error('[PagamentosClientes] tarefa secundaria:', err));
+        if (falhas.length > 0) {
+          falhas.forEach(f => {
+            toast.error(`⚠ Falhou ao creditar ${f.tec?.tecnico_nome || f.tec?.tecnico_id || 'tecnico'}: ${f.erro || 'tente em Financeiro'}`, { duration: 8000 });
+          });
+        }
+      })().catch(err => console.error('[PagamentosClientes] tarefa secundaria divisoes:', err));
     }
 
     // Montar pag atualizado para o PDF — usando os valores efetivamente gravados, não o snapshot antigo
