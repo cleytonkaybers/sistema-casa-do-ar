@@ -8,10 +8,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Edit2, Trash2, Save, X } from 'lucide-react';
+import { Edit2, Trash2, Save, X, Percent } from 'lucide-react';
 import { toast } from 'sonner';
 import NoPermission from '@/components/NoPermission';
 import { useNavigate } from 'react-router-dom';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 export default function TabelaServicos() {
   const navigate = useNavigate();
@@ -42,6 +43,9 @@ export default function TabelaServicos() {
   const [novoPercTecnico, setNovoPercTecnico] = useState('15');
   const [isCustomType, setIsCustomType] = useState(true);
   const [customTipo, setCustomTipo] = useState('');
+  const [bulkPercEquipe, setBulkPercEquipe] = useState('');
+  const [bulkPercTecnico, setBulkPercTecnico] = useState('');
+  const [bulkConfirm, setBulkConfirm] = useState(null); // { campo: 'equipe'|'tecnico', valor: number }
   const queryClient = useQueryClient();
 
   const { data: valores = [] } = useQuery({
@@ -68,6 +72,41 @@ export default function TabelaServicos() {
     },
     onError: () => toast.error('Erro ao remover')
   });
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: async ({ campo, valor }) => {
+      // Atualiza todos os tipos em paralelo. campo = 'percentual_equipe' ou 'percentual_tecnico'.
+      const results = await Promise.allSettled(
+        valores.map(v => base44.entities.TipoServicoValor.update(v.id, { [campo]: valor }))
+      );
+      const ok = results.filter(r => r.status === 'fulfilled').length;
+      const fail = results.length - ok;
+      return { ok, fail };
+    },
+    onSuccess: ({ ok, fail }) => {
+      queryClient.invalidateQueries({ queryKey: ['tiposServicoValor'] });
+      setBulkConfirm(null);
+      setBulkPercEquipe('');
+      setBulkPercTecnico('');
+      if (fail === 0) toast.success(`${ok} item(s) atualizado(s)`);
+      else toast.error(`${ok} ok, ${fail} falharam`);
+    },
+    onError: () => toast.error('Erro ao aplicar em massa'),
+  });
+
+  const handleAplicarBulk = (campo) => {
+    const valorStr = campo === 'percentual_equipe' ? bulkPercEquipe : bulkPercTecnico;
+    const valor = parseFloat(String(valorStr).replace(',', '.'));
+    if (Number.isNaN(valor) || valor < 0 || valor > 100) {
+      toast.error('Informe um percentual entre 0 e 100');
+      return;
+    }
+    if (valores.length === 0) {
+      toast.error('Nenhum item na tabela');
+      return;
+    }
+    setBulkConfirm({ campo, valor, label: campo === 'percentual_equipe' ? '% Equipe' : '% Técnico' });
+  };
 
   const createMutation = useMutation({
     mutationFn: ({ tipo_servico, valor_tabela, percentual_equipe, percentual_tecnico }) =>
@@ -116,6 +155,61 @@ export default function TabelaServicos() {
           </Button>
         </CardHeader>
         <CardContent>
+          {/* Painel de aplicação em massa: muda % de TODOS os itens de uma vez */}
+          <div className="mb-4 p-3 sm:p-4 rounded-lg border border-blue-500/20 bg-blue-500/5">
+            <div className="flex items-center gap-2 mb-3">
+              <Percent className="w-4 h-4 text-blue-400" />
+              <span className="text-sm font-bold text-blue-300">Aplicar percentual em massa</span>
+              <span className="text-xs text-gray-400">— altera TODOS os {valores.length} itens da tabela</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="flex items-end gap-2">
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs">% Equipe (todos)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    placeholder="ex: 30"
+                    value={bulkPercEquipe}
+                    onChange={(e) => setBulkPercEquipe(e.target.value)}
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleAplicarBulk('percentual_equipe')}
+                  disabled={bulkUpdateMutation.isPending}
+                >
+                  Aplicar a todos
+                </Button>
+              </div>
+              <div className="flex items-end gap-2">
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs">% Técnico (todos)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    placeholder="ex: 15"
+                    value={bulkPercTecnico}
+                    onChange={(e) => setBulkPercTecnico(e.target.value)}
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleAplicarBulk('percentual_tecnico')}
+                  disabled={bulkUpdateMutation.isPending}
+                >
+                  Aplicar a todos
+                </Button>
+              </div>
+            </div>
+          </div>
+
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -301,6 +395,15 @@ export default function TabelaServicos() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!bulkConfirm}
+        onClose={() => setBulkConfirm(null)}
+        onConfirm={() => bulkConfirm && bulkUpdateMutation.mutate({ campo: bulkConfirm.campo, valor: bulkConfirm.valor })}
+        title={`Aplicar ${bulkConfirm?.label} em todos`}
+        description={`Vai atualizar ${bulkConfirm?.label} para ${bulkConfirm?.valor}% em ${valores.length} item(s) da tabela. Confirma?`}
+        confirmText={bulkUpdateMutation.isPending ? 'Aplicando...' : 'Aplicar a todos'}
+      />
     </div>
   );
 }
