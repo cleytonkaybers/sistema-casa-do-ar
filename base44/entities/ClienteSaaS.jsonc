@@ -1,0 +1,86 @@
+{
+  "name": "ClienteSaaS",
+  "type": "object",
+  "properties": {
+    "company_id": {
+      "type": "string",
+      "description": "ID da empresa dona do cliente"
+    },
+    "nome": {
+      "type": "string",
+      "description": "Nome completo do cliente"
+    },
+    "telefone": {
+      "type": "string",
+      "description": "Telefone de contato"
+    },
+    "email": {
+      "type": "string",
+      "description": "Email do cliente"
+    },
+    "endereco": {
+      "type": "string",
+      "description": "Endere\u00e7o completo"
+    },
+    "tipo_equipamento": {
+      "type": "string",
+      "enum": [
+        "split",
+        "inverter",
+        "cassete",
+        "piso_teto",
+        "janela",
+        "outro"
+      ],
+      "description": "Tipo de equipamento de ar-condicionado"
+    },
+    "capacidade_btu": {
+      "type": "string",
+      "description": "Capacidade do equipamento (ex: 9000, 12000 BTU)"
+    },
+    "ultima_manutencao": {
+      "type": "string",
+      "format": "date",
+      "description": "Data da \u00faltima manuten\u00e7\u00e3o"
+    },
+    "proxima_manutencao": {
+      "type": "string",
+      "format": "date",
+      "description": "Data da pr\u00f3xima manuten\u00e7\u00e3o programada"
+    },
+    "frequencia_manutencao_meses": {
+      "type": "integer",
+      "enum": [
+        3,
+        6,
+        12
+      ],
+      "default": 6,
+      "description": "Frequ\u00eancia de manuten\u00e7\u00e3o em meses"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es sobre o cliente"
+    },
+    "total_gasto": {
+      "type": "number",
+      "default": 0,
+      "description": "Total gasto em servi\u00e7os"
+    },
+    "quantidade_servicos": {
+      "type": "integer",
+      "default": 0,
+      "description": "Total de servi\u00e7os realizados"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se o cliente est\u00e1 ativo"
+    }
+  },
+  "required": [
+    "company_id",
+    "nome",
+    "telefone"
+  ]
+}

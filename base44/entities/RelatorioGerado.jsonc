@@ -1,0 +1,66 @@
+{
+  "name": "RelatorioGerado",
+  "type": "object",
+  "properties": {
+    "configuracao_id": {
+      "type": "string",
+      "description": "ID da configura\u00e7\u00e3o que gerou o relat\u00f3rio"
+    },
+    "configuracao_nome": {
+      "type": "string",
+      "description": "Nome da configura\u00e7\u00e3o para refer\u00eancia"
+    },
+    "periodo_inicio": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de in\u00edcio do per\u00edodo do relat\u00f3rio"
+    },
+    "periodo_fim": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de fim do per\u00edodo do relat\u00f3rio"
+    },
+    "total_servicos": {
+      "type": "integer",
+      "description": "Total de servi\u00e7os no relat\u00f3rio"
+    },
+    "servicos_concluidos": {
+      "type": "integer",
+      "description": "Total de servi\u00e7os conclu\u00eddos"
+    },
+    "servicos_em_andamento": {
+      "type": "integer",
+      "description": "Total de servi\u00e7os em andamento"
+    },
+    "valor_total": {
+      "type": "number",
+      "description": "Valor total dos servi\u00e7os"
+    },
+    "pdf_url": {
+      "type": "string",
+      "description": "URL do PDF gerado"
+    },
+    "enviado_para": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Lista de e-mails para quem foi enviado"
+    },
+    "status_envio": {
+      "type": "string",
+      "enum": [
+        "pendente",
+        "enviado",
+        "erro"
+      ],
+      "default": "pendente",
+      "description": "Status do envio do relat\u00f3rio"
+    }
+  },
+  "required": [
+    "configuracao_nome",
+    "periodo_inicio",
+    "periodo_fim"
+  ]
+}

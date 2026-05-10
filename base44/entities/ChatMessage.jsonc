@@ -1,0 +1,42 @@
+{
+  "name": "ChatMessage",
+  "type": "object",
+  "properties": {
+    "conversation_id": {
+      "type": "string",
+      "description": "ID da conversa"
+    },
+    "sender_type": {
+      "type": "string",
+      "enum": [
+        "user",
+        "agent",
+        "ai"
+      ],
+      "description": "Tipo de remetente"
+    },
+    "sender_email": {
+      "type": "string",
+      "description": "Email de quem enviou"
+    },
+    "sender_name": {
+      "type": "string",
+      "description": "Nome de quem enviou"
+    },
+    "content": {
+      "type": "string",
+      "description": "Conte\u00fado da mensagem"
+    },
+    "read": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se a mensagem foi lida"
+    }
+  },
+  "required": [
+    "conversation_id",
+    "sender_type",
+    "sender_email",
+    "content"
+  ]
+}

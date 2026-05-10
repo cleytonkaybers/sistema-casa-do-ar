@@ -1,0 +1,21 @@
+{
+  "name": "CompanySettings",
+  "type": "object",
+  "properties": {
+    "company_name": {
+      "type": "string",
+      "description": "Nome da empresa"
+    },
+    "company_icon": {
+      "type": "string",
+      "description": "\u00cdcone da empresa (nome do \u00edcone lucide-react)"
+    },
+    "company_logo_url": {
+      "type": "string",
+      "description": "URL da logo da empresa"
+    }
+  },
+  "required": [
+    "company_name"
+  ]
+}

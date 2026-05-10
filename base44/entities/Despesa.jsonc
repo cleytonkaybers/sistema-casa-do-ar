@@ -4,7 +4,16 @@
   "properties": {
     "descricao": {
       "type": "string",
-      "description": "Descricao curta da despesa (ex: 'Gasolina posto BR', 'Troca de oleo')"
+      "description": "Descri\u00e7\u00e3o curta da despesa (ex: Gasolina posto BR)"
+    },
+    "valor": {
+      "type": "number",
+      "description": "Valor gasto em reais (R$)"
+    },
+    "data": {
+      "type": "string",
+      "format": "date",
+      "description": "Data em que a despesa ocorreu"
     },
     "categoria": {
       "type": "string",
@@ -23,26 +32,17 @@
       "default": "Outros",
       "description": "Categoria da despesa"
     },
-    "valor": {
-      "type": "number",
-      "description": "Valor gasto (R$)"
-    },
-    "data": {
-      "type": "string",
-      "format": "date",
-      "description": "Data da despesa"
-    },
     "metodo_pagamento": {
       "type": "string",
-      "description": "Como foi pago (PIX, Dinheiro, Cartao, etc)"
-    },
-    "observacoes": {
-      "type": "string",
-      "description": "Observacoes / numero de nota fiscal / fornecedor"
+      "description": "Como foi pago (PIX, Dinheiro, Cart\u00e3o, etc)"
     },
     "fornecedor": {
       "type": "string",
       "description": "Nome do fornecedor / loja / posto"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es, n\u00famero de nota fiscal, detalhes adicionais"
     }
   },
   "required": [

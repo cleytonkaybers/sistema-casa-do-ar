@@ -1,0 +1,61 @@
+{
+  "name": "ConfiguracaoRelatorio",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome da configura\u00e7\u00e3o de relat\u00f3rio"
+    },
+    "periodicidade": {
+      "type": "string",
+      "enum": [
+        "diaria",
+        "semanal",
+        "mensal"
+      ],
+      "description": "Periodicidade de gera\u00e7\u00e3o do relat\u00f3rio"
+    },
+    "dia_envio": {
+      "type": "integer",
+      "description": "Dia do m\u00eas (mensal) ou dia da semana (semanal: 0=domingo, 1=segunda, etc)"
+    },
+    "filtro_tipo_servico": {
+      "type": "string",
+      "description": "Filtro por tipo de servi\u00e7o espec\u00edfico (vazio = todos)"
+    },
+    "filtro_cliente": {
+      "type": "string",
+      "description": "Filtro por cliente espec\u00edfico (vazio = todos)"
+    },
+    "filtro_status": {
+      "type": "string",
+      "description": "Filtro por status (vazio = todos)"
+    },
+    "destinatarios_admins": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Lista de e-mails de administradores que receber\u00e3o o relat\u00f3rio"
+    },
+    "enviar_para_clientes": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se deve enviar relat\u00f3rio para os clientes dos servi\u00e7os"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se a configura\u00e7\u00e3o est\u00e1 ativa"
+    },
+    "ultimo_envio": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data e hora do \u00faltimo envio"
+    }
+  },
+  "required": [
+    "nome",
+    "periodicidade"
+  ]
+}

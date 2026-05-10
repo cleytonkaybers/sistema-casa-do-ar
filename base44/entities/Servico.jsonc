@@ -148,18 +148,6 @@
       "type": "string",
       "format": "date-time",
       "description": "Data e hora da conclus\u00e3o do servi\u00e7o"
-    },
-    "google_maps_link": {
-      "type": "string",
-      "description": "Link do Google Maps para o endere\u00e7o do servi\u00e7o"
-    },
-    "equipamento": {
-      "type": "string",
-      "description": "Descri\u00e7\u00e3o do equipamento (opcional)"
-    },
-    "os_numero": {
-      "type": "string",
-      "description": "N\u00famero da Ordem de Servi\u00e7o (ex: OS-0001)"
     }
   },
   "required": [

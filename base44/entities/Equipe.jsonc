@@ -1,0 +1,27 @@
+{
+  "name": "Equipe",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome da equipe"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o opcional da equipe"
+    },
+    "cor": {
+      "type": "string",
+      "description": "Cor da equipe (para identifica\u00e7\u00e3o visual)",
+      "default": "#3b82f6"
+    },
+    "ativa": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se a equipe est\u00e1 ativa"
+    }
+  },
+  "required": [
+    "nome"
+  ]
+}

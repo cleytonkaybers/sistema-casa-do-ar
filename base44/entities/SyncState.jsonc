@@ -1,0 +1,26 @@
+{
+  "name": "SyncState",
+  "type": "object",
+  "properties": {
+    "provider": {
+      "type": "string",
+      "description": "Nome do provedor (googlecalendar, googledrive, etc)"
+    },
+    "sync_token": {
+      "type": "string",
+      "description": "Token de sincroniza\u00e7\u00e3o do provedor"
+    },
+    "resource_id": {
+      "type": "string",
+      "description": "ID do recurso sendo sincronizado (calend\u00e1rio, pasta, etc)"
+    },
+    "last_sync": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data/hora da \u00faltima sincroniza\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "provider"
+  ]
+}

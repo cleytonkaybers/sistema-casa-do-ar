@@ -1,0 +1,60 @@
+{
+  "name": "BackupIncremental",
+  "type": "object",
+  "properties": {
+    "data_backup": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data e hora do backup"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "incremental",
+        "completo"
+      ],
+      "description": "Tipo de backup realizado"
+    },
+    "entidades_backup": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Lista de entidades inclu\u00eddas no backup"
+    },
+    "total_registros": {
+      "type": "integer",
+      "description": "Total de registros no backup"
+    },
+    "arquivo_drive_id": {
+      "type": "string",
+      "description": "ID do arquivo no Google Drive"
+    },
+    "arquivo_drive_url": {
+      "type": "string",
+      "description": "URL do arquivo no Google Drive"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "sucesso",
+        "erro",
+        "parcial"
+      ],
+      "default": "sucesso",
+      "description": "Status do backup"
+    },
+    "mensagem_erro": {
+      "type": "string",
+      "description": "Mensagem de erro (se aplic\u00e1vel)"
+    },
+    "tamanho_bytes": {
+      "type": "integer",
+      "description": "Tamanho do arquivo de backup em bytes"
+    }
+  },
+  "required": [
+    "data_backup",
+    "tipo"
+  ]
+}

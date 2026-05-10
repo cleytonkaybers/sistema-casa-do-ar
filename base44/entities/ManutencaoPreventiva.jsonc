@@ -1,0 +1,82 @@
+{
+  "name": "ManutencaoPreventiva",
+  "type": "object",
+  "properties": {
+    "company_id": {
+      "type": "string",
+      "description": "ID da empresa"
+    },
+    "cliente_id": {
+      "type": "string",
+      "description": "ID do cliente"
+    },
+    "cliente_nome": {
+      "type": "string",
+      "description": "Nome do cliente (c\u00f3pia)"
+    },
+    "data_ultima_manutencao": {
+      "type": "string",
+      "format": "date",
+      "description": "Data da \u00faltima manuten\u00e7\u00e3o realizada"
+    },
+    "data_proxima_manutencao": {
+      "type": "string",
+      "format": "date",
+      "description": "Data agendada da pr\u00f3xima manuten\u00e7\u00e3o"
+    },
+    "frequencia_meses": {
+      "type": "integer",
+      "enum": [
+        3,
+        6,
+        12
+      ],
+      "default": 6,
+      "description": "Frequ\u00eancia de manuten\u00e7\u00e3o em meses"
+    },
+    "tipo_equipamento": {
+      "type": "string",
+      "description": "Tipo de equipamento (split, inverter, etc)"
+    },
+    "capacidade_btu": {
+      "type": "string",
+      "description": "Capacidade do equipamento"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pendente",
+        "agendada",
+        "em_andamento",
+        "concluida",
+        "vencida"
+      ],
+      "default": "pendente",
+      "description": "Status da manuten\u00e7\u00e3o"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es sobre a manuten\u00e7\u00e3o"
+    },
+    "orden_servico_id": {
+      "type": "string",
+      "description": "ID da ordem de servi\u00e7o associada (se houver)"
+    },
+    "urgencia": {
+      "type": "string",
+      "enum": [
+        "normal",
+        "alta",
+        "critica"
+      ],
+      "default": "normal",
+      "description": "N\u00edvel de urg\u00eancia"
+    }
+  },
+  "required": [
+    "company_id",
+    "cliente_id",
+    "cliente_nome",
+    "frequencia_meses"
+  ]
+}

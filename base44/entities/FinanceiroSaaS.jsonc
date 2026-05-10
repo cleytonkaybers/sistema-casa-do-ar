@@ -1,0 +1,88 @@
+{
+  "name": "FinanceiroSaaS",
+  "type": "object",
+  "properties": {
+    "company_id": {
+      "type": "string",
+      "description": "ID da empresa"
+    },
+    "tipo_transacao": {
+      "type": "string",
+      "enum": [
+        "receita",
+        "despesa",
+        "pagamento_assinatura"
+      ],
+      "description": "Tipo de transa\u00e7\u00e3o financeira"
+    },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "servico",
+        "manutencao",
+        "assinatura",
+        "outros"
+      ],
+      "description": "Categoria da transa\u00e7\u00e3o"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o da transa\u00e7\u00e3o"
+    },
+    "valor": {
+      "type": "number",
+      "description": "Valor em reais"
+    },
+    "data_transacao": {
+      "type": "string",
+      "format": "date",
+      "description": "Data da transa\u00e7\u00e3o"
+    },
+    "cliente_id": {
+      "type": "string",
+      "description": "ID do cliente (para receitas)"
+    },
+    "ordem_servico_id": {
+      "type": "string",
+      "description": "ID da ordem de servi\u00e7o relacionada"
+    },
+    "status_pagamento": {
+      "type": "string",
+      "enum": [
+        "pendente",
+        "parcial",
+        "pago",
+        "cancelado"
+      ],
+      "default": "pendente",
+      "description": "Status do pagamento"
+    },
+    "data_pagamento": {
+      "type": "string",
+      "format": "date",
+      "description": "Data em que foi pago"
+    },
+    "metodo_pagamento": {
+      "type": "string",
+      "enum": [
+        "dinheiro",
+        "cartao_credito",
+        "cartao_debito",
+        "transferencia",
+        "boleto",
+        "pix"
+      ],
+      "description": "M\u00e9todo de pagamento"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es adicionais"
+    }
+  },
+  "required": [
+    "company_id",
+    "tipo_transacao",
+    "valor",
+    "data_transacao"
+  ]
+}
