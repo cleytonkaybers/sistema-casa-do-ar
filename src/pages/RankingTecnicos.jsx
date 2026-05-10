@@ -4,8 +4,8 @@ import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trophy, TrendingUp, Clock, Users, Award, Star } from 'lucide-react';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, parseISO, isValid } from 'date-fns';
+import { Trophy, TrendingUp, Clock, Users, Award, Star, Crown, Calendar } from 'lucide-react';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subWeeks, subMonths, parseISO, isValid } from 'date-fns';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -25,6 +25,27 @@ const MEDAL_CLASSES = [
   'text-gray-300 border-gray-300/30 bg-gray-300/10',
   'text-amber-600 border-amber-600/30 bg-amber-600/10',
 ];
+
+// Bloco vertical com Semana / Mes / Ano usado nos cards do podium
+function PodiumValores({ t, cor = 'text-blue-400' }) {
+  return (
+    <div className="w-full flex flex-col items-center gap-1 text-center">
+      <div>
+        <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider">Semana</p>
+        <p className={`text-sm font-bold ${cor}`}>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.ganho_semana || 0)}</p>
+      </div>
+      <div>
+        <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider">Mês</p>
+        <p className={`text-sm font-bold ${cor}`}>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.ganho_mes || 0)}</p>
+      </div>
+      <div>
+        <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider">Ano</p>
+        <p className={`text-sm font-bold ${cor}`}>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.ganho_ano || 0)}</p>
+      </div>
+      <p className="text-[10px] text-gray-500 mt-1">{t.servicos_mes || 0} serv. no mês</p>
+    </div>
+  );
+}
 
 export default function RankingTecnicos() {
   const { isAdmin } = usePermissions();
@@ -67,6 +88,14 @@ export default function RankingTecnicos() {
 
   const { inicio, fim } = getRange(isTecnico ? 'mes' : periodo);
 
+  // Ranges fixos para os 3 totais sempre exibidos (semana/mes/ano corrente)
+  const inicioSem = format(startOfWeek(hoje, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const fimSem = format(endOfWeek(hoje, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const inicioMes = format(startOfMonth(hoje), 'yyyy-MM-dd');
+  const fimMes = format(endOfMonth(hoje), 'yyyy-MM-dd');
+  const inicioAno = format(startOfYear(hoje), 'yyyy-MM-dd');
+  const fimAno = format(endOfYear(hoje), 'yyyy-MM-dd');
+
   const { data: lancamentos = [], isLoading: loadLanc } = useQuery({
     queryKey: ['lancamentos-ranking'],
     queryFn: () => base44.entities.LancamentoFinanceiro.list(),
@@ -79,59 +108,94 @@ export default function RankingTecnicos() {
 
   const isLoading = loadLanc || loadPag;
 
-  // --- Filtrar por período ---
-  const lancPeriodo = lancamentos.filter((l) => {
-    if (!inicio || !fim) return true;
-    const d = parseDateSafe(l.data_geracao);
+  const dentro = (dataStr, ini, fim) => {
+    const d = parseDateSafe(dataStr);
     if (!d) return false;
     const ds = format(d, 'yyyy-MM-dd');
-    return ds >= inicio && ds <= fim;
-  });
+    return ds >= ini && ds <= fim;
+  };
 
+  // --- Filtros para o periodo selecionado (header dropdown) ---
+  const lancPeriodo = lancamentos.filter((l) => (!inicio || !fim) ? true : dentro(l.data_geracao, inicio, fim));
   const pagPeriodo = pagamentos.filter((p) => {
+    if (p.status !== 'Confirmado') return false;
     if (!inicio || !fim) return true;
-    const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date);
-    if (!d) return false;
-    const ds = format(d, 'yyyy-MM-dd');
-    return ds >= inicio && ds <= fim && p.status === 'Confirmado';
+    return dentro(p.data_pagamento, inicio, fim) || dentro(p.created_date, inicio, fim);
   });
 
-  // --- Agrupar por técnico ---
+  // --- Agrupar por tecnico (periodo selecionado + sempre semana/mes/ano corrente) ---
   const tecnicoMap = {};
-
-  lancPeriodo.forEach((l) => {
-    const id = l.tecnico_id;
-    if (!id) return;
+  const ensure = (id, nome, equipe_nome) => {
     if (!tecnicoMap[id]) {
       tecnicoMap[id] = {
         id,
-        nome: l.tecnico_nome || id,
-        equipe_nome: l.equipe_nome || '',
+        nome: nome || id,
+        equipe_nome: equipe_nome || '',
         servicos: 0,
         total_ganho: 0,
         total_pago: 0,
+        ganho_semana: 0,
+        ganho_mes: 0,
+        ganho_ano: 0,
+        servicos_semana: 0,
+        servicos_mes: 0,
+        servicos_ano: 0,
       };
+    } else {
+      // Atualiza nome/equipe se vier valor mais recente preenchido
+      if (nome && tecnicoMap[id].nome === id) tecnicoMap[id].nome = nome;
+      if (equipe_nome && !tecnicoMap[id].equipe_nome) tecnicoMap[id].equipe_nome = equipe_nome;
     }
-    tecnicoMap[id].servicos += 1;
-    tecnicoMap[id].total_ganho += l.valor_comissao_tecnico || 0;
-  });
+    return tecnicoMap[id];
+  };
 
+  // Periodo selecionado (filtro do header)
+  lancPeriodo.forEach((l) => {
+    if (!l.tecnico_id) return;
+    const t = ensure(l.tecnico_id, l.tecnico_nome, l.equipe_nome);
+    t.servicos += 1;
+    t.total_ganho += l.valor_comissao_tecnico || 0;
+  });
   pagPeriodo.forEach((p) => {
-    const id = p.tecnico_id;
-    if (!id) return;
-    if (!tecnicoMap[id]) {
-      tecnicoMap[id] = { id, nome: id, equipe_nome: '', servicos: 0, total_ganho: 0, total_pago: 0 };
-    }
-    tecnicoMap[id].total_pago += p.valor_pago || 0;
+    if (!p.tecnico_id) return;
+    const t = ensure(p.tecnico_id, p.tecnico_nome, p.equipe_nome);
+    t.total_pago += p.valor_pago || 0;
   });
 
+  // Sempre calcular semana / mes / ano corrente (independente do filtro)
+  lancamentos.forEach((l) => {
+    if (!l.tecnico_id) return;
+    const t = ensure(l.tecnico_id, l.tecnico_nome, l.equipe_nome);
+    const valor = l.valor_comissao_tecnico || 0;
+    if (dentro(l.data_geracao, inicioSem, fimSem)) { t.ganho_semana += valor; t.servicos_semana += 1; }
+    if (dentro(l.data_geracao, inicioMes, fimMes)) { t.ganho_mes += valor; t.servicos_mes += 1; }
+    if (dentro(l.data_geracao, inicioAno, fimAno)) { t.ganho_ano += valor; t.servicos_ano += 1; }
+  });
+
+  // Ordena pelo ganho do periodo selecionado (mantém comportamento do filtro do header)
   const ranking = Object.values(tecnicoMap)
     .map((t) => ({
       ...t,
       pendente: Math.max(0, t.total_ganho - t.total_pago),
-      media_servico: t.servicos > 0 ? t.total_pago / t.servicos : 0,
+      media_servico: t.servicos > 0 ? t.total_ganho / t.servicos : 0,
     }))
-    .sort((a, b) => b.total_pago - a.total_pago);
+    .sort((a, b) => b.total_ganho - a.total_ganho);
+
+  // --- Posicoes com empate APENAS na mesma equipe ---
+  // Se 2 tecnicos consecutivos no ranking tem mesmo total_ganho E mesma equipe, recebem mesma posicao.
+  ranking.forEach((tec, i) => {
+    if (i === 0) {
+      tec.posicao = 1;
+    } else {
+      const prev = ranking[i - 1];
+      const empate = Math.abs(tec.total_ganho - prev.total_ganho) < 0.01 && tec.equipe_nome && tec.equipe_nome === prev.equipe_nome;
+      tec.posicao = empate ? prev.posicao : i + 1;
+    }
+  });
+
+  // --- Lider do MES e do ANO (independente do filtro selecionado) ---
+  const liderMes = [...Object.values(tecnicoMap)].sort((a, b) => b.ganho_mes - a.ganho_mes)[0];
+  const liderAno = [...Object.values(tecnicoMap)].sort((a, b) => b.ganho_ano - a.ganho_ano)[0];
 
   const totalGeral = ranking.reduce((s, t) => s + t.total_ganho, 0);
   const totalServicos = ranking.reduce((s, t) => s + t.servicos, 0);
@@ -219,20 +283,62 @@ export default function RankingTecnicos() {
         </div>
       )}
 
-      {/* Podium top 3 */}
+      {/* Cards de destaque: Tecnico do Mes / Tecnico do Ano (so admin) */}
+      {!isTecnico && (liderMes?.ganho_mes > 0 || liderAno?.ganho_ano > 0) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Card className="bg-gradient-to-br from-yellow-500/10 to-amber-600/10 border-yellow-400/30 rounded-2xl">
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-yellow-400/20 flex items-center justify-center flex-shrink-0">
+                <Crown className="w-6 h-6 text-yellow-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] text-yellow-500/80 font-bold uppercase tracking-wider">🏆 Técnico do Mês</p>
+                {liderMes?.ganho_mes > 0 ? (
+                  <>
+                    <p className="text-lg font-bold text-yellow-200 truncate">{liderMes.nome}</p>
+                    <p className="text-xs text-gray-400">{liderMes.equipe_nome} · {liderMes.servicos_mes} serv. · {fmt(liderMes.ganho_mes)}</p>
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-500">Sem dados ainda este mês</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-400/30 rounded-2xl">
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-purple-400/20 flex items-center justify-center flex-shrink-0">
+                <Calendar className="w-6 h-6 text-purple-300" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] text-purple-300/80 font-bold uppercase tracking-wider">⭐ Técnico do Ano {format(hoje, 'yyyy')}</p>
+                {liderAno?.ganho_ano > 0 ? (
+                  <>
+                    <p className="text-lg font-bold text-purple-200 truncate">{liderAno.nome}</p>
+                    <p className="text-xs text-gray-400">{liderAno.equipe_nome} · {liderAno.servicos_ano} serv. · {fmt(liderAno.ganho_ano)}</p>
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-500">Sem dados ainda este ano</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Podium top 3 — exibe SEMANA / MES / ANO (ganho em servicos) */}
       {ranking.length >= 2 && (
         <div className="grid grid-cols-3 gap-3">
           {/* 2nd */}
           {ranking[1] && (
             <div className="flex flex-col items-center justify-end gap-2 pt-6">
-              <span className="text-3xl">🥈</span>
+              <span className="text-3xl">{ranking[1].posicao === 1 ? '🥇' : '🥈'}</span>
               <div className="text-center">
-                <p className="font-bold text-gray-200 text-sm truncate max-w-[100px]">{ranking[1].nome}</p>
+                <p className="font-bold text-gray-200 text-sm truncate max-w-[120px]">{ranking[1].nome}</p>
                 <p className="text-xs text-gray-500">{ranking[1].equipe_nome}</p>
               </div>
-              <div className="w-full bg-gray-300/20 rounded-t-xl pt-6 pb-4 flex flex-col items-center gap-1 border border-gray-300/20">
-                <p className="text-sm font-bold text-blue-400">{fmt(ranking[1].total_pago)}</p>
-                <p className="text-xs text-gray-500">{ranking[1].servicos} serv.</p>
+              <div className="w-full bg-gray-300/20 rounded-t-xl pt-4 pb-3 px-2 flex flex-col items-center gap-1 border border-gray-300/20">
+                <PodiumValores t={ranking[1]} cor="text-blue-400" />
               </div>
             </div>
           )}
@@ -242,26 +348,24 @@ export default function RankingTecnicos() {
               <Star className="w-5 h-5 text-yellow-400 animate-pulse" />
               <span className="text-4xl">🥇</span>
               <div className="text-center">
-                <p className="font-bold text-yellow-300 text-sm truncate max-w-[100px]">{ranking[0].nome}</p>
+                <p className="font-bold text-yellow-300 text-sm truncate max-w-[120px]">{ranking[0].nome}</p>
                 <p className="text-xs text-gray-500">{ranking[0].equipe_nome}</p>
               </div>
-              <div className="w-full bg-yellow-400/10 rounded-t-xl pt-8 pb-4 flex flex-col items-center gap-1 border border-yellow-400/20">
-                <p className="text-base font-bold text-yellow-400">{fmt(ranking[0].total_pago)}</p>
-                <p className="text-xs text-gray-400">{ranking[0].servicos} serv.</p>
+              <div className="w-full bg-yellow-400/10 rounded-t-xl pt-5 pb-3 px-2 flex flex-col items-center gap-1 border border-yellow-400/20">
+                <PodiumValores t={ranking[0]} cor="text-yellow-400" />
               </div>
             </div>
           )}
           {/* 3rd */}
           {ranking[2] && (
             <div className="flex flex-col items-center justify-end gap-2 pt-10">
-              <span className="text-3xl">🥉</span>
+              <span className="text-3xl">{ranking[2].posicao === 1 ? '🥇' : ranking[2].posicao === 2 ? '🥈' : '🥉'}</span>
               <div className="text-center">
-                <p className="font-bold text-gray-200 text-sm truncate max-w-[100px]">{ranking[2].nome}</p>
+                <p className="font-bold text-gray-200 text-sm truncate max-w-[120px]">{ranking[2].nome}</p>
                 <p className="text-xs text-gray-500">{ranking[2].equipe_nome}</p>
               </div>
-              <div className="w-full bg-amber-600/20 rounded-t-xl pt-4 pb-4 flex flex-col items-center gap-1 border border-amber-600/20">
-                <p className="text-sm font-bold text-blue-400">{fmt(ranking[2].total_pago)}</p>
-                <p className="text-xs text-gray-500">{ranking[2].servicos} serv.</p>
+              <div className="w-full bg-amber-600/20 rounded-t-xl pt-3 pb-3 px-2 flex flex-col items-center gap-1 border border-amber-600/20">
+                <PodiumValores t={ranking[2]} cor="text-blue-400" />
               </div>
             </div>
           )}
@@ -292,17 +396,19 @@ export default function RankingTecnicos() {
           <CardContent className="p-0">
             <div className="divide-y divide-white/5">
               {ranking.map((tec, idx) => {
-                const pct = lider?.total_pago > 0 ? (tec.total_pago / lider.total_pago) * 100 : 0;
+                const pct = lider?.total_ganho > 0 ? (tec.total_ganho / lider.total_ganho) * 100 : 0;
+                const pos = tec.posicao || idx + 1;
+                const medalIdx = pos - 1;
                 return (
                   <div
                     key={tec.id}
-                    className={`px-4 sm:px-5 py-4 flex items-center gap-3 sm:gap-4 hover:bg-white/5 transition-colors ${idx === 0 ? 'bg-yellow-400/5' : ''}`}
+                    className={`px-4 sm:px-5 py-4 flex items-center gap-3 sm:gap-4 hover:bg-white/5 transition-colors ${pos === 1 ? 'bg-yellow-400/5' : ''}`}
                   >
-                    {/* Position badge */}
+                    {/* Position badge — usa posicao (com empate same-team) */}
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm border flex-shrink-0 ${
-                      idx < 3 ? MEDAL_CLASSES[idx] : 'text-gray-500 border-white/10 bg-white/5'
+                      medalIdx < 3 ? MEDAL_CLASSES[medalIdx] : 'text-gray-500 border-white/10 bg-white/5'
                     }`}>
-                      {idx < 3 ? MEDAL_EMOJIS[idx] : idx + 1}
+                      {medalIdx < 3 ? MEDAL_EMOJIS[medalIdx] : pos}
                     </div>
 
                     {/* Info + bar */}
@@ -318,7 +424,7 @@ export default function RankingTecnicos() {
                       <div className="flex items-center gap-2 mt-1.5">
                         <div className="flex-1 bg-white/10 rounded-full h-1.5 max-w-[200px]">
                           <div
-                            className={`h-1.5 rounded-full transition-all ${idx === 0 ? 'bg-yellow-400' : 'bg-blue-500'}`}
+                            className={`h-1.5 rounded-full transition-all ${pos === 1 ? 'bg-yellow-400' : 'bg-blue-500'}`}
                             style={{ width: `${pct}%` }}
                           />
                         </div>
@@ -326,20 +432,25 @@ export default function RankingTecnicos() {
                       </div>
                     </div>
 
-                    {/* Metrics */}
-                    <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0 text-right">
-                      {!isTecnico && (
-                        <div className="hidden sm:block">
-                          <p className="text-[9px] text-gray-600 uppercase font-bold tracking-wider">Ganho</p>
-                          <p className="text-sm font-bold text-emerald-400">{fmt(tec.total_ganho)}</p>
-                        </div>
-                      )}
+                    {/* Metrics: SEMANA / MES / ANO (ganho em servicos) */}
+                    <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0 text-right">
+                      <div>
+                        <p className="text-[9px] text-gray-600 uppercase font-bold tracking-wider">Semana</p>
+                        <p className="text-xs sm:text-sm font-bold text-sky-400">{fmt(tec.ganho_semana)}</p>
+                        <p className="text-[9px] text-gray-600">{tec.servicos_semana} serv.</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-gray-600 uppercase font-bold tracking-wider">Mês</p>
+                        <p className="text-xs sm:text-sm font-bold text-emerald-400">{fmt(tec.ganho_mes)}</p>
+                        <p className="text-[9px] text-gray-600">{tec.servicos_mes} serv.</p>
+                      </div>
                       <div className="hidden sm:block">
-                        <p className="text-[9px] text-gray-600 uppercase font-bold tracking-wider">Pago</p>
-                        <p className="text-sm font-semibold text-blue-400">{fmt(tec.total_pago)}</p>
+                        <p className="text-[9px] text-gray-600 uppercase font-bold tracking-wider">Ano</p>
+                        <p className="text-sm font-bold text-purple-400">{fmt(tec.ganho_ano)}</p>
+                        <p className="text-[9px] text-gray-600">{tec.servicos_ano} serv.</p>
                       </div>
                       {!isTecnico && (
-                        <div>
+                        <div className="hidden md:block border-l border-white/5 pl-3">
                           <p className="text-[9px] text-gray-600 uppercase font-bold tracking-wider">Pendente</p>
                           <p className={`text-sm font-bold ${tec.pendente > 0 ? 'text-amber-400' : 'text-green-400'}`}>
                             {fmt(tec.pendente)}
