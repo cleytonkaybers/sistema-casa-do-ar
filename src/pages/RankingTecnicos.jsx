@@ -1,13 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trophy, TrendingUp, Clock, Users, Award, Star, Crown, Calendar } from 'lucide-react';
+import { Trophy, TrendingUp, Clock, Users, Award, Star, Crown, Calendar, RotateCcw } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subWeeks, subMonths, parseISO, isValid } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import { useAuth } from '@/lib/AuthContext';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { toast } from 'sonner';
+
+const RANKING_RESET_KEY = 'ranking_tecnicos_reset_em';
 
 const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
@@ -52,6 +58,33 @@ export default function RankingTecnicos() {
   const { user } = useAuth();
   const isTecnico = !isAdmin;
   const [periodo, setPeriodo] = useState('mes');
+  const [resetEm, setResetEm] = useState(null); // ISO string ou null
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmLimpar, setConfirmLimpar] = useState(false);
+
+  // Carrega cutoff do localStorage. Lancamentos com data_geracao < resetEm
+  // sao IGNORADOS no calculo do ranking. NAO apaga nada do banco.
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(RANKING_RESET_KEY);
+      if (v) setResetEm(v);
+    } catch {}
+  }, []);
+
+  const aplicarReset = () => {
+    const agora = new Date().toISOString();
+    try { localStorage.setItem(RANKING_RESET_KEY, agora); } catch {}
+    setResetEm(agora);
+    setConfirmReset(false);
+    toast.success('Ranking resetado! Contagem reiniciada agora.');
+  };
+
+  const limparReset = () => {
+    try { localStorage.removeItem(RANKING_RESET_KEY); } catch {}
+    setResetEm(null);
+    setConfirmLimpar(false);
+    toast.success('Reset removido — voltou a contar todo o histórico.');
+  };
 
   const hoje = new Date();
 
@@ -115,8 +148,20 @@ export default function RankingTecnicos() {
     return ds >= ini && ds <= fim;
   };
 
+  // Cutoff do reset manual: lancamentos com data ANTERIOR ao reset sao ignorados
+  // em todos os calculos do ranking (semana/mes/ano/periodo). Nao apaga dados.
+  const aposReset = (dataStr) => {
+    if (!resetEm) return true;
+    const d = parseDateSafe(dataStr);
+    if (!d) return true; // sem data → assume que entra
+    return d.getTime() >= new Date(resetEm).getTime();
+  };
+
   // --- Filtros para o periodo selecionado (header dropdown) ---
-  const lancPeriodo = lancamentos.filter((l) => (!inicio || !fim) ? true : dentro(l.data_geracao, inicio, fim));
+  const lancPeriodo = lancamentos.filter((l) => {
+    if (!aposReset(l.data_geracao)) return false;
+    return (!inicio || !fim) ? true : dentro(l.data_geracao, inicio, fim);
+  });
   const pagPeriodo = pagamentos.filter((p) => {
     if (p.status !== 'Confirmado') return false;
     if (!inicio || !fim) return true;
@@ -162,9 +207,11 @@ export default function RankingTecnicos() {
     t.total_pago += p.valor_pago || 0;
   });
 
-  // Sempre calcular semana / mes / ano corrente (independente do filtro)
+  // Sempre calcular semana / mes / ano corrente (independente do filtro do header)
+  // Mas respeita o cutoff de reset manual: lancamentos anteriores ao reset = ignorados
   lancamentos.forEach((l) => {
     if (!l.tecnico_id) return;
+    if (!aposReset(l.data_geracao)) return;
     const t = ensure(l.tecnico_id, l.tecnico_nome, l.equipe_nome);
     const valor = l.valor_comissao_tecnico || 0;
     if (dentro(l.data_geracao, inicioSem, fimSem)) { t.ganho_semana += valor; t.servicos_semana += 1; }
@@ -221,21 +268,49 @@ export default function RankingTecnicos() {
           </h1>
           <p className="text-gray-400 mt-1 text-sm">
             Desempenho e comissões — {periodoLabel}
+            {resetEm && (
+              <span className="ml-2 inline-flex items-center gap-1 text-amber-400 text-xs font-semibold">
+                · 🏁 contando desde {format(new Date(resetEm), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              </span>
+            )}
           </p>
         </div>
         {!isTecnico && (
-          <Select value={periodo} onValueChange={setPeriodo}>
-            <SelectTrigger className="w-52 bg-[#152236] border-white/10 text-gray-200 focus:ring-blue-500">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-[#152236] border-white/10 text-gray-200">
-              <SelectItem value="semana">Semana Atual</SelectItem>
-              <SelectItem value="semana_ant">Semana Anterior</SelectItem>
-              <SelectItem value="mes">Mês Atual</SelectItem>
-              <SelectItem value="mes_ant">Mês Anterior</SelectItem>
-              <SelectItem value="tudo">Todo o período</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setConfirmReset(true)}
+              className="gap-2 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
+              title="Reinicia a contagem do ranking a partir de agora (não apaga dados financeiros)"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Resetar Ranking
+            </Button>
+            {resetEm && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setConfirmLimpar(true)}
+                className="text-xs text-gray-400 hover:text-gray-200"
+                title="Volta a contar todo o histórico (remove o reset)"
+              >
+                Limpar reset
+              </Button>
+            )}
+            <Select value={periodo} onValueChange={setPeriodo}>
+              <SelectTrigger className="w-52 bg-[#152236] border-white/10 text-gray-200 focus:ring-blue-500">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[#152236] border-white/10 text-gray-200">
+                <SelectItem value="semana">Semana Atual</SelectItem>
+                <SelectItem value="semana_ant">Semana Anterior</SelectItem>
+                <SelectItem value="mes">Mês Atual</SelectItem>
+                <SelectItem value="mes_ant">Mês Anterior</SelectItem>
+                <SelectItem value="tudo">Todo o período</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         )}
       </div>
 
@@ -465,6 +540,24 @@ export default function RankingTecnicos() {
           </CardContent>
         </Card>
       )}
+
+      <ConfirmDialog
+        open={confirmReset}
+        onClose={() => setConfirmReset(false)}
+        onConfirm={aplicarReset}
+        title="Resetar ranking dos técnicos?"
+        description="A contagem do ranking (semana/mês/ano) vai começar do zero a partir de agora. Comissões anteriores deixam de aparecer no ranking. ATENÇÃO: nenhum dado financeiro é apagado — Pagamentos, Lançamentos e relatórios continuam intactos. Você pode reverter clicando em 'Limpar reset'."
+        confirmText="Resetar agora"
+        variant="default"
+      />
+      <ConfirmDialog
+        open={confirmLimpar}
+        onClose={() => setConfirmLimpar(false)}
+        onConfirm={limparReset}
+        title="Remover o reset do ranking?"
+        description="O ranking voltará a contar todo o histórico de comissões."
+        confirmText="Remover reset"
+      />
     </div>
   );
 }
