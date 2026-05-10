@@ -1,0 +1,53 @@
+{
+  "name": "Despesa",
+  "type": "object",
+  "properties": {
+    "descricao": {
+      "type": "string",
+      "description": "Descricao curta da despesa (ex: 'Gasolina posto BR', 'Troca de oleo')"
+    },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "Ferramentas",
+        "Manutencao Carro",
+        "Pecas Carro",
+        "Combustivel",
+        "Material Consumo",
+        "Aluguel",
+        "Energia",
+        "Internet",
+        "Telefone",
+        "Outros"
+      ],
+      "default": "Outros",
+      "description": "Categoria da despesa"
+    },
+    "valor": {
+      "type": "number",
+      "description": "Valor gasto (R$)"
+    },
+    "data": {
+      "type": "string",
+      "format": "date",
+      "description": "Data da despesa"
+    },
+    "metodo_pagamento": {
+      "type": "string",
+      "description": "Como foi pago (PIX, Dinheiro, Cartao, etc)"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observacoes / numero de nota fiscal / fornecedor"
+    },
+    "fornecedor": {
+      "type": "string",
+      "description": "Nome do fornecedor / loja / posto"
+    }
+  },
+  "required": [
+    "descricao",
+    "valor",
+    "data"
+  ]
+}
