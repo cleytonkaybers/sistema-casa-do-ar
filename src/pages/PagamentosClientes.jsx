@@ -23,12 +23,10 @@ import { parseHistoricoData, toLocalDateSafe } from '@/lib/dateUtils';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 import { matchClienteSearch } from '@/lib/utils/buscaCliente';
 import CompromissoClientePDF from '@/components/financeiro/CompromissoClientePDF';
-import DespesasView from '@/components/financeiro/DespesasView';
 import {
   Search, CheckCircle2, AlertCircle, Calendar,
   MessageCircle, Filter, X, Tag,
-  Clock, History, Trash2, Eye, Check, FileDown, AlertTriangle, RotateCcw, Archive, ArchiveRestore,
-  Receipt, DollarSign
+  Clock, History, Trash2, Eye, Check, FileDown, AlertTriangle, RotateCcw, Archive, ArchiveRestore
 } from 'lucide-react';
 
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
@@ -1297,8 +1295,6 @@ function PagamentosClientesContent() {
 
   const [pagarModal, setPagarModal] = useState(null);
   const [precosModal, setPrecosModal] = useState(null);
-  // Toggle entre vista de Pagamentos (default) e Despesas
-  const [viewModeRoot, setViewModeRoot] = useState('pagamentos');
   const [editarModal, setEditarModal] = useState(null);
   const [historicoModal, setHistoricoModal] = useState(null);
   const [detalhesModal, setDetalhesModal] = useState(null);
@@ -2149,36 +2145,6 @@ function PagamentosClientesContent() {
 
   return (
     <div className="space-y-5">
-      {/* Toggle Pagamentos | Despesas */}
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          onClick={() => setViewModeRoot('pagamentos')}
-          size="sm"
-          className={`h-9 text-sm rounded-xl gap-2 ${
-            viewModeRoot === 'pagamentos'
-              ? 'bg-blue-600 text-white hover:bg-blue-700'
-              : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-          }`}
-        >
-          <DollarSign className="w-4 h-4" /> Pagamentos
-        </Button>
-        <Button
-          onClick={() => setViewModeRoot('despesas')}
-          size="sm"
-          className={`h-9 text-sm rounded-xl gap-2 ${
-            viewModeRoot === 'despesas'
-              ? 'bg-red-600 text-white hover:bg-red-700'
-              : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-          }`}
-        >
-          <Receipt className="w-4 h-4" /> Despesas
-        </Button>
-      </div>
-
-      {viewModeRoot === 'despesas' ? (
-        <DespesasView />
-      ) : (
-      <>
       {/* Header com resumo */}
       <div className="rounded-2xl p-4 sm:p-5" style={{ backgroundColor: '#1e3a8a' }}>
         <div className="flex flex-col gap-4">
@@ -2496,9 +2462,6 @@ function PagamentosClientesContent() {
             emptyMsg="Nenhum registro no período selecionado"
           />
         </div>
-      )}
-
-      </>
       )}
 
       <DefinirPrecoModal open={!!precosModal} onClose={() => setPrecosModal(null)} pagamento={precosModal} pagamentosAtuais={pagamentos} onSave={handleSalvarPrecos} />

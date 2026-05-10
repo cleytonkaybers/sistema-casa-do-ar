@@ -96,13 +96,6 @@ export default function Dashboard() {
     enabled: isAdmin,
   });
 
-  // Despesas (para abater do lucro liquido e mostrar total no Resumo do Mes)
-  const { data: despesas = [] } = useQuery({
-    queryKey: ['despesas'],
-    queryFn: () => base44.entities.Despesa.list('-data').catch(() => []),
-    enabled: isAdmin,
-  });
-
   // Verificar último backup (admin) — entidade pode não existir em todos os ambientes
   const { data: ultimosBackups = [] } = useQuery({
     queryKey: ['ultimo-backup'],
@@ -216,7 +209,7 @@ export default function Dashboard() {
 
   // --- ADMIN STATS ---
   const adminResumoMes = useMemo(() => {
-    if (!isAdmin) return { faturadoMes: 0, faturadoSemana: 0, recebidoMes: 0, recebidoSemana: 0, comissoes: 0, despesasMes: 0 };
+    if (!isAdmin) return { faturadoMes: 0, faturadoSemana: 0, recebidoMes: 0, recebidoSemana: 0, comissoes: 0 };
     const hoje = getLocalDate();
     const inicioMes = startOfMonth(hoje);
     const fimMes = endOfMonth(hoje);
@@ -272,16 +265,8 @@ export default function Dashboard() {
       return isWithinInterval(dt, { start: inicioMes, end: fimMes });
     }).reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-    // Despesas do mes (gastos da empresa: ferramentas, combustivel, etc).
-    // Sao abatidas do lucro liquido junto com as comissoes pagas a tecnicos.
-    const despesasMes = (despesas || []).filter(d => {
-      if (!d.data) return false;
-      const dt = parseDate(d.data);
-      return dt && isWithinInterval(dt, { start: inicioMes, end: fimMes });
-    }).reduce((sum, d) => sum + (parseFloat(d.valor) || 0), 0);
-
-    return { faturadoMes, faturadoSemana, recebidoMes, recebidoSemana, comissoes, despesasMes };
-  }, [servicos, pagamentosClientes, pagamentosTecnicos, despesas, isAdmin]);
+    return { faturadoMes, faturadoSemana, recebidoMes, recebidoSemana, comissoes };
+  }, [servicos, pagamentosClientes, pagamentosTecnicos, isAdmin]);
 
   const adminTecnicosSemana = useMemo(() => {
     if (!isAdmin) return [];
@@ -580,7 +565,6 @@ export default function Dashboard() {
                 recebidoMes={adminResumoMes.recebidoMes}
                 recebidoSemana={adminResumoMes.recebidoSemana}
                 comissoes={adminResumoMes.comissoes}
-                despesasMes={adminResumoMes.despesasMes}
               />
             </div>
             <div className="md:col-span-2 flex flex-col">
