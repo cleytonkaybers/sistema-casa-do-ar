@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,18 +58,13 @@ export default function RankingTecnicos() {
   const { user } = useAuth();
   const isTecnico = !isAdmin;
   const [periodo, setPeriodo] = useState('mes');
-  const [resetEm, setResetEm] = useState(null); // ISO string ou null
+  // Le do localStorage SINCRONAMENTE no estado inicial — evita flash de
+  // dados desfiltrados no primeiro render apos refresh.
+  const [resetEm, setResetEm] = useState(() => {
+    try { return localStorage.getItem(RANKING_RESET_KEY) || null; } catch { return null; }
+  });
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmLimpar, setConfirmLimpar] = useState(false);
-
-  // Carrega cutoff do localStorage. Lancamentos com data_geracao < resetEm
-  // sao IGNORADOS no calculo do ranking. NAO apaga nada do banco.
-  useEffect(() => {
-    try {
-      const v = localStorage.getItem(RANKING_RESET_KEY);
-      if (v) setResetEm(v);
-    } catch {}
-  }, []);
 
   const aplicarReset = () => {
     const agora = new Date().toISOString();
@@ -164,6 +159,9 @@ export default function RankingTecnicos() {
   });
   const pagPeriodo = pagamentos.filter((p) => {
     if (p.status !== 'Confirmado') return false;
+    // respeita o cutoff de reset: pagamentos anteriores ao reset tambem somem
+    const dataRefPag = p.data_pagamento || p.created_date;
+    if (!aposReset(dataRefPag)) return false;
     if (!inicio || !fim) return true;
     return dentro(p.data_pagamento, inicio, fim) || dentro(p.created_date, inicio, fim);
   });
