@@ -1,0 +1,48 @@
+{
+  "name": "Empresa",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome da empresa cliente"
+    },
+    "cnpj": {
+      "type": "string",
+      "description": "CNPJ da empresa"
+    },
+    "telefone": {
+      "type": "string",
+      "description": "Telefone de contato"
+    },
+    "email": {
+      "type": "string",
+      "description": "Email da empresa"
+    },
+    "endereco": {
+      "type": "string",
+      "description": "Endere\u00e7o completo"
+    },
+    "logo_url": {
+      "type": "string",
+      "description": "URL da logo da empresa"
+    },
+    "ativa": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se a empresa est\u00e1 ativa no sistema"
+    },
+    "plano": {
+      "type": "string",
+      "enum": [
+        "basico",
+        "profissional",
+        "empresarial"
+      ],
+      "default": "basico",
+      "description": "Plano contratado"
+    }
+  },
+  "required": [
+    "nome"
+  ]
+}

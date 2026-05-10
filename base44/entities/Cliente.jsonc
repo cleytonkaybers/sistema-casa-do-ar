@@ -1,0 +1,72 @@
+{
+  "name": "Cliente",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome completo do cliente"
+    },
+    "cpf": {
+      "type": "string",
+      "description": "CPF do cliente (opcional)"
+    },
+    "telefone": {
+      "type": "string",
+      "description": "N\u00famero de telefone com DDD"
+    },
+    "endereco": {
+      "type": "string",
+      "description": "Endere\u00e7o completo do cliente"
+    },
+    "latitude": {
+      "type": "number",
+      "description": "Latitude da localiza\u00e7\u00e3o"
+    },
+    "longitude": {
+      "type": "number",
+      "description": "Longitude da localiza\u00e7\u00e3o"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es sobre o cliente"
+    },
+    "ultima_manutencao": {
+      "type": "string",
+      "format": "date",
+      "description": "Data da \u00faltima manuten\u00e7\u00e3o"
+    },
+    "proxima_manutencao": {
+      "type": "string",
+      "format": "date",
+      "description": "Data da pr\u00f3xima manuten\u00e7\u00e3o programada"
+    },
+    "segmentacao": {
+      "type": "string",
+      "enum": [
+        "Potencial",
+        "Regular",
+        "VIP"
+      ],
+      "default": "Regular",
+      "description": "Segmenta\u00e7\u00e3o do cliente baseada em hist\u00f3rico e valor"
+    },
+    "notas_internas": {
+      "type": "string",
+      "description": "Notas internas confidenciais sobre o cliente"
+    },
+    "total_gasto": {
+      "type": "number",
+      "default": 0,
+      "description": "Valor total gasto pelo cliente em todos os servi\u00e7os"
+    },
+    "quantidade_servicos": {
+      "type": "integer",
+      "default": 0,
+      "description": "Total de servi\u00e7os realizados para este cliente"
+    }
+  },
+  "required": [
+    "nome",
+    "telefone"
+  ]
+}

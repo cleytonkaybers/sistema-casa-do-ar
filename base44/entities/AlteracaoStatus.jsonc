@@ -1,0 +1,44 @@
+{
+  "name": "AlteracaoStatus",
+  "type": "object",
+  "properties": {
+    "servico_id": {
+      "type": "string",
+      "description": "ID do servi\u00e7o alterado"
+    },
+    "atendimento_id": {
+      "type": "string",
+      "description": "ID do atendimento alterado (se aplic\u00e1vel)"
+    },
+    "status_anterior": {
+      "type": "string",
+      "description": "Status anterior"
+    },
+    "status_novo": {
+      "type": "string",
+      "description": "Novo status"
+    },
+    "usuario": {
+      "type": "string",
+      "description": "Email do usu\u00e1rio que fez a altera\u00e7\u00e3o"
+    },
+    "data_alteracao": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data e hora da altera\u00e7\u00e3o"
+    },
+    "tipo_registro": {
+      "type": "string",
+      "enum": [
+        "servico",
+        "atendimento"
+      ],
+      "description": "Tipo de registro alterado"
+    }
+  },
+  "required": [
+    "usuario",
+    "data_alteracao",
+    "tipo_registro"
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "name": "PlanoSaaS",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome do plano"
+    },
+    "preco_mensal": {
+      "type": "number",
+      "description": "Pre\u00e7o mensal em reais"
+    },
+    "limite_usuarios": {
+      "type": "integer",
+      "description": "Limite de usu\u00e1rios por empresa"
+    },
+    "limite_clientes": {
+      "type": "integer",
+      "description": "Limite de clientes cadastrados"
+    },
+    "limite_ordens_mes": {
+      "type": "integer",
+      "description": "Limite de ordens de servi\u00e7o por m\u00eas"
+    },
+    "recursos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Lista de recursos/funcionalidades inclusos"
+    },
+    "trial_dias": {
+      "type": "integer",
+      "default": 7,
+      "description": "Dias de trial gratuito"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se o plano est\u00e1 ativo para novas assinaturas"
+    }
+  },
+  "required": [
+    "nome",
+    "preco_mensal"
+  ]
+}

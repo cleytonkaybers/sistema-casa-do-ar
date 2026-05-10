@@ -1,0 +1,28 @@
+{
+  "name": "PreferenciaNotificacao",
+  "type": "object",
+  "properties": {
+    "usuario_email": {
+      "type": "string",
+      "description": "Email do usu\u00e1rio"
+    },
+    "atendimento_criado": {
+      "type": "boolean",
+      "default": true,
+      "description": "Receber notifica\u00e7\u00e3o quando novo atendimento \u00e9 criado"
+    },
+    "atendimento_atualizado": {
+      "type": "boolean",
+      "default": true,
+      "description": "Receber notifica\u00e7\u00e3o quando atendimento \u00e9 atualizado"
+    },
+    "atendimento_concluido": {
+      "type": "boolean",
+      "default": true,
+      "description": "Receber notifica\u00e7\u00e3o quando atendimento \u00e9 conclu\u00eddo"
+    }
+  },
+  "required": [
+    "usuario_email"
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "name": "Atendimento",
+  "type": "object",
+  "properties": {
+    "servico_id": {
+      "type": "string",
+      "description": "ID da ordem de servi\u00e7o de origem"
+    },
+    "cliente_nome": {
+      "type": "string",
+      "description": "Nome do cliente"
+    },
+    "cpf": {
+      "type": "string",
+      "description": "CPF do cliente"
+    },
+    "telefone": {
+      "type": "string",
+      "description": "Telefone do cliente"
+    },
+    "endereco": {
+      "type": "string",
+      "description": "Endere\u00e7o do servi\u00e7o"
+    },
+    "latitude": {
+      "type": "number",
+      "description": "Latitude"
+    },
+    "longitude": {
+      "type": "number",
+      "description": "Longitude"
+    },
+    "data_atendimento": {
+      "type": "string",
+      "format": "date",
+      "description": "Data do atendimento (data programada do servi\u00e7o)"
+    },
+    "horario": {
+      "type": "string",
+      "description": "Hor\u00e1rio do servi\u00e7o"
+    },
+    "dia_semana": {
+      "type": "string",
+      "description": "Dia da semana"
+    },
+    "tipo_servico": {
+      "type": "string",
+      "description": "Tipo de servi\u00e7o realizado"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o do servi\u00e7o"
+    },
+    "valor": {
+      "type": "number",
+      "description": "Valor cobrado"
+    },
+    "observacoes_conclusao": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es adicionadas ao concluir"
+    },
+    "equipe_id": {
+      "type": "string",
+      "description": "ID da equipe respons\u00e1vel"
+    },
+    "equipe_nome": {
+      "type": "string",
+      "description": "Nome da equipe respons\u00e1vel"
+    },
+    "usuario_conclusao": {
+      "type": "string",
+      "description": "Email do usu\u00e1rio que concluiu o servi\u00e7o"
+    },
+    "data_conclusao": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data e hora da conclus\u00e3o"
+    },
+    "detalhes": {
+      "type": "string",
+      "description": "JSON com todos os dados do servi\u00e7o + hist\u00f3rico completo de altera\u00e7\u00f5es de status"
+    }
+  },
+  "required": [
+    "cliente_nome",
+    "tipo_servico"
+  ]
+}

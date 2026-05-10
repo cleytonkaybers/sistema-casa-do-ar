@@ -1,0 +1,47 @@
+{
+  "name": "ChatConversation",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "Email do usu\u00e1rio que iniciou a conversa"
+    },
+    "user_name": {
+      "type": "string",
+      "description": "Nome do usu\u00e1rio"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "waiting_agent",
+        "assigned",
+        "closed"
+      ],
+      "default": "open",
+      "description": "Status da conversa"
+    },
+    "assigned_agent": {
+      "type": "string",
+      "description": "Email do agente designado"
+    },
+    "topic": {
+      "type": "string",
+      "description": "Assunto da conversa"
+    },
+    "last_message_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp da \u00faltima mensagem"
+    },
+    "resolved": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se a conversa foi resolvida"
+    }
+  },
+  "required": [
+    "user_email",
+    "user_name"
+  ]
+}

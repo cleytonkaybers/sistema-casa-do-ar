@@ -1,0 +1,98 @@
+{
+  "name": "EmpresaSaaS",
+  "type": "object",
+  "properties": {
+    "company_id": {
+      "type": "string",
+      "description": "ID \u00fanico da empresa no SaaS (gerado automaticamente)"
+    },
+    "nome": {
+      "type": "string",
+      "description": "Nome da empresa"
+    },
+    "cnpj": {
+      "type": "string",
+      "description": "CNPJ da empresa"
+    },
+    "email": {
+      "type": "string",
+      "description": "Email principal da empresa"
+    },
+    "telefone": {
+      "type": "string",
+      "description": "Telefone de contato"
+    },
+    "endereco": {
+      "type": "string",
+      "description": "Endere\u00e7o completo"
+    },
+    "logo_url": {
+      "type": "string",
+      "description": "URL da logo da empresa"
+    },
+    "responsavel_nome": {
+      "type": "string",
+      "description": "Nome do respons\u00e1vel/dono"
+    },
+    "plano": {
+      "type": "string",
+      "enum": [
+        "basico",
+        "profissional",
+        "premium"
+      ],
+      "default": "basico",
+      "description": "Plano contratado"
+    },
+    "status_assinatura": {
+      "type": "string",
+      "enum": [
+        "trial",
+        "ativa",
+        "vencida",
+        "bloqueada"
+      ],
+      "default": "trial",
+      "description": "Status atual da assinatura"
+    },
+    "data_inicio_trial": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data de in\u00edcio do per\u00edodo trial"
+    },
+    "data_fim_trial": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data de t\u00e9rmino do per\u00edodo trial"
+    },
+    "data_proxima_cobranca": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data da pr\u00f3xima cobran\u00e7a"
+    },
+    "stripe_customer_id": {
+      "type": "string",
+      "description": "ID do cliente no Stripe"
+    },
+    "usuarios_ativos": {
+      "type": "integer",
+      "default": 1,
+      "description": "N\u00famero de usu\u00e1rios ativos"
+    },
+    "bloqueada": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se a empresa est\u00e1 bloqueada"
+    },
+    "motivo_bloqueio": {
+      "type": "string",
+      "description": "Motivo do bloqueio (se aplic\u00e1vel)"
+    }
+  },
+  "required": [
+    "nome",
+    "cnpj",
+    "email",
+    "responsavel_nome"
+  ]
+}

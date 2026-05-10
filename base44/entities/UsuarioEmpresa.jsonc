@@ -1,0 +1,53 @@
+{
+  "name": "UsuarioEmpresa",
+  "type": "object",
+  "properties": {
+    "company_id": {
+      "type": "string",
+      "description": "ID da empresa"
+    },
+    "email": {
+      "type": "string",
+      "description": "Email do usu\u00e1rio"
+    },
+    "nome": {
+      "type": "string",
+      "description": "Nome completo"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "dono",
+        "admin",
+        "funcionario",
+        "tecnico"
+      ],
+      "default": "funcionario",
+      "description": "Papel do usu\u00e1rio na empresa"
+    },
+    "telefone": {
+      "type": "string",
+      "description": "Telefone do usu\u00e1rio"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se o usu\u00e1rio est\u00e1 ativo"
+    },
+    "data_convite": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data do convite"
+    },
+    "data_aceite": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data que o usu\u00e1rio aceitou o convite"
+    }
+  },
+  "required": [
+    "company_id",
+    "email",
+    "nome"
+  ]
+}
