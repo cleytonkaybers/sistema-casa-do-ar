@@ -196,21 +196,17 @@ function groupPagamentos(lista) {
     }
   });
   return Object.values(groups).map(g => {
-    // Dedup por servico_id (mantem o mais recente). Sem servico_id passa direto.
-    // Evita "Troca de local x2" quando ha 2 PagamentoCliente para o mesmo servico
-    // (causado por regerar duplicado ou race no sync).
-    const porServico = new Map();
-    const semServicoId = [];
+    // Dedup por ID DO PAGAMENTO (unico real). Antes deduplicava por servico_id,
+    // o que escondia atendimentos legitimos do mesmo Servico em datas/tipos
+    // diferentes (ex: cliente atendido 2x na mesma semana). Agora a dedup so
+    // remove records com mesmo PagamentoCliente.id — efetivamente nao duplica
+    // se o useQuery retornar o mesmo registro 2x.
+    const porId = new Map();
     g._records.forEach(r => {
-      if (!r.servico_id) { semServicoId.push(r); return; }
-      const existente = porServico.get(r.servico_id);
-      const dataR = new Date(r.data_conclusao || r.created_date || 0);
-      const dataE = existente ? new Date(existente.data_conclusao || existente.created_date || 0) : null;
-      if (!existente || dataR > dataE) {
-        porServico.set(r.servico_id, r);
-      }
+      if (!r.id) return; // pagamento sem id, ignora
+      if (!porId.has(r.id)) porId.set(r.id, r);
     });
-    const recordsDedup = [...porServico.values(), ...semServicoId];
+    const recordsDedup = [...porId.values()];
     const valorTotal = recordsDedup.reduce((s, r) => s + (r.valor_total || 0), 0);
     const valorPago = recordsDedup.reduce((s, r) => s + (r.valor_pago || 0), 0);
     const saldo = valorTotal - valorPago;
@@ -1519,10 +1515,11 @@ function PagamentosClientesContent() {
     if (isLoading || !atendimentos.length || !pagamentos) return;
     // Aguarda pagamentos estarem carregados (evita criar duplicatas na montagem)
     const idsRegistrados = new Set(pagamentos.map(p => p.atendimento_id).filter(Boolean));
-    // Defesa em profundidade: tambem deduplica por servico_id (evita 2 pagamentos
-    // para o mesmo servico mesmo se vierem de atendimentos diferentes — caso raro
-    // de regerar duplicado ou race no fluxo de conclusao).
-    const servicosRegistrados = new Set(pagamentos.map(p => p.servico_id).filter(Boolean));
+    // NAO deduplica por servico_id: o mesmo Servico pode ser atendido varias
+    // vezes (datas/tipos diferentes), e cada atendimento DEVE virar 1 pagamento.
+    // A protecao real contra duplicata fica por conta de:
+    // - atendimento_id (idsRegistrados) — mesmo atendimento processado 2x
+    // - compoundKey (cliente+tipo+data) — race no fluxo de conclusao
     // Chave composta cliente+tipo+data para casos onde servico_id e atendimento_id
     // mudam mas o pagamento e logicamente o mesmo (ex: regerar atendimento ao
     // mesmo tempo que outra aba criou um pagamento — sem essa proteção dava duplicata).
@@ -1534,7 +1531,6 @@ function PagamentosClientesContent() {
 
     const novos = atendimentos.filter(a => {
       if (idsRegistrados.has(a.id)) return false;
-      if (a.servico_id && servicosRegistrados.has(a.servico_id)) return false;
       if (criandoIds.current.has(a.id)) return false;
       if (deletedAtendimentoIds.current.has(a.id)) return false;
       if (isApenasTiposIgnorados(a.tipo_servico)) return false;
