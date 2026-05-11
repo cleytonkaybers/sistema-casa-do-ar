@@ -1940,10 +1940,15 @@ function PagamentosClientesContent() {
   }, [inicioSemana, fimSemana]);
 
   // 1. Serviços da semana atual (todos, incluindo pagos — somem na virada)
+  // EXCECAO: servicos sem preco definido (placeholder R$1, sem pagamento) FICAM
+  // aqui mesmo de semanas anteriores, ate serem precificados. Ao precificar,
+  // se forem de semana anterior, descem para Pendencias normalmente.
   const pagsSemana = useMemo(() => {
     const statusOrder = { 'pendente': 0, 'agendado': 1, 'parcial': 2, 'pago': 3 };
     const filtrados = pagsFiltrados
       .filter(p => {
+        // Placeholder de preco (R$1 sem pagamento) — fica aqui ate ser precificado
+        if ((p.valor_total || 0) <= 1.0 && (p.valor_pago || 0) === 0) return true;
         // Serviço concluído esta semana
         if (p.data_conclusao) {
           try {
@@ -1966,10 +1971,14 @@ function PagamentosClientesContent() {
 
   // 2. PENDÊNCIAS: apenas itens de semanas ANTERIORES com saldo em aberto
   //    Exclui os que receberam pagamento esta semana
+  //    Exclui PLACEHOLDERS (R$1 sem pagamento) — esses ficam em "Servicos da
+  //    Semana" ate serem precificados, regra unificada.
   const pagsPendencias = useMemo(() => {
     const filtrados = pagsFiltrados
       .filter(p => {
         if (p.status === 'pago') return false;
+        // Placeholder de preco (R$1 sem pagamento) → aparece em Servicos da Semana, nao aqui
+        if ((p.valor_total || 0) <= 1.0 && (p.valor_pago || 0) === 0) return false;
         // Se recebeu pagamento esta semana → aparece na aba semana, não aqui
         if (temPagamentoNaSemana(p)) return false;
         if (p.data_conclusao) {
@@ -1979,8 +1988,6 @@ function PagamentosClientesContent() {
         }
         const saldo = (p.valor_total || 0) - (p.valor_pago || 0);
         const valorPago = p.valor_pago || 0;
-        // Pagamentos com valor placeholder (R$ 1,00) sem pagamento DEVEM aparecer
-        // como pendentes para o ADM precificar. Nao remover.
         // Excluir apenas se "pago por tolerancia" (saldo <= R$1 com algum pagamento feito)
         if (valorPago > 0 && saldo <= 1.0) return false;
         // Mostrar: saldo real > R$0,01 OU servico sem preco definido (valor_total = 0)
