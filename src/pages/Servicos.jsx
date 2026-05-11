@@ -19,6 +19,7 @@ import { ptBR } from 'date-fns/locale';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 import { matchClienteSearch } from '@/lib/utils/buscaCliente';
+import { calcularComissao } from '@/lib/comissao';
 
 export default function ServicosPage() {
   const { hasPermission, isAdmin, user: currentUser, loading: loadingUser } = usePermissions();
@@ -417,7 +418,9 @@ export default function ServicosPage() {
               return;
             }
             const valorTotal = servicoSnapshot.valor;
-            const valorComissaoTecnico = valorTotal * 0.15;
+            // Le percentuais da Tabela de Servicos (TipoServicoValor). Fallback 30/15.
+            const comissao = await calcularComissao(servicoSnapshot.tipo_servico, valorTotal, queryClient);
+            const valorComissaoTecnico = comissao.valor_comissao_tecnico;
             await Promise.all(tecnicos.map(async (tec) => {
               // Dedup atomico: evita duplicar lancamento se conclusao foi disparada
               // 2x rapidamente (race com flag comissao_gerada que so e setada DEPOIS).
@@ -435,9 +438,9 @@ export default function ServicosPage() {
                 cliente_nome: servicoSnapshot.cliente_nome,
                 tipo_servico: servicoSnapshot.tipo_servico,
                 valor_total_servico: valorTotal,
-                percentual_equipe: 30,
-                valor_comissao_equipe: valorTotal * 0.3,
-                percentual_tecnico: 15,
+                percentual_equipe: comissao.percentual_equipe,
+                valor_comissao_equipe: comissao.valor_comissao_equipe,
+                percentual_tecnico: comissao.percentual_tecnico,
                 valor_comissao_tecnico: valorComissaoTecnico,
                 status: 'pendente',
                 data_geracao: agora,

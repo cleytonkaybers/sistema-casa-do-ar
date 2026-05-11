@@ -18,6 +18,7 @@ import { getStartOfWeek, getEndOfWeek, getLocalDate, toLocalDate, formatDate } f
 import { subWeeks, format, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatTipoServicoCompact } from '@/utils';
+import { calcularComissao, calcularComissaoSync } from '@/lib/comissao';
 
 const inputDark = 'bg-[#1e2d3d] border-[#2d3f55] text-gray-100 placeholder:text-gray-500 focus:border-blue-500 focus:ring-blue-500/20 h-10 px-3 rounded-md border w-full text-sm';
 const selectDark = 'bg-[#1e2d3d] border border-[#2d3f55] text-gray-100 h-10 px-3 rounded-md w-full text-sm focus:outline-none focus:border-blue-500';
@@ -400,7 +401,10 @@ export default function RelatorioComissoes() {
     setSalvando(true);
     try {
       const agora = novoLanc.data_geracao ? new Date(novoLanc.data_geracao + 'T12:00:00').toISOString() : new Date().toISOString();
-      const comissao = valor * 0.15;
+      // Le percentuais da Tabela de Servicos (TipoServicoValor). Fallback 30/15.
+      const tipoServ = novoLanc.tipo_servico.trim() || 'Serviço';
+      const comissaoCalc = await calcularComissao(tipoServ, valor, queryClient);
+      const comissao = comissaoCalc.valor_comissao_tecnico;
 
       // Buscar um servico_id real para usar como referência (campo obrigatório no schema)
       let placeholderServicoId = lancamentos.find(l => l.servico_id && l.servico_id.length > 10)?.servico_id;
@@ -419,12 +423,12 @@ export default function RelatorioComissoes() {
           equipe_id: tec.equipe_id || '',
           equipe_nome: tec.equipe_nome || '',
           cliente_nome: novoLanc.cliente_nome.trim(),
-          tipo_servico: novoLanc.tipo_servico.trim() || 'Serviço',
+          tipo_servico: tipoServ,
           valor_total_servico: valor,
-          percentual_tecnico: 15,
+          percentual_tecnico: comissaoCalc.percentual_tecnico,
           valor_comissao_tecnico: comissao,
-          percentual_equipe: 30,
-          valor_comissao_equipe: valor * 0.3,
+          percentual_equipe: comissaoCalc.percentual_equipe,
+          valor_comissao_equipe: comissaoCalc.valor_comissao_equipe,
           status: 'pendente',
           data_geracao: agora,
           usuario_geracao: user?.email || '',
@@ -860,14 +864,24 @@ export default function RelatorioComissoes() {
                 <Label className="text-xs text-gray-400 mb-1 block">Valor do Serviço (R$) *</Label>
                 <Input type="number" placeholder="200.00" value={novoLanc.valor_servico} onChange={e => setNovoLanc(f => ({ ...f, valor_servico: e.target.value }))} />
               </div>
-              <div>
-                <Label className="text-xs text-gray-400 mb-1 block">Comissão por técnico (15%)</Label>
-                <Input
-                  readOnly
-                  className="bg-white/5 text-emerald-400 font-semibold border-white/10"
-                  value={novoLanc.valor_servico ? `R$ ${(parseFloat(novoLanc.valor_servico) * 0.15).toFixed(2)}` : 'R$ 0.00'}
-                />
-              </div>
+              {(() => {
+                // Preview da comissao do tecnico — le da Tabela de Servicos
+                const previewVal = parseFloat(novoLanc.valor_servico) || 0;
+                const previewTipo = (novoLanc.tipo_servico || '').trim() || 'Serviço';
+                const prev = calcularComissaoSync(previewTipo, previewVal, tiposServico);
+                return (
+                  <div>
+                    <Label className="text-xs text-gray-400 mb-1 block">
+                      Comissão por técnico ({prev.percentual_tecnico}%)
+                    </Label>
+                    <Input
+                      readOnly
+                      className="bg-white/5 text-emerald-400 font-semibold border-white/10"
+                      value={previewVal ? `R$ ${prev.valor_comissao_tecnico.toFixed(2)}` : 'R$ 0.00'}
+                    />
+                  </div>
+                );
+              })()}
             </div>
             <div>
               <Label className="text-xs text-gray-400 mb-1 block">Data do Lançamento</Label>

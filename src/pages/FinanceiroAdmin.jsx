@@ -70,10 +70,14 @@ export default function FinanceiroAdmin() {
       const valorNovo = valorServico * pct;
       const diferenca = valorNovo - valorAntigo;
 
+      // Usa o percentual_equipe ja gravado no lancamento (mantem consistencia
+      // com o que foi calculado na geracao). Fallback 30 para lancamentos
+      // antigos sem o campo.
+      const percEquipe = lancAtual.percentual_equipe ?? 30;
       await base44.entities.LancamentoFinanceiro.update(id, {
         valor_total_servico: valorServico,
         percentual_tecnico: parseFloat(novoPercentual),
-        valor_comissao_equipe: valorServico * 0.30,
+        valor_comissao_equipe: valorServico * (percEquipe / 100),
         valor_comissao_tecnico: valorNovo
       });
 

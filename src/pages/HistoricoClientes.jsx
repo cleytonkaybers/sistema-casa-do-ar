@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { createPageUrl, formatTipoServicoCompact } from '@/utils';
 import { matchClienteSearch } from '@/lib/utils/buscaCliente';
+import { calcularComissao } from '@/lib/comissao';
 
 // Helper de telefone extraído dos padrões
 const formatPhone = (phone) => {
@@ -173,7 +174,9 @@ export default function HistoricoClientes() {
           .catch(() => []);
         if (tecnicos && tecnicos.length > 0) {
           const valorTotal = servico.valor;
-          const valorComissaoTecnico = valorTotal * 0.15;
+          // Le percentuais da Tabela de Servicos (TipoServicoValor). Fallback 30/15.
+          const comissao = await calcularComissao(servico.tipo_servico, valorTotal, queryClient);
+          const valorComissaoTecnico = comissao.valor_comissao_tecnico;
           await Promise.all(tecnicos.map(async (tec) => {
             // Dedup atomico: evita duplicar comissao em chamadas paralelas de regerar
             const ja = await base44.entities.LancamentoFinanceiro
@@ -190,9 +193,9 @@ export default function HistoricoClientes() {
               cliente_nome: servico.cliente_nome,
               tipo_servico: servico.tipo_servico,
               valor_total_servico: valorTotal,
-              percentual_equipe: 30,
-              valor_comissao_equipe: valorTotal * 0.3,
-              percentual_tecnico: 15,
+              percentual_equipe: comissao.percentual_equipe,
+              valor_comissao_equipe: comissao.valor_comissao_equipe,
+              percentual_tecnico: comissao.percentual_tecnico,
               valor_comissao_tecnico: valorComissaoTecnico,
               status: 'pendente',
               data_geracao: agora,
