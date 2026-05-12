@@ -319,7 +319,7 @@ export default function RelatorioComissoes() {
   });
 
   const { data: tiposServico = [] } = useQuery({
-    queryKey: ['tipos-servico-valor'],
+    queryKey: ['tiposServicoValor'],
     queryFn: () => base44.entities.TipoServicoValor.list(),
   });
 

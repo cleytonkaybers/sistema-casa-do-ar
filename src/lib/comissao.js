@@ -14,12 +14,16 @@ async function loadTiposServicoValor(queryClient) {
   if (!queryClient) {
     return base44.entities.TipoServicoValor.list();
   }
-  const cached = queryClient.getQueryData(['tiposServicoValor']);
-  if (cached) return cached;
+  // staleTime: 0 garante que SEMPRE busca a Tabela de Servicos fresca ao
+  // calcular comissao. React Query deduplica chamadas in-flight, entao
+  // multiplas conclusoes paralelas reaproveitam 1 fetch. Importante:
+  // antes usavamos getQueryData() que retornava cache stale (invalidado
+  // mas ainda em memoria) — fazia comissao sair com % antigo apos o admin
+  // mudar a Tabela.
   return queryClient.fetchQuery({
     queryKey: ['tiposServicoValor'],
     queryFn: () => base44.entities.TipoServicoValor.list(),
-    staleTime: 60_000,
+    staleTime: 0,
   });
 }
 
