@@ -5,6 +5,11 @@ const PERCENTUAL_TECNICO_FALLBACK = 15;
 
 const norm = (s) => (s || '').trim().toLowerCase();
 
+// Remove sufixos entre colchetes ("[Marca: TCL]", "[Ar da sogra]") que sao
+// metadados visuais e nao fazem parte do tipo de servico cadastrado na tabela.
+// Ex: "Instalacao de 12k [Marca: TCL]" -> "Instalacao de 12k"
+const stripSufixos = (s) => (s || '').replace(/\s*\[[^\]]*\]/g, '').trim();
+
 async function loadTiposServicoValor(queryClient) {
   if (!queryClient) {
     return base44.entities.TipoServicoValor.list();
@@ -19,14 +24,29 @@ async function loadTiposServicoValor(queryClient) {
 }
 
 function findPercentuais(tipoServico, tipos) {
+  // 1) Match exato (sem normalizacao alem de trim/lowercase)
   const exato = tipos.find(t => norm(t.tipo_servico) === norm(tipoServico));
   if (exato) return { match: exato, motivo: 'exato' };
 
-  const partes = (tipoServico || '').split('+').map(p => p.trim()).filter(Boolean);
-  if (partes.length > 1) {
-    const primeiro = tipos.find(t => norm(t.tipo_servico) === norm(partes[0]));
-    if (primeiro) return { match: primeiro, motivo: 'primeiro_componente' };
+  // 2) Match removendo sufixos [X] no fim (ex: "Instalacao 12k [Marca: TCL]")
+  const semSufixo = stripSufixos(tipoServico);
+  if (semSufixo && norm(semSufixo) !== norm(tipoServico)) {
+    const matchSemSufixo = tipos.find(t => norm(stripSufixos(t.tipo_servico)) === norm(semSufixo));
+    if (matchSemSufixo) return { match: matchSemSufixo, motivo: 'sem_sufixo' };
   }
+
+  // 3) Tipo composto: split por + e tenta cada parte (com e sem sufixo)
+  const partes = (tipoServico || '').split('+').map(p => p.trim()).filter(Boolean);
+  for (const parte of partes) {
+    const parteSemSufixo = stripSufixos(parte);
+    const match = tipos.find(t => {
+      const t1 = norm(t.tipo_servico);
+      const t2 = norm(stripSufixos(t.tipo_servico));
+      return t1 === norm(parte) || t2 === norm(parteSemSufixo);
+    });
+    if (match) return { match, motivo: 'componente' };
+  }
+
   return { match: null, motivo: 'fallback' };
 }
 
