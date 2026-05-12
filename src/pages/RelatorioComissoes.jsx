@@ -280,8 +280,15 @@ export default function RelatorioComissoes() {
   const [salvando, setSalvando] = useState(false);
   const [lancParaDeletar, setLancParaDeletar] = useState(null);
   const [deletando, setDeletando] = useState(false);
-  const [confirmRecalc, setConfirmRecalc] = useState(false);
+  const [recalcModalOpen, setRecalcModalOpen] = useState(false);
   const [recalculando, setRecalculando] = useState(false);
+  const [recalcOpts, setRecalcOpts] = useState({
+    modo: 'tabela', // 'tabela' | 'forcado'
+    perc_equipe: '30',
+    perc_tecnico: '15',
+    data_inicio: '',
+    data_fim: '',
+  });
 
   React.useEffect(() => {
     const checkAdmin = async () => {
@@ -496,30 +503,51 @@ export default function RelatorioComissoes() {
     await gerarPDF({ lancamentosFiltrados, totais, ganhosSemanais, equipesNomes, totaisPorEquipe, porMes, dataInicio, dataFim });
   };
 
-  // Recalcula % de TODOS os lancamentos pendentes (sem pagamento) usando o
-  // % atual da Tabela de Servicos. Ajusta credito_pendente/total_ganho do
-  // TecnicoFinanceiro pela DIFERENCA. Nao mexe em pago/parcial.
+  // Recalcula % dos lancamentos pendentes (sem pagamento) com filtros e modo
+  // configuravel. Ajusta credito_pendente/total_ganho do TecnicoFinanceiro
+  // pela DIFERENCA. Nao mexe em lancamentos pago/parcial (com pagamento real).
   const handleRecalcularComissoes = async () => {
     setRecalculando(true);
-    setConfirmRecalc(false);
+    setRecalcModalOpen(false);
+
+    const modo = recalcOpts.modo;
+    const forcadoEquipe = parseFloat(String(recalcOpts.perc_equipe).replace(',', '.'));
+    const forcadoTecnico = parseFloat(String(recalcOpts.perc_tecnico).replace(',', '.'));
+    if (modo === 'forcado' && (Number.isNaN(forcadoEquipe) || Number.isNaN(forcadoTecnico))) {
+      toast.error('Informe % equipe e % técnico válidos');
+      setRecalculando(false);
+      return;
+    }
+    const dataInicioObj = recalcOpts.data_inicio ? new Date(recalcOpts.data_inicio + 'T00:00:00') : null;
+    const dataFimObj = recalcOpts.data_fim ? new Date(recalcOpts.data_fim + 'T23:59:59') : null;
+
     try {
-      // Filtra apenas lancamentos elegiveis: sem pagamento confirmado E sem
-      // valor pago parcial (status pendente E valor_pago = 0).
-      const elegiveis = lancamentos.filter(l =>
-        l.status === 'pendente' && (l.valor_pago || 0) === 0
-      );
+      // Filtra: sem pagamento confirmado, sem valor pago parcial, dentro do range
+      const elegiveis = lancamentos.filter(l => {
+        if (l.status !== 'pendente') return false;
+        if ((l.valor_pago || 0) !== 0) return false;
+        if (dataInicioObj || dataFimObj) {
+          const d = l.data_geracao ? new Date(l.data_geracao) : null;
+          if (!d) return false;
+          if (dataInicioObj && d < dataInicioObj) return false;
+          if (dataFimObj && d > dataFimObj) return false;
+        }
+        return true;
+      });
       if (elegiveis.length === 0) {
-        toast.info('Nenhum lançamento pendente para recalcular');
+        toast.info('Nenhum lançamento pendente encontrado com esses filtros');
         setRecalculando(false);
         return;
       }
 
-      // Pre-carrega tabela uma vez (cache)
-      await queryClient.fetchQuery({
-        queryKey: ['tiposServicoValor'],
-        queryFn: () => base44.entities.TipoServicoValor.list(),
-        staleTime: 60_000,
-      });
+      // Pre-carrega tabela uma vez (cache) — usado se modo === 'tabela'
+      if (modo === 'tabela') {
+        await queryClient.fetchQuery({
+          queryKey: ['tiposServicoValor'],
+          queryFn: () => base44.entities.TipoServicoValor.list(),
+          staleTime: 60_000,
+        });
+      }
 
       // Agrupa diferenca por tecnico_id para 1 update por tecnico no final
       const ajusteCreditoPorTecnico = {};
@@ -529,7 +557,18 @@ export default function RelatorioComissoes() {
 
       for (const lanc of elegiveis) {
         try {
-          const novo = await calcularComissao(lanc.tipo_servico, lanc.valor_total_servico || 0, queryClient);
+          let novo;
+          if (modo === 'forcado') {
+            const valor = lanc.valor_total_servico || 0;
+            novo = {
+              percentual_equipe: forcadoEquipe,
+              percentual_tecnico: forcadoTecnico,
+              valor_comissao_equipe: valor * (forcadoEquipe / 100),
+              valor_comissao_tecnico: valor * (forcadoTecnico / 100),
+            };
+          } else {
+            novo = await calcularComissao(lanc.tipo_servico, lanc.valor_total_servico || 0, queryClient);
+          }
           const oldPercTec = lanc.percentual_tecnico ?? 15;
           const oldComTec = lanc.valor_comissao_tecnico || 0;
           if (Math.abs(novo.percentual_tecnico - oldPercTec) < 0.001) {
@@ -616,11 +655,11 @@ export default function RelatorioComissoes() {
         </div>
         <div className="flex gap-2 self-start sm:self-auto flex-wrap">
           <Button
-            onClick={() => setConfirmRecalc(true)}
+            onClick={() => setRecalcModalOpen(true)}
             disabled={recalculando}
             variant="outline"
             className="gap-2 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
-            title="Recalcula o % de todos os lançamentos pendentes usando a Tabela de Serviços atual"
+            title="Recalcula o % de lançamentos pendentes (com filtros de data e modo)"
           >
             {recalculando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />}
             {recalculando ? 'Recalculando...' : 'Recalcular %'}
@@ -1010,15 +1049,111 @@ export default function RelatorioComissoes() {
         isLoading={deletando}
       />
 
-      <ConfirmDialog
-        open={confirmRecalc}
-        onClose={() => !recalculando && setConfirmRecalc(false)}
-        onConfirm={handleRecalcularComissoes}
-        title="Recalcular comissões pendentes?"
-        description={`Vai atualizar o % de TODOS os lançamentos pendentes (sem pagamento confirmado) com base na Tabela de Serviços atual. Lançamentos pagos ou com pagamento parcial NÃO serão alterados. Os créditos pendentes dos técnicos serão ajustados pela diferença. Pode levar alguns segundos.`}
-        confirmText={recalculando ? 'Recalculando...' : 'Recalcular agora'}
-        isLoading={recalculando}
-      />
+      <Dialog open={recalcModalOpen} onOpenChange={(v) => !recalculando && setRecalcModalOpen(v)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calculator className="w-5 h-5 text-amber-400" /> Recalcular comissões pendentes
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label className="text-xs text-gray-400 mb-2 block">Modo de cálculo</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={recalcOpts.modo === 'tabela' ? 'default' : 'outline'}
+                  className={recalcOpts.modo === 'tabela' ? 'flex-1 bg-blue-600 hover:bg-blue-700' : 'flex-1'}
+                  onClick={() => setRecalcOpts(o => ({ ...o, modo: 'tabela' }))}
+                >
+                  Usar Tabela de Serviços
+                </Button>
+                <Button
+                  type="button"
+                  variant={recalcOpts.modo === 'forcado' ? 'default' : 'outline'}
+                  className={recalcOpts.modo === 'forcado' ? 'flex-1 bg-amber-600 hover:bg-amber-700' : 'flex-1'}
+                  onClick={() => setRecalcOpts(o => ({ ...o, modo: 'forcado' }))}
+                >
+                  Forçar % manual
+                </Button>
+              </div>
+            </div>
+
+            {recalcOpts.modo === 'forcado' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-gray-400 mb-1 block">% Equipe</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={recalcOpts.perc_equipe}
+                    onChange={e => setRecalcOpts(o => ({ ...o, perc_equipe: e.target.value }))}
+                    placeholder="30"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-400 mb-1 block">% Técnico</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={recalcOpts.perc_tecnico}
+                    onChange={e => setRecalcOpts(o => ({ ...o, perc_tecnico: e.target.value }))}
+                    placeholder="15"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <Label className="text-xs text-gray-400 block">Filtrar por data (opcional)</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[10px] text-gray-500 mb-1 block">A partir de</Label>
+                  <Input
+                    type="date"
+                    value={recalcOpts.data_inicio}
+                    onChange={e => setRecalcOpts(o => ({ ...o, data_inicio: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-gray-500 mb-1 block">Até</Label>
+                  <Input
+                    type="date"
+                    value={recalcOpts.data_fim}
+                    onChange={e => setRecalcOpts(o => ({ ...o, data_fim: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-gray-500 mt-1">
+                Sem datas = todos os pendentes. Use as datas para recalcular só uma semana específica.
+              </p>
+            </div>
+
+            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-300">
+              <p className="font-semibold mb-1">⚠ O que acontece</p>
+              <p>Lançamentos pendentes (status=pendente, sem pagamento) terão o % e o valor da comissão recalculados. Crédito dos técnicos é ajustado pela diferença. Lançamentos pagos ou parciais NÃO são alterados.</p>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setRecalcModalOpen(false)} disabled={recalculando}>
+                Cancelar
+              </Button>
+              <Button
+                className="flex-1 bg-amber-600 hover:bg-amber-700 text-white gap-2"
+                onClick={handleRecalcularComissoes}
+                disabled={recalculando}
+              >
+                {recalculando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />}
+                {recalculando ? 'Recalculando...' : 'Executar'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
