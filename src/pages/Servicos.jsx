@@ -304,7 +304,53 @@ export default function ServicosPage() {
         }
       }
 
-      // 3. Operações secundárias em background (não bloqueiam a UI)
+      // 3a. Servico SO de tipos ignorados (ex: "Verificar defeito" sozinho):
+      // cria APENAS o Atendimento (registro da visita do tecnico) e DELETA o
+      // Servico. Nao gera comissao, nao cria PagamentoCliente, nao registra
+      // AlteracaoStatus. O Atendimento mantem todos os dados para historico.
+      if (isVerDefeito) {
+        (async () => {
+          try {
+            await base44.entities.Atendimento.create({
+              servico_id: servicoSnapshot.id,
+              os_numero: servicoSnapshot.os_numero || '',
+              cliente_nome: servicoSnapshot.cliente_nome,
+              cpf: servicoSnapshot.cpf || '',
+              telefone: servicoSnapshot.telefone || '',
+              endereco: servicoSnapshot.endereco || '',
+              latitude: servicoSnapshot.latitude || null,
+              longitude: servicoSnapshot.longitude || null,
+              data_atendimento: servicoSnapshot.data_programada,
+              horario: servicoSnapshot.horario || '',
+              dia_semana: servicoSnapshot.dia_semana || '',
+              tipo_servico: servicoSnapshot.tipo_servico,
+              descricao: servicoSnapshot.descricao || '',
+              valor: servicoSnapshot.valor || 0,
+              observacoes_conclusao: observacoes || '',
+              equipe_id: servicoSnapshot.equipe_id || '',
+              equipe_nome: servicoSnapshot.equipe_nome || '',
+              usuario_conclusao: user?.email,
+              data_conclusao: agora,
+              google_maps_link: servicoSnapshot.google_maps_link || '',
+              detalhes: JSON.stringify({
+                tipo_visita: 'verificacao_apenas',
+                observacoes_conclusao: observacoes || null,
+                usuario_conclusao: user?.email,
+                data_conclusao: agora,
+              }),
+            });
+            // Servico ja virou Atendimento — deleta o Servico
+            await base44.entities.Servico.delete(servicoSnapshot.id);
+            queryClient.invalidateQueries({ queryKey: ['servicos'] });
+            queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
+          } catch (err) {
+            console.error('Erro no fluxo verificar-defeito:', err);
+            toast.error('⚠️ Falha ao registrar visita de verificação');
+          }
+        })();
+      }
+
+      // 3b. Operações secundárias em background (não bloqueiam a UI)
       if (!isVerDefeito) Promise.all([
         base44.entities.AlteracaoStatus.create({
           servico_id: servicoSnapshot.id,

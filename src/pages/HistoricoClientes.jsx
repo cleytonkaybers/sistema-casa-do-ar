@@ -22,6 +22,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl, formatTipoServicoCompact } from '@/utils';
 import { matchClienteSearch } from '@/lib/utils/buscaCliente';
 import { calcularComissao } from '@/lib/comissao';
+import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 
 // Helper de telefone extraído dos padrões
 const formatPhone = (phone) => {
@@ -101,6 +102,44 @@ export default function HistoricoClientes() {
         .catch(() => []);
       if (atendimentosExistentes && atendimentosExistentes.length > 0) {
         throw new Error('JA_EXISTE_ATENDIMENTO');
+      }
+
+      // 0b. Servico SO de tipos ignorados (ex: "Verificar defeito" sozinho):
+      // cria APENAS o Atendimento (registro da visita) e DELETA o Servico.
+      // Nao gera comissao, nao cria PagamentoCliente.
+      const isVerDefeito = isApenasTiposIgnorados(servico.tipo_servico);
+      if (isVerDefeito) {
+        await base44.entities.Atendimento.create({
+          servico_id: servico.id,
+          os_numero: servico.os_numero || '',
+          cliente_nome: servico.cliente_nome,
+          cpf: servico.cpf || '',
+          telefone: servico.telefone || '',
+          endereco: servico.endereco || '',
+          latitude: servico.latitude || null,
+          longitude: servico.longitude || null,
+          data_atendimento: servico.data_programada,
+          horario: servico.horario || '',
+          dia_semana: servico.dia_semana || '',
+          tipo_servico: servico.tipo_servico,
+          descricao: servico.descricao || '',
+          valor: servico.valor || 0,
+          observacoes_conclusao: servico.observacoes_conclusao || '',
+          equipe_id: servico.equipe_id || '',
+          equipe_nome: servico.equipe_nome || '',
+          usuario_conclusao: user?.email,
+          data_conclusao: agora,
+          google_maps_link: servico.google_maps_link || '',
+          detalhes: JSON.stringify({
+            tipo_visita: 'verificacao_apenas',
+            observacoes_conclusao: servico.observacoes_conclusao || null,
+            usuario_conclusao: user?.email,
+            data_conclusao: agora,
+            regerado_em: agora,
+          }),
+        });
+        await base44.entities.Servico.delete(servico.id);
+        return { tecnicosComissionados: 0, preventivaAtualizada: false, isVerDefeito: true };
       }
 
       // 1. Buscar historico de status (best-effort)
@@ -264,12 +303,16 @@ export default function HistoricoClientes() {
 
       return { tecnicosComissionados, preventivaAtualizada };
     },
-    onSuccess: ({ tecnicosComissionados, preventivaAtualizada }) => {
+    onSuccess: ({ tecnicosComissionados, preventivaAtualizada, isVerDefeito }) => {
       queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
       queryClient.invalidateQueries({ queryKey: ['servicos'] });
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
       queryClient.invalidateQueries({ queryKey: ['lancamentosFinanceiros'] });
       queryClient.invalidateQueries({ queryKey: ['tecnicosFinanceiros'] });
+      if (isVerDefeito) {
+        toast.success('✅ Visita de verificação registrada (sem comissão, serviço removido).');
+        return;
+      }
       const partes = ['✅ Atendimento criado'];
       if (tecnicosComissionados > 0) partes.push(`comissao para ${tecnicosComissionados} tecnico(s)`);
       if (preventivaAtualizada) partes.push('preventiva atualizada');
