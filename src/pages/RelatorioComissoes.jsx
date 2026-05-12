@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { FileText, DollarSign, TrendingUp, Calendar, Filter, Trophy, Users, Plus, Trash2 } from 'lucide-react';
+import { FileText, DollarSign, TrendingUp, Calendar, Filter, Trophy, Users, Plus, Trash2, Calculator, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { calcularTotalComissoes, agruparPorPeriodo } from '@/lib/utils/calculations';
 import { TableSkeleton, CardSkeleton } from '@/components/LoadingSkeleton';
@@ -280,6 +280,8 @@ export default function RelatorioComissoes() {
   const [salvando, setSalvando] = useState(false);
   const [lancParaDeletar, setLancParaDeletar] = useState(null);
   const [deletando, setDeletando] = useState(false);
+  const [confirmRecalc, setConfirmRecalc] = useState(false);
+  const [recalculando, setRecalculando] = useState(false);
 
   React.useEffect(() => {
     const checkAdmin = async () => {
@@ -494,6 +496,96 @@ export default function RelatorioComissoes() {
     await gerarPDF({ lancamentosFiltrados, totais, ganhosSemanais, equipesNomes, totaisPorEquipe, porMes, dataInicio, dataFim });
   };
 
+  // Recalcula % de TODOS os lancamentos pendentes (sem pagamento) usando o
+  // % atual da Tabela de Servicos. Ajusta credito_pendente/total_ganho do
+  // TecnicoFinanceiro pela DIFERENCA. Nao mexe em pago/parcial.
+  const handleRecalcularComissoes = async () => {
+    setRecalculando(true);
+    setConfirmRecalc(false);
+    try {
+      // Filtra apenas lancamentos elegiveis: sem pagamento confirmado E sem
+      // valor pago parcial (status pendente E valor_pago = 0).
+      const elegiveis = lancamentos.filter(l =>
+        l.status === 'pendente' && (l.valor_pago || 0) === 0
+      );
+      if (elegiveis.length === 0) {
+        toast.info('Nenhum lançamento pendente para recalcular');
+        setRecalculando(false);
+        return;
+      }
+
+      // Pre-carrega tabela uma vez (cache)
+      await queryClient.fetchQuery({
+        queryKey: ['tiposServicoValor'],
+        queryFn: () => base44.entities.TipoServicoValor.list(),
+        staleTime: 60_000,
+      });
+
+      // Agrupa diferenca por tecnico_id para 1 update por tecnico no final
+      const ajusteCreditoPorTecnico = {};
+      let atualizados = 0;
+      let inalterados = 0;
+      let erros = 0;
+
+      for (const lanc of elegiveis) {
+        try {
+          const novo = await calcularComissao(lanc.tipo_servico, lanc.valor_total_servico || 0, queryClient);
+          const oldPercTec = lanc.percentual_tecnico ?? 15;
+          const oldComTec = lanc.valor_comissao_tecnico || 0;
+          if (Math.abs(novo.percentual_tecnico - oldPercTec) < 0.001) {
+            inalterados++;
+            continue;
+          }
+          await base44.entities.LancamentoFinanceiro.update(lanc.id, {
+            percentual_equipe: novo.percentual_equipe,
+            valor_comissao_equipe: novo.valor_comissao_equipe,
+            percentual_tecnico: novo.percentual_tecnico,
+            valor_comissao_tecnico: novo.valor_comissao_tecnico,
+          });
+          const diff = novo.valor_comissao_tecnico - oldComTec;
+          if (lanc.tecnico_id) {
+            ajusteCreditoPorTecnico[lanc.tecnico_id] = (ajusteCreditoPorTecnico[lanc.tecnico_id] || 0) + diff;
+          }
+          atualizados++;
+        } catch (err) {
+          console.error('[recalc] falha em lancamento', lanc.id, err);
+          erros++;
+        }
+      }
+
+      // Aplica ajuste de credito_pendente/total_ganho por tecnico
+      for (const [tecnicoId, diff] of Object.entries(ajusteCreditoPorTecnico)) {
+        if (Math.abs(diff) < 0.001) continue;
+        try {
+          const tecRegs = await base44.entities.TecnicoFinanceiro.filter({ tecnico_id: tecnicoId });
+          if (tecRegs && tecRegs.length > 0) {
+            const tr = tecRegs[0];
+            await base44.entities.TecnicoFinanceiro.update(tr.id, {
+              credito_pendente: Math.max(0, (tr.credito_pendente || 0) + diff),
+              total_ganho: Math.max(0, (tr.total_ganho || 0) + diff),
+            });
+          }
+        } catch (err) {
+          console.error('[recalc] falha ao ajustar TecnicoFinanceiro', tecnicoId, err);
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['lancamentos-financeiros'] });
+      queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro'] });
+
+      if (erros > 0) {
+        toast.error(`${atualizados} atualizados, ${inalterados} sem mudança, ${erros} falharam`);
+      } else {
+        toast.success(`✓ ${atualizados} lançamento(s) recalculado(s). ${inalterados} já estavam corretos.`);
+      }
+    } catch (err) {
+      console.error('[recalc] erro geral', err);
+      toast.error('Erro ao recalcular comissões: ' + (err?.message || ''));
+    } finally {
+      setRecalculando(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="flex items-center justify-center h-screen bg-[#0d1826]">
@@ -522,7 +614,17 @@ export default function RelatorioComissoes() {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-100">Relatório de Comissões</h1>
           <p className="text-gray-400 mt-1 text-sm">Extrato detalhado de comissões por período</p>
         </div>
-        <div className="flex gap-2 self-start sm:self-auto">
+        <div className="flex gap-2 self-start sm:self-auto flex-wrap">
+          <Button
+            onClick={() => setConfirmRecalc(true)}
+            disabled={recalculando}
+            variant="outline"
+            className="gap-2 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+            title="Recalcula o % de todos os lançamentos pendentes usando a Tabela de Serviços atual"
+          >
+            {recalculando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />}
+            {recalculando ? 'Recalculando...' : 'Recalcular %'}
+          </Button>
           <Button
             onClick={() => setModalOpen(true)}
             className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
@@ -906,6 +1008,16 @@ export default function RelatorioComissoes() {
         confirmText="Remover"
         variant="destructive"
         isLoading={deletando}
+      />
+
+      <ConfirmDialog
+        open={confirmRecalc}
+        onClose={() => !recalculando && setConfirmRecalc(false)}
+        onConfirm={handleRecalcularComissoes}
+        title="Recalcular comissões pendentes?"
+        description={`Vai atualizar o % de TODOS os lançamentos pendentes (sem pagamento confirmado) com base na Tabela de Serviços atual. Lançamentos pagos ou com pagamento parcial NÃO serão alterados. Os créditos pendentes dos técnicos serão ajustados pela diferença. Pode levar alguns segundos.`}
+        confirmText={recalculando ? 'Recalculando...' : 'Recalcular agora'}
+        isLoading={recalculando}
       />
     </div>
   );
