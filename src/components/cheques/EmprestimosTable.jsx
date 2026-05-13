@@ -10,41 +10,101 @@ import { Plus, Trash2, MinusCircle, TrendingUp, ChevronDown, ChevronRight, Clock
 import { differenceInDays, parseISO, isValid, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// Juros SIMPLES: % ao mes proporcional aos dias decorridos. Atualizado diariamente.
-// Ex.: R$ 1.000 a 10% a.m. apos 15 dias = R$ 1.000 + (1.000 * 0,1/30 * 15) = R$ 1.050.
-function calcularDebitoAtual(emprestimo) {
-  const { valor_principal, percentual_mes, data_emprestimo, total_abatido } = emprestimo;
-  if (!valor_principal || !percentual_mes || !data_emprestimo) return valor_principal || 0;
+// Simula cronologicamente o emprestimo (juros SIMPLES, nao composto) considerando
+// pagamentos parciais que abatem juros primeiro e depois capital. Quando o principal
+// diminui (por pagamento de capital), os juros a partir dali sao calculados sobre o
+// novo principal. Juros nao pagos NAO geram juros sobre si mesmos.
+//
+// Retorna a simulacao completa: cada pagamento detalhado (juros/capital), saldo final
+// de principal, juros pago acumulado, juros devido restante e debito total.
+function simularEmprestimo(emprestimo) {
+  const fallback = (v) => ({
+    pagamentos: [],
+    principalRestante: v || 0,
+    principalPagoTotal: 0,
+    jurosPagoTotal: 0,
+    jurosDevidoTotal: 0,
+    jurosAcumulados: 0,
+    debitoTotal: v || 0,
+  });
+  const { valor_principal, percentual_mes, data_emprestimo } = emprestimo || {};
+  if (!valor_principal || !data_emprestimo) return fallback(valor_principal);
   const inicio = parseISO(data_emprestimo);
-  if (!isValid(inicio)) return valor_principal;
-  const dias = Math.max(0, differenceInDays(new Date(), inicio));
-  const taxaDiaria = percentual_mes / 100 / 30;
-  const juros = valor_principal * taxaDiaria * dias;
-  return Math.max(0, valor_principal + juros - (total_abatido || 0));
+  if (!isValid(inicio)) return fallback(valor_principal);
+
+  const taxaDiaria = (percentual_mes || 0) / 100 / 30;
+  const eventos = (emprestimo.historico_pagamentos || [])
+    .filter(h => h.tipo === 'abatimento' || h.tipo === 'quitacao')
+    .sort((a, b) => new Date(a.data) - new Date(b.data));
+
+  let principalVigente = valor_principal;
+  let jurosAcumNaoPagos = 0;
+  let dataUltima = inicio;
+  let jurosPagoTotal = 0;
+  let principalPagoTotal = 0;
+
+  const pagamentos = eventos.map(p => {
+    const dataP = new Date(p.data);
+    const dias = Math.max(0, differenceInDays(dataP, dataUltima));
+    const novoJurosGerado = principalVigente * taxaDiaria * dias;
+    jurosAcumNaoPagos += novoJurosGerado;
+
+    const valor = p.valor || 0;
+    const partJuros = Math.min(valor, jurosAcumNaoPagos);
+    const partCapital = Math.max(0, valor - partJuros);
+
+    jurosAcumNaoPagos = Math.max(0, jurosAcumNaoPagos - partJuros);
+    principalVigente = Math.max(0, principalVigente - partCapital);
+    jurosPagoTotal += partJuros;
+    principalPagoTotal += partCapital;
+    dataUltima = dataP;
+
+    return {
+      ...p,
+      partJuros,
+      partCapital,
+      diasDesdeUltimo: dias,
+      principalApos: principalVigente,
+      jurosPendenteApos: jurosAcumNaoPagos,
+    };
+  });
+
+  // Periodo final: do ultimo evento (ou data do emprestimo se nao houve pagamento)
+  // ate HOJE. Acumula mais juros sobre o principal restante.
+  const hoje = new Date();
+  const diasFinais = Math.max(0, differenceInDays(hoje, dataUltima));
+  const jurosFinaisGerados = principalVigente * taxaDiaria * diasFinais;
+  jurosAcumNaoPagos += jurosFinaisGerados;
+
+  return {
+    pagamentos,
+    principalRestante: principalVigente,
+    principalPagoTotal,
+    jurosPagoTotal,
+    jurosDevidoTotal: jurosAcumNaoPagos,
+    jurosAcumulados: jurosPagoTotal + jurosAcumNaoPagos,
+    debitoTotal: principalVigente + jurosAcumNaoPagos,
+  };
+}
+
+// Wrappers para compatibilidade — todos derivam da simulacao cronologica.
+function calcularDebitoAtual(emprestimo) {
+  return simularEmprestimo(emprestimo).debitoTotal;
 }
 
 function calcularJurosAcumulados(emprestimo) {
-  const { valor_principal, percentual_mes, data_emprestimo } = emprestimo;
-  if (!valor_principal || !percentual_mes || !data_emprestimo) return 0;
-  const inicio = parseISO(data_emprestimo);
-  if (!isValid(inicio)) return 0;
-  const dias = Math.max(0, differenceInDays(new Date(), inicio));
-  const taxaDiaria = percentual_mes / 100 / 30;
-  const juros = valor_principal * taxaDiaria * dias;
-  return Math.max(0, juros);
+  return simularEmprestimo(emprestimo).jurosAcumulados;
 }
 
-// Convencao contabil: total_abatido primeiro paga JUROS, depois o principal.
-// Ex.: principal 6000, juros 1130, abatido 600 -> juros pago 600, juros devido 530.
-//      abatido 1500 -> juros pago 1130, principal pago 370.
 function calcularJurosBreakdown(emprestimo) {
-  const jurosAcumulados = calcularJurosAcumulados(emprestimo);
-  const totalAbatido = emprestimo.total_abatido || 0;
-  const jurosPago = Math.min(totalAbatido, jurosAcumulados);
-  const jurosDevido = Math.max(0, jurosAcumulados - jurosPago);
-  const principalPago = Math.max(0, totalAbatido - jurosAcumulados);
-  const principalDevido = Math.max(0, (emprestimo.valor_principal || 0) - principalPago);
-  return { jurosAcumulados, jurosPago, jurosDevido, principalPago, principalDevido };
+  const sim = simularEmprestimo(emprestimo);
+  return {
+    jurosAcumulados: sim.jurosAcumulados,
+    jurosPago: sim.jurosPagoTotal,
+    jurosDevido: sim.jurosDevidoTotal,
+    principalPago: sim.principalPagoTotal,
+    principalDevido: sim.principalRestante,
+  };
 }
 
 function formatMoney(v) {
@@ -70,23 +130,11 @@ const emptyForm = {
   observacoes: '',
 };
 
-// Quebra cronologicamente cada pagamento em quanto foi juros e quanto foi capital.
-// Convencao: pagamento abate juros primeiro, depois capital.
-// Simplificacao: usa juros acumulados ate HOJE (nao na data do pagamento).
+// Wrapper: retorna so a lista de pagamentos com breakdown (juros/capital).
+// Toda a logica esta em simularEmprestimo (juros SIMPLES, principal reduzido a cada
+// pagamento parcial). Mantida assinatura antiga para o modal de Detalhes.
 function detalharPagamentos(emprestimo) {
-  const jurosAcumulados = calcularJurosAcumulados(emprestimo);
-  let jurosRestante = jurosAcumulados;
-  const eventos = (emprestimo.historico_pagamentos || [])
-    .filter(h => h.tipo === 'abatimento' || h.tipo === 'quitacao')
-    .sort((a, b) => new Date(a.data) - new Date(b.data));
-
-  return eventos.map(p => {
-    const valor = p.valor || 0;
-    const partJuros = Math.min(jurosRestante, valor);
-    const partCapital = Math.max(0, valor - partJuros);
-    jurosRestante = Math.max(0, jurosRestante - partJuros);
-    return { ...p, partJuros, partCapital };
-  });
+  return simularEmprestimo(emprestimo).pagamentos;
 }
 
 export default function EmprestimosTable() {
@@ -803,26 +851,32 @@ export default function EmprestimosTable() {
                                   <th className="text-right py-1 font-medium">Valor</th>
                                   <th className="text-right py-1 font-medium text-orange-600">Juros</th>
                                   <th className="text-right py-1 font-medium text-blue-600">Capital</th>
+                                  <th className="text-right py-1 font-medium text-gray-500">Saldo principal</th>
                                   <th className="text-left py-1 font-medium pl-2">Obs</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {detalhes.map((d, i) => (
                                   <tr key={i} className="border-b border-gray-50 last:border-0">
-                                    <td className="py-1 text-gray-700 whitespace-nowrap">{formatDateTime(d.data)}</td>
+                                    <td className="py-1 text-gray-700 whitespace-nowrap">
+                                      <div>{formatDateTime(d.data)}</div>
+                                      <div className="text-[10px] text-gray-400">+{d.diasDesdeUltimo} dias</div>
+                                    </td>
                                     <td className="py-1 text-right font-semibold text-green-700">{formatMoney(d.valor)}</td>
                                     <td className="py-1 text-right text-orange-600">{formatMoney(d.partJuros)}</td>
                                     <td className="py-1 text-right text-blue-600">{formatMoney(d.partCapital)}</td>
-                                    <td className="py-1 text-gray-500 italic pl-2 truncate max-w-[200px]">{d.observacao || '-'}</td>
+                                    <td className="py-1 text-right text-gray-600">{formatMoney(d.principalApos)}</td>
+                                    <td className="py-1 text-gray-500 italic pl-2 truncate max-w-[160px]">{d.observacao || '-'}</td>
                                   </tr>
                                 ))}
                               </tbody>
                               <tfoot>
                                 <tr className="font-bold border-t border-gray-200">
                                   <td className="pt-2 text-gray-700">TOTAL</td>
-                                  <td className="pt-2 text-right text-green-700">{formatMoney(e.total_abatido || 0)}</td>
-                                  <td className="pt-2 text-right text-orange-700">{formatMoney(bk.jurosPago)}</td>
-                                  <td className="pt-2 text-right text-blue-700">{formatMoney(bk.principalPago)}</td>
+                                  <td className="pt-2 text-right text-green-700">{formatMoney(detalhes.reduce((s, d) => s + d.valor, 0))}</td>
+                                  <td className="pt-2 text-right text-orange-700">{formatMoney(detalhes.reduce((s, d) => s + d.partJuros, 0))}</td>
+                                  <td className="pt-2 text-right text-blue-700">{formatMoney(detalhes.reduce((s, d) => s + d.partCapital, 0))}</td>
+                                  <td className="pt-2 text-right text-gray-700">{formatMoney(detalhes[detalhes.length - 1].principalApos)}</td>
                                   <td></td>
                                 </tr>
                               </tfoot>
