@@ -83,11 +83,20 @@ export default function RelatóriosPage() {
   });
   const [verArquivadas, setVerArquivadas] = useState(false);
 
-  const toggleArquivada = (key) => {
+  // Defensivo: persiste no localStorage sempre que o estado mudar, garantindo
+  // sincronizacao mesmo se algo der errado no setter direto.
+  React.useEffect(() => {
+    try { localStorage.setItem('instalacoes_arquivadas', JSON.stringify([...instalacoesArquivadas])); } catch (_e) { /* ignore */ }
+  }, [instalacoesArquivadas]);
+
+  // Acao explicita (nao toggle) — evita 'desfazer' acidentalmente se o handler
+  // for chamado 2x (double-click, StrictMode etc).
+  const setArquivada = (key, arquivar) => {
     setInstalacoesArquivadas(prev => {
+      const ja = prev.has(key);
+      if (arquivar === ja) return prev; // sem mudanca, mesmo objeto pra evitar re-render
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      try { localStorage.setItem('instalacoes_arquivadas', JSON.stringify([...next])); } catch (_e) { /* ignore */ }
+      if (arquivar) next.add(key); else next.delete(key);
       return next;
     });
   };
@@ -732,7 +741,7 @@ export default function RelatóriosPage() {
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    onClick={() => toggleArquivada(i.key)}
+                                    onClick={() => setArquivada(i.key, !verArquivadas)}
                                     className={`h-7 text-xs ${verArquivadas ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
                                     title={verArquivadas ? 'Restaurar para lista ativa' : 'Marcar como concluída e arquivar'}
                                   >
