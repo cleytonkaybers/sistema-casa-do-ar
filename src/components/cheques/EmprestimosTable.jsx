@@ -34,6 +34,19 @@ function calcularJurosAcumulados(emprestimo) {
   return Math.max(0, juros);
 }
 
+// Convencao contabil: total_abatido primeiro paga JUROS, depois o principal.
+// Ex.: principal 6000, juros 1130, abatido 600 -> juros pago 600, juros devido 530.
+//      abatido 1500 -> juros pago 1130, principal pago 370.
+function calcularJurosBreakdown(emprestimo) {
+  const jurosAcumulados = calcularJurosAcumulados(emprestimo);
+  const totalAbatido = emprestimo.total_abatido || 0;
+  const jurosPago = Math.min(totalAbatido, jurosAcumulados);
+  const jurosDevido = Math.max(0, jurosAcumulados - jurosPago);
+  const principalPago = Math.max(0, totalAbatido - jurosAcumulados);
+  const principalDevido = Math.max(0, (emprestimo.valor_principal || 0) - principalPago);
+  return { jurosAcumulados, jurosPago, jurosDevido, principalPago, principalDevido };
+}
+
 function formatMoney(v) {
   return `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
@@ -279,6 +292,7 @@ export default function EmprestimosTable() {
   const renderCard = (e, isQuitado = false) => {
     const debitoAtual = calcularDebitoAtual(e);
     const juros = calcularJurosAcumulados(e);
+    const { jurosPago, jurosDevido } = calcularJurosBreakdown(e);
     const isExpanded = expandedId === e.id;
     const historico = e.historico_pagamentos || [];
     const diasDecorridos = e.data_emprestimo && isValid(parseISO(e.data_emprestimo))
@@ -312,6 +326,15 @@ export default function EmprestimosTable() {
           <div>
             <p className="text-xs text-orange-400">Juros acumulados</p>
             <p className="font-semibold text-orange-600 text-sm">{formatMoney(juros)}</p>
+            {juros > 0 && (
+              <p className="text-[10px] mt-0.5 leading-tight">
+                <span className="text-green-600">✓ pago {formatMoney(jurosPago)}</span>
+                <span className="text-gray-400 mx-1">·</span>
+                <span className={jurosDevido > 0 ? 'text-red-600 font-semibold' : 'text-gray-400'}>
+                  ⚠ devido {formatMoney(jurosDevido)}
+                </span>
+              </p>
+            )}
           </div>
           <div>
             <p className="text-xs text-green-500">Total abatido</p>
@@ -548,7 +571,17 @@ export default function EmprestimosTable() {
             <div className="bg-red-50 border border-red-100 rounded-lg px-3 py-2">
               <p className="text-xs text-gray-500">Débito atual</p>
               <p className="text-lg font-bold text-red-600">{abatimentoModal ? formatMoney(calcularDebitoAtual(abatimentoModal)) : '-'}</p>
-              <p className="text-xs text-orange-500">↑ {abatimentoModal ? formatMoney(calcularJurosAcumulados(abatimentoModal)) : '-'} em juros</p>
+              {abatimentoModal && (() => {
+                const bk = calcularJurosBreakdown(abatimentoModal);
+                return (
+                  <p className="text-xs text-orange-500 mt-1">
+                    ↑ {formatMoney(bk.jurosAcumulados)} em juros
+                    {bk.jurosDevido > 0 && (
+                      <span className="text-red-600 ml-1">(devido: {formatMoney(bk.jurosDevido)})</span>
+                    )}
+                  </p>
+                );
+              })()}
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700">Valor pago *</label>
