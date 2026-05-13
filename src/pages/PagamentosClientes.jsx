@@ -196,17 +196,42 @@ function groupPagamentos(lista) {
     }
   });
   return Object.values(groups).map(g => {
-    // Dedup por ID DO PAGAMENTO (unico real). Antes deduplicava por servico_id,
-    // o que escondia atendimentos legitimos do mesmo Servico em datas/tipos
-    // diferentes (ex: cliente atendido 2x na mesma semana). Agora a dedup so
-    // remove records com mesmo PagamentoCliente.id — efetivamente nao duplica
-    // se o useQuery retornar o mesmo registro 2x.
+    // Dedup em 2 niveis:
+    // 1) Por ID do PagamentoCliente — remove o MESMO registro duplicado na lista
+    // 2) Por chave composta tipo+data (dia) — remove PagamentosCliente diferentes
+    //    que representam o mesmo evento real (ex: registro "fantasma" gerado por
+    //    race antigo no sync). Permite multiplos atendimentos do mesmo Servico
+    //    em datas diferentes — apenas colapsa duplicatas dentro do MESMO DIA.
+    //    Em caso de conflito, mantem o de maior valor_total OU o mais recente.
     const porId = new Map();
     g._records.forEach(r => {
-      if (!r.id) return; // pagamento sem id, ignora
+      if (!r.id) return;
       if (!porId.has(r.id)) porId.set(r.id, r);
     });
-    const recordsDedup = [...porId.values()];
+    const unicos = [...porId.values()];
+
+    const porChave = new Map();
+    unicos.forEach(r => {
+      const tipo = (r.tipo_servico || '').trim().toLowerCase();
+      const dataRef = (r.data_conclusao || r.created_date || '').slice(0, 10);
+      const chave = `${tipo}|${dataRef}`;
+      const existente = porChave.get(chave);
+      if (!existente) {
+        porChave.set(chave, r);
+        return;
+      }
+      // Mantem o que tem mais valor_total. Se empate, mantem o atualizado por
+      // ultimo (updated_date mais recente). Garante preferir registro precificado
+      // a placeholder R$1, e preferir versao recem-editada a versao antiga.
+      const valR = r.valor_total || 0;
+      const valE = existente.valor_total || 0;
+      if (valR > valE) { porChave.set(chave, r); return; }
+      if (valR < valE) return;
+      const dtR = new Date(r.updated_date || r.created_date || 0).getTime();
+      const dtE = new Date(existente.updated_date || existente.created_date || 0).getTime();
+      if (dtR > dtE) porChave.set(chave, r);
+    });
+    const recordsDedup = [...porChave.values()];
     const valorTotal = recordsDedup.reduce((s, r) => s + (r.valor_total || 0), 0);
     const valorPago = recordsDedup.reduce((s, r) => s + (r.valor_pago || 0), 0);
     const saldo = valorTotal - valorPago;
