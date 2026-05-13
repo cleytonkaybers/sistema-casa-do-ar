@@ -705,6 +705,23 @@ export default function FinanceiroAdmin() {
                      </TableRow>
                    );
                  })}
+                 {lancamentosFiltrados.length > 0 && (() => {
+                   const totalValor = lancamentosFiltrados.reduce((s, l) => s + (l.valor_total_servico || 0), 0);
+                   const totalComissao = lancamentosFiltrados.reduce((s, l) => s + (l.valor_comissao_tecnico || 0), 0);
+                   const labelEquipe = filtroEquipe === 'todas'
+                     ? 'Todas as equipes'
+                     : (equipes.find(e => e.id === filtroEquipe)?.nome || 'Equipe filtrada');
+                   return (
+                     <TableRow className="bg-blue-50 hover:bg-blue-50 border-t-2 border-blue-300 font-bold">
+                       <TableCell colSpan={5} className="text-right text-sm text-blue-900">
+                         TOTAL — {labelEquipe} ({lancamentosFiltrados.length} serv.)
+                       </TableCell>
+                       <TableCell className="text-blue-900 font-bold">R$ {totalValor.toFixed(2)}</TableCell>
+                       <TableCell className="text-green-700 font-bold">R$ {totalComissao.toFixed(2)}</TableCell>
+                       <TableCell colSpan={2}></TableCell>
+                     </TableRow>
+                   );
+                 })()}
                </TableBody>
              </Table>
            </div>
