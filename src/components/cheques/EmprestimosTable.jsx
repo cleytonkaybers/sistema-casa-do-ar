@@ -10,13 +10,12 @@ import { Plus, Trash2, MinusCircle, TrendingUp, ChevronDown, ChevronRight, Clock
 import { differenceInDays, parseISO, isValid, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// Simula cronologicamente o emprestimo (juros SIMPLES, nao composto) considerando
-// pagamentos parciais que abatem juros primeiro e depois capital. Quando o principal
-// diminui (por pagamento de capital), os juros a partir dali sao calculados sobre o
-// novo principal. Juros nao pagos NAO geram juros sobre si mesmos.
+// Juros SIMPLES sobre o VALOR EMPRESTADO ORIGINAL — sempre. Pagamento de capital
+// nao reduz o valor base do calculo de juros (regra do negocio do usuario).
+// Convencao: pagamento abate juros pendentes primeiro; se sobrar, abate principal.
 //
-// Retorna a simulacao completa: cada pagamento detalhado (juros/capital), saldo final
-// de principal, juros pago acumulado, juros devido restante e debito total.
+// Retorna a simulacao: cada pagamento detalhado (juros/capital), saldo final
+// de principal, juros pago, juros devido, juros total e debito total.
 function simularEmprestimo(emprestimo) {
   const fallback = (v) => ({
     pagamentos: [],
@@ -33,79 +32,77 @@ function simularEmprestimo(emprestimo) {
   if (!isValid(inicio)) return fallback(valor_principal);
 
   const taxaDiaria = (percentual_mes || 0) / 100 / 30;
-  const eventos = (emprestimo.historico_pagamentos || [])
+  const diasTotais = Math.max(0, differenceInDays(new Date(), inicio));
+
+  // JUROS sempre sobre o valor emprestado ORIGINAL (nao reduz com pagamentos)
+  const jurosAcumulados = valor_principal * taxaDiaria * diasTotais;
+  const totalAbatido = emprestimo.total_abatido || 0;
+
+  // Pagamento abate juros pendente primeiro, sobra vai pra principal
+  const jurosPagoTotal = Math.min(totalAbatido, jurosAcumulados);
+  const jurosDevidoTotal = Math.max(0, jurosAcumulados - jurosPagoTotal);
+  const principalPagoTotal = Math.max(0, totalAbatido - jurosAcumulados);
+  const principalRestante = Math.max(0, valor_principal - principalPagoTotal);
+  const debitoTotal = principalRestante + jurosDevidoTotal;
+
+  // ---- Eventos detalhados (para o modal Detalhes) ----
+  const eventosReais = (emprestimo.historico_pagamentos || [])
     .filter(h => h.tipo === 'abatimento' || h.tipo === 'quitacao')
     .map(h => ({ ...h, _real: true }))
     .sort((a, b) => new Date(a.data) - new Date(b.data));
 
-  // Se a soma dos eventos no historico nao bate com total_abatido (campo de
-  // autoridade), assume que ha pagamento(s) legados sem data registrada.
-  // Insere um evento virtual no MEIO do periodo (data emprestimo -> hoje) como
-  // aproximacao razoavel — qualquer outra data seria chute. Marcado como _legacy
-  // para o modal de Detalhes poder sinalizar.
-  const somaEventos = eventos.reduce((s, e) => s + (e.valor || 0), 0);
-  const totalAbatido = emprestimo.total_abatido || 0;
+  // Se o total_abatido (autoridade) diverge da soma de eventos, insere evento
+  // virtual representando o pagamento legado sem data registrada.
+  const somaEventos = eventosReais.reduce((s, e) => s + (e.valor || 0), 0);
   const deltaLegado = totalAbatido - somaEventos;
+  const todosEventos = [...eventosReais];
   if (deltaLegado > 0.01) {
     const agora = new Date();
     const meioMs = inicio.getTime() + (agora.getTime() - inicio.getTime()) / 2;
-    eventos.push({
+    todosEventos.push({
       data: new Date(meioMs).toISOString(),
       valor: deltaLegado,
       tipo: 'abatimento',
-      observacao: '[Pagamento sem data registrada — estimado no meio do período]',
+      observacao: '[Pagamento sem data registrada — exibido no meio do período]',
       _legacy: true,
     });
-    eventos.sort((a, b) => new Date(a.data) - new Date(b.data));
+    todosEventos.sort((a, b) => new Date(a.data) - new Date(b.data));
   }
 
-  let principalVigente = valor_principal;
-  let jurosAcumNaoPagos = 0;
+  // Distribui cada pagamento entre juros e capital usando o JUROS TOTAL ate hoje
+  // (consistente com o resumo). Acumula cronologicamente.
+  let jurosPagoAcum = 0;
+  let principalPagoAcum = 0;
   let dataUltima = inicio;
-  let jurosPagoTotal = 0;
-  let principalPagoTotal = 0;
 
-  const pagamentos = eventos.map(p => {
+  const pagamentos = todosEventos.map(p => {
     const dataP = new Date(p.data);
     const dias = Math.max(0, differenceInDays(dataP, dataUltima));
-    const novoJurosGerado = principalVigente * taxaDiaria * dias;
-    jurosAcumNaoPagos += novoJurosGerado;
-
+    const jurosDisponivel = Math.max(0, jurosAcumulados - jurosPagoAcum);
     const valor = p.valor || 0;
-    const partJuros = Math.min(valor, jurosAcumNaoPagos);
+    const partJuros = Math.min(valor, jurosDisponivel);
     const partCapital = Math.max(0, valor - partJuros);
-
-    jurosAcumNaoPagos = Math.max(0, jurosAcumNaoPagos - partJuros);
-    principalVigente = Math.max(0, principalVigente - partCapital);
-    jurosPagoTotal += partJuros;
-    principalPagoTotal += partCapital;
+    jurosPagoAcum += partJuros;
+    principalPagoAcum += partCapital;
     dataUltima = dataP;
-
     return {
       ...p,
       partJuros,
       partCapital,
       diasDesdeUltimo: dias,
-      principalApos: principalVigente,
-      jurosPendenteApos: jurosAcumNaoPagos,
+      principalApos: Math.max(0, valor_principal - principalPagoAcum),
+      jurosPendenteApos: Math.max(0, jurosAcumulados - jurosPagoAcum),
     };
   });
 
-  // Periodo final: do ultimo evento (ou data do emprestimo se nao houve pagamento)
-  // ate HOJE. Acumula mais juros sobre o principal restante.
-  const hoje = new Date();
-  const diasFinais = Math.max(0, differenceInDays(hoje, dataUltima));
-  const jurosFinaisGerados = principalVigente * taxaDiaria * diasFinais;
-  jurosAcumNaoPagos += jurosFinaisGerados;
-
   return {
     pagamentos,
-    principalRestante: principalVigente,
+    principalRestante,
     principalPagoTotal,
     jurosPagoTotal,
-    jurosDevidoTotal: jurosAcumNaoPagos,
-    jurosAcumulados: jurosPagoTotal + jurosAcumNaoPagos,
-    debitoTotal: principalVigente + jurosAcumNaoPagos,
+    jurosDevidoTotal,
+    jurosAcumulados,
+    debitoTotal,
   };
 }
 
