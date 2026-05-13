@@ -76,27 +76,46 @@ export default function RelatóriosPage() {
   // Arquivamento de instalacoes (controle de garantia confirmada).
   // Persiste localmente: cada chave de instalacao (servicoId-idx) marcada como
   // arquivada nao aparece na lista principal — fica acessivel pelo toggle.
-  const [instalacoesArquivadas, setInstalacoesArquivadas] = useState(() => {
-    try {
-      return new Set(JSON.parse(localStorage.getItem('instalacoes_arquivadas') || '[]'));
-    } catch { return new Set(); }
-  });
+  const LS_KEY_ARQUIVADAS = 'instalacoes_arquivadas';
+
+  const lerArquivadasDoLocalStorage = () => {
+    try { return new Set(JSON.parse(localStorage.getItem(LS_KEY_ARQUIVADAS) || '[]')); }
+    catch { return new Set(); }
+  };
+
+  const [instalacoesArquivadas, setInstalacoesArquivadas] = useState(lerArquivadasDoLocalStorage);
   const [verArquivadas, setVerArquivadas] = useState(false);
 
-  // Defensivo: persiste no localStorage sempre que o estado mudar, garantindo
-  // sincronizacao mesmo se algo der errado no setter direto.
+  // Defensivo 1: useEffect persiste sempre que o estado muda
   React.useEffect(() => {
-    try { localStorage.setItem('instalacoes_arquivadas', JSON.stringify([...instalacoesArquivadas])); } catch (_e) { /* ignore */ }
+    try { localStorage.setItem(LS_KEY_ARQUIVADAS, JSON.stringify([...instalacoesArquivadas])); } catch (_e) { /* ignore */ }
   }, [instalacoesArquivadas]);
 
-  // Acao explicita (nao toggle) — evita 'desfazer' acidentalmente se o handler
-  // for chamado 2x (double-click, StrictMode etc).
+  // Defensivo 2: ao retornar ao tab/janela ou recarregar, re-le do localStorage.
+  // Cobre casos onde o componente nao desmontou mas o usuario abriu outra aba
+  // e arquivou de la (ou se algo limpou o estado em memoria).
+  React.useEffect(() => {
+    const onFocus = () => {
+      const lido = lerArquivadasDoLocalStorage();
+      setInstalacoesArquivadas(prev => {
+        if (prev.size === lido.size && [...prev].every(k => lido.has(k))) return prev;
+        return lido;
+      });
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
+
+  // Acao explicita (nao toggle) com persistencia SINCRONA dentro do setter.
+  // Dupla garantia: nao depende de useEffect/re-render para persistir.
   const setArquivada = (key, arquivar) => {
     setInstalacoesArquivadas(prev => {
       const ja = prev.has(key);
-      if (arquivar === ja) return prev; // sem mudanca, mesmo objeto pra evitar re-render
+      if (arquivar === ja) return prev; // sem mudanca
       const next = new Set(prev);
       if (arquivar) next.add(key); else next.delete(key);
+      // Persiste IMEDIATAMENTE — nao espera o useEffect rodar
+      try { localStorage.setItem(LS_KEY_ARQUIVADAS, JSON.stringify([...next])); } catch (_e) { /* ignore */ }
       return next;
     });
   };
