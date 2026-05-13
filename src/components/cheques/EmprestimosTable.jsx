@@ -35,7 +35,29 @@ function simularEmprestimo(emprestimo) {
   const taxaDiaria = (percentual_mes || 0) / 100 / 30;
   const eventos = (emprestimo.historico_pagamentos || [])
     .filter(h => h.tipo === 'abatimento' || h.tipo === 'quitacao')
+    .map(h => ({ ...h, _real: true }))
     .sort((a, b) => new Date(a.data) - new Date(b.data));
+
+  // Se a soma dos eventos no historico nao bate com total_abatido (campo de
+  // autoridade), assume que ha pagamento(s) legados sem data registrada.
+  // Insere um evento virtual no MEIO do periodo (data emprestimo -> hoje) como
+  // aproximacao razoavel — qualquer outra data seria chute. Marcado como _legacy
+  // para o modal de Detalhes poder sinalizar.
+  const somaEventos = eventos.reduce((s, e) => s + (e.valor || 0), 0);
+  const totalAbatido = emprestimo.total_abatido || 0;
+  const deltaLegado = totalAbatido - somaEventos;
+  if (deltaLegado > 0.01) {
+    const agora = new Date();
+    const meioMs = inicio.getTime() + (agora.getTime() - inicio.getTime()) / 2;
+    eventos.push({
+      data: new Date(meioMs).toISOString(),
+      valor: deltaLegado,
+      tipo: 'abatimento',
+      observacao: '[Pagamento sem data registrada — estimado no meio do período]',
+      _legacy: true,
+    });
+    eventos.sort((a, b) => new Date(a.data) - new Date(b.data));
+  }
 
   let principalVigente = valor_principal;
   let jurosAcumNaoPagos = 0;
@@ -857,10 +879,10 @@ export default function EmprestimosTable() {
                               </thead>
                               <tbody>
                                 {detalhes.map((d, i) => (
-                                  <tr key={i} className="border-b border-gray-50 last:border-0">
+                                  <tr key={i} className={`border-b border-gray-50 last:border-0 ${d._legacy ? 'bg-amber-50' : ''}`}>
                                     <td className="py-1 text-gray-700 whitespace-nowrap">
-                                      <div>{formatDateTime(d.data)}</div>
-                                      <div className="text-[10px] text-gray-400">+{d.diasDesdeUltimo} dias</div>
+                                      <div>{d._legacy ? <span className="text-amber-700">~{formatDateTime(d.data)}</span> : formatDateTime(d.data)}</div>
+                                      <div className="text-[10px] text-gray-400">+{d.diasDesdeUltimo} dias{d._legacy ? ' (estimado)' : ''}</div>
                                     </td>
                                     <td className="py-1 text-right font-semibold text-green-700">{formatMoney(d.valor)}</td>
                                     <td className="py-1 text-right text-orange-600">{formatMoney(d.partJuros)}</td>
