@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Trash2, MinusCircle, TrendingUp, ChevronDown, ChevronRight, Clock, CheckCircle2, Pencil, PlusCircle } from 'lucide-react';
+import { Plus, Trash2, MinusCircle, TrendingUp, ChevronDown, ChevronRight, Clock, CheckCircle2, Pencil, PlusCircle, FileText } from 'lucide-react';
 import { differenceInDays, parseISO, isValid, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -70,6 +70,25 @@ const emptyForm = {
   observacoes: '',
 };
 
+// Quebra cronologicamente cada pagamento em quanto foi juros e quanto foi capital.
+// Convencao: pagamento abate juros primeiro, depois capital.
+// Simplificacao: usa juros acumulados ate HOJE (nao na data do pagamento).
+function detalharPagamentos(emprestimo) {
+  const jurosAcumulados = calcularJurosAcumulados(emprestimo);
+  let jurosRestante = jurosAcumulados;
+  const eventos = (emprestimo.historico_pagamentos || [])
+    .filter(h => h.tipo === 'abatimento' || h.tipo === 'quitacao')
+    .sort((a, b) => new Date(a.data) - new Date(b.data));
+
+  return eventos.map(p => {
+    const valor = p.valor || 0;
+    const partJuros = Math.min(jurosRestante, valor);
+    const partCapital = Math.max(0, valor - partJuros);
+    jurosRestante = Math.max(0, jurosRestante - partJuros);
+    return { ...p, partJuros, partCapital };
+  });
+}
+
 export default function EmprestimosTable() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
@@ -82,6 +101,7 @@ export default function EmprestimosTable() {
   const [aporteModal, setAporteModal] = useState(null);
   const [valorAporte, setValorAporte] = useState('');
   const [obsAporte, setObsAporte] = useState('');
+  const [detalhesModal, setDetalhesModal] = useState(null);
 
   const { data: emprestimosTodos = [], isLoading } = useQuery({
     queryKey: ['emprestimos'],
@@ -501,11 +521,19 @@ export default function EmprestimosTable() {
                 {g.emprestimos.length} empréstimos
               </Badge>
             </div>
-            <Button size="sm"
-              onClick={() => { setAporteModal(anchor); setValorAporte(''); setObsAporte(''); }}
-              className="bg-orange-500 hover:bg-orange-600 text-white gap-1 text-xs h-8">
-              <PlusCircle className="w-3.5 h-3.5" /> Adicionar Crédito
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm"
+                onClick={() => setDetalhesModal(g)}
+                variant="outline"
+                className="border-purple-300 text-purple-700 hover:bg-purple-100 gap-1 text-xs h-8">
+                <FileText className="w-3.5 h-3.5" /> Detalhes
+              </Button>
+              <Button size="sm"
+                onClick={() => { setAporteModal(anchor); setValorAporte(''); setObsAporte(''); }}
+                className="bg-orange-500 hover:bg-orange-600 text-white gap-1 text-xs h-8">
+                <PlusCircle className="w-3.5 h-3.5" /> Adicionar Crédito
+              </Button>
+            </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
             <div>
@@ -665,6 +693,160 @@ export default function EmprestimosTable() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Detalhes — visao consolidada de todos os emprestimos do cliente */}
+      <Dialog open={!!detalhesModal} onOpenChange={() => setDetalhesModal(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-purple-600" />
+              Detalhes Financeiros — {detalhesModal?.nome}
+            </DialogTitle>
+          </DialogHeader>
+          {detalhesModal && (() => {
+            const t = detalhesModal.totals;
+            const totalPago = t.jurosPago + t.principal - t.principal + (t.abatido); // mantem o abatido bruto
+            const totalAbatido = t.abatido;
+            const capitalPago = Math.max(0, totalAbatido - t.jurosPago);
+            return (
+              <div className="space-y-4">
+                {/* Resumo consolidado */}
+                <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                  <h3 className="text-sm font-bold text-purple-900 mb-3">📊 Resumo consolidado</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <p className="text-[10px] text-purple-600 uppercase font-bold">Empréstimos</p>
+                      <p className="font-bold text-purple-900 text-lg">{detalhesModal.emprestimos.length}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-purple-600 uppercase font-bold">Total emprestado</p>
+                      <p className="font-bold text-purple-900 text-sm">{formatMoney(t.principal)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-orange-600 uppercase font-bold">Juros acumulados</p>
+                      <p className="font-bold text-orange-700 text-sm">{formatMoney(t.jurosAcumulados)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-red-600 uppercase font-bold">Devido agora</p>
+                      <p className="font-bold text-red-700 text-base">{formatMoney(t.debitoAtual)}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-purple-200 grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <p className="text-gray-600">Total pago (todos)</p>
+                      <p className="font-bold text-green-700">{formatMoney(totalAbatido)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600">→ Juros pago</p>
+                      <p className="font-semibold text-orange-700">{formatMoney(t.jurosPago)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600">→ Capital pago</p>
+                      <p className="font-semibold text-blue-700">{formatMoney(capitalPago)}</p>
+                    </div>
+                    {t.jurosDevido > 0 && (
+                      <div className="col-span-2 sm:col-span-3 mt-1 bg-red-50 border border-red-100 rounded px-2 py-1">
+                        <span className="text-red-700 font-semibold text-xs">⚠ Juros devidos (não pagos): {formatMoney(t.jurosDevido)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Timeline por empréstimo */}
+                <div className="space-y-3">
+                  {detalhesModal.emprestimos.map((e, idx) => {
+                    const bk = calcularJurosBreakdown(e);
+                    const detalhes = detalharPagamentos(e);
+                    const debitoE = calcularDebitoAtual(e);
+                    const dias = e.data_emprestimo && isValid(parseISO(e.data_emprestimo))
+                      ? differenceInDays(new Date(), parseISO(e.data_emprestimo)) : 0;
+                    return (
+                      <div key={e.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                        <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-purple-100 text-purple-700 text-xs">Empréstimo #{idx + 1}</Badge>
+                              <span className="font-semibold text-gray-800 text-sm">{formatMoney(e.valor_principal)}</span>
+                              <span className="text-xs text-gray-500">a {e.percentual_mes}% a.m.</span>
+                              <span className="text-xs text-gray-500">· {formatDate(e.data_emprestimo)} ({dias} dias)</span>
+                            </div>
+                            <span className="text-sm font-bold text-red-600">{formatMoney(debitoE)}</span>
+                          </div>
+                        </div>
+                        <div className="px-4 py-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs border-b border-gray-100">
+                          <div>
+                            <p className="text-gray-500">Principal</p>
+                            <p className="font-semibold text-gray-800">{formatMoney(e.valor_principal)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Juros acumulados</p>
+                            <p className="font-semibold text-orange-600">{formatMoney(bk.jurosAcumulados)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Total abatido</p>
+                            <p className="font-semibold text-green-600">{formatMoney(e.total_abatido || 0)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Saldo devedor</p>
+                            <p className="font-semibold text-red-600">{formatMoney(debitoE)}</p>
+                          </div>
+                        </div>
+                        {detalhes.length > 0 ? (
+                          <div className="px-4 py-3">
+                            <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500 mb-2">Pagamentos</p>
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-gray-500 border-b">
+                                  <th className="text-left py-1 font-medium">Data</th>
+                                  <th className="text-right py-1 font-medium">Valor</th>
+                                  <th className="text-right py-1 font-medium text-orange-600">Juros</th>
+                                  <th className="text-right py-1 font-medium text-blue-600">Capital</th>
+                                  <th className="text-left py-1 font-medium pl-2">Obs</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {detalhes.map((d, i) => (
+                                  <tr key={i} className="border-b border-gray-50 last:border-0">
+                                    <td className="py-1 text-gray-700 whitespace-nowrap">{formatDateTime(d.data)}</td>
+                                    <td className="py-1 text-right font-semibold text-green-700">{formatMoney(d.valor)}</td>
+                                    <td className="py-1 text-right text-orange-600">{formatMoney(d.partJuros)}</td>
+                                    <td className="py-1 text-right text-blue-600">{formatMoney(d.partCapital)}</td>
+                                    <td className="py-1 text-gray-500 italic pl-2 truncate max-w-[200px]">{d.observacao || '-'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                              <tfoot>
+                                <tr className="font-bold border-t border-gray-200">
+                                  <td className="pt-2 text-gray-700">TOTAL</td>
+                                  <td className="pt-2 text-right text-green-700">{formatMoney(e.total_abatido || 0)}</td>
+                                  <td className="pt-2 text-right text-orange-700">{formatMoney(bk.jurosPago)}</td>
+                                  <td className="pt-2 text-right text-blue-700">{formatMoney(bk.principalPago)}</td>
+                                  <td></td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                        ) : (
+                          <div className="px-4 py-3 text-xs text-gray-400 italic">Nenhum pagamento registrado ainda.</div>
+                        )}
+                        {e.observacoes && (
+                          <div className="px-4 py-2 text-xs text-yellow-800 bg-yellow-50 border-t border-yellow-100">
+                            📝 {e.observacoes}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <Button variant="outline" onClick={() => setDetalhesModal(null)}>Fechar</Button>
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
