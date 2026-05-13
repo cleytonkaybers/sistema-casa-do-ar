@@ -4,7 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Loader2, TrendingUp, DollarSign, CheckCircle, Clock, Filter, BarChart2, List, BookOpen, FileSpreadsheet, Wrench } from 'lucide-react';
+import { Loader2, TrendingUp, DollarSign, CheckCircle, Clock, Filter, BarChart2, List, BookOpen, FileSpreadsheet, Wrench, Search, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { useDebounce } from '@/hooks/useDebounce';
+import { matchClienteSearch } from '@/lib/utils/buscaCliente';
 import { extrairMarca, isInstalacao, removerMarca } from '@/lib/marcasAr';
 import NotionExportModal from '../components/relatorios/NotionExportModal';
 import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO, startOfWeek, endOfWeek, startOfYear, endOfYear, subWeeks } from 'date-fns';
@@ -70,6 +73,8 @@ export default function RelatóriosPage() {
   const [viewMode, setViewMode] = useState('resumo'); // 'resumo' | 'detalhado' | 'instalacoes'
   const [filtroMarca, setFiltroMarca] = useState('todas');
   const [filtroEquipeInst, setFiltroEquipeInst] = useState('todas');
+  const [buscaInstalacao, setBuscaInstalacao] = useState('');
+  const debouncedBuscaInstalacao = useDebounce(buscaInstalacao);
   const [instalacaoDetalhes, setInstalacaoDetalhes] = useState(null);
   const [notionModal, setNotionModal] = useState(false);
 
@@ -309,8 +314,9 @@ export default function RelatóriosPage() {
       .filter(i => verArquivadas ? instalacoesArquivadas.has(i.key) : !instalacoesArquivadas.has(i.key))
       .filter(i => filtroMarca === 'todas' || i.marca === filtroMarca)
       .filter(i => filtroEquipeInst === 'todas' || i.equipe === filtroEquipeInst)
+      .filter(i => !debouncedBuscaInstalacao.trim() || matchClienteSearch(i.cliente, i.telefone, debouncedBuscaInstalacao))
       .sort((a, b) => new Date(b.dataConclusao || 0) - new Date(a.dataConclusao || 0))
-  , [instalacoesExpandidas, filtroMarca, filtroEquipeInst, verArquivadas, instalacoesArquivadas]);
+  , [instalacoesExpandidas, filtroMarca, filtroEquipeInst, verArquivadas, instalacoesArquivadas, debouncedBuscaInstalacao]);
 
   const qtdArquivadas = useMemo(
     () => instalacoesExpandidas.filter(i => instalacoesArquivadas.has(i.key)).length,
@@ -670,6 +676,26 @@ export default function RelatóriosPage() {
                       </p>
                     </CardHeader>
                     <CardContent>
+                      {/* Busca por nome/telefone */}
+                      <div className="relative mb-3">
+                        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <Input
+                          type="text"
+                          value={buscaInstalacao}
+                          onChange={e => setBuscaInstalacao(e.target.value)}
+                          placeholder="Buscar por nome do cliente ou telefone..."
+                          className="pl-9 pr-9 h-9 text-sm bg-slate-800 border-slate-600 text-white placeholder:text-gray-500"
+                        />
+                        {buscaInstalacao && (
+                          <button
+                            onClick={() => setBuscaInstalacao('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
+                            title="Limpar busca"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                       {/* Filtros locais */}
                       <div className="flex flex-wrap items-center gap-3 mb-4 pb-3 border-b border-gray-100">
                         <div className="flex items-center gap-2">
