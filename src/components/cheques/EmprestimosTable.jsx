@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -152,35 +152,43 @@ export default function EmprestimosTable() {
     },
   });
 
-  const aporteMutation = useMutation({
-    mutationFn: ({ id, novoValor, historico }) =>
-      base44.entities.Emprestimo.update(id, { valor_principal: novoValor, historico_pagamentos: historico }),
+  // Aporte agora CRIA um novo Emprestimo separado para o mesmo cliente.
+  // Antes somava no principal existente, mas isso fazia os juros do aporte
+  // contarem desde a data do emprestimo original — errado: cada credito
+  // tem que ter sua propria data_emprestimo para calcular juros corretamente.
+  const novoCreditoMutation = useMutation({
+    mutationFn: (data) => base44.entities.Emprestimo.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['emprestimos'] });
       setAporteModal(null);
       setValorAporte('');
       setObsAporte('');
-      toast.success('Aporte registrado!');
+      toast.success('Novo crédito registrado como empréstimo separado!');
     },
   });
 
   const handleAporte = () => {
     const val = parseFloat(valorAporte);
     if (!val || val <= 0) { toast.error('Informe um valor válido'); return; }
-    const debitoAtual = calcularDebitoAtual(aporteModal);
-    const novoValor = (aporteModal.valor_principal || 0) + val;
-    const historico = [
-      ...(aporteModal.historico_pagamentos || []),
-      {
-        data: new Date().toISOString(),
-        tipo: 'aporte',
+    const agora = new Date().toISOString();
+    const hoje = format(new Date(), 'yyyy-MM-dd');
+    novoCreditoMutation.mutate({
+      cliente_nome: aporteModal.cliente_nome,
+      valor_principal: val,
+      percentual_mes: aporteModal.percentual_mes,
+      data_emprestimo: hoje,
+      total_abatido: 0,
+      status: 'ativo',
+      observacoes: obsAporte || 'Crédito adicional ao cliente (empréstimo separado).',
+      historico_pagamentos: [{
+        data: agora,
+        tipo: 'criacao',
         valor: val,
-        debito_antes: debitoAtual,
-        debito_depois: debitoAtual + val,
-        observacao: obsAporte || '',
-      }
-    ];
-    aporteMutation.mutate({ id: aporteModal.id, novoValor, historico });
+        debito_antes: 0,
+        debito_depois: val,
+        observacao: `Novo empréstimo (crédito adicional ao cliente). Taxa: ${aporteModal.percentual_mes}% a.m.${obsAporte ? ' — ' + obsAporte : ''}`,
+      }],
+    });
   };
 
   const handleReativar = (e) => {
@@ -281,6 +289,32 @@ export default function EmprestimosTable() {
 
   const ativos = emprestimos.filter(e => e.status === 'ativo');
   const quitados = emprestimos.filter(e => e.status === 'quitado');
+
+  // Agrupa emprestimos ATIVOS por cliente. Ordem: mais antigo primeiro.
+  const ativosPorCliente = useMemo(() => {
+    const groups = {};
+    ativos.forEach(e => {
+      const key = (e.cliente_nome || '').trim().toLowerCase();
+      if (!groups[key]) groups[key] = { nome: e.cliente_nome, emprestimos: [] };
+      groups[key].emprestimos.push(e);
+    });
+    Object.values(groups).forEach(g => {
+      g.emprestimos.sort((a, b) => (a.data_emprestimo || '').localeCompare(b.data_emprestimo || ''));
+    });
+    return Object.values(groups).map(g => {
+      const totals = g.emprestimos.reduce((acc, e) => {
+        const bk = calcularJurosBreakdown(e);
+        acc.principal += e.valor_principal || 0;
+        acc.abatido += e.total_abatido || 0;
+        acc.jurosAcumulados += bk.jurosAcumulados;
+        acc.jurosPago += bk.jurosPago;
+        acc.jurosDevido += bk.jurosDevido;
+        acc.debitoAtual += calcularDebitoAtual(e);
+        return acc;
+      }, { principal: 0, abatido: 0, jurosAcumulados: 0, jurosPago: 0, jurosDevido: 0, debitoAtual: 0 });
+      return { ...g, totals };
+    }).sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [ativos]);
 
   const TIPO_CONFIG = {
     criacao:    { label: 'Criação',      color: 'bg-blue-100 text-blue-700' },
@@ -447,6 +481,69 @@ export default function EmprestimosTable() {
 
   const Plus2 = ({ className }) => <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>;
 
+  // Renderiza grupo de emprestimos do mesmo cliente. Se ha 1 so, renderiza o
+  // card individual direto. Se ha 2+, envelopa num card-pai com header + totais.
+  const renderGrupoCliente = (g) => {
+    if (g.emprestimos.length === 1) {
+      return <div key={g.emprestimos[0].id}>{renderCard(g.emprestimos[0], false)}</div>;
+    }
+    const t = g.totals;
+    // Usa o primeiro emprestimo como "anchor" pra abrir o modal Aporte (taxa de juros padrao)
+    const anchor = g.emprestimos[0];
+    return (
+      <div key={g.nome} className="bg-white border-2 border-purple-300 rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-purple-100 px-4 py-3 border-b border-purple-200">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <TrendingUp className="w-4 h-4 text-purple-600 flex-shrink-0" />
+              <span className="font-bold text-purple-900 truncate">{g.nome}</span>
+              <Badge className="bg-purple-200 text-purple-800 text-xs flex-shrink-0">
+                {g.emprestimos.length} empréstimos
+              </Badge>
+            </div>
+            <Button size="sm"
+              onClick={() => { setAporteModal(anchor); setValorAporte(''); setObsAporte(''); }}
+              className="bg-orange-500 hover:bg-orange-600 text-white gap-1 text-xs h-8">
+              <PlusCircle className="w-3.5 h-3.5" /> Adicionar Crédito
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+            <div>
+              <p className="text-[10px] text-purple-600 uppercase font-bold">Total emprestado</p>
+              <p className="font-bold text-purple-900 text-sm">{formatMoney(t.principal)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-orange-600 uppercase font-bold">Juros acumulados</p>
+              <p className="font-bold text-orange-700 text-sm">{formatMoney(t.jurosAcumulados)}</p>
+              {t.jurosAcumulados > 0 && (
+                <p className="text-[10px] leading-tight">
+                  <span className="text-green-700">✓ {formatMoney(t.jurosPago)}</span>
+                  <span className="text-gray-400 mx-0.5">·</span>
+                  <span className={t.jurosDevido > 0 ? 'text-red-600 font-semibold' : 'text-gray-400'}>
+                    ⚠ {formatMoney(t.jurosDevido)}
+                  </span>
+                </p>
+              )}
+            </div>
+            <div>
+              <p className="text-[10px] text-green-600 uppercase font-bold">Total abatido</p>
+              <p className="font-bold text-green-700 text-sm">{formatMoney(t.abatido)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-red-600 uppercase font-bold">Devido (geral)</p>
+              <p className="font-bold text-red-700 text-base">{formatMoney(t.debitoAtual)}</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-3 space-y-2 bg-purple-50/30">
+          {g.emprestimos.map(e => (
+            <div key={e.id}>{renderCard(e, false)}</div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -468,7 +565,7 @@ export default function EmprestimosTable() {
         </div>
       ) : (
         <div className="space-y-3">
-          {ativos.map(e => renderCard(e, false))}
+          {ativosPorCliente.map(g => renderGrupoCliente(g))}
         </div>
       )}
 
@@ -526,19 +623,28 @@ export default function EmprestimosTable() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal Aporte */}
+      {/* Modal Adicionar Credito (cria emprestimo separado) */}
       <Dialog open={!!aporteModal} onOpenChange={() => setAporteModal(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Adicionar Crédito — {aporteModal?.cliente_nome}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
-              <p className="text-xs text-gray-500">Débito atual</p>
-              <p className="text-lg font-bold text-orange-600">{aporteModal ? formatMoney(calcularDebitoAtual(aporteModal)) : '-'}</p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-800">
+              ℹ Vai criar um <strong>novo empréstimo separado</strong> com data de hoje. Os juros do novo crédito começam a contar a partir de agora, não da data do empréstimo original.
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
+                <p className="text-[10px] text-gray-500">Devido atual (todos)</p>
+                <p className="text-sm font-bold text-orange-600">{aporteModal ? formatMoney(calcularDebitoAtual(aporteModal)) : '-'}</p>
+              </div>
+              <div className="bg-purple-50 border border-purple-100 rounded-lg px-3 py-2">
+                <p className="text-[10px] text-gray-500">Taxa do novo</p>
+                <p className="text-sm font-bold text-purple-600">{aporteModal?.percentual_mes || 0}% a.m.</p>
+              </div>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700">Valor adicional emprestado *</label>
+              <label className="text-sm font-medium text-gray-700">Valor do novo crédito *</label>
               <Input type="number" value={valorAporte} onChange={e => setValorAporte(e.target.value)} placeholder="0,00" />
             </div>
             <div>
@@ -546,15 +652,16 @@ export default function EmprestimosTable() {
               <Input value={obsAporte} onChange={e => setObsAporte(e.target.value)} placeholder="Ex: cliente pediu mais R$500" />
             </div>
             {valorAporte && parseFloat(valorAporte) > 0 && aporteModal && (
-              <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-sm">
-                <p className="text-gray-500 text-xs">Novo débito após aporte</p>
-                <p className="font-bold text-orange-700">{formatMoney(calcularDebitoAtual(aporteModal) + parseFloat(valorAporte))}</p>
+              <div className="bg-green-50 border border-green-100 rounded-lg px-3 py-2 text-sm">
+                <p className="text-gray-500 text-xs">Resultado: novo empréstimo de</p>
+                <p className="font-bold text-green-700">{formatMoney(parseFloat(valorAporte))} · {aporteModal.percentual_mes}% a.m. · hoje</p>
+                <p className="text-[10px] text-gray-500 mt-1">Total devido pelo cliente passará a ser <strong>{formatMoney(calcularDebitoAtual(aporteModal) + parseFloat(valorAporte))}</strong></p>
               </div>
             )}
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setAporteModal(null)} className="flex-1">Cancelar</Button>
-              <Button onClick={handleAporte} disabled={aporteMutation.isPending} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white">
-                {aporteMutation.isPending ? 'Salvando...' : 'Confirmar Aporte'}
+              <Button onClick={handleAporte} disabled={novoCreditoMutation.isPending} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white">
+                {novoCreditoMutation.isPending ? 'Criando...' : 'Criar Empréstimo'}
               </Button>
             </div>
           </div>
