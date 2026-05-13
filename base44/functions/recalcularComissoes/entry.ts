@@ -52,11 +52,42 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Nenhum técnico encontrado para a equipe' }, { status: 400 });
     }
 
-    // Calcular novas comissões
+    // Calcular novas comissões LENDO da Tabela de Servicos (TipoServicoValor).
+    // Fallback 30/15 se nao encontrar. Aceita sufixo [Marca: X] e tipo composto.
     const valor_total = servico.valor;
-    const percentual_equipe = 30;
+    const norm = (s: string) => (s || '').trim().toLowerCase();
+    const stripSufixos = (s: string) => (s || '').replace(/\s*\[[^\]]*\]/g, '').trim();
+
+    let percentual_equipe = 30;
+    let percentual_tecnico = 15;
+    try {
+      const todosTipos = await base44.asServiceRole.entities.TipoServicoValor.list();
+      const tipoServ = servico.tipo_servico || '';
+      let match = todosTipos.find((t: any) => norm(t.tipo_servico) === norm(tipoServ));
+      if (!match) {
+        const semSufixo = stripSufixos(tipoServ);
+        if (semSufixo && norm(semSufixo) !== norm(tipoServ)) {
+          match = todosTipos.find((t: any) => norm(stripSufixos(t.tipo_servico)) === norm(semSufixo));
+        }
+      }
+      if (!match) {
+        const partes = tipoServ.split('+').map((p: string) => p.trim()).filter(Boolean);
+        for (const parte of partes) {
+          const semSuf = stripSufixos(parte);
+          const m = todosTipos.find((t: any) => norm(t.tipo_servico) === norm(parte) || norm(stripSufixos(t.tipo_servico)) === norm(semSuf));
+          if (m) { match = m; break; }
+        }
+      }
+      if (match) {
+        percentual_equipe = match.percentual_equipe ?? 30;
+        percentual_tecnico = match.percentual_tecnico ?? 15;
+      }
+    } catch (err) {
+      console.warn('[recalcularComissoes] erro ao consultar Tabela de Servicos:', err);
+    }
+
     const valor_comissao_equipe = (valor_total * percentual_equipe) / 100;
-    const valor_por_tecnico_novo = valor_comissao_equipe / tecnicos.length;
+    const valor_por_tecnico_novo = (valor_total * percentual_tecnico) / 100;
 
     // Processar cada técnico
     const atualizacoes = [];
@@ -72,7 +103,8 @@ Deno.serve(async (req) => {
           valor_total_servico: valor_total,
           valor_comissao_equipe: valor_comissao_equipe,
           valor_comissao_tecnico: valor_por_tecnico_novo,
-          percentual_tecnico: (valor_por_tecnico_novo / valor_total) * 100
+          percentual_equipe: percentual_equipe,
+          percentual_tecnico: percentual_tecnico
         });
 
         atualizacoes.push({

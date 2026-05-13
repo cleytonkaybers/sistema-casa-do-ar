@@ -113,11 +113,50 @@ Deno.serve(async (req) => {
       }, { status: 400 });
     }
 
-    // Calcular comissão (30% da equipe, dividido igualmente entre técnicos)
+    // Calcular comissão LENDO da Tabela de Serviços (TipoServicoValor).
+    // Fallback 30/15 se nao encontrar tipo. Aceita tipos com sufixo [Marca: X]
+    // e tipos compostos "A + B" (usa o primeiro componente).
     const valor_total = valorFinal;
-    const percentual_equipe = 30;
+    const norm = (s: string) => (s || '').trim().toLowerCase();
+    const stripSufixos = (s: string) => (s || '').replace(/\s*\[[^\]]*\]/g, '').trim();
+
+    let percentual_equipe = 30;
+    let percentual_tecnico = 15;
+    try {
+      const todosTipos = await base44.asServiceRole.entities.TipoServicoValor.list();
+      const tipoServ = servico.tipo_servico || '';
+      // 1) Match exato
+      let match = todosTipos.find((t: any) => norm(t.tipo_servico) === norm(tipoServ));
+      // 2) Sem sufixo [X]
+      if (!match) {
+        const semSufixo = stripSufixos(tipoServ);
+        if (semSufixo && norm(semSufixo) !== norm(tipoServ)) {
+          match = todosTipos.find((t: any) => norm(stripSufixos(t.tipo_servico)) === norm(semSufixo));
+        }
+      }
+      // 3) Primeiro componente do split('+')
+      if (!match) {
+        const partes = tipoServ.split('+').map((p: string) => p.trim()).filter(Boolean);
+        for (const parte of partes) {
+          const semSuf = stripSufixos(parte);
+          const m = todosTipos.find((t: any) => norm(t.tipo_servico) === norm(parte) || norm(stripSufixos(t.tipo_servico)) === norm(semSuf));
+          if (m) { match = m; break; }
+        }
+      }
+      if (match) {
+        percentual_equipe = match.percentual_equipe ?? 30;
+        percentual_tecnico = match.percentual_tecnico ?? 15;
+      } else {
+        console.warn(`[gerarComissoes] tipo "${tipoServ}" nao encontrado na Tabela de Servicos — usando fallback 30/15`);
+      }
+    } catch (err) {
+      console.warn('[gerarComissoes] erro ao consultar Tabela de Servicos, usando fallback:', err);
+    }
+
     const valor_comissao_equipe = (valor_total * percentual_equipe) / 100;
-    const valor_por_tecnico = valor_comissao_equipe / tecnicos.length;
+    // Cada tecnico ganha o percentual_tecnico INTEGRAL (nao dividido pelo numero
+    // de tecnicos). Regra de negocio definida pela Tabela de Servicos.
+    const valor_por_tecnico = (valor_total * percentual_tecnico) / 100;
 
     // Gerar lançamentos para cada técnico
     const lancamentos = [];
@@ -139,7 +178,7 @@ Deno.serve(async (req) => {
         valor_total_servico: valor_total,
         percentual_equipe: percentual_equipe,
         valor_comissao_equipe: valor_comissao_equipe,
-        percentual_tecnico: (valor_por_tecnico / valor_total) * 100,
+        percentual_tecnico: percentual_tecnico,
         valor_comissao_tecnico: valor_por_tecnico,
         status: 'pendente',
         data_geracao: new Date().toISOString(),
