@@ -420,7 +420,10 @@ export default function ServicosPage() {
                 data_alteracao: h.data_alteracao,
               })),
             };
-            return base44.entities.Atendimento.create({
+            // Retry: tenta ate 3 vezes (com 800ms entre tentativas) pra cobrir
+            // falha intermitente de rede/backend. Antes uma unica falha
+            // perdia o atendimento silenciosamente.
+            const payloadAtendimento = {
               servico_id: servicoSnapshot.id,
               os_numero: servicoSnapshot.os_numero || '',
               cliente_nome: servicoSnapshot.cliente_nome,
@@ -442,10 +445,23 @@ export default function ServicosPage() {
               data_conclusao: agora,
               google_maps_link: servicoSnapshot.google_maps_link || '',
               detalhes: JSON.stringify(detalhesCompletos),
-            });
+            };
+            const tentarCriar = async (tentativa = 1) => {
+              try {
+                return await base44.entities.Atendimento.create(payloadAtendimento);
+              } catch (err) {
+                if (tentativa < 3) {
+                  console.warn(`[Atendimento.create] tentativa ${tentativa} falhou, retry em 800ms...`, err?.message);
+                  await new Promise(r => setTimeout(r, 800));
+                  return tentarCriar(tentativa + 1);
+                }
+                throw err;
+              }
+            };
+            return tentarCriar();
           }).catch(err => {
-            console.error('Erro ao criar atendimento:', err);
-            toast.error('⚠️ Falha ao criar atendimento — abra Servicos > este cliente > Concluir novamente.');
+            console.error('Erro ao criar atendimento (apos 3 tentativas):', err);
+            toast.error('⚠️ Falha ao criar atendimento. Va em Historico de Clientes > este cliente > Regerar para corrigir.', { duration: 10000 });
           }),
 
         // Gerar comissoes automaticamente ao concluir.
