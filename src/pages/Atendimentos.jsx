@@ -1,8 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { base44 } from '@/api/base44Client';
 import { usePermissions } from '@/components/auth/PermissionGuard';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { differenceInDays, parseISO } from 'date-fns';
+import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -86,8 +89,92 @@ export default function Atendimentos() {
     queryFn: () => base44.entities.PagamentoCliente.list(),
   });
 
+  // Servicos concluidos - usado para detectar orfaos sem Atendimento
+  const { data: servicosConcluidos = [] } = useQuery({
+    queryKey: ['servicos-concluidos-sync'],
+    queryFn: () => base44.entities.Servico.filter({ status: 'concluido' }),
+    enabled: isAdmin,
+  });
+
   const isLoading = loadA || loadP;
   const equipeIdUsuario = currentUser?.equipe_id || null;
+  const queryClient = useQueryClient();
+  const sincronizandoOrfaos = useRef(false);
+
+  // AUTO-SYNC: detecta Servicos concluidos recentes que NAO tem Atendimento
+  // (falha intermitente do backend ao concluir) e cria o Atendimento faltante.
+  // Apenas servicos dos ultimos 60 dias para nao processar historico antigo.
+  useEffect(() => {
+    if (!isAdmin) return;
+    if (isLoading) return;
+    if (!servicosConcluidos.length) return;
+    if (sincronizandoOrfaos.current) return;
+
+    const atendimentosPorServicoId = new Set(atendimentos.map(a => a.servico_id).filter(Boolean));
+    const hoje = new Date();
+    const orfaos = servicosConcluidos.filter(s => {
+      if (!s.id) return false;
+      if (atendimentosPorServicoId.has(s.id)) return false;
+      // Servicos de tipo ignorado nao criam Atendimento (verificar defeito sozinho)
+      if (isApenasTiposIgnorados(s.tipo_servico)) return false;
+      // Limita a servicos concluidos nos ultimos 60 dias (evita reprocessar muito historico)
+      const dataRef = s.data_conclusao || s.data_programada || s.updated_date;
+      if (!dataRef) return false;
+      try {
+        const dias = differenceInDays(hoje, parseISO(dataRef));
+        return dias >= 0 && dias <= 60;
+      } catch { return false; }
+    });
+
+    if (orfaos.length === 0) return;
+
+    sincronizandoOrfaos.current = true;
+    (async () => {
+      const agora = new Date().toISOString();
+      let criados = 0;
+      let falhas = 0;
+      for (const s of orfaos) {
+        try {
+          await base44.entities.Atendimento.create({
+            servico_id: s.id,
+            os_numero: s.os_numero || '',
+            cliente_nome: s.cliente_nome,
+            cpf: s.cpf || '',
+            telefone: s.telefone || '',
+            endereco: s.endereco || '',
+            latitude: s.latitude || null,
+            longitude: s.longitude || null,
+            data_atendimento: s.data_programada,
+            horario: s.horario || '',
+            dia_semana: s.dia_semana || '',
+            tipo_servico: s.tipo_servico,
+            descricao: s.descricao || '',
+            valor: s.valor || 0,
+            observacoes_conclusao: s.observacoes_conclusao || '',
+            equipe_id: s.equipe_id || '',
+            equipe_nome: s.equipe_nome || '',
+            usuario_conclusao: s.usuario_atualizacao_status || '',
+            data_conclusao: s.data_conclusao || agora,
+            google_maps_link: s.google_maps_link || '',
+            detalhes: JSON.stringify({ auto_sincronizado: true, motivo: 'Atendimento ausente detectado em Atendimentos.jsx' }),
+          });
+          criados++;
+        } catch (err) {
+          console.error('[auto-sync orfaos] falha em servico', s.id, err);
+          falhas++;
+        }
+      }
+      sincronizandoOrfaos.current = false;
+      if (criados > 0) {
+        queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
+        queryClient.invalidateQueries({ queryKey: ['pagamentos-atendimentos'] });
+        toast.success(`🔄 ${criados} atendimento(s) sincronizado(s) automaticamente`);
+      }
+      if (falhas > 0) {
+        toast.error(`⚠️ ${falhas} atendimento(s) falharam ao sincronizar — recarregue a pagina para tentar novamente`);
+      }
+    })();
+  }, [isAdmin, isLoading, servicosConcluidos, atendimentos, queryClient]);
 
   // Índices O(1) para lookup de pagamentos — evita filter() O(N) por item.
   // Sem isso, processar 30k servicos × 50k pagamentos = 1.5B ops por render.

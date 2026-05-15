@@ -1606,27 +1606,42 @@ function PagamentosClientesContent() {
 
         const debitoTotal = debitosAtrasados.reduce((sum, p) => sum + ((p.valor_total || 0) - (p.valor_pago || 0)), 0);
 
+        // Retry ate 3 vezes (com 800ms entre tentativas) — cobre falha intermitente
+        // do Base44. Sem retry, um unico timeout deixava o atendimento orfao.
+        const payloadPag = {
+          atendimento_id: a.id,
+          servico_id: a.servico_id || '',
+          cliente_nome: a.cliente_nome || '',
+          telefone: a.telefone || '',
+          tipo_servico: a.tipo_servico || '',
+          data_conclusao: a.data_conclusao || a.created_date,
+          valor_total: debitoTotal > 0 ? debitoTotal : 1.0,
+          valor_pago: 0,
+          status: 'pendente',
+          equipe_nome: a.equipe_nome || '',
+          historico_pagamentos: debitoTotal > 0 ? [{
+            valor: debitoTotal,
+            data: format(new Date(), 'dd/MM/yyyy HH:mm'),
+            observacao: '🔗 Débitos anteriores consolidados',
+            consolidado: true
+          }] : [],
+        };
+        const tentarCriarPag = async (tentativa = 1) => {
+          try {
+            return await createMutation.mutateAsync(payloadPag);
+          } catch (err) {
+            if (tentativa < 3) {
+              console.warn(`[Pagamento.create] tentativa ${tentativa} falhou pro atendimento ${a.id}, retry em 800ms...`, err?.message);
+              await new Promise(r => setTimeout(r, 800));
+              return tentarCriarPag(tentativa + 1);
+            }
+            throw err;
+          }
+        };
         try {
-          await createMutation.mutateAsync({
-            atendimento_id: a.id,
-            servico_id: a.servico_id || '',
-            cliente_nome: a.cliente_nome || '',
-            telefone: a.telefone || '',
-            tipo_servico: a.tipo_servico || '',
-            data_conclusao: a.data_conclusao || a.created_date,
-            valor_total: debitoTotal > 0 ? debitoTotal : 1.0,
-            valor_pago: 0,
-            status: 'pendente',
-            equipe_nome: a.equipe_nome || '',
-            historico_pagamentos: debitoTotal > 0 ? [{
-              valor: debitoTotal,
-              data: format(new Date(), 'dd/MM/yyyy HH:mm'),
-              observacao: '🔗 Débitos anteriores consolidados',
-              consolidado: true
-            }] : [],
-          });
+          await tentarCriarPag();
         } catch (err) {
-          console.error('Falha ao criar PagamentoCliente do atendimento', a.id, err);
+          console.error('Falha ao criar PagamentoCliente do atendimento (apos 3 tentativas)', a.id, err);
           criandoIds.current.delete(a.id);
         }
       }));
