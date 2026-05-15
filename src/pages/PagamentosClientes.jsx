@@ -2007,9 +2007,12 @@ function PagamentosClientesContent() {
     return agrupados
       .filter(g => filtroStatus.length === 0 || filtroStatus.includes(g.status))
       .sort((a, b) => {
-        const aTemPreco = a.valor_total > 0;
-        const bTemPreco = b.valor_total > 0;
-        if (aTemPreco !== bTemPreco) return aTemPreco ? 1 : -1;
+        // PRIORIDADE: servicos AGUARDANDO PRECO (placeholder R$1 sem pagamento)
+        // aparecem PRIMEIRO — facilita encontrar o que falta precificar.
+        const aPlaceholder = (a.valor_total || 0) <= 1.0 && (a.valor_pago || 0) === 0;
+        const bPlaceholder = (b.valor_total || 0) <= 1.0 && (b.valor_pago || 0) === 0;
+        if (aPlaceholder !== bPlaceholder) return aPlaceholder ? -1 : 1;
+        // Depois, ordena por status (pendente/agendado/parcial/pago)
         return (statusOrder[a.status] || 4) - (statusOrder[b.status] || 4);
       });
   }, [pagsFiltrados, inicioSemana, fimSemana, temPagamentoNaSemana, filtroStatus]);
