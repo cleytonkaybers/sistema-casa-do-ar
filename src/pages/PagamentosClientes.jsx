@@ -1535,7 +1535,11 @@ function PagamentosClientesContent() {
    
   }, [pagamentos.length, isAdmin]);
 
-  // Sincronizar apenas ATENDIMENTOS DA SEMANA ATUAL — 1 registro por atendimento
+  // Sincronizar TODOS os atendimentos sem PagamentoCliente correspondente —
+  // 1 registro por atendimento. Antes filtrava apenas semana atual, mas
+  // atendimentos concluidos em semanas anteriores que ainda nao tinham virado
+  // pagamento ficavam orfaos pra sempre. Agora qualquer atendimento sem
+  // pagamento associado gera 1 PagamentoCliente.
   useEffect(() => {
     if (isLoading || !atendimentos.length || !pagamentos) return;
     // Aguarda pagamentos estarem carregados (evita criar duplicatas na montagem)
@@ -1563,10 +1567,11 @@ function PagamentosClientesContent() {
       if (!dataRef) return false;
       // Protege contra duplicacao via compound key (cliente+tipo+data)
       if (compoundsRegistrados.has(compoundKey(a.cliente_nome, a.tipo_servico, dataRef))) return false;
-      try {
-        const data = parseISO(dataRef);
-        return isWithinInterval(data, { start: inicioSemana, end: fimSemana });
-      } catch { return false; }
+      // NAO filtra por semana atual — atendimentos antigos orfaos tambem
+      // devem virar PagamentoCliente. A protecao contra recriar pagamentos
+      // ja arquivados/deletados fica por conta de idsRegistrados e
+      // compoundsRegistrados acima.
+      return true;
     });
 
     if (novos.length === 0) return;
