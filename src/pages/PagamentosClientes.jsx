@@ -1325,6 +1325,8 @@ function PagamentosClientesContent() {
   const [detalhesModal, setDetalhesModal] = useState(null);
   const [agendarDataModal, setAgendarDataModal] = useState(null);
   const [abaAtiva, setAbaAtiva] = useState('semana');
+  const [diagModalOpen, setDiagModalOpen] = useState(false);
+  const [diagSincronizando, setDiagSincronizando] = useState(false);
   const [precosSyncKey, setPrecosSyncKey] = useState(0);
   const [abrirRelatorio, setAbrirRelatorio] = useState(false);
   const [compartilharModal, setCompartilharModal] = useState(null);
@@ -1657,13 +1659,124 @@ function PagamentosClientesContent() {
     })();
   }, [atendimentos, isLoading, pagamentos.length]);
 
+  // Lista de servicos orfaos: tem comissao gerada mas sem PagamentoCliente.
+  // Usado pelo modal de Diagnostico e pela Camada 4 de auto-sync.
+  const servicosOrfaos = useMemo(() => {
+    if (!isAdmin || !lancamentosFinanceirosTodos.length || !servicosConcluidos.length) return [];
+    const hoje = new Date();
+    const servicoIdsComComissao = new Set(
+      lancamentosFinanceirosTodos.map(l => l.servico_id).filter(Boolean)
+    );
+    const servicoIdsComPagamento = new Set(
+      pagamentos.map(p => p.servico_id).filter(Boolean)
+    );
+    const servicoIdsComAtendimento = new Set(
+      atendimentos.map(a => a.servico_id).filter(Boolean)
+    );
+    return servicosConcluidos.filter(s => {
+      if (!s.id) return false;
+      if (!servicoIdsComComissao.has(s.id)) return false;
+      if (servicoIdsComPagamento.has(s.id)) return false;
+      if (isApenasTiposIgnorados(s.tipo_servico)) return false;
+      const dataRef = s.data_conclusao || s.data_programada || s.updated_date;
+      if (!dataRef) return false;
+      try {
+        const dias = differenceInDays(hoje, parseISO(dataRef));
+        return dias >= 0 && dias <= 60;
+      } catch { return false; }
+    }).map(s => ({
+      ...s,
+      _temAtendimento: servicoIdsComAtendimento.has(s.id),
+      _diasAtras: (() => {
+        try {
+          const d = parseISO(s.data_conclusao || s.data_programada || s.updated_date);
+          return differenceInDays(hoje, d);
+        } catch { return null; }
+      })(),
+      _comissoes: lancamentosFinanceirosTodos.filter(l => l.servico_id === s.id),
+    }));
+  }, [isAdmin, lancamentosFinanceirosTodos, servicosConcluidos, pagamentos, atendimentos]);
+
+  const handleSincronizarOrfaos = async (lista) => {
+    if (!lista || lista.length === 0) return;
+    setDiagSincronizando(true);
+    let criados = 0;
+    let falhas = 0;
+    for (const s of lista) {
+      try {
+        let atendimentoId;
+        if (s._temAtendimento) {
+          const at = atendimentos.find(a => a.servico_id === s.id);
+          atendimentoId = at?.id;
+        } else {
+          const novoAtendimento = await base44.entities.Atendimento.create({
+            servico_id: s.id,
+            os_numero: s.os_numero || '',
+            cliente_nome: s.cliente_nome,
+            cpf: s.cpf || '',
+            telefone: s.telefone || '',
+            endereco: s.endereco || '',
+            latitude: s.latitude || null,
+            longitude: s.longitude || null,
+            data_atendimento: s.data_programada,
+            horario: s.horario || '',
+            dia_semana: s.dia_semana || '',
+            tipo_servico: s.tipo_servico,
+            descricao: s.descricao || '',
+            valor: s.valor || 0,
+            observacoes_conclusao: s.observacoes_conclusao || '',
+            equipe_id: s.equipe_id || '',
+            equipe_nome: s.equipe_nome || '',
+            usuario_conclusao: s.usuario_atualizacao_status || '',
+            data_conclusao: s.data_conclusao || new Date().toISOString(),
+            google_maps_link: s.google_maps_link || '',
+            detalhes: JSON.stringify({ auto_sincronizado: true, motivo: 'Diagnostico manual' }),
+          });
+          atendimentoId = novoAtendimento?.id;
+        }
+        const valorPag = (s.valor && s.valor > 1) ? s.valor : 1.0;
+        await base44.entities.PagamentoCliente.create({
+          atendimento_id: atendimentoId || '',
+          servico_id: s.id,
+          cliente_nome: s.cliente_nome || '',
+          telefone: s.telefone || '',
+          tipo_servico: s.tipo_servico || '',
+          data_conclusao: s.data_conclusao || s.data_programada,
+          valor_total: valorPag,
+          valor_pago: 0,
+          status: 'pendente',
+          equipe_nome: s.equipe_nome || '',
+          historico_pagamentos: [],
+        });
+        criados++;
+      } catch (err) {
+        console.error('[diagnostico-sync] falha em servico', s.id, err);
+        falhas++;
+      }
+    }
+    setDiagSincronizando(false);
+    queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
+    queryClient.invalidateQueries({ queryKey: ['atendimentos-pag'] });
+    queryClient.invalidateQueries({ queryKey: ['servicos-concluidos-pag'] });
+    if (criados > 0) toast.success(`✓ ${criados} pagamento(s) criado(s)`);
+    if (falhas > 0) toast.error(`⚠ ${falhas} falha(s) — recarregue para retentar`);
+    setDiagModalOpen(false);
+  };
+
   // CAMADA 4 — Verificacao defensiva usando LancamentoFinanceiro como autoridade.
   // Se o tecnico recebeu comissao por um servico, esse servico DEVE ter
   // PagamentoCliente. Detecta servico_ids com comissao gerada mas sem pagamento
   // correspondente e cria o que faltar (Atendimento + PagamentoCliente).
   // Limitado a servicos dos ultimos 60 dias.
+  //
+  // Agora MANUAL: o usuario clica no botao "🔍 Verificar faltantes" no header
+  // para inspecionar a lista e depois clicar em "Sincronizar todos". Antes
+  // rodava automatico ao abrir a pagina, mas isso escondia o que estava sendo
+  // criado. Agora o admin tem total controle.
   const camada4SincronizandoRef = useRef(false);
+  // eslint-disable-next-line no-constant-condition
   useEffect(() => {
+    if (true) return; // DESATIVADO — fluxo agora e manual via modal de Diagnostico
     if (!isAdmin) return;
     if (isLoading) return;
     if (!lancamentosFinanceirosTodos.length) return;
@@ -2354,12 +2467,32 @@ function PagamentosClientesContent() {
       {/* Header com resumo */}
       <div className="rounded-2xl p-4 sm:p-5" style={{ backgroundColor: '#1e3a8a' }}>
         <div className="flex flex-col gap-4">
-          <div>
-            <h1 className="text-lg sm:text-2xl font-bold text-white">Pagamentos dos Clientes</h1>
-            <p className="text-blue-200/80 text-xs sm:text-sm mt-1 flex items-center gap-1.5 flex-wrap">
-              <Calendar className="w-4 h-4 flex-shrink-0" />
-              <span>Semana: {format(inicioSemana, "dd/MM", { locale: ptBR })} – {format(fimSemana, "dd/MM/yyyy", { locale: ptBR })}</span>
-            </p>
+          <div className="flex items-start justify-between flex-wrap gap-2">
+            <div>
+              <h1 className="text-lg sm:text-2xl font-bold text-white">Pagamentos dos Clientes</h1>
+              <p className="text-blue-200/80 text-xs sm:text-sm mt-1 flex items-center gap-1.5 flex-wrap">
+                <Calendar className="w-4 h-4 flex-shrink-0" />
+                <span>Semana: {format(inicioSemana, "dd/MM", { locale: ptBR })} – {format(fimSemana, "dd/MM/yyyy", { locale: ptBR })}</span>
+              </p>
+            </div>
+            {isAdmin && (
+              <button
+                onClick={() => setDiagModalOpen(true)}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors ${
+                  servicosOrfaos.length > 0
+                    ? 'bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 border border-amber-400/40 animate-pulse'
+                    : 'bg-white/10 text-blue-200 hover:bg-white/20'
+                }`}
+                title="Verifica servicos com comissao gerada mas sem PagamentoCliente"
+              >
+                🔍 Verificar faltantes
+                {servicosOrfaos.length > 0 && (
+                  <span className="bg-amber-500 text-amber-950 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                    {servicosOrfaos.length}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
             <div className="bg-white/10 rounded-lg px-2 sm:px-3 py-2 text-center">
@@ -2681,6 +2814,85 @@ function PagamentosClientesContent() {
       <DetalhesClienteModal open={!!detalhesModal} onClose={() => setDetalhesModal(null)} pagamento={detalhesModal} />
       <RelatorioClientesPagamentoModal isOpen={abrirRelatorio} onClose={() => setAbrirRelatorio(false)} pagamentos={pagamentos} servicos={servicosConcluidos} />
       <CompromissoClientePDF isOpen={!!compartilharModal} onClose={() => setCompartilharModal(null)} pagamento={compartilharModal} />
+
+      {/* Modal Diagnostico: servicos no Financeiro sem PagamentoCliente */}
+      <Dialog open={diagModalOpen} onOpenChange={(v) => !diagSincronizando && setDiagModalOpen(v)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              🔍 Diagnóstico — Pagamentos faltantes
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="text-xs text-gray-600 bg-blue-50 border border-blue-100 rounded-lg p-3">
+              Mostra <strong>serviços que geraram comissão no Financeiro</strong> dos técnicos
+              mas <strong>NÃO têm PagamentoCliente</strong> correspondente. Limitado aos últimos 60 dias.
+            </div>
+            {servicosOrfaos.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                ✅ Tudo sincronizado! Nenhum serviço com comissão está sem pagamento.
+              </div>
+            ) : (
+              <>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900">
+                  <strong>{servicosOrfaos.length} serviço(s) faltando</strong> — clique em "Sincronizar todos" para criar os PagamentoCliente em massa.
+                </div>
+                <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-semibold text-gray-600">Cliente</th>
+                        <th className="text-left px-3 py-2 font-semibold text-gray-600">Tipo</th>
+                        <th className="text-left px-3 py-2 font-semibold text-gray-600">Data</th>
+                        <th className="text-right px-3 py-2 font-semibold text-gray-600">Valor</th>
+                        <th className="text-center px-3 py-2 font-semibold text-gray-600">Comissões</th>
+                        <th className="text-center px-3 py-2 font-semibold text-gray-600">Atend?</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {servicosOrfaos.map(s => (
+                        <tr key={s.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                          <td className="px-3 py-2 font-medium text-gray-800">{s.cliente_nome || '-'}</td>
+                          <td className="px-3 py-2 text-gray-600 max-w-[200px] truncate" title={s.tipo_servico}>{s.tipo_servico || '-'}</td>
+                          <td className="px-3 py-2 text-gray-500 whitespace-nowrap">
+                            {s.data_conclusao ? format(parseISO(s.data_conclusao), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
+                            <div className="text-[10px] text-gray-400">{s._diasAtras != null ? `${s._diasAtras} dias atrás` : ''}</div>
+                          </td>
+                          <td className="px-3 py-2 text-right font-semibold text-gray-700 whitespace-nowrap">
+                            {s.valor ? formatCurrency(s.valor) : <span className="text-gray-400 italic">sem preço</span>}
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                              {s._comissoes.length}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            {s._temAtendimento
+                              ? <span className="text-emerald-600 font-bold">✓</span>
+                              : <span className="text-red-500 font-bold">✗</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button variant="outline" onClick={() => setDiagModalOpen(false)} disabled={diagSincronizando}>Fechar</Button>
+              {servicosOrfaos.length > 0 && (
+                <Button
+                  className="bg-amber-600 hover:bg-amber-700 text-white gap-2"
+                  onClick={() => handleSincronizarOrfaos(servicosOrfaos)}
+                  disabled={diagSincronizando}
+                >
+                  {diagSincronizando ? '⏳ Sincronizando...' : `🔄 Sincronizar todos (${servicosOrfaos.length})`}
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
