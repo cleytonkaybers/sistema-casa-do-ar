@@ -1427,6 +1427,13 @@ function PagamentosClientesContent() {
     enabled: isAdmin,
   });
 
+  // Usuarios — usado para notificar ADMs quando detectar inconsistencia
+  const { data: usuarios = [] } = useQuery({
+    queryKey: ['usuarios-pag'],
+    queryFn: () => base44.entities.User.list(),
+    enabled: isAdmin,
+  });
+
   // Índice O(1) por nome de cliente normalizado.
   // Sem isso, o auto-sync de atendimentos→pagamentos roda O(N×M) — a 30k atendimentos × 50k pagamentos
   // o navegador trava no useEffect de montagem.
@@ -1758,10 +1765,69 @@ function PagamentosClientesContent() {
     queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
     queryClient.invalidateQueries({ queryKey: ['atendimentos-pag'] });
     queryClient.invalidateQueries({ queryKey: ['servicos-concluidos-pag'] });
+    // Remove ids notificados (foram resolvidos) — assim se sumirem de novo
+    // no futuro, geram nova notificacao
+    try {
+      const notif = new Set(JSON.parse(localStorage.getItem('pag_alertas_notificados') || '[]'));
+      lista.forEach(s => notif.delete(s.id));
+      localStorage.setItem('pag_alertas_notificados', JSON.stringify([...notif]));
+    } catch {}
     if (criados > 0) toast.success(`✓ ${criados} pagamento(s) criado(s)`);
     if (falhas > 0) toast.error(`⚠ ${falhas} falha(s) — recarregue para retentar`);
     setDiagModalOpen(false);
   };
+
+  // ALERTA AUTOMATICO: Notifica ADMs quando detecta servicos que SUMIRAM
+  // de Pagamentos de Clientes sem confirmacao de pagamento nem exclusao manual.
+  // Regra do negocio: nenhum servico concluido pode sumir indevidamente.
+  // Servicos legitimamente fora de Pagamentos:
+  //   1. Pago (status=pago)
+  //   2. Excluido manualmente pelo ADM (arquivado=true && excluido_manual=true)
+  // Qualquer outro caso = inconsistencia → notifica todos os ADMs.
+  const ALERTAS_NOTIF_KEY = 'pag_alertas_notificados';
+  useEffect(() => {
+    if (!isAdmin) return;
+    if (isLoading) return;
+    if (!servicosOrfaos.length) return;
+    if (!usuarios.length) return;
+
+    // Carrega lista de servico_ids ja notificados (evita spam)
+    let jaNotificados = new Set();
+    try {
+      jaNotificados = new Set(JSON.parse(localStorage.getItem(ALERTAS_NOTIF_KEY) || '[]'));
+    } catch {}
+
+    const novos = servicosOrfaos.filter(s => !jaNotificados.has(s.id));
+    if (novos.length === 0) return;
+
+    (async () => {
+      const admins = usuarios.filter(u => u?.role === 'admin' && u?.email);
+      if (admins.length === 0) return;
+      try {
+        // Cria 1 notificacao por ADM, agregando os novos sumidos
+        const nomesClientes = [...new Set(novos.map(s => s.cliente_nome || 'cliente'))].slice(0, 5);
+        const extras = novos.length - nomesClientes.length;
+        const lista = nomesClientes.join(', ') + (extras > 0 ? ` e mais ${extras}` : '');
+        await Promise.all(admins.map(adm =>
+          base44.entities.Notificacao.create({
+            usuario_email: adm.email,
+            tipo: 'pagamento_agendado',
+            titulo: `⚠ ${novos.length} servico(s) sumiram de Pagamentos`,
+            mensagem: `Detectado: ${novos.length} servico(s) com comissao no Financeiro mas SEM PagamentoCliente. Clientes: ${lista}. Abra Pagamentos de Clientes > Verificar faltantes para investigar.`,
+            atendimento_id: novos[0]?.id || '',
+            cliente_nome: novos[0]?.cliente_nome || '',
+            lida: false,
+          }).catch(err => console.error('[alerta-sumico] falha em ADM', adm.email, err))
+        ));
+        // Salva ids notificados pra nao gerar duplicata
+        novos.forEach(s => jaNotificados.add(s.id));
+        try { localStorage.setItem(ALERTAS_NOTIF_KEY, JSON.stringify([...jaNotificados])); } catch {}
+        queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
+      } catch (err) {
+        console.error('[alerta-sumico] erro geral:', err);
+      }
+    })();
+  }, [isAdmin, isLoading, servicosOrfaos, usuarios, queryClient]);
 
   // CAMADA 4 — Verificacao defensiva usando LancamentoFinanceiro como autoridade.
   // Se o tecnico recebeu comissao por um servico, esse servico DEVE ter
