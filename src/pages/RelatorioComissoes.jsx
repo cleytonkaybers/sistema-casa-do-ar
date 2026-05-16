@@ -26,6 +26,10 @@ const selectDark = 'bg-[#1e2d3d] border border-[#2d3f55] text-gray-100 h-10 px-3
 const NUM_SEMANAS = 10;
 const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
+// Cutoff historico: ignora lancamentos anteriores a esta data em TODOS os
+// relatorios. Definido pelo admin para limpar dados antigos da base.
+const CUTOFF_HISTORICO = new Date('2025-03-16T00:00:00');
+
 // ─── Gerador de PDF (HTML → window.print) ─────────────────────────────────
 async function gerarPDF({ lancamentosFiltrados, totais, ganhosSemanais, equipesNomes, totaisPorEquipe, porMes, dataInicio, dataFim }) {
   const { bannerHtmlImg, getBannerUrl } = await import('@/lib/pdfBanner');
@@ -280,6 +284,8 @@ export default function RelatorioComissoes() {
   const [salvando, setSalvando] = useState(false);
   const [lancParaDeletar, setLancParaDeletar] = useState(null);
   const [deletando, setDeletando] = useState(false);
+  const [tecnicoExpandido, setTecnicoExpandido] = useState(null);
+  const [mesExpandido, setMesExpandido] = useState({}); // {[tecKey]: mesKey}
   const [recalcModalOpen, setRecalcModalOpen] = useState(false);
   const [recalculando, setRecalculando] = useState(false);
   const [recalcOpts, setRecalcOpts] = useState({
@@ -326,6 +332,8 @@ export default function RelatorioComissoes() {
   const lancamentosFiltrados = useMemo(() => {
     return lancamentos.filter(lanc => {
       const dataLanc = new Date(lanc.data_geracao);
+      // CUTOFF historico — ignora lancamentos antes da data definida (limpeza)
+      if (dataLanc < CUTOFF_HISTORICO) return false;
       const matchData = (!dataInicio || dataLanc >= new Date(dataInicio)) &&
                         (!dataFim   || dataLanc <= new Date(dataFim));
       const matchTecnico = !tecnicoFiltro || lanc.tecnico_id === tecnicoFiltro;
@@ -375,6 +383,63 @@ export default function RelatorioComissoes() {
       return { label, porEquipe, total: totalSemana };
     });
   }, [semanas, lancamentos, equipesNomes]);
+
+  // Ganhos por TECNICO agrupados por MES e SEMANA (cutoff aplicado no lancamentosFiltrados)
+  const ganhosPorTecnico = useMemo(() => {
+    const porTec = {};
+    lancamentosFiltrados.forEach(l => {
+      const tecId = l.tecnico_id || l.tecnico_nome || 'sem-tecnico';
+      const dt = new Date(l.data_geracao);
+      if (!tecId || isNaN(dt)) return;
+      if (!porTec[tecId]) {
+        porTec[tecId] = {
+          tecnico_id: tecId,
+          nome: l.tecnico_nome || 'Sem técnico',
+          equipe: l.equipe_nome || '—',
+          totalGeral: 0,
+          qtdServicos: 0,
+          meses: {},
+        };
+      }
+      const valor = l.valor_comissao_tecnico || 0;
+      porTec[tecId].totalGeral += valor;
+      porTec[tecId].qtdServicos += 1;
+
+      // Chave do mes: YYYY-MM (label dd/MM)
+      const mesKey = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+      const mesLabel = format(dt, 'MMMM yyyy', { locale: ptBR });
+      if (!porTec[tecId].meses[mesKey]) {
+        porTec[tecId].meses[mesKey] = { key: mesKey, label: mesLabel, total: 0, qtd: 0, semanas: {} };
+      }
+      porTec[tecId].meses[mesKey].total += valor;
+      porTec[tecId].meses[mesKey].qtd += 1;
+
+      // Chave da semana: usa segunda-feira como ancora (formato YYYY-MM-DD)
+      const inicioSem = getStartOfWeek(dt);
+      const fimSem = getEndOfWeek(dt);
+      const semKey = format(inicioSem, 'yyyy-MM-dd');
+      const semLabel = `${format(inicioSem, 'dd/MM')} – ${format(fimSem, 'dd/MM')}`;
+      if (!porTec[tecId].meses[mesKey].semanas[semKey]) {
+        porTec[tecId].meses[mesKey].semanas[semKey] = { key: semKey, label: semLabel, total: 0, qtd: 0, lancamentos: [] };
+      }
+      porTec[tecId].meses[mesKey].semanas[semKey].total += valor;
+      porTec[tecId].meses[mesKey].semanas[semKey].qtd += 1;
+      porTec[tecId].meses[mesKey].semanas[semKey].lancamentos.push(l);
+    });
+
+    // Converte objetos em arrays ordenados (mes/semana mais RECENTE primeiro)
+    return Object.values(porTec)
+      .map(t => ({
+        ...t,
+        meses: Object.values(t.meses)
+          .sort((a, b) => b.key.localeCompare(a.key))
+          .map(m => ({
+            ...m,
+            semanas: Object.values(m.semanas).sort((a, b) => b.key.localeCompare(a.key)),
+          })),
+      }))
+      .sort((a, b) => b.totalGeral - a.totalGeral);
+  }, [lancamentosFiltrados]);
 
   const totaisPorEquipe = useMemo(() => {
     const t = {};
@@ -819,6 +884,116 @@ export default function RelatorioComissoes() {
           </CardContent>
         </Card>
       )}
+
+      {/* Ganhos por Tecnico (Semana / Mes) */}
+      <Card className="bg-[#152236] border-white/5 rounded-2xl">
+        <CardHeader className="pb-3 px-5 pt-5 border-b border-white/5">
+          <CardTitle className="text-sm font-bold text-gray-200 tracking-wide flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-emerald-400" />
+            Ganhos por Técnico — detalhado por mês/semana
+            <span className="text-[10px] text-gray-500 ml-2 font-normal">desde {format(CUTOFF_HISTORICO, 'dd/MM/yyyy', { locale: ptBR })}</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0 divide-y divide-white/5">
+          {ganhosPorTecnico.length === 0 ? (
+            <p className="text-center text-gray-500 py-8 text-sm">Nenhum lançamento encontrado no período</p>
+          ) : (
+            ganhosPorTecnico.map((tec, idx) => {
+              const isExp = tecnicoExpandido === tec.tecnico_id;
+              return (
+                <div key={tec.tecnico_id}>
+                  {/* Header do tecnico */}
+                  <button
+                    onClick={() => setTecnicoExpandido(isExp ? null : tec.tecnico_id)}
+                    className="w-full px-5 py-3 flex items-center justify-between hover:bg-white/5 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold border ${
+                        idx === 0 ? 'bg-yellow-400/15 text-yellow-300 border-yellow-400/30' :
+                        idx === 1 ? 'bg-gray-300/15 text-gray-200 border-gray-300/30' :
+                        idx === 2 ? 'bg-amber-600/15 text-amber-500 border-amber-600/30' :
+                        'bg-white/5 text-gray-500 border-white/10'
+                      }`}>{idx + 1}</div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-200 truncate">{tec.nome}</p>
+                        <p className="text-[11px] text-gray-500">{tec.equipe} · {tec.qtdServicos} serv.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="text-right">
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Total geral</p>
+                        <p className="text-base font-bold text-emerald-400">{fmt(tec.totalGeral)}</p>
+                      </div>
+                      <span className="text-gray-500 text-xs">{isExp ? '▲' : '▼'}</span>
+                    </div>
+                  </button>
+
+                  {/* Conteudo expandido: lista de meses */}
+                  {isExp && (
+                    <div className="bg-[#0d1826]/40 px-5 py-3 space-y-2">
+                      {tec.meses.map(m => {
+                        const mesExpKey = `${tec.tecnico_id}::${m.key}`;
+                        const isMesExp = mesExpandido[tec.tecnico_id] === m.key;
+                        return (
+                          <div key={m.key} className="bg-[#152236] border border-white/5 rounded-lg overflow-hidden">
+                            <button
+                              onClick={() => setMesExpandido(prev => ({
+                                ...prev,
+                                [tec.tecnico_id]: isMesExp ? null : m.key,
+                              }))}
+                              className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-white/5 transition-colors text-left"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Calendar className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
+                                <span className="text-sm font-semibold text-gray-200 capitalize">{m.label}</span>
+                                <span className="text-[10px] text-gray-500">{m.qtd} serv.</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-emerald-400">{fmt(m.total)}</span>
+                                <span className="text-gray-500 text-xs">{isMesExp ? '▲' : '▼'}</span>
+                              </div>
+                            </button>
+                            {isMesExp && (
+                              <div className="border-t border-white/5 px-4 py-2 bg-[#0d1826]/30">
+                                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-2">Quebra semanal</p>
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="text-gray-500 border-b border-white/5">
+                                      <th className="text-left py-1 font-medium">Semana</th>
+                                      <th className="text-right py-1 font-medium">Serv.</th>
+                                      <th className="text-right py-1 font-medium">Comissão</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {m.semanas.map(sem => (
+                                      <tr key={sem.key} className="border-b border-white/5 last:border-0 hover:bg-white/5">
+                                        <td className="py-1.5 text-gray-300">{sem.label}</td>
+                                        <td className="py-1.5 text-right text-gray-400">{sem.qtd}</td>
+                                        <td className="py-1.5 text-right font-semibold text-emerald-400">{fmt(sem.total)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                  <tfoot>
+                                    <tr className="font-bold border-t border-white/10">
+                                      <td className="pt-2 text-gray-200">TOTAL DO MÊS</td>
+                                      <td className="pt-2 text-right text-gray-200">{m.qtd}</td>
+                                      <td className="pt-2 text-right text-emerald-300">{fmt(m.total)}</td>
+                                    </tr>
+                                  </tfoot>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </CardContent>
+      </Card>
 
       {/* Resumo Mensal */}
       <Card className="bg-[#152236] border-white/5 rounded-2xl">
