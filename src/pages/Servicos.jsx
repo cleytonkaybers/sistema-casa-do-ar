@@ -256,7 +256,23 @@ export default function ServicosPage() {
     if (!servicoParaConcluir) return;
 
     const servicoSnapshot = { ...servicoParaConcluir };
-    
+
+    // Helper: tenta uma operacao ate N vezes com delay entre tentativas.
+    // Lanca erro se TODAS as tentativas falharem.
+    const comRetry = async (label, fn, max = 3) => {
+      for (let i = 1; i <= max; i++) {
+        try { return await fn(); }
+        catch (err) {
+          if (i === max) {
+            console.error(`[conclusao] ${label} falhou apos ${max} tentativas:`, err);
+            throw err;
+          }
+          console.warn(`[conclusao] ${label} tentativa ${i} falhou, retry em 800ms...`, err?.message);
+          await new Promise(r => setTimeout(r, 800));
+        }
+      }
+    };
+
     try {
       const user = await base44.auth.me();
       const statusAnterior = servicoSnapshot.status || 'aberto';
@@ -267,8 +283,9 @@ export default function ServicosPage() {
       // e adicionar outro servico (ex: "Ver defeito + Limpeza 9k"), gera tudo normal.
       const isVerDefeito = isApenasTiposIgnorados(servicoSnapshot.tipo_servico);
 
-      // 1. Atualizar serviço como concluído
-      await updateMutation.mutateAsync({ 
+      // ===== PASSO 1: Atualizar Servico para concluido (BLOQUEANTE com retry) =====
+      toast.info('⏳ Concluindo serviço...', { id: 'conclusao-progresso', duration: 30000 });
+      await comRetry('servico-update', () => updateMutation.mutateAsync({
         id: servicoSnapshot.id,
         silencioso: true,
         data: {
@@ -278,220 +295,130 @@ export default function ServicosPage() {
           usuario_atualizacao_status: user?.email,
           data_atualizacao_status: agora,
         }
-      });
-
-      // 2. Fechar modal e abrir compartilhamento IMEDIATAMENTE após atualizar o serviço
-      setShowConclusaoModal(false);
-      setServicoParaConcluir(null);
-      setServicoConcluido({ ...servicoSnapshot, observacoes_conclusao: observacoes, isConclusao: true });
-      setShowCompartilharModal(true);
+      }));
       queryClient.invalidateQueries({ queryKey: ['servicos'] });
-      toast.success(servicoSnapshot.sem_registro_cliente ? 'Serviço avulso concluído! 🎉' : 'Serviço concluído! 🎉');
 
-      // Notificar ADMs se cliente pagou em dinheiro (não para serviços de verificação de defeito)
-      if (pagouDinheiro && !isVerDefeito) {
-        try {
-          await base44.functions.invoke('notificarPagamentoDinheiro', {
-            cliente_nome: servicoSnapshot.cliente_nome,
-            tipo_servico: servicoSnapshot.tipo_servico,
-            valor: servicoSnapshot.valor,
-            atendimento_id: servicoSnapshot.id,
-          });
-          toast.success('💵 ADM notificado sobre pagamento em dinheiro!');
-          queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
-        } catch (e) {
-          console.error('Erro ao notificar ADM:', e);
-        }
-      }
-
-      // 3a. Servico SO de tipos ignorados (ex: "Verificar defeito" sozinho):
-      // cria APENAS o Atendimento (registro da visita do tecnico) e DELETA o
-      // Servico. Nao gera comissao, nao cria PagamentoCliente, nao registra
-      // AlteracaoStatus. O Atendimento mantem todos os dados para historico.
+      // ===== FLUXO VER-DEFEITO: cria Atendimento + deleta Servico (BLOQUEANTE) =====
       if (isVerDefeito) {
-        (async () => {
-          try {
-            await base44.entities.Atendimento.create({
-              servico_id: servicoSnapshot.id,
-              os_numero: servicoSnapshot.os_numero || '',
-              cliente_nome: servicoSnapshot.cliente_nome,
-              cpf: servicoSnapshot.cpf || '',
-              telefone: servicoSnapshot.telefone || '',
-              endereco: servicoSnapshot.endereco || '',
-              latitude: servicoSnapshot.latitude || null,
-              longitude: servicoSnapshot.longitude || null,
-              data_atendimento: servicoSnapshot.data_programada,
-              horario: servicoSnapshot.horario || '',
-              dia_semana: servicoSnapshot.dia_semana || '',
-              tipo_servico: servicoSnapshot.tipo_servico,
-              descricao: servicoSnapshot.descricao || '',
-              valor: servicoSnapshot.valor || 0,
-              observacoes_conclusao: observacoes || '',
-              equipe_id: servicoSnapshot.equipe_id || '',
-              equipe_nome: servicoSnapshot.equipe_nome || '',
-              usuario_conclusao: user?.email,
-              data_conclusao: agora,
-              google_maps_link: servicoSnapshot.google_maps_link || '',
-              detalhes: JSON.stringify({
-                tipo_visita: 'verificacao_apenas',
-                observacoes_conclusao: observacoes || null,
-                usuario_conclusao: user?.email,
-                data_conclusao: agora,
-              }),
-            });
-            // Servico ja virou Atendimento — deleta o Servico
-            await base44.entities.Servico.delete(servicoSnapshot.id);
-            queryClient.invalidateQueries({ queryKey: ['servicos'] });
-            queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
-          } catch (err) {
-            console.error('Erro no fluxo verificar-defeito:', err);
-            toast.error('⚠️ Falha ao registrar visita de verificação');
-          }
-        })();
+        toast.info('⏳ Registrando visita de verificação...', { id: 'conclusao-progresso', duration: 30000 });
+        await comRetry('atendimento-verdefeito', () => base44.entities.Atendimento.create({
+          servico_id: servicoSnapshot.id,
+          os_numero: servicoSnapshot.os_numero || '',
+          cliente_nome: servicoSnapshot.cliente_nome,
+          cpf: servicoSnapshot.cpf || '',
+          telefone: servicoSnapshot.telefone || '',
+          endereco: servicoSnapshot.endereco || '',
+          latitude: servicoSnapshot.latitude || null,
+          longitude: servicoSnapshot.longitude || null,
+          data_atendimento: servicoSnapshot.data_programada,
+          horario: servicoSnapshot.horario || '',
+          dia_semana: servicoSnapshot.dia_semana || '',
+          tipo_servico: servicoSnapshot.tipo_servico,
+          descricao: servicoSnapshot.descricao || '',
+          valor: servicoSnapshot.valor || 0,
+          observacoes_conclusao: observacoes || '',
+          equipe_id: servicoSnapshot.equipe_id || '',
+          equipe_nome: servicoSnapshot.equipe_nome || '',
+          usuario_conclusao: user?.email,
+          data_conclusao: agora,
+          google_maps_link: servicoSnapshot.google_maps_link || '',
+          detalhes: JSON.stringify({
+            tipo_visita: 'verificacao_apenas',
+            observacoes_conclusao: observacoes || null,
+            usuario_conclusao: user?.email,
+            data_conclusao: agora,
+          }),
+        }));
+        await comRetry('servico-delete', () => base44.entities.Servico.delete(servicoSnapshot.id));
+        queryClient.invalidateQueries({ queryKey: ['servicos'] });
+        queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
+        toast.dismiss('conclusao-progresso');
+        toast.success('✅ Visita de verificação registrada (sem comissão).');
+        setShowConclusaoModal(false);
+        setServicoParaConcluir(null);
+        return;
       }
 
-      // 3b. Operações secundárias em background (não bloqueiam a UI)
-      if (!isVerDefeito) Promise.all([
-        base44.entities.AlteracaoStatus.create({
+      // ===== PASSO 2: Criar Atendimento (BLOQUEANTE com retry) =====
+      toast.info('⏳ Criando atendimento...', { id: 'conclusao-progresso', duration: 30000 });
+      const historicoStatus = await base44.entities.AlteracaoStatus
+        .filter({ servico_id: servicoSnapshot.id }, 'data_alteracao').catch(() => []);
+      const detalhesCompletos = {
+        dados_ordem_servico: {
+          id: servicoSnapshot.id,
+          cliente_nome: servicoSnapshot.cliente_nome,
+          cpf: servicoSnapshot.cpf || null,
+          telefone: servicoSnapshot.telefone || null,
+          endereco: servicoSnapshot.endereco || null,
+          latitude: servicoSnapshot.latitude || null,
+          longitude: servicoSnapshot.longitude || null,
+          tipo_servico: servicoSnapshot.tipo_servico,
+          descricao: servicoSnapshot.descricao || null,
+          valor: servicoSnapshot.valor || 0,
+          data_programada: servicoSnapshot.data_programada || null,
+          horario: servicoSnapshot.horario || null,
+          dia_semana: servicoSnapshot.dia_semana || null,
+          equipe_id: servicoSnapshot.equipe_id || null,
+          equipe_nome: servicoSnapshot.equipe_nome || null,
+          google_maps_link: servicoSnapshot.google_maps_link || null,
+          data_criacao: servicoSnapshot.created_date || null,
+        },
+        observacoes_conclusao: observacoes || null,
+        usuario_conclusao: user?.email,
+        data_conclusao: agora,
+        historico_status: (historicoStatus || []).map(h => ({
+          status_anterior: h.status_anterior,
+          status_novo: h.status_novo,
+          usuario: h.usuario,
+          data_alteracao: h.data_alteracao,
+        })),
+      };
+      const atendimentoCriado = await comRetry('atendimento-create', () =>
+        base44.entities.Atendimento.create({
           servico_id: servicoSnapshot.id,
-          status_anterior: statusAnterior,
-          status_novo: 'concluido',
-          usuario: user?.email,
-          data_alteracao: agora,
-          tipo_registro: 'servico'
-        }).catch(err => {
-          console.error('Erro ao criar AlteracaoStatus:', err);
-          // nao bloqueia: AlteracaoStatus eh apenas log de historico
-        }),
+          os_numero: servicoSnapshot.os_numero || '',
+          cliente_nome: servicoSnapshot.cliente_nome,
+          cpf: servicoSnapshot.cpf || '',
+          telefone: servicoSnapshot.telefone || '',
+          endereco: servicoSnapshot.endereco || '',
+          latitude: servicoSnapshot.latitude || null,
+          longitude: servicoSnapshot.longitude || null,
+          data_atendimento: servicoSnapshot.data_programada,
+          horario: servicoSnapshot.horario || '',
+          dia_semana: servicoSnapshot.dia_semana || '',
+          tipo_servico: servicoSnapshot.tipo_servico,
+          descricao: servicoSnapshot.descricao || '',
+          valor: servicoSnapshot.valor || 0,
+          observacoes_conclusao: observacoes || '',
+          equipe_id: servicoSnapshot.equipe_id || '',
+          equipe_nome: servicoSnapshot.equipe_nome || '',
+          usuario_conclusao: user?.email,
+          data_conclusao: agora,
+          google_maps_link: servicoSnapshot.google_maps_link || '',
+          detalhes: JSON.stringify(detalhesCompletos),
+        })
+      );
 
-        // Notificar ADMs para definir o preco no painel de PagamentosClientes
-        // (o pagamento entra com placeholder R$ 1,00; ADM precifica manualmente).
-        (async () => {
-          try {
-            const admins = (usuarios || []).filter(u => u?.role === 'admin' && u?.email);
-            if (admins.length === 0) return;
-            await Promise.all(admins.map(adm =>
-              base44.entities.Notificacao.create({
-                usuario_email: adm.email,
-                titulo: '💲 Definir preco do servico',
-                mensagem: `Servico de "${servicoSnapshot.tipo_servico || 'tipo nao informado'}" para ${servicoSnapshot.cliente_nome || 'cliente'} concluido. Defina o preco em Pagamentos de Clientes.`,
-                tipo: 'pagamento_agendado',
-                atendimento_id: servicoSnapshot.id,
-                cliente_nome: servicoSnapshot.cliente_nome || '',
-                lida: false,
-              })
-            ));
-            queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
-          } catch (err) {
-            console.error('Erro ao notificar ADMs sobre precificacao:', err);
-          }
-        })(),
-
-        base44.entities.AlteracaoStatus.filter({ servico_id: servicoSnapshot.id }, 'data_alteracao')
-          .catch(() => [])
-          .then(historicoStatus => {
-            const detalhesCompletos = {
-              dados_ordem_servico: {
-                id: servicoSnapshot.id,
-                cliente_nome: servicoSnapshot.cliente_nome,
-                cpf: servicoSnapshot.cpf || null,
-                telefone: servicoSnapshot.telefone || null,
-                endereco: servicoSnapshot.endereco || null,
-                latitude: servicoSnapshot.latitude || null,
-                longitude: servicoSnapshot.longitude || null,
-                tipo_servico: servicoSnapshot.tipo_servico,
-                descricao: servicoSnapshot.descricao || null,
-                valor: servicoSnapshot.valor || 0,
-                data_programada: servicoSnapshot.data_programada || null,
-                horario: servicoSnapshot.horario || null,
-                dia_semana: servicoSnapshot.dia_semana || null,
-                equipe_id: servicoSnapshot.equipe_id || null,
-                equipe_nome: servicoSnapshot.equipe_nome || null,
-                google_maps_link: servicoSnapshot.google_maps_link || null,
-                data_criacao: servicoSnapshot.created_date || null,
-              },
-              observacoes_conclusao: observacoes || null,
-              usuario_conclusao: user?.email,
-              data_conclusao: agora,
-              historico_status: (historicoStatus || []).map(h => ({
-                status_anterior: h.status_anterior,
-                status_novo: h.status_novo,
-                usuario: h.usuario,
-                data_alteracao: h.data_alteracao,
-              })),
-            };
-            // Retry: tenta ate 3 vezes (com 800ms entre tentativas) pra cobrir
-            // falha intermitente de rede/backend. Antes uma unica falha
-            // perdia o atendimento silenciosamente.
-            const payloadAtendimento = {
-              servico_id: servicoSnapshot.id,
-              os_numero: servicoSnapshot.os_numero || '',
-              cliente_nome: servicoSnapshot.cliente_nome,
-              cpf: servicoSnapshot.cpf || '',
-              telefone: servicoSnapshot.telefone || '',
-              endereco: servicoSnapshot.endereco || '',
-              latitude: servicoSnapshot.latitude || null,
-              longitude: servicoSnapshot.longitude || null,
-              data_atendimento: servicoSnapshot.data_programada,
-              horario: servicoSnapshot.horario || '',
-              dia_semana: servicoSnapshot.dia_semana || '',
-              tipo_servico: servicoSnapshot.tipo_servico,
-              descricao: servicoSnapshot.descricao || '',
-              valor: servicoSnapshot.valor || 0,
-              observacoes_conclusao: observacoes || '',
-              equipe_id: servicoSnapshot.equipe_id || '',
-              equipe_nome: servicoSnapshot.equipe_nome || '',
-              usuario_conclusao: user?.email,
-              data_conclusao: agora,
-              google_maps_link: servicoSnapshot.google_maps_link || '',
-              detalhes: JSON.stringify(detalhesCompletos),
-            };
-            const tentarCriar = async (tentativa = 1) => {
-              try {
-                return await base44.entities.Atendimento.create(payloadAtendimento);
-              } catch (err) {
-                if (tentativa < 3) {
-                  console.warn(`[Atendimento.create] tentativa ${tentativa} falhou, retry em 800ms...`, err?.message);
-                  await new Promise(r => setTimeout(r, 800));
-                  return tentarCriar(tentativa + 1);
-                }
-                throw err;
-              }
-            };
-            return tentarCriar();
-          }).catch(err => {
-            console.error('Erro ao criar atendimento (apos 3 tentativas):', err);
-            toast.error('⚠️ Falha ao criar atendimento. Va em Historico de Clientes > este cliente > Regerar para corrigir.', { duration: 10000 });
-          }),
-
-        // Gerar comissoes automaticamente ao concluir.
-        // gerar_comissao: o schema define default=true, entao tratamos undefined como true
-        // (so pulamos se foi explicitamente setado para false).
-        (async () => {
-          const comissaoHabilitada = servicoSnapshot.gerar_comissao !== false;
-          if (!comissaoHabilitada) return;
-          if (!servicoSnapshot.equipe_id) return;
-          if (!servicoSnapshot.valor) return;
-          if (servicoSnapshot.comissao_gerada) return;
-          try {
-            const tecnicos = await base44.entities.TecnicoFinanceiro.filter({ equipe_id: servicoSnapshot.equipe_id });
-            if (!tecnicos || tecnicos.length === 0) {
-              toast.error(`⚠️ Comissao nao gerada: nenhum tecnico cadastrado na equipe "${servicoSnapshot.equipe_nome || servicoSnapshot.equipe_id}".`);
-              return;
-            }
-            const valorTotal = servicoSnapshot.valor;
-            // Le percentuais da Tabela de Servicos (TipoServicoValor). Fallback 30/15.
-            const comissao = await calcularComissao(servicoSnapshot.tipo_servico, valorTotal, queryClient);
-            const valorComissaoTecnico = comissao.valor_comissao_tecnico;
-            await Promise.all(tecnicos.map(async (tec) => {
-              // Dedup atomico: evita duplicar lancamento se conclusao foi disparada
-              // 2x rapidamente (race com flag comissao_gerada que so e setada DEPOIS).
-              const ja = await base44.entities.LancamentoFinanceiro
-                .filter({ servico_id: servicoSnapshot.id, tecnico_id: tec.tecnico_id })
-                .catch(() => []);
-              if (ja && ja.length > 0) return;
-
-              await base44.entities.LancamentoFinanceiro.create({
+      // ===== PASSO 3: Gerar Comissao (BLOQUEANTE com retry) =====
+      const comissaoHabilitada = servicoSnapshot.gerar_comissao !== false;
+      let tecnicosComissionados = 0;
+      if (comissaoHabilitada && servicoSnapshot.equipe_id && servicoSnapshot.valor && !servicoSnapshot.comissao_gerada) {
+        toast.info('⏳ Lançando comissões dos técnicos...', { id: 'conclusao-progresso', duration: 30000 });
+        const tecnicos = await base44.entities.TecnicoFinanceiro.filter({ equipe_id: servicoSnapshot.equipe_id });
+        if (!tecnicos || tecnicos.length === 0) {
+          toast.error(`⚠️ Comissão não gerada: nenhum técnico na equipe "${servicoSnapshot.equipe_nome || servicoSnapshot.equipe_id}"`);
+        } else {
+          const valorTotal = servicoSnapshot.valor;
+          const comissao = await calcularComissao(servicoSnapshot.tipo_servico, valorTotal, queryClient);
+          const valorComissaoTecnico = comissao.valor_comissao_tecnico;
+          for (const tec of tecnicos) {
+            // Dedup
+            const ja = await base44.entities.LancamentoFinanceiro
+              .filter({ servico_id: servicoSnapshot.id, tecnico_id: tec.tecnico_id })
+              .catch(() => []);
+            if (ja && ja.length > 0) continue;
+            await comRetry(`lancamento-${tec.tecnico_id}`, () =>
+              base44.entities.LancamentoFinanceiro.create({
                 servico_id: servicoSnapshot.id,
                 equipe_id: servicoSnapshot.equipe_id,
                 equipe_nome: servicoSnapshot.equipe_nome || '',
@@ -507,52 +434,60 @@ export default function ServicosPage() {
                 status: 'pendente',
                 data_geracao: agora,
                 usuario_geracao: user?.email,
-              });
-              await base44.entities.TecnicoFinanceiro.update(tec.id, {
+              })
+            );
+            await comRetry(`tecnico-fin-${tec.tecnico_id}`, () =>
+              base44.entities.TecnicoFinanceiro.update(tec.id, {
                 credito_pendente: (tec.credito_pendente || 0) + valorComissaoTecnico,
                 total_ganho: (tec.total_ganho || 0) + valorComissaoTecnico,
                 data_ultima_atualizacao: agora,
-              });
-            }));
-            await base44.entities.Servico.update(servicoSnapshot.id, { comissao_gerada: true });
-            queryClient.invalidateQueries({ queryKey: ['lancamentosFinanceiros'] });
-            queryClient.invalidateQueries({ queryKey: ['tecnicosFinanceiros'] });
-            toast.success(`💰 Comissao gerada para ${tecnicos.length} tecnico(s).`);
-          } catch (e) {
-            console.error('Erro ao gerar comissoes:', e);
-            toast.error('⚠️ Falha ao gerar comissao — verifique no Financeiro.');
+              })
+            );
+            tecnicosComissionados++;
           }
-        })(),
-      ]).then(() => {
-        queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
-        queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
-      }).catch(err => {
-        console.error('Erro em operacoes secundarias:', err);
-      });
+          await base44.entities.Servico.update(servicoSnapshot.id, { comissao_gerada: true }).catch(() => {});
+        }
+      }
 
-      // Atualizar preventiva do cliente em background.
-      // Match por telefone normalizado (so digitos) com fallback por nome,
-      // para nao perder clientes cadastrados sem telefone ou com formatacao diferente.
-      if (!isVerDefeito && !servicoSnapshot.sem_registro_cliente) {
-        (async () => {
-          try {
-            const todosClientes = await base44.entities.Cliente.list();
-            const telefoneLimpo = (servicoSnapshot.telefone || '').replace(/\D/g, '');
-            const nomeNormalizado = (servicoSnapshot.cliente_nome || '').trim().toLowerCase();
+      // ===== PASSO 4: Criar PagamentoCliente (BLOQUEANTE com retry) =====
+      toast.info('⏳ Registrando pagamento do cliente...', { id: 'conclusao-progresso', duration: 30000 });
+      const jaExistePag = await base44.entities.PagamentoCliente
+        .filter({ atendimento_id: atendimentoCriado?.id })
+        .catch(() => []);
+      if (!jaExistePag || jaExistePag.length === 0) {
+        const valorPag = (servicoSnapshot.valor && servicoSnapshot.valor > 1) ? servicoSnapshot.valor : 1.0;
+        await comRetry('pagamento-create', () =>
+          base44.entities.PagamentoCliente.create({
+            atendimento_id: atendimentoCriado?.id || '',
+            servico_id: servicoSnapshot.id,
+            cliente_nome: servicoSnapshot.cliente_nome || '',
+            telefone: servicoSnapshot.telefone || '',
+            tipo_servico: servicoSnapshot.tipo_servico || '',
+            data_conclusao: agora,
+            valor_total: valorPag,
+            valor_pago: 0,
+            status: 'pendente',
+            equipe_nome: servicoSnapshot.equipe_nome || '',
+            historico_pagamentos: [],
+          })
+        );
+      }
 
-            let clienteMatch = null;
-            if (telefoneLimpo) {
-              clienteMatch = todosClientes.find(c => (c.telefone || '').replace(/\D/g, '') === telefoneLimpo);
-            }
-            if (!clienteMatch && nomeNormalizado) {
-              clienteMatch = todosClientes.find(c => (c.nome || '').trim().toLowerCase() === nomeNormalizado);
-            }
-
-            if (!clienteMatch) {
-              toast.warning('⚠️ Preventiva nao atualizada: cliente nao encontrado no cadastro.');
-              return;
-            }
-
+      // ===== PASSO 5: Atualizar Preventiva do Cliente (BLOQUEANTE) =====
+      if (!servicoSnapshot.sem_registro_cliente) {
+        toast.info('⏳ Atualizando preventiva...', { id: 'conclusao-progresso', duration: 30000 });
+        try {
+          const todosClientes = await base44.entities.Cliente.list();
+          const telefoneLimpo = (servicoSnapshot.telefone || '').replace(/\D/g, '');
+          const nomeNormalizado = (servicoSnapshot.cliente_nome || '').trim().toLowerCase();
+          let clienteMatch = null;
+          if (telefoneLimpo) {
+            clienteMatch = todosClientes.find(c => (c.telefone || '').replace(/\D/g, '') === telefoneLimpo);
+          }
+          if (!clienteMatch && nomeNormalizado) {
+            clienteMatch = todosClientes.find(c => (c.nome || '').trim().toLowerCase() === nomeNormalizado);
+          }
+          if (clienteMatch) {
             const dataConc = servicoSnapshot.data_programada || new Date().toISOString().split('T')[0];
             const proxima = new Date(dataConc);
             proxima.setMonth(proxima.getMonth() + 6);
@@ -560,17 +495,70 @@ export default function ServicosPage() {
               ultima_manutencao: dataConc,
               proxima_manutencao: proxima.toISOString().split('T')[0],
             });
-            queryClient.invalidateQueries({ queryKey: ['clientes'] });
-          } catch (err) {
-            console.error('Erro ao atualizar preventiva:', err);
-            toast.error('⚠️ Falha ao atualizar preventiva do cliente.');
           }
-        })();
+        } catch (err) {
+          console.warn('[conclusao] preventiva nao atualizada (nao bloqueia):', err?.message);
+        }
       }
 
+      // ===== TUDO CRITICO OK — fecha modal e mostra sucesso =====
+      toast.dismiss('conclusao-progresso');
+      setShowConclusaoModal(false);
+      setServicoParaConcluir(null);
+      setServicoConcluido({ ...servicoSnapshot, observacoes_conclusao: observacoes, isConclusao: true });
+      setShowCompartilharModal(true);
+      queryClient.invalidateQueries({ queryKey: ['servicos'] });
+      queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
+      queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
+      queryClient.invalidateQueries({ queryKey: ['lancamentosFinanceiros'] });
+      queryClient.invalidateQueries({ queryKey: ['tecnicosFinanceiros'] });
+      queryClient.invalidateQueries({ queryKey: ['clientes'] });
+      const detalhesSucesso = [`✅ Serviço concluído`];
+      if (tecnicosComissionados > 0) detalhesSucesso.push(`💰 ${tecnicosComissionados} comissão(ões)`);
+      detalhesSucesso.push('💳 Pagamento registrado');
+      toast.success(detalhesSucesso.join(' · '));
+
+      // ===== BACKGROUND: operacoes nao-criticas (nao bloqueiam UI) =====
+      // AlteracaoStatus, Notificacao para ADMs, Notificacao de pagamento em dinheiro
+      Promise.all([
+        base44.entities.AlteracaoStatus.create({
+          servico_id: servicoSnapshot.id,
+          status_anterior: statusAnterior,
+          status_novo: 'concluido',
+          usuario: user?.email,
+          data_alteracao: agora,
+          tipo_registro: 'servico'
+        }).catch(err => console.error('Erro AlteracaoStatus:', err)),
+        (async () => {
+          try {
+            const admins = (usuarios || []).filter(u => u?.role === 'admin' && u?.email);
+            if (admins.length === 0) return;
+            await Promise.all(admins.map(adm =>
+              base44.entities.Notificacao.create({
+                usuario_email: adm.email,
+                titulo: '💲 Definir preço do serviço',
+                mensagem: `Serviço de "${servicoSnapshot.tipo_servico || 'tipo nao informado'}" para ${servicoSnapshot.cliente_nome || 'cliente'} concluído. Defina o preço em Pagamentos de Clientes.`,
+                tipo: 'pagamento_agendado',
+                atendimento_id: servicoSnapshot.id,
+                cliente_nome: servicoSnapshot.cliente_nome || '',
+                lida: false,
+              })
+            ));
+            queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
+          } catch (err) { console.error('Erro ao notificar ADMs:', err); }
+        })(),
+        (pagouDinheiro ? base44.functions.invoke('notificarPagamentoDinheiro', {
+          cliente_nome: servicoSnapshot.cliente_nome,
+          tipo_servico: servicoSnapshot.tipo_servico,
+          valor: servicoSnapshot.valor,
+          atendimento_id: servicoSnapshot.id,
+        }).catch(err => console.error('Erro notificar dinheiro:', err)) : Promise.resolve()),
+      ]).catch(err => console.error('Erro em background:', err));
+
     } catch (error) {
+      toast.dismiss('conclusao-progresso');
       console.error('Erro ao concluir serviço:', error);
-      toast.error('Erro ao concluir serviço: ' + (error.message || 'Tente novamente'));
+      toast.error(`⚠️ Falha ao concluir: ${error?.message || 'tente novamente'}. Use o botão "Verificar faltantes" em Pagamentos.`, { duration: 12000 });
     }
   };
 
