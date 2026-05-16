@@ -17,7 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO, isAfter, subMonths } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO, isAfter, subMonths, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseHistoricoData, toLocalDateSafe } from '@/lib/dateUtils';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
@@ -1416,6 +1416,15 @@ function PagamentosClientesContent() {
     queryFn: () => base44.entities.TecnicoFinanceiro.list(),
   });
 
+  // LancamentoFinanceiro como AUTORIDADE: se tecnico recebeu comissao, entao
+  // o servico foi concluido e DEVE ter PagamentoCliente. Usado pela Camada 4
+  // de sincronizacao defensiva.
+  const { data: lancamentosFinanceirosTodos = [] } = useQuery({
+    queryKey: ['lancamentos-financeiros-sync'],
+    queryFn: () => base44.entities.LancamentoFinanceiro.list(),
+    enabled: isAdmin,
+  });
+
   // Índice O(1) por nome de cliente normalizado.
   // Sem isso, o auto-sync de atendimentos→pagamentos roda O(N×M) — a 30k atendimentos × 50k pagamentos
   // o navegador trava no useEffect de montagem.
@@ -1647,6 +1656,118 @@ function PagamentosClientesContent() {
       }));
     })();
   }, [atendimentos, isLoading, pagamentos.length]);
+
+  // CAMADA 4 — Verificacao defensiva usando LancamentoFinanceiro como autoridade.
+  // Se o tecnico recebeu comissao por um servico, esse servico DEVE ter
+  // PagamentoCliente. Detecta servico_ids com comissao gerada mas sem pagamento
+  // correspondente e cria o que faltar (Atendimento + PagamentoCliente).
+  // Limitado a servicos dos ultimos 60 dias.
+  const camada4SincronizandoRef = useRef(false);
+  useEffect(() => {
+    if (!isAdmin) return;
+    if (isLoading) return;
+    if (!lancamentosFinanceirosTodos.length) return;
+    if (!servicosConcluidos.length) return;
+    if (camada4SincronizandoRef.current) return;
+
+    const hoje = new Date();
+    // Set de servico_ids que aparecem em LancamentoFinanceiro (autoridade)
+    const servicoIdsComComissao = new Set(
+      lancamentosFinanceirosTodos.map(l => l.servico_id).filter(Boolean)
+    );
+    // Sets de cobertura atual
+    const servicoIdsComPagamento = new Set(
+      pagamentos.map(p => p.servico_id).filter(Boolean)
+    );
+    const servicoIdsComAtendimento = new Set(
+      atendimentos.map(a => a.servico_id).filter(Boolean)
+    );
+
+    // Servicos orfaos: tem comissao mas NAO tem pagamento
+    const orfaos = servicosConcluidos.filter(s => {
+      if (!s.id) return false;
+      if (!servicoIdsComComissao.has(s.id)) return false;
+      if (servicoIdsComPagamento.has(s.id)) return false;
+      if (isApenasTiposIgnorados(s.tipo_servico)) return false;
+      const dataRef = s.data_conclusao || s.data_programada || s.updated_date;
+      if (!dataRef) return false;
+      try {
+        const dias = differenceInDays(hoje, parseISO(dataRef));
+        return dias >= 0 && dias <= 60;
+      } catch { return false; }
+    });
+
+    if (orfaos.length === 0) return;
+
+    camada4SincronizandoRef.current = true;
+    (async () => {
+      let criados = 0;
+      let falhas = 0;
+      for (const s of orfaos) {
+        try {
+          // 1) Garantir Atendimento
+          let atendimentoId;
+          if (servicoIdsComAtendimento.has(s.id)) {
+            const at = atendimentos.find(a => a.servico_id === s.id);
+            atendimentoId = at?.id;
+          } else {
+            const novoAtendimento = await base44.entities.Atendimento.create({
+              servico_id: s.id,
+              os_numero: s.os_numero || '',
+              cliente_nome: s.cliente_nome,
+              cpf: s.cpf || '',
+              telefone: s.telefone || '',
+              endereco: s.endereco || '',
+              latitude: s.latitude || null,
+              longitude: s.longitude || null,
+              data_atendimento: s.data_programada,
+              horario: s.horario || '',
+              dia_semana: s.dia_semana || '',
+              tipo_servico: s.tipo_servico,
+              descricao: s.descricao || '',
+              valor: s.valor || 0,
+              observacoes_conclusao: s.observacoes_conclusao || '',
+              equipe_id: s.equipe_id || '',
+              equipe_nome: s.equipe_nome || '',
+              usuario_conclusao: s.usuario_atualizacao_status || '',
+              data_conclusao: s.data_conclusao || new Date().toISOString(),
+              google_maps_link: s.google_maps_link || '',
+              detalhes: JSON.stringify({ auto_sincronizado: true, motivo: 'Camada 4: detectado via LancamentoFinanceiro' }),
+            });
+            atendimentoId = novoAtendimento?.id;
+          }
+          // 2) Criar PagamentoCliente
+          const valorPag = (s.valor && s.valor > 1) ? s.valor : 1.0;
+          await base44.entities.PagamentoCliente.create({
+            atendimento_id: atendimentoId || '',
+            servico_id: s.id,
+            cliente_nome: s.cliente_nome || '',
+            telefone: s.telefone || '',
+            tipo_servico: s.tipo_servico || '',
+            data_conclusao: s.data_conclusao || s.data_programada,
+            valor_total: valorPag,
+            valor_pago: 0,
+            status: 'pendente',
+            equipe_nome: s.equipe_nome || '',
+            historico_pagamentos: [],
+          });
+          criados++;
+        } catch (err) {
+          console.error('[camada4-sync] falha em servico', s.id, err);
+          falhas++;
+        }
+      }
+      camada4SincronizandoRef.current = false;
+      if (criados > 0) {
+        queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
+        queryClient.invalidateQueries({ queryKey: ['atendimentos-pag'] });
+        toast.success(`🔄 ${criados} pagamento(s) recuperado(s) via Financeiro dos Técnicos`);
+      }
+      if (falhas > 0) {
+        toast.error(`⚠️ ${falhas} pagamento(s) falharam — recarregue a pagina para retentar`);
+      }
+    })();
+  }, [isAdmin, isLoading, lancamentosFinanceirosTodos, servicosConcluidos, atendimentos, pagamentos, queryClient]);
 
   const handleSalvarPrecos = async (pag, precosGrupo) => {
     // Busca registros frescos direto do pagamentos (evita dados desatualizados de _records)
