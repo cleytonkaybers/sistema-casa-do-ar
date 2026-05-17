@@ -1575,21 +1575,24 @@ function PagamentosClientesContent() {
       const saldo = (p.valor_total || 0) - valorPago;
       const pagoDeVerdade = p.status === 'pago' || (valorPago > 0 && saldo <= 5.0);
       if (pagoDeVerdade) return false;
-      // NAO restaurar placeholders R$1 (legado) NEM R$5,55 (atual) — sao lixo
-      // de bugs antigos. Cliente real foi precificado em OUTRO registro.
-      // Filtro: valor >= R$50 (so dividas reais)
+      // NAO restaurar placeholders (1.00 legado, 5.55 legado, 1111 atual)
+      // nem dividas pequenas (< R$50) — sao lixo de bugs antigos.
       const valor = p.valor_total || 0;
-      if (valor < 50) return false;
-      return true; // valor real, arquivado sem ter sido pago = engano
+      if (valor === 1111 || Math.abs(valor - 5.55) < 0.01 || valor < 50) return false;
+      return true; // valor real (>=R$50, nao placeholder), arquivado = engano
     });
 
-    // MARCA placeholders R$1 e R$5,55 antigos arquivados como excluido_manual
-    // pra nao reaparecerem em sessoes futuras.
+    // Helper: detecta valor placeholder (qualquer um dos 3 legados)
+    const isValorPlaceholder = (v) => (
+      v === 1111 ||
+      Math.abs(v - 5.55) < 0.01 ||
+      (v > 0 && v <= 1.0)
+    );
+    // MARCA placeholders arquivados como excluido_manual pra nao reaparecerem
     const limparLixo = pagamentos.filter(p => {
       const valor = p.valor_total || 0;
       const valorPago = p.valor_pago || 0;
-      // Placeholders: <= R$6 (cobre 1.00 legado e 5.55 atual) sem pagamento
-      return valor <= 6 && valorPago === 0 && p.excluido_manual !== true;
+      return isValorPlaceholder(valor) && valorPago === 0 && p.excluido_manual !== true;
     });
 
     if (restaurar.length === 0 && limparLixo.length === 0) return;
@@ -1699,7 +1702,7 @@ function PagamentosClientesContent() {
           telefone: a.telefone || '',
           tipo_servico: a.tipo_servico || '',
           data_conclusao: a.data_conclusao || a.created_date,
-          valor_total: debitoTotal > 0 ? debitoTotal : 1.0,
+          valor_total: debitoTotal > 0 ? debitoTotal : 1111,
           valor_pago: 0,
           status: 'pendente',
           equipe_nome: a.equipe_nome || '',
