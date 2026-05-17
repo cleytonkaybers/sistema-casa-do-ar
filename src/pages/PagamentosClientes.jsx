@@ -2299,6 +2299,67 @@ function PagamentosClientesContent() {
     }
   };
 
+  // Sincroniza Atendimentos sem PagamentoCliente correspondente. Cliente
+  // teve servico concluido (Atendimento existe) mas o PagamentoCliente nunca
+  // foi criado (ou foi deletado). Cria placeholder novo para o ADM precificar/cobrar.
+  // Foco em Atendimentos com valor > R\$5 dos ultimos 90 dias.
+  const handleSincronizarAtendimentosOrfaos = async () => {
+    // Cria conjunto de atendimento_ids ja com pagamento (incluindo arquivados)
+    const idsComPag = new Set(pagamentos.map(p => p.atendimento_id).filter(Boolean));
+    const hoje = new Date();
+    const orfaos = atendimentos.filter(a => {
+      if (!a.id) return false;
+      if (idsComPag.has(a.id)) return false; // ja tem pagamento
+      // Filtro de data: ultimos 90 dias
+      const dataRef = a.data_conclusao || a.data_atendimento || a.created_date;
+      if (!dataRef) return false;
+      try {
+        const dt = parseISO(dataRef);
+        const dias = Math.floor((hoje - dt) / (1000 * 60 * 60 * 24));
+        if (dias < 0 || dias > 90) return false;
+      } catch { return false; }
+      // Ignora tipos ignorados (Verificar defeito sozinho)
+      if (isApenasTiposIgnorados(a.tipo_servico)) return false;
+      // Valor > R\$5 (real, nao placeholder zerado)
+      return (a.valor || 0) > 5;
+    });
+    if (orfaos.length === 0) {
+      toast.info('Nenhum atendimento órfão encontrado.');
+      return;
+    }
+    const totalValor = orfaos.reduce((s, a) => s + (a.valor || 0), 0);
+    const lista = orfaos.slice(0, 8).map(a => `• ${a.cliente_nome || '?'} (${a.data_conclusao?.slice(0,10) || '?'}) — R$ ${(a.valor || 0).toFixed(2)}`).join('\n');
+    const extras = orfaos.length > 8 ? `\n... e mais ${orfaos.length - 8}` : '';
+    if (!confirm(`Criar ${orfaos.length} pagamento(s) faltante(s)?\n\nTotal: R$ ${totalValor.toFixed(2)}\n\nAtendimentos sem PagamentoCliente:\n${lista}${extras}\n\nEles vão aparecer em Pendências com o valor do atendimento.`)) return;
+    try {
+      let ok = 0;
+      for (const a of orfaos) {
+        try {
+          await base44.entities.PagamentoCliente.create({
+            atendimento_id: a.id,
+            servico_id: a.servico_id || '',
+            cliente_nome: a.cliente_nome || '',
+            telefone: a.telefone || '',
+            tipo_servico: a.tipo_servico || '',
+            data_conclusao: a.data_conclusao || a.data_atendimento || new Date().toISOString(),
+            valor_total: a.valor || 0,
+            valor_pago: 0,
+            status: 'pendente',
+            equipe_nome: a.equipe_nome || '',
+            historico_pagamentos: [],
+          });
+          ok++;
+        } catch (err) {
+          console.error('[sync-orfaos] falhou', a.id, err);
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
+      toast.success(`✅ ${ok} pagamento(s) criado(s) — confira aba Pendências`, { duration: 10000 });
+    } catch {
+      toast.error('Erro ao sincronizar atendimentos');
+    }
+  };
+
   // Recupera dividas que foram arquivadas/excluidas por engano em versoes
   // anteriores. Pega TODOS arquivados com valor > R\$50 que NAO foram pagos,
   // INCLUINDO os com excluido_manual=true (que foram apagados pela lixeira
@@ -2849,6 +2910,13 @@ function PagamentosClientesContent() {
                 <span className="text-sm text-gray-500">{pagsArquivados.length} registros</span>
                 {isAdmin && (
                   <>
+                    <Button
+                      onClick={handleSincronizarAtendimentosOrfaos}
+                      variant="outline"
+                      className="gap-1.5 h-8 text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
+                    >
+                      🔄 Sincronizar Atendimentos Órfãos
+                    </Button>
                     <Button
                       onClick={handleRecuperarDividas}
                       variant="outline"
