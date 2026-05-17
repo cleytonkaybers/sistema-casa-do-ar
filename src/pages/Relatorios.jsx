@@ -361,6 +361,7 @@ export default function RelatóriosPage() {
             // Compat: chave antiga ${s.id}-${idx} continua sendo aceita pra
             // arquivados que foram salvos antes desta refatoracao.
             legacyKey: `${s.id}-${idx}`,
+            idx, // CRITICO: usado em handleSalvarMarca pra saber qual parte editar
             servicoId: s.id,
             os: s.os_numero || '',
             cliente: s.cliente_nome || '-',
