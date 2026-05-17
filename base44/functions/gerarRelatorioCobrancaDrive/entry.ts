@@ -445,14 +445,14 @@ Deno.serve(async (req) => {
     const db = base44.asServiceRole;
 
     // 1. Buscar pagamentos em aberto
-    // Excluir: arquivados, status='pago', saldo <= R\$5 (diferenca pequena
-    // conta como quitado e nao gera linha no relatorio de cobranca)
+    // Excluir: arquivados, status='pago', saldo <= R\$10 (cobranca pequena
+    // nao gera linha no relatorio — alinhado com Excel local da tela)
     const todos   = await db.entities.PagamentoCliente.list('-data_conclusao');
     const abertos = todos.filter((p: any) => {
       if (p.arquivado) return false;
       if (!['pendente', 'parcial', 'agendado'].includes(p.status)) return false;
       const saldo = (p.valor_total || 0) - (p.valor_pago || 0);
-      if (saldo <= 5) return false; // diferenca pequena = quitado, fora do relatorio
+      if (saldo <= 10) return false; // cobranca pequena = fora do relatorio
       return true;
     });
 

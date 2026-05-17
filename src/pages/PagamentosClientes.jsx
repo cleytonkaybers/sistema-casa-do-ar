@@ -1341,9 +1341,12 @@ function PagamentosClientesContent() {
   const handleExportarExcel = async () => {
     const statusFiltros = filtroStatus.length === 0 ? ['pendente', 'parcial', 'agendado', 'pago'] : filtroStatus;
 
+    // Excel de cobranca: NUNCA mostra quem ja pagou ou esta efetivamente quitado.
+    // Tambem exclui devedores com saldo <= R$10 (cobranca pequena nao vale a planilha).
     const lista = pagamentos.filter(p =>
       statusFiltros.includes(p.status) &&
-      !isApenasTiposIgnorados(p.tipo_servico)
+      !isApenasTiposIgnorados(p.tipo_servico) &&
+      !isEfetivamentePago(p)
     );
 
     const agrupado = {};
@@ -1382,11 +1385,18 @@ function PagamentosClientesContent() {
       };
     });
 
-    rows.sort((a, b) => b['Pendente (R$)'] - a['Pendente (R$)']);
+    // Apos agrupar por cliente: remove quem deve <= R$10 no total
+    const rowsFiltradas = rows.filter(r => r['Pendente (R$)'] > 10);
+    rowsFiltradas.sort((a, b) => b['Pendente (R$)'] - a['Pendente (R$)']);
+
+    if (rowsFiltradas.length === 0) {
+      toast.info('Nenhum devedor com saldo acima de R$10 — planilha nao gerada.');
+      return;
+    }
 
     const label = statusFiltros.join('_');
     await exportarExcel(
-      [{ name: 'Pagamentos Clientes', data: rows, colWidths: [28, 18, 14, 14, 14, 12, 22] }],
+      [{ name: 'Pagamentos Clientes', data: rowsFiltradas, colWidths: [28, 18, 14, 14, 14, 12, 22] }],
       `pagamentos_clientes_${label}_${format(new Date(), 'dd-MM-yyyy')}.xlsx`
     );
   };
