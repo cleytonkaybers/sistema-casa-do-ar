@@ -1512,13 +1512,17 @@ function PagamentosClientesContent() {
   const fimSemana = endOfWeek(hoje, { weekStartsOn: 1 }); // domingo
 
   // Helper: verifica se registro é "efetivamente pago" (DB pago, tolerância ou placeholder)
+  // SO retorna true se o ADM deu baixa real:
+  // 1. status='pago'
+  // 2. Pago com tolerancia R\$1 (recebeu valor que cobre quase tudo)
+  // NUNCA marca placeholder R\$1 sem pagamento como 'pago' — antes essa linha
+  // fazia o sistema auto-arquivar servicos que aguardavam precificacao.
   const isEfetivamentePago = useCallback((p) => {
     const valorPago = p.valor_pago || 0;
     const saldo = (p.valor_total || 0) - valorPago;
     return (
       p.status === 'pago' ||
-      (valorPago > 0 && saldo <= 1.0) ||        // pago com tolerância de R$1
-      ((p.valor_total || 0) <= 1.0 && valorPago === 0) // placeholder sem pagamento real
+      (valorPago > 0 && saldo <= 1.0)        // pago com tolerância de R$1
     );
   }, []);
 
@@ -1550,7 +1554,45 @@ function PagamentosClientesContent() {
         try { await updateMutation.mutateAsync({ id: p.id, data: { arquivado: true } }); } catch {}
       }
     })();
-   
+
+  }, [pagamentos.length, isAdmin]);
+
+  // AUTO-RESTAURAR ARQUIVADOS POR ENGANO: versoes anteriores marcavam
+  // placeholders R\$1 sem pagamento como 'pagos' e os auto-arquivavam.
+  // Resultado: clientes que ainda deviam sumiram. Este useEffect detecta
+  // arquivados que NAO foram pagos NEM excluidos manualmente pelo ADM
+  // e RESTAURA (desarquiva) automaticamente.
+  const autoRestauradoRef = useRef(false);
+  useEffect(() => {
+    if (!isAdmin || autoRestauradoRef.current || pagamentos.length === 0) return;
+    autoRestauradoRef.current = true;
+
+    const restaurar = pagamentos.filter(p => {
+      if (p.arquivado !== true) return false;
+      if (p.excluido_manual === true) return false; // ADM deletou intencionalmente — manter
+      // Foi pago de verdade? Mantem arquivado.
+      const valorPago = p.valor_pago || 0;
+      const saldo = (p.valor_total || 0) - valorPago;
+      const pagoDeVerdade = p.status === 'pago' || (valorPago > 0 && saldo <= 1.0);
+      if (pagoDeVerdade) return false;
+      return true; // arquivado sem ter sido pago nem excluido = engano
+    });
+
+    if (restaurar.length === 0) return;
+    (async () => {
+      let ok = 0;
+      for (const p of restaurar) {
+        try {
+          await updateMutation.mutateAsync({ id: p.id, data: { arquivado: false } });
+          ok++;
+        } catch (err) {
+          console.error('[restaurar-engano] falhou', p.id, err);
+        }
+      }
+      if (ok > 0) {
+        toast.success(`✓ ${ok} cliente(s) restaurado(s) — arquivados por engano`, { duration: 8000 });
+      }
+    })();
   }, [pagamentos.length, isAdmin]);
 
   // Sincronizar TODOS os atendimentos sem PagamentoCliente correspondente —
