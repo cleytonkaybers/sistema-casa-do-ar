@@ -1,14 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Loader2, TrendingUp, DollarSign, CheckCircle, Clock, Filter, BarChart2, List, BookOpen, FileSpreadsheet, Wrench, Search, X } from 'lucide-react';
+import { Loader2, TrendingUp, DollarSign, CheckCircle, Clock, Filter, BarChart2, List, BookOpen, FileSpreadsheet, Wrench, Search, X, Pencil } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useDebounce } from '@/hooks/useDebounce';
 import { matchClienteSearch } from '@/lib/utils/buscaCliente';
-import { extrairMarca, isInstalacao, removerMarca } from '@/lib/marcasAr';
+import { extrairMarca, isInstalacao, removerMarca, embutirMarca, MARCAS_AR } from '@/lib/marcasAr';
+import { toast } from 'sonner';
 import NotionExportModal from '../components/relatorios/NotionExportModal';
 import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO, startOfWeek, endOfWeek, startOfYear, endOfYear, subWeeks } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
@@ -75,6 +76,49 @@ export default function RelatóriosPage() {
   const [filtroEquipeInst, setFiltroEquipeInst] = useState('todas');
   const [buscaInstalacao, setBuscaInstalacao] = useState('');
   const debouncedBuscaInstalacao = useDebounce(buscaInstalacao);
+  const [editarMarcaModal, setEditarMarcaModal] = useState(null); // { instalacao, marcaAtual, novaMarca }
+  const [salvandoMarca, setSalvandoMarca] = useState(false);
+  const queryClient = useQueryClient();
+
+  // Atualiza a marca de UMA instalacao especifica (identificada por servicoId + idx).
+  // O tipo_servico do Servico contem multiplas partes separadas por ' + ', cada uma
+  // pode ter [Marca: X | local]. Atualizamos so a parte do idx selecionado.
+  const handleSalvarMarca = async () => {
+    if (!editarMarcaModal) return;
+    const { instalacao, novaMarca } = editarMarcaModal;
+    setSalvandoMarca(true);
+    try {
+      const servico = servicos.find(s => s.id === instalacao.servicoId);
+      if (!servico) {
+        toast.error('Serviço não encontrado.');
+        setSalvandoMarca(false);
+        return;
+      }
+      const partes = (servico.tipo_servico || '').split(' + ').filter(Boolean);
+      // Localiza a parte pelo idx
+      const partesNovas = partes.map((p, i) => {
+        if (i !== instalacao.idx) return p;
+        // Extrai tipo base e equipamento atual
+        const m = p.match(/^(.+?)\s*\[(.+)\]$/);
+        const tipoBase = m ? m[1].trim() : p.trim();
+        const equipAtual = m ? m[2].trim() : '';
+        const localAtual = removerMarca(equipAtual);
+        const novoEquip = embutirMarca(novaMarca, localAtual);
+        return novoEquip ? `${tipoBase} [${novoEquip}]` : tipoBase;
+      });
+      const novoTipoServico = partesNovas.join(' + ');
+      await base44.entities.Servico.update(servico.id, { tipo_servico: novoTipoServico });
+      queryClient.invalidateQueries({ queryKey: ['servicos'] });
+      queryClient.invalidateQueries({ queryKey: ['servicos-relatorios'] });
+      toast.success(`✓ Marca atualizada para ${novaMarca || 'não informada'}`);
+      setEditarMarcaModal(null);
+    } catch (err) {
+      console.error('Erro ao salvar marca:', err);
+      toast.error('Erro ao salvar marca: ' + (err?.message || 'tente novamente'));
+    } finally {
+      setSalvandoMarca(false);
+    }
+  };
   const [instalacaoDetalhes, setInstalacaoDetalhes] = useState(null);
   const [notionModal, setNotionModal] = useState(false);
 
@@ -757,13 +801,26 @@ export default function RelatóriosPage() {
                                   {i.telefone && <div className="text-[11px] text-gray-500">{i.telefone}</div>}
                                 </td>
                                 <td className="py-2.5 px-3">
-                                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                    i.marca === 'Não informada'
-                                      ? 'bg-gray-100 text-gray-500'
-                                      : 'bg-emerald-100 text-emerald-700'
-                                  }`}>
-                                    {i.marca}
-                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                      i.marca === 'Não informada'
+                                        ? 'bg-gray-100 text-gray-500'
+                                        : 'bg-emerald-100 text-emerald-700'
+                                    }`}>
+                                      {i.marca}
+                                    </span>
+                                    <button
+                                      onClick={() => setEditarMarcaModal({
+                                        instalacao: i,
+                                        marcaAtual: i.marca === 'Não informada' ? '' : i.marca,
+                                        novaMarca: i.marca === 'Não informada' ? '' : i.marca,
+                                      })}
+                                      className="text-gray-400 hover:text-blue-600 transition-colors"
+                                      title="Editar marca"
+                                    >
+                                      <Pencil className="w-3 h-3" />
+                                    </button>
+                                  </div>
                                 </td>
                                 <td className="py-2.5 px-3">
                                   <div className="text-gray-700 text-xs font-medium">{i.tipo}</div>
@@ -889,6 +946,62 @@ export default function RelatóriosPage() {
                 </>
                 )}
                 <NotionExportModal open={notionModal} onClose={() => setNotionModal(false)} />
+
+                {/* Modal Editar Marca da Instalacao */}
+                <Dialog open={!!editarMarcaModal} onOpenChange={() => !salvandoMarca && setEditarMarcaModal(null)}>
+                  <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <Pencil className="w-4 h-4 text-blue-500" />
+                        Editar Marca do Ar
+                      </DialogTitle>
+                    </DialogHeader>
+                    {editarMarcaModal && (
+                      <div className="space-y-3 py-2">
+                        <div className="bg-gray-50 rounded-lg p-3 text-xs space-y-1">
+                          <div><strong>Cliente:</strong> {editarMarcaModal.instalacao.cliente}</div>
+                          <div><strong>Tipo:</strong> {editarMarcaModal.instalacao.tipo}</div>
+                          <div><strong>Marca atual:</strong> {editarMarcaModal.marcaAtual || <span className="italic text-gray-500">não informada</span>}</div>
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-gray-700 mb-1.5 block">Nova marca</label>
+                          <select
+                            value={editarMarcaModal.novaMarca}
+                            onChange={e => setEditarMarcaModal(prev => ({ ...prev, novaMarca: e.target.value }))}
+                            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                          >
+                            <option value="">— Não informada —</option>
+                            {MARCAS_AR.map(m => (
+                              <option key={m} value={m}>{m}</option>
+                            ))}
+                            {/* Permite manter marca custom ja salva mesmo nao estando em MARCAS_AR */}
+                            {editarMarcaModal.marcaAtual && !MARCAS_AR.includes(editarMarcaModal.marcaAtual) && (
+                              <option value={editarMarcaModal.marcaAtual}>{editarMarcaModal.marcaAtual} (atual)</option>
+                            )}
+                          </select>
+                          <p className="text-[10px] text-gray-500 mt-1">
+                            Quer outra marca? Digite abaixo:
+                          </p>
+                          <Input
+                            type="text"
+                            placeholder="Ou digite uma marca personalizada"
+                            value={editarMarcaModal.novaMarca}
+                            onChange={e => setEditarMarcaModal(prev => ({ ...prev, novaMarca: e.target.value }))}
+                            className="mt-1 text-sm"
+                          />
+                        </div>
+                        <DialogFooter className="gap-2">
+                          <Button variant="outline" onClick={() => setEditarMarcaModal(null)} disabled={salvandoMarca}>
+                            Cancelar
+                          </Button>
+                          <Button onClick={handleSalvarMarca} disabled={salvandoMarca} className="bg-blue-600 hover:bg-blue-700 text-white">
+                            {salvandoMarca ? '⏳ Salvando...' : 'Salvar marca'}
+                          </Button>
+                        </DialogFooter>
+                      </div>
+                    )}
+                  </DialogContent>
+                </Dialog>
 
                 {/* Modal de detalhes da instalacao */}
                 <Dialog open={!!instalacaoDetalhes} onOpenChange={() => setInstalacaoDetalhes(null)}>
