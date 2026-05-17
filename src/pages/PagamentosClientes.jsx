@@ -1654,6 +1654,59 @@ function PagamentosClientesContent() {
     })();
   }, [pagamentos.length, isAdmin]);
 
+  // AUTO-QUITAR SALDOS PEQUENOS (<= R\$5): roda 1x por sessao ao abrir a pagina.
+  // Marca como pago + arquiva + excluido_manual=true. Definitivo: nao reaparecem
+  // em filtros, planilhas Excel ou auto-restauradores. Sem confirm() porque o
+  // ADM ja pediu que isso seja automatico.
+  const autoQuitadoRef = useRef(false);
+  useEffect(() => {
+    if (!isAdmin || autoQuitadoRef.current || pagamentos.length === 0) return;
+    autoQuitadoRef.current = true;
+
+    const pequenos = pagamentos.filter(p => {
+      if (p.arquivado === true) return false; // ja arquivado, nada a fazer
+      if (p.status === 'pago') return false;  // ja marcado como pago
+      const valorPago = p.valor_pago || 0;
+      const saldo = (p.valor_total || 0) - valorPago;
+      if (saldo <= 0.01 || saldo > 5) return false; // so saldos entre R$0,01 e R$5
+      if ((p.valor_total || 0) <= 0) return false;  // sem valor_total nao processa
+      return true;
+    });
+
+    if (pequenos.length === 0) return;
+    (async () => {
+      let ok = 0;
+      const agora = new Date().toISOString();
+      const dataStr = format(new Date(), 'dd/MM/yyyy');
+      for (const p of pequenos) {
+        try {
+          const saldo = (p.valor_total || 0) - (p.valor_pago || 0);
+          const novoHistorico = [
+            ...(p.historico_pagamentos || []),
+            { valor: saldo, data: dataStr, observacao: `✓ Saldo <= R\$5 quitado automaticamente (perdoado)` },
+          ];
+          await updateMutation.mutateAsync({
+            id: p.id,
+            data: {
+              valor_pago: p.valor_total,
+              status: 'pago',
+              historico_pagamentos: novoHistorico,
+              data_pagamento_completo: agora,
+              arquivado: true,
+              excluido_manual: true,
+            },
+          });
+          ok++;
+        } catch (err) {
+          console.error('[auto-quitar-pequenos] falhou', p.id, err);
+        }
+      }
+      if (ok > 0) {
+        toast.success(`🪙 ${ok} saldo(s) pequeno(s) (<= R$5) quitado(s) automaticamente`, { duration: 8000 });
+      }
+    })();
+  }, [pagamentos.length, isAdmin]);
+
   // DESATIVADO (user pediu): o sync automatico criava PagamentoCliente para
   // qualquer Atendimento sem pagamento ao abrir a tela — gerando clientes
   // que o ADM nao queria (especialmente provenientes de Preventivas Futuras).
