@@ -197,12 +197,15 @@ function groupPagamentos(lista) {
   });
   return Object.values(groups).map(g => {
     // Dedup em 2 niveis:
-    // 1) Por ID do PagamentoCliente — remove o MESMO registro duplicado na lista
-    // 2) Por chave composta tipo+data (dia) — remove PagamentosCliente diferentes
-    //    que representam o mesmo evento real (ex: registro "fantasma" gerado por
-    //    race antigo no sync). Permite multiplos atendimentos do mesmo Servico
-    //    em datas diferentes — apenas colapsa duplicatas dentro do MESMO DIA.
-    //    Em caso de conflito, mantem o de maior valor_total OU o mais recente.
+    // 1) Por ID do PagamentoCliente — remove MESMO registro duplicado na lista
+    //    (defesa contra useQuery devolver mesmo objeto 2x)
+    // 2) Por atendimento_id — remove PagamentoClientes diferentes que apontam
+    //    para o MESMO atendimento real (ex: race no sync gerou 2 pagamentos).
+    //    Records SEM atendimento_id (legados, criados manual) NUNCA dedupam —
+    //    cada um e considerado unico para nao 'sumir' nada que o ADM nao
+    //    tenha pedido pra sumir.
+    //    Em caso de conflito de mesmo atendimento_id, mantem o de maior
+    //    valor_total (precificado > placeholder); empate, mais recente.
     const porId = new Map();
     g._records.forEach(r => {
       if (!r.id) return;
@@ -210,28 +213,30 @@ function groupPagamentos(lista) {
     });
     const unicos = [...porId.values()];
 
-    const porChave = new Map();
+    const porAtendimento = new Map();
+    const semAtendimento = [];
     unicos.forEach(r => {
-      const tipo = (r.tipo_servico || '').trim().toLowerCase();
-      const dataRef = (r.data_conclusao || r.created_date || '').slice(0, 10);
-      const chave = `${tipo}|${dataRef}`;
-      const existente = porChave.get(chave);
-      if (!existente) {
-        porChave.set(chave, r);
+      const atKey = r.atendimento_id;
+      if (!atKey) {
+        // Sem atendimento_id: NUNCA dedupa. Cada registro fica visivel.
+        semAtendimento.push(r);
         return;
       }
-      // Mantem o que tem mais valor_total. Se empate, mantem o atualizado por
-      // ultimo (updated_date mais recente). Garante preferir registro precificado
-      // a placeholder R$1, e preferir versao recem-editada a versao antiga.
+      const existente = porAtendimento.get(atKey);
+      if (!existente) {
+        porAtendimento.set(atKey, r);
+        return;
+      }
+      // Conflito: 2 pagamentos pro mesmo atendimento. Mantem o melhor.
       const valR = r.valor_total || 0;
       const valE = existente.valor_total || 0;
-      if (valR > valE) { porChave.set(chave, r); return; }
+      if (valR > valE) { porAtendimento.set(atKey, r); return; }
       if (valR < valE) return;
       const dtR = new Date(r.updated_date || r.created_date || 0).getTime();
       const dtE = new Date(existente.updated_date || existente.created_date || 0).getTime();
-      if (dtR > dtE) porChave.set(chave, r);
+      if (dtR > dtE) porAtendimento.set(atKey, r);
     });
-    const recordsDedup = [...porChave.values()];
+    const recordsDedup = [...porAtendimento.values(), ...semAtendimento];
     const valorTotal = recordsDedup.reduce((s, r) => s + (r.valor_total || 0), 0);
     const valorPago = recordsDedup.reduce((s, r) => s + (r.valor_pago || 0), 0);
     const saldo = valorTotal - valorPago;
@@ -1512,13 +1517,17 @@ function PagamentosClientesContent() {
   const fimSemana = endOfWeek(hoje, { weekStartsOn: 1 }); // domingo
 
   // Helper: verifica se registro é "efetivamente pago" (DB pago, tolerância ou placeholder)
+  // SO retorna true se o ADM realmente deu baixa no pagamento:
+  // 1. status='pago' (marcou manualmente como pago)
+  // 2. Pago com tolerancia de R$1 (recebeu valor que cobre quase tudo)
+  // NUNCA considera placeholder R$1 sem pagamento como 'pago' — isso fazia
+  // o sistema auto-arquivar servicos que aguardavam precificacao do ADM.
   const isEfetivamentePago = useCallback((p) => {
     const valorPago = p.valor_pago || 0;
     const saldo = (p.valor_total || 0) - valorPago;
     return (
       p.status === 'pago' ||
-      (valorPago > 0 && saldo <= 1.0) ||        // pago com tolerância de R$1
-      ((p.valor_total || 0) <= 1.0 && valorPago === 0) // placeholder sem pagamento real
+      (valorPago > 0 && saldo <= 1.0)        // pago com tolerância de R$1
     );
   }, []);
 
