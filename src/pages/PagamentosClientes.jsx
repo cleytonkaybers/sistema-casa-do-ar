@@ -1622,12 +1622,14 @@ function PagamentosClientesContent() {
     })();
   }, [pagamentos.length, isAdmin]);
 
-  // Sincronizar TODOS os atendimentos sem PagamentoCliente correspondente —
-  // 1 registro por atendimento. Antes filtrava apenas semana atual, mas
-  // atendimentos concluidos em semanas anteriores que ainda nao tinham virado
-  // pagamento ficavam orfaos pra sempre. Agora qualquer atendimento sem
-  // pagamento associado gera 1 PagamentoCliente.
+  // DESATIVADO (user pediu): o sync automatico criava PagamentoCliente para
+  // qualquer Atendimento sem pagamento ao abrir a tela — gerando clientes
+  // que o ADM nao queria (especialmente provenientes de Preventivas Futuras).
+  // Agora apenas a CONCLUSAO de servico via Servicos.jsx cria pagamento.
+  // Para recuperar atendimentos orfaos manualmente, use o botao
+  // 'Sincronizar Atendimentos Orfaos' na aba Arquivo.
   useEffect(() => {
+    if (true) return; // DESATIVADO — sync passou a ser manual via botao
     if (isLoading || !atendimentos.length || !pagamentos) return;
     // Aguarda pagamentos estarem carregados (evita criar duplicatas na montagem)
     const idsRegistrados = new Set(pagamentos.map(p => p.atendimento_id).filter(Boolean));
