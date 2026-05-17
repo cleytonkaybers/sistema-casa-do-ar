@@ -2299,6 +2299,44 @@ function PagamentosClientesContent() {
     }
   };
 
+  // Recupera dividas que foram arquivadas/excluidas por engano em versoes
+  // anteriores. Pega TODOS arquivados com valor > R\$50 que NAO foram pagos,
+  // INCLUINDO os com excluido_manual=true (que foram apagados pela lixeira
+  // mas usuario quer reverter agora).
+  const handleRecuperarDividas = async () => {
+    const candidatos = pagamentos.filter(p => {
+      if (p.arquivado !== true) return false;
+      const valorPago = p.valor_pago || 0;
+      const saldo = (p.valor_total || 0) - valorPago;
+      const pagoDeVerdade = p.status === 'pago' || (valorPago > 0 && saldo <= 1.0);
+      if (pagoDeVerdade) return false;
+      const valor = p.valor_total || 0;
+      return valor > 50;
+    });
+    if (candidatos.length === 0) {
+      toast.info('Nenhuma dívida arquivada encontrada com valor > R$ 50.');
+      return;
+    }
+    const totalDivida = candidatos.reduce((s, p) => s + ((p.valor_total || 0) - (p.valor_pago || 0)), 0);
+    const lista = candidatos.slice(0, 8).map(p => `• ${p.cliente_nome || '?'} — R$ ${(p.valor_total || 0).toFixed(2)}`).join('\n');
+    const extras = candidatos.length > 8 ? `\n... e mais ${candidatos.length - 8}` : '';
+    if (!confirm(`Recuperar ${candidatos.length} dívida(s) arquivada(s)?\n\nTotal a receber: R$ ${totalDivida.toFixed(2)}\n\nClientes:\n${lista}${extras}\n\nElas voltarão pra aba Pendências.`)) return;
+    try {
+      let ok = 0;
+      for (const p of candidatos) {
+        try {
+          await updateMutation.mutateAsync({ id: p.id, data: { arquivado: false, excluido_manual: false } });
+          ok++;
+        } catch (err) {
+          console.error('[recuperar-divida] falhou', p.id, err);
+        }
+      }
+      toast.success(`✅ ${ok} dívida(s) recuperada(s) — confira aba Pendências`);
+    } catch {
+      toast.error('Erro ao recuperar dívidas');
+    }
+  };
+
   const handleArquivarAntigos = async () => {
     const candidatos = pagamentos.filter(p =>
       !p.arquivado &&
@@ -2807,17 +2845,26 @@ function PagamentosClientesContent() {
                   <p className="text-xs text-gray-500">Pagamentos concluídos de semanas anteriores</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm text-gray-500">{pagsArquivados.length} registros</span>
                 {isAdmin && (
-                  <Button
-                    onClick={handleArquivarAntigos}
-                    variant="outline"
-                    className="gap-1.5 h-8 text-xs border-amber-300 text-amber-700 hover:bg-amber-50"
-                  >
-                    <Archive className="w-3.5 h-3.5" />
-                    Arquivar pagos anteriores
-                  </Button>
+                  <>
+                    <Button
+                      onClick={handleRecuperarDividas}
+                      variant="outline"
+                      className="gap-1.5 h-8 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                    >
+                      💰 Recuperar Dívidas Arquivadas
+                    </Button>
+                    <Button
+                      onClick={handleArquivarAntigos}
+                      variant="outline"
+                      className="gap-1.5 h-8 text-xs border-amber-300 text-amber-700 hover:bg-amber-50"
+                    >
+                      <Archive className="w-3.5 h-3.5" />
+                      Arquivar pagos anteriores
+                    </Button>
+                  </>
                 )}
               </div>
             </div>
