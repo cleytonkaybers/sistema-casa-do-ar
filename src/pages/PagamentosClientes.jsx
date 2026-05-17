@@ -1088,18 +1088,20 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   const isAguardandoPreco = (records || [pag]).some(r => isPlaceholderPreco(r));
 
   return (
-    <div className={`border rounded-lg transition-all ${
+    <div className={`border-2 rounded-lg transition-all ${
       isAguardandoPreco
-        ? 'border-yellow-400 bg-yellow-50/80 shadow-md shadow-yellow-200 animate-pulse ring-2 ring-yellow-300'
+        ? 'border-yellow-500 bg-yellow-100 shadow-lg shadow-yellow-300/60 ring-2 ring-yellow-400/50'
         : chegoDataAgendada
         ? 'border-orange-400 bg-orange-50 shadow-md shadow-orange-200'
         : expandido
         ? 'border-blue-300 bg-blue-50/30'
         : 'border-gray-200 hover:border-gray-300'
     }`}>
-      <div onClick={() => setExpandido(!expandido)} className={`flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${expandido ? 'bg-white border-b border-blue-200' : 'hover:bg-gray-50/50'}`}>
+      <div onClick={() => setExpandido(!expandido)} className={`flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
+        isAguardandoPreco ? 'hover:bg-yellow-200/40' : expandido ? 'bg-white border-b border-blue-200' : 'hover:bg-gray-50/50'
+      }`}>
         {isAguardandoPreco && (
-          <span className="flex-shrink-0 bg-yellow-400 text-yellow-900 text-[10px] font-bold px-2 py-0.5 rounded-full border border-yellow-500 shadow-sm">
+          <span className="flex-shrink-0 bg-yellow-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-full border-2 border-yellow-600 shadow-md animate-pulse">
             💲 DEFINIR PREÇO
           </span>
         )}
@@ -1122,7 +1124,7 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
                 💵 DINHEIRO — confirmar
               </button>
             )}
-            <p className="font-semibold text-sm text-gray-800">{pag.cliente_nome}</p>
+            <p className={`font-semibold text-sm ${isAguardandoPreco ? 'text-gray-900 font-bold' : 'text-gray-800'}`}>{pag.cliente_nome}</p>
               {pag.data_pagamento_agendado && (
                 <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded font-semibold flex-shrink-0">
                   📅 {format(toLocalDateSafe(pag.data_pagamento_agendado), 'dd/MM')}
@@ -1134,14 +1136,18 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-500 truncate">{pag._tipoResumido || formatTipoServicoCompact(pag.tipo_servico)}</p>
+            <p className={`text-xs truncate ${isAguardandoPreco ? 'text-gray-800 font-medium' : 'text-gray-500'}`}>{pag._tipoResumido || formatTipoServicoCompact(pag.tipo_servico)}</p>
           </div>
         </div>
 
         <div className="flex items-center justify-between w-full sm:w-auto gap-3">
           <div className="text-left flex-shrink-0">
-            <p className="text-xs text-gray-400">Valor</p>
-            <p className={`font-semibold text-sm ${pag.valor_total === 0 ? 'text-amber-500' : 'text-gray-800'}`}>
+            <p className={`text-xs ${isAguardandoPreco ? 'text-gray-700 font-semibold' : 'text-gray-400'}`}>Valor</p>
+            <p className={`font-semibold text-sm ${
+              pag.valor_total === 0 ? 'text-amber-500' :
+              isAguardandoPreco ? 'text-yellow-900 font-bold' :
+              'text-gray-800'
+            }`}>
               {pag.valor_total === 0 ? 'A def.' : formatCurrency(pag.valor_total).replace('R$', '').trim()}
             </p>
           </div>
