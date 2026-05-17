@@ -2441,6 +2441,67 @@ function PagamentosClientesContent() {
     }
   };
 
+  // Quita PERMANENTEMENTE no banco TODOS os pagamentos com saldo <= R\$5.
+  // Atua tanto em ativos quanto em arquivados — marca status='pago', zera
+  // saldo, arquiva e marca excluido_manual=true. Definitivo: nao reaparecem
+  // em filtros, planilhas Excel ou auto-restauracoes.
+  const handleQuitarSaldosPequenos = async () => {
+    const candidatos = pagamentos.filter(p => {
+      const valorPago = p.valor_pago || 0;
+      const saldo = (p.valor_total || 0) - valorPago;
+      // Saldo positivo mas <= R\$5 (a R\$5 inclusive)
+      if (saldo <= 0.01 || saldo > 5) return false;
+      // Tem que ter valor_total > 0 (nao processa registros sem preco)
+      if ((p.valor_total || 0) <= 0) return false;
+      // Ignora ja explicitamente excluidos pelo ADM
+      // (esses ja sumiram, nao precisamos remarcar)
+      return true;
+    });
+    if (candidatos.length === 0) {
+      toast.info('Nenhum pagamento com saldo entre R$ 0,01 e R$ 5,00 encontrado.');
+      return;
+    }
+    const totalPerdoado = candidatos.reduce((s, p) => s + ((p.valor_total || 0) - (p.valor_pago || 0)), 0);
+    const lista = candidatos.slice(0, 8).map(p => {
+      const saldo = (p.valor_total || 0) - (p.valor_pago || 0);
+      return `• ${p.cliente_nome || '?'} — saldo R$ ${saldo.toFixed(2)}`;
+    }).join('\n');
+    const extras = candidatos.length > 8 ? `\n... e mais ${candidatos.length - 8}` : '';
+    if (!confirm(`Quitar ${candidatos.length} pagamento(s) com saldo pequeno?\n\nTotal perdoado: R$ ${totalPerdoado.toFixed(2)}\n\nClientes:\n${lista}${extras}\n\nIsso vai marcar como pago no banco, arquivar definitivamente e remover da planilha Excel. Acao NAO pode ser desfeita facilmente.`)) return;
+    try {
+      let ok = 0;
+      const agora = new Date().toISOString();
+      const dataStr = format(new Date(), 'dd/MM/yyyy');
+      for (const p of candidatos) {
+        try {
+          const saldo = (p.valor_total || 0) - (p.valor_pago || 0);
+          const novoHistorico = [
+            ...(p.historico_pagamentos || []),
+            { valor: saldo, data: dataStr, observacao: `✓ Saldo <= R\$5 quitado automaticamente (perdoado)` },
+          ];
+          await updateMutation.mutateAsync({
+            id: p.id,
+            data: {
+              valor_pago: p.valor_total,
+              status: 'pago',
+              historico_pagamentos: novoHistorico,
+              data_pagamento_completo: agora,
+              arquivado: true,
+              excluido_manual: true,
+            },
+          });
+          ok++;
+        } catch (err) {
+          console.error('[quitar-pequenos] falhou', p.id, err);
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
+      toast.success(`✅ ${ok} saldo(s) pequeno(s) quitado(s) — R$ ${totalPerdoado.toFixed(2)} perdoado(s)`, { duration: 10000 });
+    } catch {
+      toast.error('Erro ao quitar saldos pequenos');
+    }
+  };
+
   const handleArquivarAntigos = async () => {
     const candidatos = pagamentos.filter(p =>
       !p.arquivado &&
@@ -2953,6 +3014,13 @@ function PagamentosClientesContent() {
                 <span className="text-sm text-gray-500">{pagsArquivados.length} registros</span>
                 {isAdmin && (
                   <>
+                    <Button
+                      onClick={handleQuitarSaldosPequenos}
+                      variant="outline"
+                      className="gap-1.5 h-8 text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
+                    >
+                      🧹 Quitar Saldos ≤ R$ 5
+                    </Button>
                     <Button
                       onClick={handleSincronizarAtendimentosOrfaos}
                       variant="outline"
