@@ -81,33 +81,56 @@ export default function RelatóriosPage() {
   const queryClient = useQueryClient();
 
   // Atualiza a marca de UMA instalacao especifica (identificada por servicoId + idx).
-  // O tipo_servico do Servico contem multiplas partes separadas por ' + ', cada uma
-  // pode ter [Marca: X | local]. Atualizamos so a parte do idx selecionado.
+  // Toast em cada etapa pra dar visibilidade do que esta acontecendo.
   const handleSalvarMarca = async () => {
-    if (!editarMarcaModal) return;
+    console.log('[salvar-marca] handler INICIADO', { editarMarcaModal });
+    if (!editarMarcaModal) {
+      toast.error('Modal vazio — recarregue a pagina');
+      return;
+    }
     const { instalacao, novaMarca } = editarMarcaModal;
+    if (!instalacao || !instalacao.servicoId) {
+      toast.error('servicoId nao encontrado na instalacao');
+      console.error('[salvar-marca] instalacao invalida:', instalacao);
+      return;
+    }
     setSalvandoMarca(true);
+    toast.info('⏳ Buscando serviço no banco...', { id: 'salvar-marca-progresso', duration: 30000 });
     try {
-      // Busca FRESCA do servico (nao usa cache local) — garante que mudancas
-      // simultaneas em outras telas nao causem perda de dados
+      // Busca FRESCA — tenta filter primeiro, fallback pra list+find se nao encontrar
       let servico = null;
       try {
         const lista = await base44.entities.Servico.filter({ id: instalacao.servicoId });
         servico = lista && lista[0];
+        console.log('[salvar-marca] Servico.filter retornou:', lista);
       } catch (e) {
-        console.error('Erro ao buscar servico fresh, tentando cache:', e);
-        servico = servicos.find(s => s.id === instalacao.servicoId);
+        console.error('[salvar-marca] Servico.filter falhou:', e);
       }
       if (!servico) {
-        toast.error('Serviço não encontrado no banco. Recarregue a página.');
+        // Fallback: busca em servicos do useQuery
+        servico = servicos.find(s => s.id === instalacao.servicoId);
+        console.log('[salvar-marca] fallback cache local:', servico);
+      }
+      if (!servico) {
+        // Ultimo fallback: list completo
+        try {
+          toast.info('⏳ Buscando em toda a base...', { id: 'salvar-marca-progresso' });
+          const todos = await base44.entities.Servico.list('-data_programada', 5000);
+          servico = todos.find(s => s.id === instalacao.servicoId);
+          console.log('[salvar-marca] fallback list:', servico ? 'encontrado' : 'NAO encontrado');
+        } catch (e) {
+          console.error('[salvar-marca] list completo falhou:', e);
+        }
+      }
+      if (!servico) {
+        toast.dismiss('salvar-marca-progresso');
+        toast.error(`Serviço não encontrado (id: ${instalacao.servicoId}). Recarregue a página.`, { duration: 8000 });
         setSalvandoMarca(false);
         return;
       }
       const partes = (servico.tipo_servico || '').split(' + ').filter(Boolean);
-      // Localiza a parte pelo idx
       const partesNovas = partes.map((p, i) => {
         if (i !== instalacao.idx) return p;
-        // Extrai tipo base e equipamento atual
         const m = p.match(/^(.+?)\s*\[(.+)\]$/);
         const tipoBase = m ? m[1].trim() : p.trim();
         const equipAtual = m ? m[2].trim() : '';
@@ -116,15 +139,19 @@ export default function RelatóriosPage() {
         return novoEquip ? `${tipoBase} [${novoEquip}]` : tipoBase;
       });
       const novoTipoServico = partesNovas.join(' + ');
-      console.log('[salvar-marca]', { servicoId: servico.id, antes: servico.tipo_servico, depois: novoTipoServico });
-      await base44.entities.Servico.update(servico.id, { tipo_servico: novoTipoServico });
-      // Refetch FORCADO (nao apenas invalida) — garante que a tabela atualize
+      console.log('[salvar-marca] UPDATE', { id: servico.id, antes: servico.tipo_servico, depois: novoTipoServico });
+      toast.info('⏳ Salvando no banco...', { id: 'salvar-marca-progresso' });
+      const resp = await base44.entities.Servico.update(servico.id, { tipo_servico: novoTipoServico });
+      console.log('[salvar-marca] Servico.update RESPOSTA:', resp);
+      toast.info('⏳ Atualizando tela...', { id: 'salvar-marca-progresso' });
       await queryClient.refetchQueries({ queryKey: ['servicos'] });
-      toast.success(`✓ Marca atualizada para ${novaMarca || 'não informada'}`);
+      toast.dismiss('salvar-marca-progresso');
+      toast.success(`✓ Marca salva: ${novaMarca || 'não informada'}`);
       setEditarMarcaModal(null);
     } catch (err) {
-      console.error('Erro ao salvar marca:', err);
-      toast.error('Erro ao salvar marca: ' + (err?.message || 'tente novamente'));
+      toast.dismiss('salvar-marca-progresso');
+      console.error('[salvar-marca] ERRO FINAL:', err);
+      toast.error('Erro ao salvar: ' + (err?.message || JSON.stringify(err) || 'desconhecido'), { duration: 10000 });
     } finally {
       setSalvandoMarca(false);
     }
@@ -830,11 +857,14 @@ export default function RelatóriosPage() {
                                       {i.marca}
                                     </span>
                                     <button
-                                      onClick={() => setEditarMarcaModal({
-                                        instalacao: i,
-                                        marcaAtual: i.marca === 'Não informada' ? '' : i.marca,
-                                        novaMarca: i.marca === 'Não informada' ? '' : i.marca,
-                                      })}
+                                      onClick={() => {
+                                        setSalvandoMarca(false); // reset caso tenha travado
+                                        setEditarMarcaModal({
+                                          instalacao: i,
+                                          marcaAtual: i.marca === 'Não informada' ? '' : i.marca,
+                                          novaMarca: i.marca === 'Não informada' ? '' : i.marca,
+                                        });
+                                      }}
                                       className="text-gray-400 hover:text-blue-600 transition-colors"
                                       title="Editar marca"
                                     >
