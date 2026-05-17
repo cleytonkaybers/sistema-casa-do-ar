@@ -1042,9 +1042,16 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   const records = pag._records || [pag];
   const saldo = calcularSaldo(pag.valor_total, pag.valor_pago);
   const _valorPago = pag.valor_pago || 0;
+  // Placeholder de preco (aguardando precificacao do ADM) — animacao piscante.
+  // Calculado ANTES de isPago para poder forcar isPago=false se houver placeholder
+  // no grupo (mesmo que o valor agregado bata como pago por coincidencia).
+  const isAguardandoPreco = (records || [pag]).some(r => isPlaceholderPreco(r));
   // Tolerância de R$1 só se houve algum pagamento (cobre arredondamento em serviços compostos)
-  const isPago = pag.status === 'pago' || saldo <= 0.01 || (_valorPago > 0 && saldo <= 1.0);
-  const isParcial = !isPago && pag.status === 'parcial' && _valorPago > 0;
+  // REGRA CRITICA: se ha placeholder no grupo, NUNCA exibir como pago — admin precisa
+  // precificar e cobrar o servico novo. Botoes Preco/Agendar/Pagar devem aparecer.
+  const isPagoBase = pag.status === 'pago' || saldo <= 0.01 || (_valorPago > 0 && saldo <= 1.0);
+  const isPago = isPagoBase && !isAguardandoPreco;
+  const isParcial = !isPago && (pag.status === 'parcial' || (isAguardandoPreco && _valorPago > 0)) && _valorPago > 0;
   const temHistoricoReal = (pag.historico_pagamentos || []).some(h => !h.agendada && !h.consolidado);
   // Mostrar 100% apenas se realmente pago — evitar display enganoso
   const pct = pag.valor_total > 0
@@ -1080,12 +1087,6 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
     if (futuras.length) return futuras.sort((a, b) => a._date - b._date)[0];
     return comDatas.sort((a, b) => b._date - a._date)[0] || null;
   }, [isParcial, records, pag]);
-
-  // Placeholder de preco (aguardando precificacao do ADM) — animacao piscante
-  // em amarelo intenso pra chamar atencao do ADM. Testa nos records individuais
-  // (nao no grupo agregado) — necessario quando o grupo tem placeholder JUNTO
-  // com outro pagamento real (a soma valor_total esconde o placeholder).
-  const isAguardandoPreco = (records || [pag]).some(r => isPlaceholderPreco(r));
 
   return (
     <div className={`border-2 rounded-lg transition-all ${
