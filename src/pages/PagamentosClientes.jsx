@@ -1082,8 +1082,10 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   }, [isParcial, records, pag]);
 
   // Placeholder de preco (aguardando precificacao do ADM) — animacao piscante
-  // em amarelo intenso pra chamar atencao do ADM.
-  const isAguardandoPreco = isPlaceholderPreco(pag);
+  // em amarelo intenso pra chamar atencao do ADM. Testa nos records individuais
+  // (nao no grupo agregado) — necessario quando o grupo tem placeholder JUNTO
+  // com outro pagamento real (a soma valor_total esconde o placeholder).
+  const isAguardandoPreco = (records || [pag]).some(r => isPlaceholderPreco(r));
 
   return (
     <div className={`border rounded-lg transition-all ${
@@ -2348,10 +2350,13 @@ function PagamentosClientesContent() {
     return agrupados
       .filter(g => filtroStatus.length === 0 || filtroStatus.includes(g.status))
       .sort((a, b) => {
-        // PRIORIDADE: servicos AGUARDANDO PRECO (placeholder) aparecem PRIMEIRO
-        const aPlaceholder = isPlaceholderPreco(a);
-        const bPlaceholder = isPlaceholderPreco(b);
-        if (aPlaceholder !== bPlaceholder) return aPlaceholder ? -1 : 1;
+        // PRIORIDADE: grupos que contem QUALQUER record placeholder aparecem
+        // PRIMEIRO. Importante: testar pelos _records (records individuais),
+        // nao pelo grupo agregado — porque a soma valor_total do grupo
+        // 'esconde' o placeholder se houver outro pagamento real junto.
+        const aTemPh = (a._records || [a]).some(r => isPlaceholderPreco(r));
+        const bTemPh = (b._records || [b]).some(r => isPlaceholderPreco(r));
+        if (aTemPh !== bTemPh) return aTemPh ? -1 : 1;
         // Depois, ordena por status (pendente/agendado/parcial/pago)
         return (statusOrder[a.status] || 4) - (statusOrder[b.status] || 4);
       });
