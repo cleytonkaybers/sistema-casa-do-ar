@@ -353,14 +353,19 @@ export default function RelatóriosPage() {
           const tipoBase = match ? match[1].trim() : p.trim();
           const equipamentoBruto = match ? match[2].trim() : '';
           if (!isInstalacao(tipoBase)) return;
+          // Local extraido SEM a marca (estavel mesmo se a marca for editada
+          // depois do arquivamento). Ex: equipamento "Marca: LG | Sala" -> "Sala"
+          const localExtraido = removerMarca(equipamentoBruto) || '';
           out.push({
-            // Chave nova: estavel mesmo se tipo_servico mudar de ordem. Inclui
-            // servicoId + tipoBase + equipamentoBruto. Idx mantido como tiebreaker
-            // pra instalacoes 100% identicas no mesmo servico.
-            key: `${s.id}::${tipoBase}::${equipamentoBruto}::${idx}`,
-            // Compat: chave antiga ${s.id}-${idx} continua sendo aceita pra
-            // arquivados que foram salvos antes desta refatoracao.
+            // Chave NOVA: servicoId + tipoBase + local + idx (sem marca!).
+            // Marca NAO entra na chave porque pode mudar via Editar Marca,
+            // e nesse caso a chave arquivada precisa continuar batendo.
+            key: `${s.id}::${tipoBase}::${localExtraido}::${idx}`,
+            // Compat retro: aceita chaves antigas no Set de arquivados.
+            // - legacyKey: versao original (so id+idx)
+            // - legacyKeyComEquip: versao intermediaria (id+tipoBase+equip+idx)
             legacyKey: `${s.id}-${idx}`,
+            legacyKeyComEquip: `${s.id}::${tipoBase}::${equipamentoBruto}::${idx}`,
             idx, // CRITICO: usado em handleSalvarMarca pra saber qual parte editar
             servicoId: s.id,
             os: s.os_numero || '',
@@ -397,8 +402,12 @@ export default function RelatóriosPage() {
     return [...map.keys()].sort();
   }, [instalacoesExpandidas]);
 
-  // Helper: instalacao esta arquivada se a chave NOVA OU a chave ANTIGA estao no Set
-  const estaArquivada = (i) => instalacoesArquivadas.has(i.key) || instalacoesArquivadas.has(i.legacyKey);
+  // Helper: instalacao esta arquivada se QUALQUER uma das 3 chaves estiver no Set
+  // (chave atual + 2 versoes legacy de migracoes anteriores)
+  const estaArquivada = (i) =>
+    instalacoesArquivadas.has(i.key) ||
+    instalacoesArquivadas.has(i.legacyKey) ||
+    instalacoesArquivadas.has(i.legacyKeyComEquip);
 
   const instalacoesFiltradas = useMemo(() =>
     instalacoesExpandidas
@@ -411,7 +420,8 @@ export default function RelatóriosPage() {
   , [instalacoesExpandidas, filtroMarca, filtroEquipeInst, verArquivadas, instalacoesArquivadas, debouncedBuscaInstalacao]);
 
   const qtdArquivadas = useMemo(
-    () => instalacoesExpandidas.filter(i => instalacoesArquivadas.has(i.key) || instalacoesArquivadas.has(i.legacyKey)).length,
+    () => instalacoesExpandidas.filter(estaArquivada).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [instalacoesExpandidas, instalacoesArquivadas]
   );
 
@@ -896,11 +906,12 @@ export default function RelatóriosPage() {
                                     variant="ghost"
                                     onClick={() => {
                                       // Arquivar: marca a chave NOVA. Desarquivar: limpa
-                                      // AMBAS as chaves (nova + legacy) para nao deixar
-                                      // residuo de versao antiga.
+                                      // TODAS as 3 chaves possiveis (nova + 2 legacies)
+                                      // pra nao deixar residuo de versoes anteriores.
                                       if (verArquivadas) {
                                         setArquivada(i.key, false);
                                         if (i.legacyKey) setArquivada(i.legacyKey, false);
+                                        if (i.legacyKeyComEquip) setArquivada(i.legacyKeyComEquip, false);
                                       } else {
                                         setArquivada(i.key, true);
                                       }
