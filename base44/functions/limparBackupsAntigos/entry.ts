@@ -12,8 +12,8 @@ Deno.serve(async (req) => {
     // Buscar todos os backups ordenados do mais recente para o mais antigo
     const backups = await base44.asServiceRole.entities.BackupIncremental.list('-data_backup');
 
-    // Manter apenas os últimos 5 dias — backups além do 5º são removidos
-    const MANTER = 5;
+    // Manter apenas os últimos 7 dias — backups além do 7º são removidos
+    const MANTER = 7;
     const backupsAntigos = backups.slice(MANTER);
 
     if (backupsAntigos.length === 0) {
@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
 
     return Response.json({
       status: 'success',
-      message: `Limpeza concluída: ${removidos} backups removidos (mantidos os últimos ${MANTER})`,
+      message: `Limpeza concluída: ${removidos} backups removidos (mantidos os últimos ${MANTER} dias)`,
       total_antigos: backupsAntigos.length,
       total_removidos: removidos,
       erros: erros.length > 0 ? erros : undefined

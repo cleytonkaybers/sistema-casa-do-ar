@@ -43,15 +43,31 @@ Deno.serve(async (req) => {
     const agora = new Date();
     const ontem = new Date(agora.getTime() - 24 * 60 * 60 * 1000);
 
-    // Definir entidades para backup incremental
+    // Definir entidades para backup incremental — TODAS as entidades de
+    // dados operacionais (excluindo entidades SaaS multi-tenant e logs muito
+    // grandes). Aumentado de 7 para 21 entidades para cobrir tudo que importa.
     const entidades = [
       'Servico',
       'Atendimento',
       'Cliente',
+      'Agendamento',
+      'Equipe',
       'LancamentoFinanceiro',
+      'PagamentoCliente',
       'PagamentoTecnico',
+      'TecnicoFinanceiro',
+      'Cheque',
+      'Emprestimo',
+      'ManutencaoPreventiva',
+      'TipoServicoValor',
+      'CompanySettings',
+      'ConfiguracaoRelatorio',
+      'Despesa',
       'AlteracaoStatus',
-      'LogAuditoria'
+      'LogAuditoria',
+      'Notificacao',
+      'PreferenciaNotificacao',
+      'PDFSettings',
     ];
 
     // Coletar apenas registros novos/alterados (últimas 24h)
@@ -60,7 +76,8 @@ Deno.serve(async (req) => {
 
     for (const entidade of entidades) {
       try {
-        const registros = await base44.asServiceRole.entities[entidade].list('-updated_date', 500);
+        // limit 5000 (era 500) — cobre operacao normal de 1 dia mesmo em volume alto
+        const registros = await base44.asServiceRole.entities[entidade].list('-updated_date', 5000);
         const registrosRecentes = registros.filter(r => {
           const dataAtualizacao = new Date(r.updated_date);
           return dataAtualizacao >= ontem;
@@ -137,6 +154,27 @@ Deno.serve(async (req) => {
       status: 'sucesso',
       tamanho_bytes: jsonContent.length
     });
+
+    // Notificar ADMs com link do backup (substitui email — Base44 nao tem
+    // conector SMTP nativo, mas a notificacao aparece no sino do app).
+    try {
+      const usuarios = await base44.asServiceRole.entities.User.list();
+      const admins = usuarios.filter(u => u?.role === 'admin' && u?.email);
+      const driveUrl = `https://drive.google.com/file/d/${fileData.id}/view`;
+      const tamanhoKb = Math.round(jsonContent.length / 1024);
+      await Promise.all(admins.map(adm =>
+        base44.asServiceRole.entities.Notificacao.create({
+          usuario_email: adm.email,
+          tipo: 'atendimento_atualizado',
+          titulo: `💾 Backup diário concluído (${totalRegistros} registros)`,
+          mensagem: `Backup das últimas 24h salvo no Google Drive (pasta "${FOLDER_NAME}"). Arquivo: ${fileName} (${tamanhoKb}KB). Link: ${driveUrl}`,
+          cliente_nome: '',
+          lida: false,
+        }).catch(err => console.error('Falha notif admin', adm.email, err))
+      ));
+    } catch (e) {
+      console.error('Erro notificando admins:', e);
+    }
 
     return Response.json({
       status: 'success',
