@@ -2299,41 +2299,74 @@ function PagamentosClientesContent() {
     }
   };
 
-  // Sincroniza Atendimentos sem PagamentoCliente correspondente. Cliente
-  // teve servico concluido (Atendimento existe) mas o PagamentoCliente nunca
-  // foi criado (ou foi deletado). Cria placeholder novo para o ADM precificar/cobrar.
+  // Sincroniza Atendimentos sem PagamentoCliente ATIVO. Trata 2 casos:
+  // CASO A: Atendimento existe + nenhum PagamentoCliente — CRIA novo
+  // CASO B: Atendimento existe + PagamentoCliente esta ARQUIVADO (com ou sem
+  //         excluido_manual) — DESARQUIVA o existente
   // Foco em Atendimentos com valor > R\$5 dos ultimos 90 dias.
   const handleSincronizarAtendimentosOrfaos = async () => {
-    // Cria conjunto de atendimento_ids ja com pagamento (incluindo arquivados)
-    const idsComPag = new Set(pagamentos.map(p => p.atendimento_id).filter(Boolean));
     const hoje = new Date();
-    const orfaos = atendimentos.filter(a => {
-      if (!a.id) return false;
-      if (idsComPag.has(a.id)) return false; // ja tem pagamento
-      // Filtro de data: ultimos 90 dias
+    // Mapeia atendimento_id → pagamentos (lista, pra pegar arquivados tambem)
+    const pagsPorAtendimento = new Map();
+    pagamentos.forEach(p => {
+      if (!p.atendimento_id) return;
+      const arr = pagsPorAtendimento.get(p.atendimento_id) || [];
+      arr.push(p);
+      pagsPorAtendimento.set(p.atendimento_id, arr);
+    });
+
+    const aCriar = []; // Atendimentos sem nenhum PagamentoCliente
+    const aDesarquivar = []; // PagamentoClientes arquivados pra restaurar
+    atendimentos.forEach(a => {
+      if (!a.id) return;
       const dataRef = a.data_conclusao || a.data_atendimento || a.created_date;
-      if (!dataRef) return false;
+      if (!dataRef) return;
       try {
         const dt = parseISO(dataRef);
         const dias = Math.floor((hoje - dt) / (1000 * 60 * 60 * 24));
-        if (dias < 0 || dias > 90) return false;
-      } catch { return false; }
-      // Ignora tipos ignorados (Verificar defeito sozinho)
-      if (isApenasTiposIgnorados(a.tipo_servico)) return false;
-      // Valor > R\$5 (real, nao placeholder zerado)
-      return (a.valor || 0) > 5;
+        if (dias < 0 || dias > 90) return;
+      } catch { return; }
+      if (isApenasTiposIgnorados(a.tipo_servico)) return;
+      if ((a.valor || 0) <= 5) return;
+
+      const pags = pagsPorAtendimento.get(a.id) || [];
+      const pagAtivo = pags.find(p => p.arquivado !== true);
+      if (pagAtivo) return; // ja tem pag ativo, nada a fazer
+      const pagArquivado = pags.find(p => p.arquivado === true);
+      if (pagArquivado) {
+        aDesarquivar.push({ atendimento: a, pagamento: pagArquivado });
+      } else {
+        aCriar.push(a);
+      }
     });
-    if (orfaos.length === 0) {
-      toast.info('Nenhum atendimento órfão encontrado.');
+
+    const total = aCriar.length + aDesarquivar.length;
+    if (total === 0) {
+      toast.info('Nenhum atendimento sem pagamento ativo encontrado.');
       return;
     }
-    const totalValor = orfaos.reduce((s, a) => s + (a.valor || 0), 0);
-    const lista = orfaos.slice(0, 8).map(a => `• ${a.cliente_nome || '?'} (${a.data_conclusao?.slice(0,10) || '?'}) — R$ ${(a.valor || 0).toFixed(2)}`).join('\n');
-    const extras = orfaos.length > 8 ? `\n... e mais ${orfaos.length - 8}` : '';
-    if (!confirm(`Criar ${orfaos.length} pagamento(s) faltante(s)?\n\nTotal: R$ ${totalValor.toFixed(2)}\n\nAtendimentos sem PagamentoCliente:\n${lista}${extras}\n\nEles vão aparecer em Pendências com o valor do atendimento.`)) return;
+    const valorTotal =
+      aCriar.reduce((s, a) => s + (a.valor || 0), 0) +
+      aDesarquivar.reduce((s, x) => s + ((x.pagamento.valor_total || 0) - (x.pagamento.valor_pago || 0)), 0);
+    const todos = [
+      ...aDesarquivar.map(x => `• ${x.atendimento.cliente_nome || '?'} (${(x.atendimento.data_conclusao || '').slice(0,10)}) — R$ ${(x.pagamento.valor_total || 0).toFixed(2)} [restaurar arquivado]`),
+      ...aCriar.map(a => `• ${a.cliente_nome || '?'} (${(a.data_conclusao || '').slice(0,10)}) — R$ ${(a.valor || 0).toFixed(2)} [criar novo]`),
+    ].slice(0, 10).join('\n');
+    const extras = total > 10 ? `\n... e mais ${total - 10}` : '';
+    if (!confirm(`Recuperar ${total} pagamento(s) faltante(s)?\n\n• ${aDesarquivar.length} arquivado(s) → desarquivar\n• ${aCriar.length} órfão(s) → criar novo\n\nTotal a receber: R$ ${valorTotal.toFixed(2)}\n\n${todos}${extras}`)) return;
     try {
       let ok = 0;
-      for (const a of orfaos) {
+      // Desarquivar primeiro (mais barato)
+      for (const x of aDesarquivar) {
+        try {
+          await updateMutation.mutateAsync({ id: x.pagamento.id, data: { arquivado: false, excluido_manual: false } });
+          ok++;
+        } catch (err) {
+          console.error('[sync-orfaos] desarquivar falhou', x.pagamento.id, err);
+        }
+      }
+      // Criar novos
+      for (const a of aCriar) {
         try {
           await base44.entities.PagamentoCliente.create({
             atendimento_id: a.id,
@@ -2350,11 +2383,11 @@ function PagamentosClientesContent() {
           });
           ok++;
         } catch (err) {
-          console.error('[sync-orfaos] falhou', a.id, err);
+          console.error('[sync-orfaos] criar falhou', a.id, err);
         }
       }
       queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
-      toast.success(`✅ ${ok} pagamento(s) criado(s) — confira aba Pendências`, { duration: 10000 });
+      toast.success(`✅ ${ok} pagamento(s) recuperado(s) — confira aba Pendências`, { duration: 10000 });
     } catch {
       toast.error('Erro ao sincronizar atendimentos');
     }
