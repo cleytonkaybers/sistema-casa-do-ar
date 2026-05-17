@@ -455,8 +455,7 @@ export default function ServicosPage() {
         .filter({ atendimento_id: atendimentoCriado?.id })
         .catch(() => []);
       if (!jaExistePag || jaExistePag.length === 0) {
-        // 5.55 = valor sinalizador de "aguardando precificacao do ADM"
-        const valorPag = (servicoSnapshot.valor && servicoSnapshot.valor > 1) ? servicoSnapshot.valor : 5.55;
+        const valorPag = (servicoSnapshot.valor && servicoSnapshot.valor > 1) ? servicoSnapshot.valor : 1.0;
         await comRetry('pagamento-create', () =>
           base44.entities.PagamentoCliente.create({
             atendimento_id: atendimentoCriado?.id || '',

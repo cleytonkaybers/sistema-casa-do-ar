@@ -81,56 +81,24 @@ export default function RelatóriosPage() {
   const queryClient = useQueryClient();
 
   // Atualiza a marca de UMA instalacao especifica (identificada por servicoId + idx).
-  // Toast em cada etapa pra dar visibilidade do que esta acontecendo.
+  // O tipo_servico do Servico contem multiplas partes separadas por ' + ', cada uma
+  // pode ter [Marca: X | local]. Atualizamos so a parte do idx selecionado.
   const handleSalvarMarca = async () => {
-    console.log('[salvar-marca] handler INICIADO', { editarMarcaModal });
-    if (!editarMarcaModal) {
-      toast.error('Modal vazio — recarregue a pagina');
-      return;
-    }
+    if (!editarMarcaModal) return;
     const { instalacao, novaMarca } = editarMarcaModal;
-    if (!instalacao || !instalacao.servicoId) {
-      toast.error('servicoId nao encontrado na instalacao');
-      console.error('[salvar-marca] instalacao invalida:', instalacao);
-      return;
-    }
     setSalvandoMarca(true);
-    toast.info('⏳ Buscando serviço no banco...', { id: 'salvar-marca-progresso', duration: 30000 });
     try {
-      // Busca FRESCA — tenta filter primeiro, fallback pra list+find se nao encontrar
-      let servico = null;
-      try {
-        const lista = await base44.entities.Servico.filter({ id: instalacao.servicoId });
-        servico = lista && lista[0];
-        console.log('[salvar-marca] Servico.filter retornou:', lista);
-      } catch (e) {
-        console.error('[salvar-marca] Servico.filter falhou:', e);
-      }
+      const servico = servicos.find(s => s.id === instalacao.servicoId);
       if (!servico) {
-        // Fallback: busca em servicos do useQuery
-        servico = servicos.find(s => s.id === instalacao.servicoId);
-        console.log('[salvar-marca] fallback cache local:', servico);
-      }
-      if (!servico) {
-        // Ultimo fallback: list completo
-        try {
-          toast.info('⏳ Buscando em toda a base...', { id: 'salvar-marca-progresso' });
-          const todos = await base44.entities.Servico.list('-data_programada', 5000);
-          servico = todos.find(s => s.id === instalacao.servicoId);
-          console.log('[salvar-marca] fallback list:', servico ? 'encontrado' : 'NAO encontrado');
-        } catch (e) {
-          console.error('[salvar-marca] list completo falhou:', e);
-        }
-      }
-      if (!servico) {
-        toast.dismiss('salvar-marca-progresso');
-        toast.error(`Serviço não encontrado (id: ${instalacao.servicoId}). Recarregue a página.`, { duration: 8000 });
+        toast.error('Serviço não encontrado.');
         setSalvandoMarca(false);
         return;
       }
       const partes = (servico.tipo_servico || '').split(' + ').filter(Boolean);
+      // Localiza a parte pelo idx
       const partesNovas = partes.map((p, i) => {
         if (i !== instalacao.idx) return p;
+        // Extrai tipo base e equipamento atual
         const m = p.match(/^(.+?)\s*\[(.+)\]$/);
         const tipoBase = m ? m[1].trim() : p.trim();
         const equipAtual = m ? m[2].trim() : '';
@@ -139,19 +107,14 @@ export default function RelatóriosPage() {
         return novoEquip ? `${tipoBase} [${novoEquip}]` : tipoBase;
       });
       const novoTipoServico = partesNovas.join(' + ');
-      console.log('[salvar-marca] UPDATE', { id: servico.id, antes: servico.tipo_servico, depois: novoTipoServico });
-      toast.info('⏳ Salvando no banco...', { id: 'salvar-marca-progresso' });
-      const resp = await base44.entities.Servico.update(servico.id, { tipo_servico: novoTipoServico });
-      console.log('[salvar-marca] Servico.update RESPOSTA:', resp);
-      toast.info('⏳ Atualizando tela...', { id: 'salvar-marca-progresso' });
-      await queryClient.refetchQueries({ queryKey: ['servicos'] });
-      toast.dismiss('salvar-marca-progresso');
-      toast.success(`✓ Marca salva: ${novaMarca || 'não informada'}`);
+      await base44.entities.Servico.update(servico.id, { tipo_servico: novoTipoServico });
+      queryClient.invalidateQueries({ queryKey: ['servicos'] });
+      queryClient.invalidateQueries({ queryKey: ['servicos-relatorios'] });
+      toast.success(`✓ Marca atualizada para ${novaMarca || 'não informada'}`);
       setEditarMarcaModal(null);
     } catch (err) {
-      toast.dismiss('salvar-marca-progresso');
-      console.error('[salvar-marca] ERRO FINAL:', err);
-      toast.error('Erro ao salvar: ' + (err?.message || JSON.stringify(err) || 'desconhecido'), { duration: 10000 });
+      console.error('Erro ao salvar marca:', err);
+      toast.error('Erro ao salvar marca: ' + (err?.message || 'tente novamente'));
     } finally {
       setSalvandoMarca(false);
     }
@@ -353,20 +316,8 @@ export default function RelatóriosPage() {
           const tipoBase = match ? match[1].trim() : p.trim();
           const equipamentoBruto = match ? match[2].trim() : '';
           if (!isInstalacao(tipoBase)) return;
-          // Local extraido SEM a marca (estavel mesmo se a marca for editada
-          // depois do arquivamento). Ex: equipamento "Marca: LG | Sala" -> "Sala"
-          const localExtraido = removerMarca(equipamentoBruto) || '';
           out.push({
-            // Chave NOVA: servicoId + tipoBase + local + idx (sem marca!).
-            // Marca NAO entra na chave porque pode mudar via Editar Marca,
-            // e nesse caso a chave arquivada precisa continuar batendo.
-            key: `${s.id}::${tipoBase}::${localExtraido}::${idx}`,
-            // Compat retro: aceita chaves antigas no Set de arquivados.
-            // - legacyKey: versao original (so id+idx)
-            // - legacyKeyComEquip: versao intermediaria (id+tipoBase+equip+idx)
-            legacyKey: `${s.id}-${idx}`,
-            legacyKeyComEquip: `${s.id}::${tipoBase}::${equipamentoBruto}::${idx}`,
-            idx, // CRITICO: usado em handleSalvarMarca pra saber qual parte editar
+            key: `${s.id}-${idx}`,
             servicoId: s.id,
             os: s.os_numero || '',
             cliente: s.cliente_nome || '-',
@@ -402,26 +353,17 @@ export default function RelatóriosPage() {
     return [...map.keys()].sort();
   }, [instalacoesExpandidas]);
 
-  // Helper: instalacao esta arquivada se QUALQUER uma das 3 chaves estiver no Set
-  // (chave atual + 2 versoes legacy de migracoes anteriores)
-  const estaArquivada = (i) =>
-    instalacoesArquivadas.has(i.key) ||
-    instalacoesArquivadas.has(i.legacyKey) ||
-    instalacoesArquivadas.has(i.legacyKeyComEquip);
-
   const instalacoesFiltradas = useMemo(() =>
     instalacoesExpandidas
-      .filter(i => verArquivadas ? estaArquivada(i) : !estaArquivada(i))
+      .filter(i => verArquivadas ? instalacoesArquivadas.has(i.key) : !instalacoesArquivadas.has(i.key))
       .filter(i => filtroMarca === 'todas' || i.marca === filtroMarca)
       .filter(i => filtroEquipeInst === 'todas' || i.equipe === filtroEquipeInst)
       .filter(i => !debouncedBuscaInstalacao.trim() || matchClienteSearch(i.cliente, i.telefone, debouncedBuscaInstalacao))
       .sort((a, b) => new Date(b.dataConclusao || 0) - new Date(a.dataConclusao || 0))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   , [instalacoesExpandidas, filtroMarca, filtroEquipeInst, verArquivadas, instalacoesArquivadas, debouncedBuscaInstalacao]);
 
   const qtdArquivadas = useMemo(
-    () => instalacoesExpandidas.filter(estaArquivada).length,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    () => instalacoesExpandidas.filter(i => instalacoesArquivadas.has(i.key)).length,
     [instalacoesExpandidas, instalacoesArquivadas]
   );
 
@@ -868,14 +810,11 @@ export default function RelatóriosPage() {
                                       {i.marca}
                                     </span>
                                     <button
-                                      onClick={() => {
-                                        setSalvandoMarca(false); // reset caso tenha travado
-                                        setEditarMarcaModal({
-                                          instalacao: i,
-                                          marcaAtual: i.marca === 'Não informada' ? '' : i.marca,
-                                          novaMarca: i.marca === 'Não informada' ? '' : i.marca,
-                                        });
-                                      }}
+                                      onClick={() => setEditarMarcaModal({
+                                        instalacao: i,
+                                        marcaAtual: i.marca === 'Não informada' ? '' : i.marca,
+                                        novaMarca: i.marca === 'Não informada' ? '' : i.marca,
+                                      })}
                                       className="text-gray-400 hover:text-blue-600 transition-colors"
                                       title="Editar marca"
                                     >
@@ -904,18 +843,7 @@ export default function RelatóriosPage() {
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    onClick={() => {
-                                      // Arquivar: marca a chave NOVA. Desarquivar: limpa
-                                      // TODAS as 3 chaves possiveis (nova + 2 legacies)
-                                      // pra nao deixar residuo de versoes anteriores.
-                                      if (verArquivadas) {
-                                        setArquivada(i.key, false);
-                                        if (i.legacyKey) setArquivada(i.legacyKey, false);
-                                        if (i.legacyKeyComEquip) setArquivada(i.legacyKeyComEquip, false);
-                                      } else {
-                                        setArquivada(i.key, true);
-                                      }
-                                    }}
+                                    onClick={() => setArquivada(i.key, !verArquivadas)}
                                     className={`h-7 text-xs ${verArquivadas ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
                                     title={verArquivadas ? 'Restaurar para lista ativa' : 'Marcar como concluída e arquivar'}
                                   >

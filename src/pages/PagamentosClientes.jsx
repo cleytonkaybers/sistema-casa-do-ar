@@ -45,22 +45,6 @@ const getWhatsApp = (phone) => {
 };
 const calcularSaldo = (total, pago) => (total || 0) - (pago || 0);
 
-// Valor sinalizador de placeholder (aguardando precificacao). Mudado de R$ 1,00
-// para R$ 5,55 — mais facilmente identificavel visualmente, nao colide com valor
-// real comum. Records com este valor recebem animacao piscante.
-const PLACEHOLDER_VALOR = 5.55;
-
-// Helper: retorna true se o pagamento esta aguardando precificacao do ADM.
-// Aceita tanto R$ 5,55 (novo) quanto R$ 1,00 (legado) para retrocompatibilidade.
-const isPlaceholderPreco = (p) => {
-  if (!p) return false;
-  const v = p.valor_total || 0;
-  const pago = p.valor_pago || 0;
-  if (pago !== 0) return false;
-  // 5,55 exato ou <= 1.0 (legado)
-  return Math.abs(v - PLACEHOLDER_VALOR) < 0.01 || v <= 1.0;
-};
-
 async function gerarPDFCobranca(pag) {
   const { addBannerToDoc, getBannerUrl } = await import('@/lib/pdfBanner');
   const bannerUrl = await getBannerUrl();
@@ -213,15 +197,12 @@ function groupPagamentos(lista) {
   });
   return Object.values(groups).map(g => {
     // Dedup em 2 niveis:
-    // 1) Por ID do PagamentoCliente — remove MESMO registro duplicado na lista
-    //    (defesa contra useQuery devolver mesmo objeto 2x)
-    // 2) Por atendimento_id — remove PagamentoClientes diferentes que apontam
-    //    para o MESMO atendimento real (ex: race no sync gerou 2 pagamentos).
-    //    Records SEM atendimento_id (legados, criados manual) NUNCA dedupam —
-    //    cada um e considerado unico para nao 'sumir' nada que o ADM nao
-    //    tenha pedido pra sumir.
-    //    Em caso de conflito de mesmo atendimento_id, mantem o de maior
-    //    valor_total (precificado > placeholder); empate, mais recente.
+    // 1) Por ID do PagamentoCliente — remove o MESMO registro duplicado na lista
+    // 2) Por chave composta tipo+data (dia) — remove PagamentosCliente diferentes
+    //    que representam o mesmo evento real (ex: registro "fantasma" gerado por
+    //    race antigo no sync). Permite multiplos atendimentos do mesmo Servico
+    //    em datas diferentes — apenas colapsa duplicatas dentro do MESMO DIA.
+    //    Em caso de conflito, mantem o de maior valor_total OU o mais recente.
     const porId = new Map();
     g._records.forEach(r => {
       if (!r.id) return;
@@ -229,30 +210,28 @@ function groupPagamentos(lista) {
     });
     const unicos = [...porId.values()];
 
-    const porAtendimento = new Map();
-    const semAtendimento = [];
+    const porChave = new Map();
     unicos.forEach(r => {
-      const atKey = r.atendimento_id;
-      if (!atKey) {
-        // Sem atendimento_id: NUNCA dedupa. Cada registro fica visivel.
-        semAtendimento.push(r);
-        return;
-      }
-      const existente = porAtendimento.get(atKey);
+      const tipo = (r.tipo_servico || '').trim().toLowerCase();
+      const dataRef = (r.data_conclusao || r.created_date || '').slice(0, 10);
+      const chave = `${tipo}|${dataRef}`;
+      const existente = porChave.get(chave);
       if (!existente) {
-        porAtendimento.set(atKey, r);
+        porChave.set(chave, r);
         return;
       }
-      // Conflito: 2 pagamentos pro mesmo atendimento. Mantem o melhor.
+      // Mantem o que tem mais valor_total. Se empate, mantem o atualizado por
+      // ultimo (updated_date mais recente). Garante preferir registro precificado
+      // a placeholder R$1, e preferir versao recem-editada a versao antiga.
       const valR = r.valor_total || 0;
       const valE = existente.valor_total || 0;
-      if (valR > valE) { porAtendimento.set(atKey, r); return; }
+      if (valR > valE) { porChave.set(chave, r); return; }
       if (valR < valE) return;
       const dtR = new Date(r.updated_date || r.created_date || 0).getTime();
       const dtE = new Date(existente.updated_date || existente.created_date || 0).getTime();
-      if (dtR > dtE) porAtendimento.set(atKey, r);
+      if (dtR > dtE) porChave.set(chave, r);
     });
-    const recordsDedup = [...porAtendimento.values(), ...semAtendimento];
+    const recordsDedup = [...porChave.values()];
     const valorTotal = recordsDedup.reduce((s, r) => s + (r.valor_total || 0), 0);
     const valorPago = recordsDedup.reduce((s, r) => s + (r.valor_pago || 0), 0);
     const saldo = valorTotal - valorPago;
@@ -1042,16 +1021,9 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   const records = pag._records || [pag];
   const saldo = calcularSaldo(pag.valor_total, pag.valor_pago);
   const _valorPago = pag.valor_pago || 0;
-  // Placeholder de preco (aguardando precificacao do ADM) — animacao piscante.
-  // Calculado ANTES de isPago para poder forcar isPago=false se houver placeholder
-  // no grupo (mesmo que o valor agregado bata como pago por coincidencia).
-  const isAguardandoPreco = (records || [pag]).some(r => isPlaceholderPreco(r));
   // Tolerância de R$1 só se houve algum pagamento (cobre arredondamento em serviços compostos)
-  // REGRA CRITICA: se ha placeholder no grupo, NUNCA exibir como pago — admin precisa
-  // precificar e cobrar o servico novo. Botoes Preco/Agendar/Pagar devem aparecer.
-  const isPagoBase = pag.status === 'pago' || saldo <= 0.01 || (_valorPago > 0 && saldo <= 1.0);
-  const isPago = isPagoBase && !isAguardandoPreco;
-  const isParcial = !isPago && (pag.status === 'parcial' || (isAguardandoPreco && _valorPago > 0)) && _valorPago > 0;
+  const isPago = pag.status === 'pago' || saldo <= 0.01 || (_valorPago > 0 && saldo <= 1.0);
+  const isParcial = !isPago && pag.status === 'parcial' && _valorPago > 0;
   const temHistoricoReal = (pag.historico_pagamentos || []).some(h => !h.agendada && !h.consolidado);
   // Mostrar 100% apenas se realmente pago — evitar display enganoso
   const pct = pag.valor_total > 0
@@ -1089,23 +1061,14 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   }, [isParcial, records, pag]);
 
   return (
-    <div className={`border-2 rounded-lg transition-all ${
-      isAguardandoPreco
-        ? 'border-yellow-500 bg-yellow-100 shadow-lg shadow-yellow-300/60 ring-2 ring-yellow-400/50'
-        : chegoDataAgendada
+    <div className={`border rounded-lg transition-all ${
+      chegoDataAgendada
         ? 'border-orange-400 bg-orange-50 shadow-md shadow-orange-200'
         : expandido
         ? 'border-blue-300 bg-blue-50/30'
         : 'border-gray-200 hover:border-gray-300'
     }`}>
-      <div onClick={() => setExpandido(!expandido)} className={`flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
-        isAguardandoPreco ? 'hover:bg-yellow-200/40' : expandido ? 'bg-white border-b border-blue-200' : 'hover:bg-gray-50/50'
-      }`}>
-        {isAguardandoPreco && (
-          <span className="flex-shrink-0 bg-yellow-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-full border-2 border-yellow-600 shadow-md animate-pulse">
-            💲 DEFINIR PREÇO
-          </span>
-        )}
+      <div onClick={() => setExpandido(!expandido)} className={`flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${expandido ? 'bg-white border-b border-blue-200' : 'hover:bg-gray-50/50'}`}>
         <div className="flex items-center gap-2 flex-1 min-w-0 w-full sm:w-auto">
         {chegoDataAgendada && <span className="text-lg flex-shrink-0 animate-pulse" title="Data de agendamento chegou!">🔔</span>}
           <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
@@ -1125,7 +1088,7 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
                 💵 DINHEIRO — confirmar
               </button>
             )}
-            <p className={`font-semibold text-sm ${isAguardandoPreco ? 'text-gray-900 font-bold' : 'text-gray-800'}`}>{pag.cliente_nome}</p>
+            <p className="font-semibold text-sm text-gray-800">{pag.cliente_nome}</p>
               {pag.data_pagamento_agendado && (
                 <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded font-semibold flex-shrink-0">
                   📅 {format(toLocalDateSafe(pag.data_pagamento_agendado), 'dd/MM')}
@@ -1137,18 +1100,14 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
                 </span>
               )}
             </div>
-            <p className={`text-xs truncate ${isAguardandoPreco ? 'text-gray-800 font-medium' : 'text-gray-500'}`}>{pag._tipoResumido || formatTipoServicoCompact(pag.tipo_servico)}</p>
+            <p className="text-xs text-gray-500 truncate">{pag._tipoResumido || formatTipoServicoCompact(pag.tipo_servico)}</p>
           </div>
         </div>
 
         <div className="flex items-center justify-between w-full sm:w-auto gap-3">
           <div className="text-left flex-shrink-0">
-            <p className={`text-xs ${isAguardandoPreco ? 'text-gray-700 font-semibold' : 'text-gray-400'}`}>Valor</p>
-            <p className={`font-semibold text-sm ${
-              pag.valor_total === 0 ? 'text-amber-500' :
-              isAguardandoPreco ? 'text-yellow-900 font-bold' :
-              'text-gray-800'
-            }`}>
+            <p className="text-xs text-gray-400">Valor</p>
+            <p className={`font-semibold text-sm ${pag.valor_total === 0 ? 'text-amber-500' : 'text-gray-800'}`}>
               {pag.valor_total === 0 ? 'A def.' : formatCurrency(pag.valor_total).replace('R$', '').trim()}
             </p>
           </div>
@@ -1318,11 +1277,6 @@ function PagamentosClientesContent() {
 
   // Bloquear acesso para não-admins
   const isAdmin = user?.role === 'admin';
-
-  // Valor SINALIZADOR de servico aguardando precificacao pelo ADM.
-  // R$ 5,55 escolhido pra ser facilmente identificavel (nao bate com valor real).
-  // Records com este valor recebem animacao piscante para chamar atencao.
-  // Aceita 1.0 (legado) como placeholder tambem para retrocompatibilidade.
 
   const criandoIds = useRef(new Set());
   const deletedAtendimentoIds = useRef(new Set(
@@ -1558,17 +1512,13 @@ function PagamentosClientesContent() {
   const fimSemana = endOfWeek(hoje, { weekStartsOn: 1 }); // domingo
 
   // Helper: verifica se registro é "efetivamente pago" (DB pago, tolerância ou placeholder)
-  // SO retorna true se o ADM realmente deu baixa no pagamento:
-  // 1. status='pago' (marcou manualmente como pago)
-  // 2. Pago com tolerancia de R$1 (recebeu valor que cobre quase tudo)
-  // NUNCA considera placeholder R$1 sem pagamento como 'pago' — isso fazia
-  // o sistema auto-arquivar servicos que aguardavam precificacao do ADM.
   const isEfetivamentePago = useCallback((p) => {
     const valorPago = p.valor_pago || 0;
     const saldo = (p.valor_total || 0) - valorPago;
     return (
       p.status === 'pago' ||
-      (valorPago > 0 && saldo <= 1.0)        // pago com tolerância de R$1
+      (valorPago > 0 && saldo <= 1.0) ||        // pago com tolerância de R$1
+      ((p.valor_total || 0) <= 1.0 && valorPago === 0) // placeholder sem pagamento real
     );
   }, []);
 
@@ -1600,46 +1550,7 @@ function PagamentosClientesContent() {
         try { await updateMutation.mutateAsync({ id: p.id, data: { arquivado: true } }); } catch {}
       }
     })();
-
-  }, [pagamentos.length, isAdmin]);
-
-  // RESTAURAR ARQUIVADOS POR ENGANO: versoes anteriores do isEfetivamentePago
-  // marcavam placeholders R\$1 sem pagamento como 'pagos' e os auto-arquivava.
-  // Resultado: clientes que ainda deviam sumiram da lista. Este useEffect
-  // detecta arquivados que NAO foram pagos NEM excluidos manualmente pelo ADM
-  // e RESTAURA (desarquiva) automaticamente.
-  const autoRestauradoRef = useRef(false);
-  useEffect(() => {
-    if (!isAdmin || autoRestauradoRef.current || pagamentos.length === 0) return;
-    autoRestauradoRef.current = true;
-
-    const restaurar = pagamentos.filter(p => {
-      if (p.arquivado !== true) return false;
-      if (p.excluido_manual === true) return false; // ADM deletou intencionalmente — manter
-      // Foi pago de verdade? Mantem arquivado.
-      const valorPago = p.valor_pago || 0;
-      const saldo = (p.valor_total || 0) - valorPago;
-      const pagoDeVerdade = p.status === 'pago' || (valorPago > 0 && saldo <= 1.0);
-      if (pagoDeVerdade) return false;
-      // Restante: arquivado sem ter sido pago nem excluido = engano
-      return true;
-    });
-
-    if (restaurar.length === 0) return;
-    (async () => {
-      let ok = 0;
-      for (const p of restaurar) {
-        try {
-          await updateMutation.mutateAsync({ id: p.id, data: { arquivado: false } });
-          ok++;
-        } catch (err) {
-          console.error('[restaurar-engano] falhou', p.id, err);
-        }
-      }
-      if (ok > 0) {
-        toast.success(`✓ ${ok} cliente(s) restaurado(s) — arquivados por engano em versao anterior`, { duration: 8000 });
-      }
-    })();
+   
   }, [pagamentos.length, isAdmin]);
 
   // Sincronizar TODOS os atendimentos sem PagamentoCliente correspondente —
@@ -1722,7 +1633,7 @@ function PagamentosClientesContent() {
           telefone: a.telefone || '',
           tipo_servico: a.tipo_servico || '',
           data_conclusao: a.data_conclusao || a.created_date,
-          valor_total: debitoTotal > 0 ? debitoTotal : PLACEHOLDER_VALOR,
+          valor_total: debitoTotal > 0 ? debitoTotal : 1.0,
           valor_pago: 0,
           status: 'pendente',
           equipe_nome: a.equipe_nome || '',
@@ -1830,7 +1741,7 @@ function PagamentosClientesContent() {
           });
           atendimentoId = novoAtendimento?.id;
         }
-        const valorPag = (s.valor && s.valor > 1) ? s.valor : PLACEHOLDER_VALOR;
+        const valorPag = (s.valor && s.valor > 1) ? s.valor : 1.0;
         await base44.entities.PagamentoCliente.create({
           atendimento_id: atendimentoId || '',
           servico_id: s.id,
@@ -2005,7 +1916,7 @@ function PagamentosClientesContent() {
             atendimentoId = novoAtendimento?.id;
           }
           // 2) Criar PagamentoCliente
-          const valorPag = (s.valor && s.valor > 1) ? s.valor : PLACEHOLDER_VALOR;
+          const valorPag = (s.valor && s.valor > 1) ? s.valor : 1.0;
           await base44.entities.PagamentoCliente.create({
             atendimento_id: atendimentoId || '',
             servico_id: s.id,
@@ -2374,50 +2285,48 @@ function PagamentosClientesContent() {
   }, [inicioSemana, fimSemana]);
 
   // 1. Serviços da semana atual (todos, incluindo pagos — somem na virada)
-  // Placeholders SO aparecem aqui se forem da semana atual. Placeholders antigos
-  // vao pra 'Pendencias' (separados por idade pra evitar poluir a aba Semana
-  // com sincronizacoes defensivas de atendimentos antigos orfaos).
+  // EXCECAO: servicos sem preco definido (placeholder R$1, sem pagamento) FICAM
+  // aqui mesmo de semanas anteriores, ate serem precificados. Ao precificar,
+  // se forem de semana anterior, descem para Pendencias normalmente.
   const pagsSemana = useMemo(() => {
     const statusOrder = { 'pendente': 0, 'agendado': 1, 'parcial': 2, 'pago': 3 };
     const filtrados = pagsFiltrados
       .filter(p => {
-        const placeholder = isPlaceholderPreco(p);
-        // Serviço concluído esta semana (com ou sem placeholder)
+        // Placeholder de preco (R$1 sem pagamento) — fica aqui ate ser precificado
+        if ((p.valor_total || 0) <= 1.0 && (p.valor_pago || 0) === 0) return true;
+        // Serviço concluído esta semana
         if (p.data_conclusao) {
           try {
             if (isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana })) return true;
           } catch {}
         }
-        // Placeholder SEM data_conclusao valida — assume recente (aparece em Semana)
-        if (placeholder && !p.data_conclusao) return true;
-        // Pagamento recebido essa semana
+        // Ou: pagamento atrasado que foi recebido esta semana
         return temPagamentoNaSemana(p);
       });
     const agrupados = groupPagamentos(filtrados);
     return agrupados
       .filter(g => filtroStatus.length === 0 || filtroStatus.includes(g.status))
       .sort((a, b) => {
-        // PRIORIDADE: grupos que contem QUALQUER record placeholder aparecem
-        // PRIMEIRO. Importante: testar pelos _records (records individuais),
-        // nao pelo grupo agregado — porque a soma valor_total do grupo
-        // 'esconde' o placeholder se houver outro pagamento real junto.
-        const aTemPh = (a._records || [a]).some(r => isPlaceholderPreco(r));
-        const bTemPh = (b._records || [b]).some(r => isPlaceholderPreco(r));
-        if (aTemPh !== bTemPh) return aTemPh ? -1 : 1;
+        // PRIORIDADE: servicos AGUARDANDO PRECO (placeholder R$1 sem pagamento)
+        // aparecem PRIMEIRO — facilita encontrar o que falta precificar.
+        const aPlaceholder = (a.valor_total || 0) <= 1.0 && (a.valor_pago || 0) === 0;
+        const bPlaceholder = (b.valor_total || 0) <= 1.0 && (b.valor_pago || 0) === 0;
+        if (aPlaceholder !== bPlaceholder) return aPlaceholder ? -1 : 1;
         // Depois, ordena por status (pendente/agendado/parcial/pago)
         return (statusOrder[a.status] || 4) - (statusOrder[b.status] || 4);
       });
   }, [pagsFiltrados, inicioSemana, fimSemana, temPagamentoNaSemana, filtroStatus]);
 
-  // 2. PENDÊNCIAS: itens de semanas ANTERIORES com saldo em aberto OU placeholders
-  //    antigos aguardando precificacao. Exclui os que receberam pagamento esta
-  //    semana. Placeholders antigos tambem entram aqui (antes ficavam em Semana,
-  //    mas a sincronizacao defensiva de atendimentos antigos orfaos passou a
-  //    poluir a aba Semana com 50+ placeholders historicos).
+  // 2. PENDÊNCIAS: apenas itens de semanas ANTERIORES com saldo em aberto
+  //    Exclui os que receberam pagamento esta semana
+  //    Exclui PLACEHOLDERS (R$1 sem pagamento) — esses ficam em "Servicos da
+  //    Semana" ate serem precificados, regra unificada.
   const pagsPendencias = useMemo(() => {
     const filtrados = pagsFiltrados
       .filter(p => {
         if (p.status === 'pago') return false;
+        // Placeholder de preco (R$1 sem pagamento) → aparece em Servicos da Semana, nao aqui
+        if ((p.valor_total || 0) <= 1.0 && (p.valor_pago || 0) === 0) return false;
         // Se recebeu pagamento esta semana → aparece na aba semana, não aqui
         if (temPagamentoNaSemana(p)) return false;
         if (p.data_conclusao) {
@@ -2425,9 +2334,6 @@ function PagamentosClientesContent() {
             if (isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana })) return false;
           } catch {}
         }
-        // Placeholder antigo (sem data desta semana) → APARECE aqui pra ADM
-        // precificar quando puder, sem poluir aba Semana
-        if (isPlaceholderPreco(p)) return true;
         const saldo = (p.valor_total || 0) - (p.valor_pago || 0);
         const valorPago = p.valor_pago || 0;
         // Excluir apenas se "pago por tolerancia" (saldo <= R$1 com algum pagamento feito)
@@ -2487,7 +2393,7 @@ function PagamentosClientesContent() {
 
     const temPlaceholder = (g) => {
       const records = (g._records && g._records.length > 0) ? g._records : [g];
-      return records.some(r => isPlaceholderPreco(r));
+      return records.some(r => (r.valor_total || 0) <= 1.0);
     };
     const todos = [...pagsSemana, ...pagsPendencias];
     const alvo = todos.find(temPlaceholder);
