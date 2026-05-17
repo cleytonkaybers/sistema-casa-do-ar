@@ -1492,19 +1492,41 @@ function PagamentosClientesContent() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] }),
   });
 
-  const handleDelete = (pag) => {
-    // Soft-delete: arquiva em vez de deletar do banco.
-    // Isso mantém o atendimento_id em idsRegistrados e impede que a sincronização
-    // automática recrie o registro ao detectar o atendimento sem pagamento.
+  const handleDelete = async (pag) => {
+    // Soft-delete BLOQUEANTE: arquiva em vez de deletar do banco.
+    // Antes usava .mutate (fire-and-forget) — se falhasse silenciosamente, o
+    // registro 'voltava' depois. Agora usa mutateAsync + await + retry pra
+    // garantir que a exclusao foi persistida no banco.
     const records = pag._records?.length > 0 ? pag._records : [pag];
-
-    records.forEach(rec => {
-      if (rec.id) {
-        updateMutation.mutate({ id: rec.id, data: { arquivado: true, excluido_manual: true } });
+    const validos = records.filter(rec => rec && rec.id);
+    if (validos.length === 0) {
+      toast.error('Erro: registro sem ID — recarregue a página');
+      return;
+    }
+    console.log('[handleDelete] excluindo', validos.length, 'records de', pag.cliente_nome);
+    toast.info(`⏳ Excluindo ${validos.length} registro(s)...`, { id: 'del-progresso', duration: 30000 });
+    let ok = 0;
+    let falhas = [];
+    for (const rec of validos) {
+      let sucesso = false;
+      for (let tentativa = 1; tentativa <= 3 && !sucesso; tentativa++) {
+        try {
+          await updateMutation.mutateAsync({ id: rec.id, data: { arquivado: true, excluido_manual: true } });
+          sucesso = true;
+          ok++;
+        } catch (err) {
+          console.error(`[handleDelete] tentativa ${tentativa} falhou pra ${rec.id}:`, err);
+          if (tentativa < 3) await new Promise(r => setTimeout(r, 800));
+        }
       }
-    });
-
-    toast.success('Registro removido!');
+      if (!sucesso) falhas.push(rec.id);
+    }
+    toast.dismiss('del-progresso');
+    if (falhas.length > 0) {
+      toast.error(`⚠ Excluído ${ok} de ${validos.length}. ${falhas.length} falhou(ram). Tente de novo.`, { duration: 12000 });
+    } else {
+      toast.success(`✅ ${ok} registro(s) excluído(s) definitivamente`);
+    }
   };
 
   const hoje = new Date();
