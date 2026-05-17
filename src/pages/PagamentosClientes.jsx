@@ -1575,12 +1575,26 @@ function PagamentosClientesContent() {
       const saldo = (p.valor_total || 0) - valorPago;
       const pagoDeVerdade = p.status === 'pago' || (valorPago > 0 && saldo <= 1.0);
       if (pagoDeVerdade) return false;
-      return true; // arquivado sem ter sido pago nem excluido = engano
+      // NAO restaurar placeholders R$1/R$5,55 — lixo de bugs antigos.
+      // Cliente real foi precificado em OUTRO registro e ja pago.
+      const valor = p.valor_total || 0;
+      if (valor <= 5) return false;
+      return true; // valor real (>R$5), arquivado sem ter sido pago = engano
     });
 
-    if (restaurar.length === 0) return;
+    // Tambem MARCA placeholders R$1 antigos arquivados como excluido_manual
+    // pra nao reaparecerem em sessoes futuras (auto-arquivamento ja os tinha
+    // arquivado, mas sem flag de excluido_manual).
+    const limparLixo = pagamentos.filter(p => {
+      const valor = p.valor_total || 0;
+      const valorPago = p.valor_pago || 0;
+      return valor <= 5 && valorPago === 0 && p.excluido_manual !== true;
+    });
+
+    if (restaurar.length === 0 && limparLixo.length === 0) return;
     (async () => {
       let ok = 0;
+      let limpos = 0;
       for (const p of restaurar) {
         try {
           await updateMutation.mutateAsync({ id: p.id, data: { arquivado: false } });
@@ -1589,9 +1603,18 @@ function PagamentosClientesContent() {
           console.error('[restaurar-engano] falhou', p.id, err);
         }
       }
-      if (ok > 0) {
-        toast.success(`✓ ${ok} cliente(s) restaurado(s) — arquivados por engano`, { duration: 8000 });
+      for (const p of limparLixo) {
+        try {
+          await updateMutation.mutateAsync({ id: p.id, data: { arquivado: true, excluido_manual: true } });
+          limpos++;
+        } catch (err) {
+          console.error('[limpar-lixo] falhou', p.id, err);
+        }
       }
+      const msgs = [];
+      if (ok > 0) msgs.push(`✓ ${ok} cliente(s) com dívida real restaurado(s)`);
+      if (limpos > 0) msgs.push(`🧹 ${limpos} placeholder(s) R$1 antigo(s) removido(s)`);
+      if (msgs.length > 0) toast.success(msgs.join(' · '), { duration: 10000 });
     })();
   }, [pagamentos.length, isAdmin]);
 
