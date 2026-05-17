@@ -1557,67 +1557,41 @@ function PagamentosClientesContent() {
 
   }, [pagamentos.length, isAdmin]);
 
-  // AUTO-RESTAURAR / LIMPAR LIXO:
-  // 1. Restaura clientes com valor REAL (> R\$50) que ainda devem mas foram
-  //    arquivados por engano em versoes anteriores.
-  // 2. Marca placeholders R\$1 sem pagamento como excluido_manual (limpa lixo
-  //    historico que polui a lista — esses servicos nao foram precificados a
-  //    tempo e provavelmente sao residuo de bugs antigos do sync).
+  // AUTO-RESTAURAR ARQUIVADOS POR ENGANO: versoes anteriores marcavam
+  // placeholders R\$1 sem pagamento como 'pagos' e os auto-arquivavam.
+  // Resultado: clientes que ainda deviam sumiram. Este useEffect detecta
+  // arquivados que NAO foram pagos NEM excluidos manualmente pelo ADM
+  // e RESTAURA (desarquiva) automaticamente.
   const autoRestauradoRef = useRef(false);
   useEffect(() => {
     if (!isAdmin || autoRestauradoRef.current || pagamentos.length === 0) return;
     autoRestauradoRef.current = true;
 
-    const pagoDeVerdade = (p) => {
-      const valorPago = p.valor_pago || 0;
-      const saldo = (p.valor_total || 0) - valorPago;
-      return p.status === 'pago' || (valorPago > 0 && saldo <= 1.0);
-    };
-
-    // Restaurar: arquivado + nao pago + nao excluido manual + VALOR > 50 (real)
     const restaurar = pagamentos.filter(p => {
       if (p.arquivado !== true) return false;
-      if (p.excluido_manual === true) return false;
-      if (pagoDeVerdade(p)) return false;
-      const valor = p.valor_total || 0;
-      return valor > 50; // SO restaura quem realmente deve (>R\$50)
-    });
-
-    // Limpar lixo: placeholder R\$1 (ou menos) sem pagamento — vai pra
-    // 'Arquivo' com excluido_manual=true e nao reaparece
-    const limpar = pagamentos.filter(p => {
+      if (p.excluido_manual === true) return false; // ADM deletou intencionalmente — manter
+      // Foi pago de verdade? Mantem arquivado.
       const valorPago = p.valor_pago || 0;
-      if (valorPago > 0) return false;
-      const valor = p.valor_total || 0;
-      if (valor > 5) return false; // placeholder so se <= R\$5 (R\$1 ou 5.55)
-      if (p.excluido_manual === true) return false; // ja excluido
-      return true;
+      const saldo = (p.valor_total || 0) - valorPago;
+      const pagoDeVerdade = p.status === 'pago' || (valorPago > 0 && saldo <= 1.0);
+      if (pagoDeVerdade) return false;
+      return true; // arquivado sem ter sido pago nem excluido = engano
     });
 
-    if (restaurar.length === 0 && limpar.length === 0) return;
+    if (restaurar.length === 0) return;
     (async () => {
-      let restaurados = 0;
-      let limpos = 0;
+      let ok = 0;
       for (const p of restaurar) {
         try {
           await updateMutation.mutateAsync({ id: p.id, data: { arquivado: false } });
-          restaurados++;
+          ok++;
         } catch (err) {
           console.error('[restaurar-engano] falhou', p.id, err);
         }
       }
-      for (const p of limpar) {
-        try {
-          await updateMutation.mutateAsync({ id: p.id, data: { arquivado: true, excluido_manual: true } });
-          limpos++;
-        } catch (err) {
-          console.error('[limpar-lixo] falhou', p.id, err);
-        }
+      if (ok > 0) {
+        toast.success(`✓ ${ok} cliente(s) restaurado(s) — arquivados por engano`, { duration: 8000 });
       }
-      const msgs = [];
-      if (restaurados > 0) msgs.push(`✓ ${restaurados} cliente(s) com dívida real restaurado(s)`);
-      if (limpos > 0) msgs.push(`🧹 ${limpos} placeholder(s) R$1 antigo(s) removido(s)`);
-      if (msgs.length > 0) toast.success(msgs.join(' · '), { duration: 10000 });
     })();
   }, [pagamentos.length, isAdmin]);
 
