@@ -236,7 +236,7 @@ function groupPagamentos(lista) {
     const valorPago = recordsDedup.reduce((s, r) => s + (r.valor_pago || 0), 0);
     const saldo = valorTotal - valorPago;
     // Tolerancia de R$1 so se houve algum pagamento (cobre arredondamento). Sem pagamento = pendente.
-    const status = saldo <= 0.01 || (valorPago > 0 && saldo <= 1.0) ? 'pago' : valorPago > 0 ? 'parcial' : 'pendente';
+    const status = saldo <= 0.01 || (valorPago > 0 && saldo <= 5.0) ? 'pago' : valorPago > 0 ? 'parcial' : 'pendente'; // tolerancia R$5 — diferenca pequena conta como quitado
     // Mescla historico_pagamentos dos records deduplicados
     const historicoMesclado = recordsDedup.flatMap(r => r.historico_pagamentos || []);
     return {
@@ -1514,15 +1514,14 @@ function PagamentosClientesContent() {
   // Helper: verifica se registro é "efetivamente pago" (DB pago, tolerância ou placeholder)
   // SO retorna true se o ADM deu baixa real:
   // 1. status='pago'
-  // 2. Pago com tolerancia R\$1 (recebeu valor que cobre quase tudo)
-  // NUNCA marca placeholder R\$1 sem pagamento como 'pago' — antes essa linha
-  // fazia o sistema auto-arquivar servicos que aguardavam precificacao.
+  // 2. Pago com tolerancia R\$5 (diferenca pequena que conta como quitado)
+  // NUNCA marca placeholder sem pagamento como 'pago'.
   const isEfetivamentePago = useCallback((p) => {
     const valorPago = p.valor_pago || 0;
     const saldo = (p.valor_total || 0) - valorPago;
     return (
       p.status === 'pago' ||
-      (valorPago > 0 && saldo <= 1.0)        // pago com tolerância de R$1
+      (valorPago > 0 && saldo <= 5.0)        // tolerancia R$5 (diferenca pequena)
     );
   }, []);
 
@@ -1548,10 +1547,11 @@ function PagamentosClientesContent() {
     autoArquivadoRef.current = true;
     if (candidatos.length === 0) return;
 
-    // Arquivar silenciosamente em segundo plano
+    // Arquivar silenciosamente em segundo plano — TAMBEM marca excluido_manual=true
+    // pra nunca mais voltar (auto-restaurador respeita essa flag)
     (async () => {
       for (const p of candidatos) {
-        try { await updateMutation.mutateAsync({ id: p.id, data: { arquivado: true } }); } catch {}
+        try { await updateMutation.mutateAsync({ id: p.id, data: { arquivado: true, excluido_manual: true } }); } catch {}
       }
     })();
 
@@ -1573,7 +1573,7 @@ function PagamentosClientesContent() {
       // Foi pago de verdade? Mantem arquivado.
       const valorPago = p.valor_pago || 0;
       const saldo = (p.valor_total || 0) - valorPago;
-      const pagoDeVerdade = p.status === 'pago' || (valorPago > 0 && saldo <= 1.0);
+      const pagoDeVerdade = p.status === 'pago' || (valorPago > 0 && saldo <= 5.0);
       if (pagoDeVerdade) return false;
       // NAO restaurar placeholders R$1 (legado) NEM R$5,55 (atual) — sao lixo
       // de bugs antigos. Cliente real foi precificado em OUTRO registro.
@@ -2409,7 +2409,7 @@ function PagamentosClientesContent() {
       if (p.arquivado !== true) return false;
       const valorPago = p.valor_pago || 0;
       const saldo = (p.valor_total || 0) - valorPago;
-      const pagoDeVerdade = p.status === 'pago' || (valorPago > 0 && saldo <= 1.0);
+      const pagoDeVerdade = p.status === 'pago' || (valorPago > 0 && saldo <= 5.0);
       if (pagoDeVerdade) return false;
       const valor = p.valor_total || 0;
       return valor > 50;
@@ -2448,7 +2448,7 @@ function PagamentosClientesContent() {
     if (!confirm(`Arquivar ${candidatos.length} registro(s) de semanas anteriores?\n\nEles ficarão na aba "Arquivo" e poderão ser restaurados.`)) return;
     try {
       for (const p of candidatos) {
-        await updateMutation.mutateAsync({ id: p.id, data: { arquivado: true } });
+        await updateMutation.mutateAsync({ id: p.id, data: { arquivado: true, excluido_manual: true } });
       }
       toast.success(`✅ ${candidatos.length} registros arquivados!`);
     } catch {
@@ -2541,7 +2541,7 @@ function PagamentosClientesContent() {
         const saldo = (p.valor_total || 0) - (p.valor_pago || 0);
         const valorPago = p.valor_pago || 0;
         // Excluir apenas se "pago por tolerancia" (saldo <= R$1 com algum pagamento feito)
-        if (valorPago > 0 && saldo <= 1.0) return false;
+        if (valorPago > 0 && saldo <= 5.0) return false;
         // Mostrar: saldo real > R$0,01 OU servico sem preco definido (valor_total = 0)
         return saldo > 0.01 || !p.valor_total;
       })

@@ -445,10 +445,16 @@ Deno.serve(async (req) => {
     const db = base44.asServiceRole;
 
     // 1. Buscar pagamentos em aberto
+    // Excluir: arquivados, status='pago', saldo <= R\$5 (diferenca pequena
+    // conta como quitado e nao gera linha no relatorio de cobranca)
     const todos   = await db.entities.PagamentoCliente.list('-data_conclusao');
-    const abertos = todos.filter(
-      (p: any) => !p.arquivado && ['pendente', 'parcial', 'agendado'].includes(p.status)
-    );
+    const abertos = todos.filter((p: any) => {
+      if (p.arquivado) return false;
+      if (!['pendente', 'parcial', 'agendado'].includes(p.status)) return false;
+      const saldo = (p.valor_total || 0) - (p.valor_pago || 0);
+      if (saldo <= 5) return false; // diferenca pequena = quitado, fora do relatorio
+      return true;
+    });
 
     // 2. Hash para detecção de mudanças
     const normalizado = abertos
