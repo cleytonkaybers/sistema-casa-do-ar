@@ -2376,6 +2376,11 @@ function PagamentosClientesContent() {
       const pags = pagsPorAtendimento.get(a.id) || [];
       const pagAtivo = pags.find(p => p.arquivado !== true);
       if (pagAtivo) return; // ja tem pag ativo, nada a fazer
+      // RESPEITAR EXCLUSAO MANUAL: se o ADM excluiu de proposito (excluido_manual=true),
+      // NAO recriar nem desarquivar aqui. O ADM pode recuperar via botao
+      // "Recuperar Dividas Arquivadas" (handleRecuperarDividas) se mudou de ideia.
+      const temExcluidoManual = pags.some(p => p.excluido_manual === true);
+      if (temExcluidoManual) return;
       const pagArquivado = pags.find(p => p.arquivado === true);
       if (pagArquivado) {
         aDesarquivar.push({ atendimento: a, pagamento: pagArquivado });

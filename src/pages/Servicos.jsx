@@ -451,27 +451,40 @@ export default function ServicosPage() {
 
       // ===== PASSO 4: Criar PagamentoCliente (BLOQUEANTE com retry) =====
       toast.info('⏳ Registrando pagamento do cliente...', { id: 'conclusao-progresso', duration: 30000 });
-      const jaExistePag = await base44.entities.PagamentoCliente
-        .filter({ atendimento_id: atendimentoCriado?.id })
+      // PROTECAO 1: respeitar exclusao manual do ADM.
+      // Se ja existe PagamentoCliente para esse servico_id marcado com
+      // excluido_manual=true, o ADM deletou de proposito — NAO recriar.
+      // Isso evita que servicos re-concluidos (clique repetido, regeneracao
+      // de OS) voltem como zumbi mesmo apos exclusao definitiva.
+      const excluidoPeloAdm = await base44.entities.PagamentoCliente
+        .filter({ servico_id: servicoSnapshot.id, excluido_manual: true })
         .catch(() => []);
-      if (!jaExistePag || jaExistePag.length === 0) {
-        // 1111 = valor sinalizador de "aguardando precificacao do ADM" (placeholder)
-        const valorPag = (servicoSnapshot.valor && servicoSnapshot.valor > 1) ? servicoSnapshot.valor : 1111;
-        await comRetry('pagamento-create', () =>
-          base44.entities.PagamentoCliente.create({
-            atendimento_id: atendimentoCriado?.id || '',
-            servico_id: servicoSnapshot.id,
-            cliente_nome: servicoSnapshot.cliente_nome || '',
-            telefone: servicoSnapshot.telefone || '',
-            tipo_servico: servicoSnapshot.tipo_servico || '',
-            data_conclusao: agora,
-            valor_total: valorPag,
-            valor_pago: 0,
-            status: 'pendente',
-            equipe_nome: servicoSnapshot.equipe_nome || '',
-            historico_pagamentos: [],
-          })
-        );
+      if (excluidoPeloAdm && excluidoPeloAdm.length > 0) {
+        console.warn('[conclusao] servico_id', servicoSnapshot.id, 'tem pagamento excluido pelo ADM — pulando criacao');
+      } else {
+        // PROTECAO 2: dedup por atendimento_id (caso retry da mesma execucao)
+        const jaExistePag = await base44.entities.PagamentoCliente
+          .filter({ atendimento_id: atendimentoCriado?.id })
+          .catch(() => []);
+        if (!jaExistePag || jaExistePag.length === 0) {
+          // 1111 = valor sinalizador de "aguardando precificacao do ADM" (placeholder)
+          const valorPag = (servicoSnapshot.valor && servicoSnapshot.valor > 1) ? servicoSnapshot.valor : 1111;
+          await comRetry('pagamento-create', () =>
+            base44.entities.PagamentoCliente.create({
+              atendimento_id: atendimentoCriado?.id || '',
+              servico_id: servicoSnapshot.id,
+              cliente_nome: servicoSnapshot.cliente_nome || '',
+              telefone: servicoSnapshot.telefone || '',
+              tipo_servico: servicoSnapshot.tipo_servico || '',
+              data_conclusao: agora,
+              valor_total: valorPag,
+              valor_pago: 0,
+              status: 'pendente',
+              equipe_nome: servicoSnapshot.equipe_nome || '',
+              historico_pagamentos: [],
+            })
+          );
+        }
       }
 
       // ===== PASSO 5: Atualizar Preventiva do Cliente (BLOQUEANTE) =====

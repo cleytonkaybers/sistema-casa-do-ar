@@ -87,6 +87,11 @@
       "type": "boolean",
       "default": false,
       "description": "Indica se o registro foi arquivado (oculto das views principais)"
+    },
+    "excluido_manual": {
+      "type": "boolean",
+      "default": false,
+      "description": "Indica que o ADM excluiu este registro de proposito (lixeira). Bloqueia auto-restauradores e sync de orfaos — so volta via botao 'Recuperar Dividas Arquivadas'."
     }
   },
   "required": [
