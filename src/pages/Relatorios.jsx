@@ -88,9 +88,18 @@ export default function RelatóriosPage() {
     const { instalacao, novaMarca } = editarMarcaModal;
     setSalvandoMarca(true);
     try {
-      const servico = servicos.find(s => s.id === instalacao.servicoId);
+      // Busca FRESCA do servico (nao usa cache local) — garante que mudancas
+      // simultaneas em outras telas nao causem perda de dados
+      let servico = null;
+      try {
+        const lista = await base44.entities.Servico.filter({ id: instalacao.servicoId });
+        servico = lista && lista[0];
+      } catch (e) {
+        console.error('Erro ao buscar servico fresh, tentando cache:', e);
+        servico = servicos.find(s => s.id === instalacao.servicoId);
+      }
       if (!servico) {
-        toast.error('Serviço não encontrado.');
+        toast.error('Serviço não encontrado no banco. Recarregue a página.');
         setSalvandoMarca(false);
         return;
       }
@@ -107,9 +116,10 @@ export default function RelatóriosPage() {
         return novoEquip ? `${tipoBase} [${novoEquip}]` : tipoBase;
       });
       const novoTipoServico = partesNovas.join(' + ');
+      console.log('[salvar-marca]', { servicoId: servico.id, antes: servico.tipo_servico, depois: novoTipoServico });
       await base44.entities.Servico.update(servico.id, { tipo_servico: novoTipoServico });
-      queryClient.invalidateQueries({ queryKey: ['servicos'] });
-      queryClient.invalidateQueries({ queryKey: ['servicos-relatorios'] });
+      // Refetch FORCADO (nao apenas invalida) — garante que a tabela atualize
+      await queryClient.refetchQueries({ queryKey: ['servicos'] });
       toast.success(`✓ Marca atualizada para ${novaMarca || 'não informada'}`);
       setEditarMarcaModal(null);
     } catch (err) {
@@ -317,7 +327,13 @@ export default function RelatóriosPage() {
           const equipamentoBruto = match ? match[2].trim() : '';
           if (!isInstalacao(tipoBase)) return;
           out.push({
-            key: `${s.id}-${idx}`,
+            // Chave nova: estavel mesmo se tipo_servico mudar de ordem. Inclui
+            // servicoId + tipoBase + equipamentoBruto. Idx mantido como tiebreaker
+            // pra instalacoes 100% identicas no mesmo servico.
+            key: `${s.id}::${tipoBase}::${equipamentoBruto}::${idx}`,
+            // Compat: chave antiga ${s.id}-${idx} continua sendo aceita pra
+            // arquivados que foram salvos antes desta refatoracao.
+            legacyKey: `${s.id}-${idx}`,
             servicoId: s.id,
             os: s.os_numero || '',
             cliente: s.cliente_nome || '-',
@@ -353,17 +369,21 @@ export default function RelatóriosPage() {
     return [...map.keys()].sort();
   }, [instalacoesExpandidas]);
 
+  // Helper: instalacao esta arquivada se a chave NOVA OU a chave ANTIGA estao no Set
+  const estaArquivada = (i) => instalacoesArquivadas.has(i.key) || instalacoesArquivadas.has(i.legacyKey);
+
   const instalacoesFiltradas = useMemo(() =>
     instalacoesExpandidas
-      .filter(i => verArquivadas ? instalacoesArquivadas.has(i.key) : !instalacoesArquivadas.has(i.key))
+      .filter(i => verArquivadas ? estaArquivada(i) : !estaArquivada(i))
       .filter(i => filtroMarca === 'todas' || i.marca === filtroMarca)
       .filter(i => filtroEquipeInst === 'todas' || i.equipe === filtroEquipeInst)
       .filter(i => !debouncedBuscaInstalacao.trim() || matchClienteSearch(i.cliente, i.telefone, debouncedBuscaInstalacao))
       .sort((a, b) => new Date(b.dataConclusao || 0) - new Date(a.dataConclusao || 0))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   , [instalacoesExpandidas, filtroMarca, filtroEquipeInst, verArquivadas, instalacoesArquivadas, debouncedBuscaInstalacao]);
 
   const qtdArquivadas = useMemo(
-    () => instalacoesExpandidas.filter(i => instalacoesArquivadas.has(i.key)).length,
+    () => instalacoesExpandidas.filter(i => instalacoesArquivadas.has(i.key) || instalacoesArquivadas.has(i.legacyKey)).length,
     [instalacoesExpandidas, instalacoesArquivadas]
   );
 
@@ -843,7 +863,17 @@ export default function RelatóriosPage() {
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    onClick={() => setArquivada(i.key, !verArquivadas)}
+                                    onClick={() => {
+                                      // Arquivar: marca a chave NOVA. Desarquivar: limpa
+                                      // AMBAS as chaves (nova + legacy) para nao deixar
+                                      // residuo de versao antiga.
+                                      if (verArquivadas) {
+                                        setArquivada(i.key, false);
+                                        if (i.legacyKey) setArquivada(i.legacyKey, false);
+                                      } else {
+                                        setArquivada(i.key, true);
+                                      }
+                                    }}
                                     className={`h-7 text-xs ${verArquivadas ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
                                     title={verArquivadas ? 'Restaurar para lista ativa' : 'Marcar como concluída e arquivar'}
                                   >
