@@ -1575,20 +1575,21 @@ function PagamentosClientesContent() {
       const saldo = (p.valor_total || 0) - valorPago;
       const pagoDeVerdade = p.status === 'pago' || (valorPago > 0 && saldo <= 1.0);
       if (pagoDeVerdade) return false;
-      // NAO restaurar placeholders R$1/R$5,55 — lixo de bugs antigos.
-      // Cliente real foi precificado em OUTRO registro e ja pago.
+      // NAO restaurar placeholders R$1 (legado) NEM R$5,55 (atual) — sao lixo
+      // de bugs antigos. Cliente real foi precificado em OUTRO registro.
+      // Filtro: valor >= R$50 (so dividas reais)
       const valor = p.valor_total || 0;
-      if (valor <= 5) return false;
-      return true; // valor real (>R$5), arquivado sem ter sido pago = engano
+      if (valor < 50) return false;
+      return true; // valor real, arquivado sem ter sido pago = engano
     });
 
-    // Tambem MARCA placeholders R$1 antigos arquivados como excluido_manual
-    // pra nao reaparecerem em sessoes futuras (auto-arquivamento ja os tinha
-    // arquivado, mas sem flag de excluido_manual).
+    // MARCA placeholders R$1 e R$5,55 antigos arquivados como excluido_manual
+    // pra nao reaparecerem em sessoes futuras.
     const limparLixo = pagamentos.filter(p => {
       const valor = p.valor_total || 0;
       const valorPago = p.valor_pago || 0;
-      return valor <= 5 && valorPago === 0 && p.excluido_manual !== true;
+      // Placeholders: <= R$6 (cobre 1.00 legado e 5.55 atual) sem pagamento
+      return valor <= 6 && valorPago === 0 && p.excluido_manual !== true;
     });
 
     if (restaurar.length === 0 && limparLixo.length === 0) return;
@@ -2246,6 +2247,9 @@ function PagamentosClientesContent() {
             status: 'pago',
             historico_pagamentos: novoHistorico,
             data_pagamento_completo: agora,
+            // Carimba como acao manual do ADM — auto-restaurador nao trara
+            // de volta mesmo se a flag 'arquivado' for desativada acidentalmente
+            excluido_manual: true,
           },
         });
       }
