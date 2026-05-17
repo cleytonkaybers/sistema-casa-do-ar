@@ -45,6 +45,22 @@ const getWhatsApp = (phone) => {
 };
 const calcularSaldo = (total, pago) => (total || 0) - (pago || 0);
 
+// Valor sinalizador de placeholder (aguardando precificacao). Mudado de R$ 1,00
+// para R$ 5,55 — mais facilmente identificavel visualmente, nao colide com valor
+// real comum. Records com este valor recebem animacao piscante.
+const PLACEHOLDER_VALOR = 5.55;
+
+// Helper: retorna true se o pagamento esta aguardando precificacao do ADM.
+// Aceita tanto R$ 5,55 (novo) quanto R$ 1,00 (legado) para retrocompatibilidade.
+const isPlaceholderPreco = (p) => {
+  if (!p) return false;
+  const v = p.valor_total || 0;
+  const pago = p.valor_pago || 0;
+  if (pago !== 0) return false;
+  // 5,55 exato ou <= 1.0 (legado)
+  return Math.abs(v - PLACEHOLDER_VALOR) < 0.01 || v <= 1.0;
+};
+
 async function gerarPDFCobranca(pag) {
   const { addBannerToDoc, getBannerUrl } = await import('@/lib/pdfBanner');
   const bannerUrl = await getBannerUrl();
@@ -1065,15 +1081,26 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
     return comDatas.sort((a, b) => b._date - a._date)[0] || null;
   }, [isParcial, records, pag]);
 
+  // Placeholder de preco (aguardando precificacao do ADM) — animacao piscante
+  // em amarelo intenso pra chamar atencao do ADM.
+  const isAguardandoPreco = isPlaceholderPreco(pag);
+
   return (
     <div className={`border rounded-lg transition-all ${
-      chegoDataAgendada
+      isAguardandoPreco
+        ? 'border-yellow-400 bg-yellow-50/80 shadow-md shadow-yellow-200 animate-pulse ring-2 ring-yellow-300'
+        : chegoDataAgendada
         ? 'border-orange-400 bg-orange-50 shadow-md shadow-orange-200'
         : expandido
         ? 'border-blue-300 bg-blue-50/30'
         : 'border-gray-200 hover:border-gray-300'
     }`}>
       <div onClick={() => setExpandido(!expandido)} className={`flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${expandido ? 'bg-white border-b border-blue-200' : 'hover:bg-gray-50/50'}`}>
+        {isAguardandoPreco && (
+          <span className="flex-shrink-0 bg-yellow-400 text-yellow-900 text-[10px] font-bold px-2 py-0.5 rounded-full border border-yellow-500 shadow-sm">
+            💲 DEFINIR PREÇO
+          </span>
+        )}
         <div className="flex items-center gap-2 flex-1 min-w-0 w-full sm:w-auto">
         {chegoDataAgendada && <span className="text-lg flex-shrink-0 animate-pulse" title="Data de agendamento chegou!">🔔</span>}
           <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
@@ -1282,6 +1309,11 @@ function PagamentosClientesContent() {
 
   // Bloquear acesso para não-admins
   const isAdmin = user?.role === 'admin';
+
+  // Valor SINALIZADOR de servico aguardando precificacao pelo ADM.
+  // R$ 5,55 escolhido pra ser facilmente identificavel (nao bate com valor real).
+  // Records com este valor recebem animacao piscante para chamar atencao.
+  // Aceita 1.0 (legado) como placeholder tambem para retrocompatibilidade.
 
   const criandoIds = useRef(new Set());
   const deletedAtendimentoIds = useRef(new Set(
@@ -1642,7 +1674,7 @@ function PagamentosClientesContent() {
           telefone: a.telefone || '',
           tipo_servico: a.tipo_servico || '',
           data_conclusao: a.data_conclusao || a.created_date,
-          valor_total: debitoTotal > 0 ? debitoTotal : 1.0,
+          valor_total: debitoTotal > 0 ? debitoTotal : PLACEHOLDER_VALOR,
           valor_pago: 0,
           status: 'pendente',
           equipe_nome: a.equipe_nome || '',
@@ -1750,7 +1782,7 @@ function PagamentosClientesContent() {
           });
           atendimentoId = novoAtendimento?.id;
         }
-        const valorPag = (s.valor && s.valor > 1) ? s.valor : 1.0;
+        const valorPag = (s.valor && s.valor > 1) ? s.valor : PLACEHOLDER_VALOR;
         await base44.entities.PagamentoCliente.create({
           atendimento_id: atendimentoId || '',
           servico_id: s.id,
@@ -1925,7 +1957,7 @@ function PagamentosClientesContent() {
             atendimentoId = novoAtendimento?.id;
           }
           // 2) Criar PagamentoCliente
-          const valorPag = (s.valor && s.valor > 1) ? s.valor : 1.0;
+          const valorPag = (s.valor && s.valor > 1) ? s.valor : PLACEHOLDER_VALOR;
           await base44.entities.PagamentoCliente.create({
             atendimento_id: atendimentoId || '',
             servico_id: s.id,
@@ -2301,8 +2333,8 @@ function PagamentosClientesContent() {
     const statusOrder = { 'pendente': 0, 'agendado': 1, 'parcial': 2, 'pago': 3 };
     const filtrados = pagsFiltrados
       .filter(p => {
-        // Placeholder de preco (R$1 sem pagamento) — fica aqui ate ser precificado
-        if ((p.valor_total || 0) <= 1.0 && (p.valor_pago || 0) === 0) return true;
+        // Placeholder de preco (R$ 5,55 ou R$1 legado, sem pagamento) — fica aqui ate ser precificado
+        if (isPlaceholderPreco(p)) return true;
         // Serviço concluído esta semana
         if (p.data_conclusao) {
           try {
@@ -2316,10 +2348,9 @@ function PagamentosClientesContent() {
     return agrupados
       .filter(g => filtroStatus.length === 0 || filtroStatus.includes(g.status))
       .sort((a, b) => {
-        // PRIORIDADE: servicos AGUARDANDO PRECO (placeholder R$1 sem pagamento)
-        // aparecem PRIMEIRO — facilita encontrar o que falta precificar.
-        const aPlaceholder = (a.valor_total || 0) <= 1.0 && (a.valor_pago || 0) === 0;
-        const bPlaceholder = (b.valor_total || 0) <= 1.0 && (b.valor_pago || 0) === 0;
+        // PRIORIDADE: servicos AGUARDANDO PRECO (placeholder) aparecem PRIMEIRO
+        const aPlaceholder = isPlaceholderPreco(a);
+        const bPlaceholder = isPlaceholderPreco(b);
         if (aPlaceholder !== bPlaceholder) return aPlaceholder ? -1 : 1;
         // Depois, ordena por status (pendente/agendado/parcial/pago)
         return (statusOrder[a.status] || 4) - (statusOrder[b.status] || 4);
@@ -2334,8 +2365,8 @@ function PagamentosClientesContent() {
     const filtrados = pagsFiltrados
       .filter(p => {
         if (p.status === 'pago') return false;
-        // Placeholder de preco (R$1 sem pagamento) → aparece em Servicos da Semana, nao aqui
-        if ((p.valor_total || 0) <= 1.0 && (p.valor_pago || 0) === 0) return false;
+        // Placeholder de preco → aparece em Servicos da Semana, nao aqui
+        if (isPlaceholderPreco(p)) return false;
         // Se recebeu pagamento esta semana → aparece na aba semana, não aqui
         if (temPagamentoNaSemana(p)) return false;
         if (p.data_conclusao) {
@@ -2402,7 +2433,7 @@ function PagamentosClientesContent() {
 
     const temPlaceholder = (g) => {
       const records = (g._records && g._records.length > 0) ? g._records : [g];
-      return records.some(r => (r.valor_total || 0) <= 1.0);
+      return records.some(r => isPlaceholderPreco(r));
     };
     const todos = [...pagsSemana, ...pagsPendencias];
     const alvo = todos.find(temPlaceholder);
