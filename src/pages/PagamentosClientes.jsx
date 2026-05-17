@@ -2335,22 +2335,23 @@ function PagamentosClientesContent() {
   }, [inicioSemana, fimSemana]);
 
   // 1. Serviços da semana atual (todos, incluindo pagos — somem na virada)
-  // EXCECAO: servicos sem preco definido (placeholder R$1, sem pagamento) FICAM
-  // aqui mesmo de semanas anteriores, ate serem precificados. Ao precificar,
-  // se forem de semana anterior, descem para Pendencias normalmente.
+  // Placeholders SO aparecem aqui se forem da semana atual. Placeholders antigos
+  // vao pra 'Pendencias' (separados por idade pra evitar poluir a aba Semana
+  // com sincronizacoes defensivas de atendimentos antigos orfaos).
   const pagsSemana = useMemo(() => {
     const statusOrder = { 'pendente': 0, 'agendado': 1, 'parcial': 2, 'pago': 3 };
     const filtrados = pagsFiltrados
       .filter(p => {
-        // Placeholder de preco (R$ 5,55 ou R$1 legado, sem pagamento) — fica aqui ate ser precificado
-        if (isPlaceholderPreco(p)) return true;
-        // Serviço concluído esta semana
+        const placeholder = isPlaceholderPreco(p);
+        // Serviço concluído esta semana (com ou sem placeholder)
         if (p.data_conclusao) {
           try {
             if (isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana })) return true;
           } catch {}
         }
-        // Ou: pagamento atrasado que foi recebido esta semana
+        // Placeholder SEM data_conclusao valida — assume recente (aparece em Semana)
+        if (placeholder && !p.data_conclusao) return true;
+        // Pagamento recebido essa semana
         return temPagamentoNaSemana(p);
       });
     const agrupados = groupPagamentos(filtrados);
@@ -2369,16 +2370,15 @@ function PagamentosClientesContent() {
       });
   }, [pagsFiltrados, inicioSemana, fimSemana, temPagamentoNaSemana, filtroStatus]);
 
-  // 2. PENDÊNCIAS: apenas itens de semanas ANTERIORES com saldo em aberto
-  //    Exclui os que receberam pagamento esta semana
-  //    Exclui PLACEHOLDERS (R$1 sem pagamento) — esses ficam em "Servicos da
-  //    Semana" ate serem precificados, regra unificada.
+  // 2. PENDÊNCIAS: itens de semanas ANTERIORES com saldo em aberto OU placeholders
+  //    antigos aguardando precificacao. Exclui os que receberam pagamento esta
+  //    semana. Placeholders antigos tambem entram aqui (antes ficavam em Semana,
+  //    mas a sincronizacao defensiva de atendimentos antigos orfaos passou a
+  //    poluir a aba Semana com 50+ placeholders historicos).
   const pagsPendencias = useMemo(() => {
     const filtrados = pagsFiltrados
       .filter(p => {
         if (p.status === 'pago') return false;
-        // Placeholder de preco → aparece em Servicos da Semana, nao aqui
-        if (isPlaceholderPreco(p)) return false;
         // Se recebeu pagamento esta semana → aparece na aba semana, não aqui
         if (temPagamentoNaSemana(p)) return false;
         if (p.data_conclusao) {
@@ -2386,6 +2386,9 @@ function PagamentosClientesContent() {
             if (isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana })) return false;
           } catch {}
         }
+        // Placeholder antigo (sem data desta semana) → APARECE aqui pra ADM
+        // precificar quando puder, sem poluir aba Semana
+        if (isPlaceholderPreco(p)) return true;
         const saldo = (p.valor_total || 0) - (p.valor_pago || 0);
         const valorPago = p.valor_pago || 0;
         // Excluir apenas se "pago por tolerancia" (saldo <= R$1 com algum pagamento feito)
