@@ -2315,6 +2315,9 @@ function PagamentosClientesContent() {
       pagsPorAtendimento.set(p.atendimento_id, arr);
     });
 
+    // Filtros mais conservadores pra evitar trazer lixo historico em massa:
+    // - Janela de 30 dias (era 90)
+    // - Valor minimo R\$ 50 (era 5) — so dividas significativas
     const aCriar = []; // Atendimentos sem nenhum PagamentoCliente
     const aDesarquivar = []; // PagamentoClientes arquivados pra restaurar
     atendimentos.forEach(a => {
@@ -2324,10 +2327,10 @@ function PagamentosClientesContent() {
       try {
         const dt = parseISO(dataRef);
         const dias = Math.floor((hoje - dt) / (1000 * 60 * 60 * 24));
-        if (dias < 0 || dias > 90) return;
+        if (dias < 0 || dias > 30) return; // ultimos 30 dias
       } catch { return; }
       if (isApenasTiposIgnorados(a.tipo_servico)) return;
-      if ((a.valor || 0) <= 5) return;
+      if ((a.valor || 0) < 50) return; // valor minimo R\$ 50
 
       const pags = pagsPorAtendimento.get(a.id) || [];
       const pagAtivo = pags.find(p => p.arquivado !== true);
