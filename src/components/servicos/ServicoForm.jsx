@@ -14,6 +14,7 @@ import { ptBR } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
 import { MARCAS_AR, isInstalacao, embutirMarca, extrairMarca, removerMarca } from '@/lib/marcasAr';
 import { matchClienteSearch } from '@/lib/utils/buscaCliente';
+import { incluiGas, TIPOS_GAS } from '@/lib/utils/tipoServico';
 
 export default function ServicoForm({ open, onClose, onSave, servico, isLoading, prefilledData, equipes = [], currentUserEquipeId = null, isAdmin = false }) {
   const [loadingLocation, setLoadingLocation] = useState(false);
@@ -107,7 +108,9 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
     ativo: true,
     equipe_id: '',
     equipe_nome: '',
-    equipamento: ''
+    equipamento: '',
+    gas_tipo: '',
+    gas_quantidade_gramas: '',
   });
 
   useEffect(() => {
@@ -134,7 +137,9 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         ativo: servico.ativo !== false,
         equipe_id: servico.equipe_id || '',
         equipe_nome: servico.equipe_nome || '',
-        equipamento: servico.equipamento || ''
+        equipamento: servico.equipamento || '',
+        gas_tipo: servico.gas_tipo || '',
+        gas_quantidade_gramas: servico.gas_quantidade_gramas != null ? String(servico.gas_quantidade_gramas) : '',
       });
     } else if (prefilledData) {
       setFormData({
@@ -156,7 +161,9 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         ativo: true,
         equipe_id: currentUserEquipeId || '',
         equipe_nome: '',
-        equipamento: ''
+        equipamento: '',
+        gas_tipo: '',
+        gas_quantidade_gramas: '',
       });
     } else {
       setFormData({
@@ -176,7 +183,9 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
         ativo: true,
         equipe_id: currentUserEquipeId || '',
         equipe_nome: '',
-        equipamento: ''
+        equipamento: '',
+        gas_tipo: '',
+        gas_quantidade_gramas: '',
       });
     }
   }, [servico, prefilledData, open, currentUserEquipeId]);
@@ -352,6 +361,19 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
       return;
     }
 
+    // Validacao de gas: se algum tipo inclui gas, tipo e quantidade sao obrigatorios
+    if (incluiGas(formData.tipos_servico)) {
+      if (!formData.gas_tipo) {
+        toast.error('Selecione o tipo de gás (R410, R22 ou R32).');
+        return;
+      }
+      const gramas = Number(formData.gas_quantidade_gramas);
+      if (!gramas || gramas <= 0) {
+        toast.error('Informe a quantidade de gás em gramas (maior que 0).');
+        return;
+      }
+    }
+
     const data = parseISO(formData.data_programada);
     const diaSemanaFormatado = format(data, 'EEEE', { locale: ptBR });
     const diaSemana = diaSemanaFormatado.charAt(0).toUpperCase() + diaSemanaFormatado.slice(1);
@@ -378,6 +400,9 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
       ? (telLimpo.startsWith('55') && telLimpo.length > 11 ? '+' + telLimpo : '+55' + telLimpo)
       : '';
 
+    // Persistir gas SO se o tipo final inclui gas. Se trocou de "Recarga"
+    // para "Limpeza" antes de salvar, zera os campos pra nao salvar lixo.
+    const temGas = incluiGas(formData.tipos_servico);
     const dataToSave = {
       ...formData,
       telefone: telefoneFinal,
@@ -388,7 +413,9 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
       equipe_nome: equipeSelecionada?.nome || null,
       sem_registro_cliente: semRegistroCliente,
       equipamento: equipamentoGlobal,
-      google_maps_link: formData.google_maps_link || null
+      google_maps_link: formData.google_maps_link || null,
+      gas_tipo: temGas ? formData.gas_tipo : null,
+      gas_quantidade_gramas: temGas ? Number(formData.gas_quantidade_gramas) : null,
     };
     delete dataToSave.tipos_servico;
 
@@ -744,6 +771,44 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                 )}
               </div>
             </div>
+
+            {/* Controle de Gás — so aparece quando algum tipo selecionado inclui gas */}
+            {incluiGas(formData.tipos_servico) && (
+              <div className="rounded-lg border-2 border-yellow-500/40 bg-yellow-500/5 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-yellow-400 font-semibold text-sm tracking-wide uppercase">🧊 Controle de Gás</span>
+                  <span className="text-[10px] text-yellow-300/70">obrigatório quando inclui gás</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className={labelDark}>Tipo de Gás *</Label>
+                    <Select
+                      value={formData.gas_tipo || ''}
+                      onValueChange={(value) => setFormData({ ...formData, gas_tipo: value })}
+                    >
+                      <SelectTrigger className={selectDark}>
+                        <SelectValue placeholder="Selecione (R410, R22, R32)" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#1e2a3a] border-[#2d3f55] text-white">
+                        {TIPOS_GAS.map(g => (
+                          <SelectItem key={g} value={g} className="text-white hover:bg-white/10">{g}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className={labelDark}>Quantidade (gramas) *</Label>
+                    <Input
+                      type="number" step="1" min="0"
+                      value={formData.gas_quantidade_gramas}
+                      onChange={(e) => setFormData({ ...formData, gas_quantidade_gramas: e.target.value })}
+                      placeholder="ex: 400"
+                      className={inputDark}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Equipe */}
             {equipes.length > 0 && isAdmin && (

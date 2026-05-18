@@ -160,6 +160,19 @@
     "os_numero": {
       "type": "string",
       "description": "N\u00famero da Ordem de Servi\u00e7o (ex: OS-0001)"
+    },
+    "gas_tipo": {
+      "type": "string",
+      "enum": [
+        "R410",
+        "R22",
+        "R32"
+      ],
+      "description": "Tipo do g\u00e1s usado no servi\u00e7o (preenchido apenas quando tipo_servico inclui g\u00e1s). Usado para controle de estoque e relat\u00f3rios de consumo."
+    },
+    "gas_quantidade_gramas": {
+      "type": "number",
+      "description": "Quantidade de g\u00e1s consumida em gramas (preenchido junto com gas_tipo)."
     }
   },
   "required": [
