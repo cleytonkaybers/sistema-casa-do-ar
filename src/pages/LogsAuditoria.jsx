@@ -58,17 +58,44 @@ export default function LogsAuditoria() {
       { entity: base44.entities.Servico, campo: 'cliente_nome' },
       { entity: base44.entities.Cliente, campo: 'nome' },
     ];
+    // Throttling: Base44 retorna 429 (Rate limit exceeded) se a gente bombardear
+    // deletes em loop apertado. Delay de 150ms entre cada delete + retry com
+    // backoff exponencial quando bater 429.
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    const deleteComRetry = async (entity, id) => {
+      for (let tentativa = 1; tentativa <= 4; tentativa++) {
+        try {
+          await entity.delete(id);
+          return true;
+        } catch (err) {
+          const is429 = err?.message?.includes('429') || err?.message?.toLowerCase().includes('rate limit');
+          if (is429 && tentativa < 4) {
+            await sleep(1500 * tentativa); // backoff: 1.5s, 3s, 4.5s
+            continue;
+          }
+          console.error('[limpar-teste] falhou', id, err?.message);
+          return false;
+        }
+      }
+      return false;
+    };
     let totalExcluidos = 0;
+    let totalFalhas = 0;
     for (const { entity, campo } of entidades) {
       const registros = await entity.list();
       const testes = registros.filter(r => r[campo]?.toLowerCase().includes('teste'));
       for (const r of testes) {
-        await entity.delete(r.id);
-        totalExcluidos++;
+        const ok = await deleteComRetry(entity, r.id);
+        if (ok) totalExcluidos++;
+        else totalFalhas++;
+        await sleep(150); // pausa entre requests pra nao estourar rate limit
       }
     }
     setResultadoLimpeza(totalExcluidos);
     setLimpandoTeste(false);
+    if (totalFalhas > 0) {
+      console.warn(`[limpar-teste] ${totalFalhas} registro(s) falharam — rode novamente para tentar de novo.`);
+    }
   };
 
   const { data: logs = [], isLoading } = useQuery({
