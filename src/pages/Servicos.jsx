@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -35,6 +35,12 @@ export default function ServicosPage() {
   const [servicoConcluido, setServicoConcluido] = useState(null);
   const [showConclusaoModal, setShowConclusaoModal] = useState(false);
   const [servicoParaConcluir, setServicoParaConcluir] = useState(null);
+  // Estado dedicado de "conclusao em andamento" — cobre os 5 passos da conclusao
+  // (Servico, Atendimento, Comissao, PagamentoCliente, Preventiva).
+  // updateMutation.isPending so cobria o Passo 1, deixando 2-5 sem bloqueio.
+  const [isConcluindo, setIsConcluindo] = useState(false);
+  // Ref para detectar e bloquear re-entrada (double-click) sem depender de re-render.
+  const isConcluindoRef = useRef(false);
   const [expandedDias, setExpandedDias] = useState({});
   const [servicoParaDeletar, setServicoParaDeletar] = useState(null);
   const [currentPageSemData, setCurrentPageSemData] = useState(1);
@@ -254,8 +260,18 @@ export default function ServicosPage() {
 
   const handleConfirmarConclusao = async (observacoes, pagouDinheiro = false) => {
     if (!servicoParaConcluir) return;
-
+    // BLOQUEIO DE RE-ENTRADA: ref sincrono evita disparar 2x via double-click,
+    // mesmo durante os 10-15s dos Passos 2-5 (onde updateMutation.isPending nao cobre).
+    if (isConcluindoRef.current) {
+      toast.info('⏳ Já tem uma conclusão em andamento, aguarde…');
+      return;
+    }
+    isConcluindoRef.current = true;
+    setIsConcluindo(true);
+    // Limpa snapshot do estado IMEDIATAMENTE para evitar que cliques subsequentes
+    // entrem aqui antes do try/finally rodar (servicoParaConcluir e do useState).
     const servicoSnapshot = { ...servicoParaConcluir };
+    setServicoParaConcluir(null);
 
     // Helper: tenta uma operacao ate N vezes com delay entre tentativas.
     // Lanca erro se TODAS as tentativas falharem.
@@ -445,12 +461,22 @@ export default function ServicosPage() {
             );
             tecnicosComissionados++;
           }
-          await base44.entities.Servico.update(servicoSnapshot.id, { comissao_gerada: true }).catch(() => {});
+          // Flag de idempotencia da comissao com retry — se falhar, proxima conclusao
+          // regenera tudo, dobrando creditos. Tem que persistir.
+          await comRetry('servico-comissao-gerada-flag', () =>
+            base44.entities.Servico.update(servicoSnapshot.id, { comissao_gerada: true })
+          );
         }
       }
 
       // ===== PASSO 4: Criar PagamentoCliente (BLOQUEANTE com retry) =====
       toast.info('⏳ Registrando pagamento do cliente...', { id: 'conclusao-progresso', duration: 30000 });
+      // GUARD: nao criar PagamentoCliente orfao (sem atendimento_id).
+      // Se Atendimento falhou nos retries acima, o try ja deveria ter rethrow
+      // mas defesa extra aqui evita registro fantasma com atendimento_id=''.
+      if (!atendimentoCriado?.id) {
+        throw new Error('Atendimento nao foi criado — abortando criacao de PagamentoCliente para evitar orfao.');
+      }
       // PROTECAO 1: respeitar exclusao manual do ADM.
       // Se ja existe PagamentoCliente para esse servico_id marcado com
       // excluido_manual=true, o ADM deletou de proposito — NAO recriar.
@@ -573,6 +599,10 @@ export default function ServicosPage() {
       toast.dismiss('conclusao-progresso');
       console.error('Erro ao concluir serviço:', error);
       toast.error(`⚠️ Falha ao concluir: ${error?.message || 'tente novamente'}. Use o botão "Verificar faltantes" em Pagamentos.`, { duration: 12000 });
+    } finally {
+      // Libera lock sempre — sucesso, falha ou exception inesperada.
+      isConcluindoRef.current = false;
+      setIsConcluindo(false);
     }
   };
 
@@ -963,12 +993,14 @@ export default function ServicosPage() {
       <ConclusaoModal
         open={showConclusaoModal}
         onClose={() => {
+          // Nao permite fechar enquanto conclusao roda — evita "perder" o snapshot
+          if (isConcluindo) return;
           setShowConclusaoModal(false);
           setServicoParaConcluir(null);
         }}
         onConfirm={handleConfirmarConclusao}
         servico={servicoParaConcluir}
-        isLoading={updateMutation.isPending}
+        isLoading={isConcluindo || updateMutation.isPending}
       />
 
       <ConfirmDialog

@@ -36,6 +36,7 @@ import { ptBR } from 'date-fns/locale';
 import { getLocalDate, getStartOfWeek, getEndOfWeek, toLocalDate, toLocalDateSafe, parseHistoricoData } from '@/lib/dateUtils';
 import { formatPhone } from '@/lib/utils/formatters';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
+import { isValorPlaceholder } from '@/lib/placeholderPreco';
 
 export default function Dashboard() {
   const [filtroServicos, setFiltroServicos] = useState('mes');
@@ -120,7 +121,9 @@ export default function Dashboard() {
 
   // Cards de alerta para admin
   const semPrecificacao = pagamentosClientes.filter(p =>
-    p.status !== 'pago' && !p.arquivado && (p.valor_total === 0 || p.valor_total === 1) && !isApenasTiposIgnorados(p.tipo_servico)
+    p.status !== 'pago' && !p.arquivado &&
+    (p.valor_total === 0 || isValorPlaceholder(p.valor_total)) &&
+    !isApenasTiposIgnorados(p.tipo_servico)
   );
   const cobrarHoje = pagamentosClientes.filter(p => {
     if (p.status === 'pago') return false;

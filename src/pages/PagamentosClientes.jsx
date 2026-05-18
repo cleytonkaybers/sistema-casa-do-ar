@@ -21,6 +21,7 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInter
 import { ptBR } from 'date-fns/locale';
 import { parseHistoricoData, toLocalDateSafe } from '@/lib/dateUtils';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
+import { isValorPlaceholder, grupoTemPlaceholder } from '@/lib/placeholderPreco';
 import { matchClienteSearch } from '@/lib/utils/buscaCliente';
 import CompromissoClientePDF from '@/components/financeiro/CompromissoClientePDF';
 import DespesasView from '@/components/financeiro/DespesasView';
@@ -1029,7 +1030,11 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   const pct = pag.valor_total > 0
     ? isPago ? 100 : Math.min(99, Math.round((_valorPago / pag.valor_total) * 100))
     : 0;
-  const temPrecoDefinido = pag.valor_total > 0;
+  const temPrecoDefinido = pag.valor_total > 0 && !isValorPlaceholder(pag.valor_total);
+  // ehPlaceholderCard: usa grupo se houver _records (mixed group), senao olha o pag direto
+  const ehPlaceholderCard = pag._records?.length > 0
+    ? grupoTemPlaceholder(pag)
+    : isValorPlaceholder(pag.valor_total) && (pag.valor_pago || 0) === 0;
   const dataAgendada = pag.data_pagamento_agendado ? parseISO(pag.data_pagamento_agendado) : null;
   const hoje = new Date();
   const chegoDataAgendada = dataAgendada && isAfter(hoje, dataAgendada) && !isPago;
@@ -1061,8 +1066,10 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   }, [isParcial, records, pag]);
 
   return (
-    <div className={`border rounded-lg transition-all ${
-      chegoDataAgendada
+    <div className={`border-2 rounded-lg transition-all ${
+      ehPlaceholderCard && !isPago
+        ? 'border-yellow-500 bg-yellow-50 shadow-lg shadow-yellow-200 ring-2 ring-yellow-400/50'
+        : chegoDataAgendada
         ? 'border-orange-400 bg-orange-50 shadow-md shadow-orange-200'
         : expandido
         ? 'border-blue-300 bg-blue-50/30'
@@ -1107,18 +1114,20 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
         <div className="flex items-center justify-between w-full sm:w-auto gap-3">
           <div className="text-left flex-shrink-0">
             <p className="text-xs text-gray-400">Valor</p>
-            <p className={`font-semibold text-sm ${pag.valor_total === 0 ? 'text-amber-500' : 'text-gray-800'}`}>
-              {pag.valor_total === 0 ? 'A def.' : formatCurrency(pag.valor_total).replace('R$', '').trim()}
+            <p className={`font-semibold text-sm ${(pag.valor_total === 0 || ehPlaceholderCard) ? 'text-amber-600' : 'text-gray-800'}`}>
+              {(pag.valor_total === 0 || ehPlaceholderCard) ? 'A def.' : formatCurrency(pag.valor_total).replace('R$', '').trim()}
             </p>
           </div>
           <div className="flex-shrink-0">
             {isPago
               ? <Badge className="bg-green-100 text-green-700 border border-green-200 text-xs">✓ Pago</Badge>
+              : ehPlaceholderCard
+              ? <Badge className="bg-yellow-500 text-white border border-yellow-600 font-bold text-xs animate-pulse shadow-md">💲 DEFINIR PREÇO</Badge>
               : isParcial
               ? <Badge className="bg-amber-100 text-amber-700 border border-amber-200 text-xs">Parcial</Badge>
               : pag.data_pagamento_agendado
               ? <Badge className="bg-purple-100 text-purple-700 border border-purple-200 text-xs">📅 Agendado</Badge>
-              : temPrecoDefinido ? <Badge className="bg-red-100 text-red-700 border border-red-200 text-xs">Pendente</Badge> : <Badge className="bg-yellow-100 text-yellow-700 border border-yellow-200 text-xs">Sem preço</Badge>
+              : <Badge className="bg-red-100 text-red-700 border border-red-200 text-xs">Pendente</Badge>
             }
           </div>
         </div>
@@ -2652,8 +2661,8 @@ function PagamentosClientesContent() {
     const statusOrder = { 'pendente': 0, 'agendado': 1, 'parcial': 2, 'pago': 3 };
     const filtrados = pagsFiltrados
       .filter(p => {
-        // Placeholder de preco (R$1 sem pagamento) — fica aqui ate ser precificado
-        if ((p.valor_total || 0) <= 1.0 && (p.valor_pago || 0) === 0) return true;
+        // Placeholder de preco (1111 atual, 5.55 antigo, <=1.0 legado) — fica aqui ate ser precificado
+        if (isValorPlaceholder(p.valor_total) && (p.valor_pago || 0) === 0) return true;
         // Serviço concluído esta semana
         if (p.data_conclusao) {
           try {
@@ -2667,10 +2676,10 @@ function PagamentosClientesContent() {
     return agrupados
       .filter(g => filtroStatus.length === 0 || filtroStatus.includes(g.status))
       .sort((a, b) => {
-        // PRIORIDADE: servicos AGUARDANDO PRECO (placeholder R$1 sem pagamento)
-        // aparecem PRIMEIRO — facilita encontrar o que falta precificar.
-        const aPlaceholder = (a.valor_total || 0) <= 1.0 && (a.valor_pago || 0) === 0;
-        const bPlaceholder = (b.valor_total || 0) <= 1.0 && (b.valor_pago || 0) === 0;
+        // PRIORIDADE: servicos AGUARDANDO PRECO (placeholder 1111/5.55/<=1.0) aparecem
+        // PRIMEIRO. Usa grupoTemPlaceholder pra cobrir mixed groups (1 placeholder + 1 pago).
+        const aPlaceholder = grupoTemPlaceholder(a);
+        const bPlaceholder = grupoTemPlaceholder(b);
         if (aPlaceholder !== bPlaceholder) return aPlaceholder ? -1 : 1;
         // Depois, ordena por status (pendente/agendado/parcial/pago)
         return (statusOrder[a.status] || 4) - (statusOrder[b.status] || 4);
@@ -2685,8 +2694,8 @@ function PagamentosClientesContent() {
     const filtrados = pagsFiltrados
       .filter(p => {
         if (p.status === 'pago') return false;
-        // Placeholder de preco (R$1 sem pagamento) → aparece em Servicos da Semana, nao aqui
-        if ((p.valor_total || 0) <= 1.0 && (p.valor_pago || 0) === 0) return false;
+        // Placeholder de preco (1111/5.55/<=1.0) → aparece em Servicos da Semana, nao aqui
+        if (isValorPlaceholder(p.valor_total) && (p.valor_pago || 0) === 0) return false;
         // Se recebeu pagamento esta semana → aparece na aba semana, não aqui
         if (temPagamentoNaSemana(p)) return false;
         if (p.data_conclusao) {
