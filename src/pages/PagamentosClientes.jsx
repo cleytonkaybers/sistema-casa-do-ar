@@ -1629,8 +1629,12 @@ function PagamentosClientesContent() {
       Math.abs(v - 5.55) < 0.01 ||
       (v > 0 && v <= 1.0)
     );
-    // MARCA placeholders arquivados como excluido_manual pra nao reaparecerem
+    // MARCA placeholders ARQUIVADOS como excluido_manual pra nao reaparecerem.
+    // CRITICO: SO atua em registros ja arquivados — placeholders ATIVOS (recem
+    // criados pela conclusao) NUNCA podem cair aqui, senao somem da tela antes
+    // do ADM precificar.
     const limparLixo = pagamentos.filter(p => {
+      if (p.arquivado !== true) return false; // <-- guard essencial
       const valor = p.valor_total || 0;
       const valorPago = p.valor_pago || 0;
       return isValorPlaceholder(valor) && valorPago === 0 && p.excluido_manual !== true;
