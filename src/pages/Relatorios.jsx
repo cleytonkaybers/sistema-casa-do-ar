@@ -256,6 +256,14 @@ export default function RelatóriosPage() {
     queryFn: () => base44.entities.BotijaGas.list('-data_registro'),
   });
 
+  // Lista de equipes — usada na view de Gas para mostrar TODAS equipes
+  // (mesmo as sem carga registrada) e permitir registrar botija antes
+  // de qualquer consumo.
+  const { data: equipesGas = [] } = useQuery({
+    queryKey: ['equipes-gas'],
+    queryFn: () => base44.entities.Equipe.list(),
+  });
+
   const botijaAtiva = (equipeNome, gasTipo) =>
     botijas.find(b => b.ativa !== false && b.equipe_nome === equipeNome && b.gas_tipo === gasTipo);
 
@@ -1076,6 +1084,21 @@ export default function RelatóriosPage() {
                     } catch { return false; }
                   });
                   const porEquipe = {};
+                  // 1) Inicializa TODAS as equipes (mesmo as sem carga) pra permitir
+                  // registrar botija antes do primeiro consumo. Tambem inclui equipes
+                  // que tem botija ativa mesmo sem nome na tabela.
+                  const nomesEquipes = new Set();
+                  equipesGas.forEach(e => { if (e?.nome) nomesEquipes.add(e.nome); });
+                  botijas.forEach(b => { if (b?.equipe_nome) nomesEquipes.add(b.equipe_nome); });
+                  servicosGas.forEach(s => nomesEquipes.add(s.equipe_nome || 'Sem equipe'));
+                  nomesEquipes.forEach(nome => {
+                    porEquipe[nome] = {
+                      servicos: [],
+                      totais: { R410: 0, R22: 0, R32: 0 },
+                      counts: { R410: 0, R22: 0, R32: 0 },
+                    };
+                  });
+                  // 2) Soma cargas reais
                   servicosGas.forEach(s => {
                     const eq = s.equipe_nome || 'Sem equipe';
                     if (!porEquipe[eq]) {
@@ -1125,7 +1148,7 @@ export default function RelatóriosPage() {
                         <Card className="bg-white border border-gray-200 shadow-sm rounded-2xl">
                           <CardContent className="py-10 text-center text-gray-500">
                             <Flame className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-                            Nenhuma carga de gás registrada no período selecionado.
+                            Nenhuma equipe cadastrada ainda. Cadastre uma equipe primeiro para registrar botija de gás.
                           </CardContent>
                         </Card>
                       )}
@@ -1137,7 +1160,11 @@ export default function RelatóriosPage() {
                             <CardHeader>
                               <CardTitle className="text-gray-800 text-base font-semibold flex items-center justify-between">
                                 <span>🧊 {eq}</span>
-                                <span className="text-xs font-normal text-gray-500">{dados.servicos.length} carga(s) no período</span>
+                                <span className="text-xs font-normal text-gray-500">
+                                  {dados.servicos.length > 0
+                                    ? `${dados.servicos.length} carga(s) no período`
+                                    : 'Sem cargas no período — registre botija para começar a contar'}
+                                </span>
                               </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
@@ -1208,7 +1235,8 @@ export default function RelatóriosPage() {
                                 })}
                               </div>
 
-                              {/* Tabela detalhada */}
+                              {/* Tabela detalhada — so quando tem cargas */}
+                              {dados.servicos.length > 0 && (
                               <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                   <thead>
@@ -1242,6 +1270,7 @@ export default function RelatóriosPage() {
                                   </tbody>
                                 </table>
                               </div>
+                              )}
                             </CardContent>
                           </Card>
                         );
