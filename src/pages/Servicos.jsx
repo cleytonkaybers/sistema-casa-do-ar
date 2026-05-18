@@ -493,8 +493,9 @@ export default function ServicosPage() {
           .filter({ atendimento_id: atendimentoCriado?.id })
           .catch(() => []);
         if (!jaExistePag || jaExistePag.length === 0) {
-          // 1111 = valor sinalizador de "aguardando precificacao do ADM" (placeholder)
-          const valorPag = (servicoSnapshot.valor && servicoSnapshot.valor > 1) ? servicoSnapshot.valor : 1111;
+          // SEMPRE 1111 — o ADM precifica MANUALMENTE em Pagamentos de Clientes.
+          // Valor do servico (servicoSnapshot.valor) e usado SO para calcular comissao
+          // dos tecnicos, NAO para cobrar do cliente. Sao precos diferentes.
           await comRetry('pagamento-create', () =>
             base44.entities.PagamentoCliente.create({
               atendimento_id: atendimentoCriado?.id || '',
@@ -503,7 +504,7 @@ export default function ServicosPage() {
               telefone: servicoSnapshot.telefone || '',
               tipo_servico: servicoSnapshot.tipo_servico || '',
               data_conclusao: agora,
-              valor_total: valorPag,
+              valor_total: 1111,
               valor_pago: 0,
               status: 'pendente',
               equipe_nome: servicoSnapshot.equipe_nome || '',

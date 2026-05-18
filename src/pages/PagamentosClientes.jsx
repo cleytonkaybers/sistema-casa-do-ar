@@ -1906,7 +1906,7 @@ function PagamentosClientesContent() {
           });
           atendimentoId = novoAtendimento?.id;
         }
-        const valorPag = (s.valor && s.valor > 1) ? s.valor : 1.0;
+        // SEMPRE 1111 — ADM precifica manualmente em Pagamentos de Clientes.
         await base44.entities.PagamentoCliente.create({
           atendimento_id: atendimentoId || '',
           servico_id: s.id,
@@ -1914,7 +1914,7 @@ function PagamentosClientesContent() {
           telefone: s.telefone || '',
           tipo_servico: s.tipo_servico || '',
           data_conclusao: s.data_conclusao || s.data_programada,
-          valor_total: valorPag,
+          valor_total: 1111,
           valor_pago: 0,
           status: 'pendente',
           equipe_nome: s.equipe_nome || '',
@@ -2080,8 +2080,7 @@ function PagamentosClientesContent() {
             });
             atendimentoId = novoAtendimento?.id;
           }
-          // 2) Criar PagamentoCliente
-          const valorPag = (s.valor && s.valor > 1) ? s.valor : 1.0;
+          // 2) Criar PagamentoCliente — SEMPRE 1111, ADM precifica manualmente
           await base44.entities.PagamentoCliente.create({
             atendimento_id: atendimentoId || '',
             servico_id: s.id,
@@ -2089,7 +2088,7 @@ function PagamentosClientesContent() {
             telefone: s.telefone || '',
             tipo_servico: s.tipo_servico || '',
             data_conclusao: s.data_conclusao || s.data_programada,
-            valor_total: valorPag,
+            valor_total: 1111,
             valor_pago: 0,
             status: 'pendente',
             equipe_nome: s.equipe_nome || '',
@@ -2486,7 +2485,7 @@ function PagamentosClientesContent() {
             telefone: a.telefone || '',
             tipo_servico: a.tipo_servico || '',
             data_conclusao: a.data_conclusao || a.data_atendimento || new Date().toISOString(),
-            valor_total: a.valor || 0,
+            valor_total: 1111, // SEMPRE 1111 — ADM precifica manualmente
             valor_pago: 0,
             status: 'pendente',
             equipe_nome: a.equipe_nome || '',

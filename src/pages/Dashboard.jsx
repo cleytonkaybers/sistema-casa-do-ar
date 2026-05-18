@@ -458,22 +458,22 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {semPrecificacao.length > 0 && (
             <Link to={createPageUrl('PagamentosClientes') + '?highlight=sempreco'} className="outline-none">
-              <div className="rounded-2xl p-5 border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500/30 transition-all cursor-pointer group relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
-                  <Tag className="w-24 h-24 text-amber-500" />
+              <div className="rounded-2xl p-5 border-2 border-yellow-500 bg-yellow-500/15 hover:bg-yellow-500/25 transition-all cursor-pointer group relative overflow-hidden animate-pulse shadow-lg shadow-yellow-500/30">
+                <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:scale-110 transition-transform duration-500">
+                  <Tag className="w-24 h-24 text-yellow-400" />
                 </div>
                 <div className="relative z-10 flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0 border border-amber-500/30">
-                    <Tag className="w-6 h-6 text-amber-400" />
+                  <div className="w-12 h-12 rounded-xl bg-yellow-500/30 flex items-center justify-center flex-shrink-0 border-2 border-yellow-400">
+                    <Tag className="w-6 h-6 text-yellow-300" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-amber-400 text-base mb-1">Precificação Pendente</p>
-                    <p className="text-sm text-amber-200/70 mb-3">{semPrecificacao.length} serviços aguardando preço base</p>
+                    <p className="font-bold text-yellow-300 text-base mb-1">💲 PRECIFICAÇÃO PENDENTE</p>
+                    <p className="text-sm text-yellow-100 mb-3 font-semibold">{semPrecificacao.length} serviço(s) aguardando você definir o preço</p>
                     <div className="flex flex-wrap gap-2">
                        {semPrecificacao.slice(0, 2).map(p => (
-                        <span key={p.id} className="text-[11px] bg-amber-500/20 text-amber-300 px-2.5 py-1 rounded-md font-medium truncate max-w-[130px] border border-amber-500/20">{p.cliente_nome}</span>
+                        <span key={p.id} className="text-[11px] bg-yellow-500/30 text-yellow-100 px-2.5 py-1 rounded-md font-medium truncate max-w-[130px] border border-yellow-400/50">{p.cliente_nome}</span>
                       ))}
-                      {semPrecificacao.length > 2 && <span className="text-[11px] text-amber-400 font-semibold flex items-center">+{semPrecificacao.length - 2} mais</span>}
+                      {semPrecificacao.length > 2 && <span className="text-[11px] text-yellow-200 font-bold flex items-center">+{semPrecificacao.length - 2} mais</span>}
                     </div>
                   </div>
                 </div>
