@@ -4,11 +4,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Loader2, TrendingUp, DollarSign, CheckCircle, Clock, Filter, BarChart2, List, BookOpen, FileSpreadsheet, Wrench, Search, X, Pencil } from 'lucide-react';
+import { Loader2, TrendingUp, DollarSign, CheckCircle, Clock, Filter, BarChart2, List, BookOpen, FileSpreadsheet, Wrench, Search, X, Pencil, Flame, RotateCcw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useDebounce } from '@/hooks/useDebounce';
 import { matchClienteSearch } from '@/lib/utils/buscaCliente';
 import { extrairMarca, isInstalacao, removerMarca, embutirMarca, MARCAS_AR } from '@/lib/marcasAr';
+import { TIPOS_GAS } from '@/lib/utils/tipoServico';
 import { toast } from 'sonner';
 import NotionExportModal from '../components/relatorios/NotionExportModal';
 import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO, startOfWeek, endOfWeek, startOfYear, endOfYear, subWeeks } from 'date-fns';
@@ -243,6 +244,55 @@ export default function RelatóriosPage() {
     queryFn: () => base44.entities.Servico.list('-data_programada', 2000)
   });
 
+  // Reset de gas: APAGA os campos gas_tipo e gas_quantidade_gramas de todos
+  // servicos concluidos de uma (equipe, tipo_gas). Acao IRREVERSIVEL — so ADM,
+  // com confirmacao dupla. NAO apaga o servico em si nem outros campos.
+  const handleResetGas = async (equipeNome, gasTipo) => {
+    if (!isAdmin) {
+      toast.error('Apenas ADM pode resetar contagem de gás.');
+      return;
+    }
+    const alvos = servicos.filter(s =>
+      ((s.equipe_nome || 'Sem equipe') === equipeNome) &&
+      s.gas_tipo === gasTipo &&
+      (s.gas_quantidade_gramas || 0) > 0
+    );
+    if (alvos.length === 0) {
+      toast.info(`Nenhuma carga de ${gasTipo} dessa equipe pra resetar.`);
+      return;
+    }
+    const totalGramas = alvos.reduce((acc, x) => acc + (x.gas_quantidade_gramas || 0), 0);
+    if (!window.confirm(
+      `⚠️ ATENÇÃO — AÇÃO IRREVERSÍVEL\n\n` +
+      `Vai APAGAR os dados de gás ${gasTipo} de ${alvos.length} serviço(s) da ${equipeNome}.\n` +
+      `Total que será zerado: ${totalGramas} g\n\n` +
+      `Os serviços em si NÃO serão apagados — apenas os campos de controle de gás (gas_tipo, gas_quantidade_gramas) serão zerados.\n\n` +
+      `Confirma?`
+    )) return;
+    if (!window.confirm(`Confirma novamente: apagar ${alvos.length} registro(s) de ${gasTipo} da ${equipeNome}? Esta acao NAO pode ser desfeita.`)) return;
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    toast.info(`⏳ Resetando ${alvos.length} registro(s)...`, { id: 'reset-gas', duration: 120000 });
+    let ok = 0;
+    let falhas = 0;
+    for (const s of alvos) {
+      try {
+        await base44.entities.Servico.update(s.id, { gas_tipo: null, gas_quantidade_gramas: null });
+        ok++;
+      } catch (err) {
+        console.error('[reset-gas] falhou', s.id, err);
+        falhas++;
+      }
+      await sleep(200); // throttle pra nao estourar 429
+    }
+    toast.dismiss('reset-gas');
+    if (falhas > 0) {
+      toast.error(`⚠️ ${ok} resetado(s), ${falhas} falhou. Tente novamente.`, { duration: 10000 });
+    } else {
+      toast.success(`✅ ${ok} registro(s) de ${gasTipo} (${equipeNome}) resetado(s)`, { duration: 8000 });
+    }
+    queryClient.invalidateQueries({ queryKey: ['servicos'] });
+  };
+
   const servicosFiltrados = useMemo(() => {
     return servicos.filter(s => {
       if (!s.data_programada) return false;
@@ -419,6 +469,9 @@ export default function RelatóriosPage() {
             </Button>
             <Button onClick={() => setViewMode('instalacoes')} className={`h-9 text-sm rounded-xl gap-2 ${viewMode === 'instalacoes' ? 'bg-yellow-400 text-gray-900 font-bold' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'}`}>
               <Wrench className="w-4 h-4" /> Instalações por Marca
+            </Button>
+            <Button onClick={() => setViewMode('gas')} className={`h-9 text-sm rounded-xl gap-2 ${viewMode === 'gas' ? 'bg-yellow-400 text-gray-900 font-bold' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'}`}>
+              <Flame className="w-4 h-4" /> Carga de Gás
             </Button>
           </div>
         </div>
@@ -943,6 +996,153 @@ export default function RelatóriosPage() {
                 </CardContent>
                 </Card>
                 )}
+
+                {/* ── VIEW: Carga de Gas ── */}
+                {viewMode === 'gas' && (() => {
+                  const { start, end } = PERIODOS[periodoSelecionado].range();
+                  const servicosGas = servicos.filter(s => {
+                    if (s.status !== 'concluido') return false;
+                    if (!s.gas_tipo) return false;
+                    if (!s.gas_quantidade_gramas || s.gas_quantidade_gramas <= 0) return false;
+                    if (!s.data_programada) return false;
+                    try {
+                      return isWithinInterval(parseISO(s.data_programada), { start, end });
+                    } catch { return false; }
+                  });
+                  const porEquipe = {};
+                  servicosGas.forEach(s => {
+                    const eq = s.equipe_nome || 'Sem equipe';
+                    if (!porEquipe[eq]) {
+                      porEquipe[eq] = {
+                        servicos: [],
+                        totais: { R410: 0, R22: 0, R32: 0 },
+                        counts: { R410: 0, R22: 0, R32: 0 },
+                      };
+                    }
+                    porEquipe[eq].servicos.push(s);
+                    if (TIPOS_GAS.includes(s.gas_tipo)) {
+                      porEquipe[eq].totais[s.gas_tipo] += (s.gas_quantidade_gramas || 0);
+                      porEquipe[eq].counts[s.gas_tipo] += 1;
+                    }
+                  });
+                  porEquipe.__totalGeral = TIPOS_GAS.reduce((acc, g) => {
+                    acc[g] = Object.keys(porEquipe).filter(k => k !== '__totalGeral')
+                      .reduce((s, eq) => s + (porEquipe[eq].totais[g] || 0), 0);
+                    return acc;
+                  }, {});
+                  const equipesOrdenadas = Object.keys(porEquipe).filter(k => k !== '__totalGeral').sort();
+                  const corGas = { R410: '#3b82f6', R22: '#10b981', R32: '#f59e0b' };
+                  return (
+                    <div className="space-y-4">
+                      {/* Card resumo geral (somatorio de todas equipes) */}
+                      {equipesOrdenadas.length > 0 && (
+                        <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 shadow-sm rounded-2xl">
+                          <CardHeader>
+                            <CardTitle className="text-white text-base font-semibold flex items-center gap-2">
+                              <Flame className="w-4 h-4 text-orange-400" /> Total Geral — Todas as Equipes
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              {TIPOS_GAS.map(g => (
+                                <div key={g} className="rounded-lg p-3 border" style={{ borderColor: corGas[g] + '60', backgroundColor: corGas[g] + '15' }}>
+                                  <p className="text-xs uppercase tracking-wide" style={{ color: corGas[g] }}>{g}</p>
+                                  <p className="text-2xl font-bold text-white mt-1">{porEquipe.__totalGeral[g].toLocaleString('pt-BR')} g</p>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {equipesOrdenadas.length === 0 && (
+                        <Card className="bg-white border border-gray-200 shadow-sm rounded-2xl">
+                          <CardContent className="py-10 text-center text-gray-500">
+                            <Flame className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+                            Nenhuma carga de gás registrada no período selecionado.
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {equipesOrdenadas.map(eq => {
+                        const dados = porEquipe[eq];
+                        return (
+                          <Card key={eq} className="bg-white border border-gray-200 shadow-sm rounded-2xl">
+                            <CardHeader>
+                              <CardTitle className="text-gray-800 text-base font-semibold flex items-center justify-between">
+                                <span>🧊 {eq}</span>
+                                <span className="text-xs font-normal text-gray-500">{dados.servicos.length} carga(s) no período</span>
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              {/* Totais por tipo de gas com botao reset */}
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                {TIPOS_GAS.map(g => (
+                                  <div key={g} className="rounded-lg border p-3" style={{ borderColor: corGas[g] + '40', backgroundColor: corGas[g] + '08' }}>
+                                    <div className="flex items-center justify-between">
+                                      <div>
+                                        <p className="text-xs uppercase tracking-wide font-semibold" style={{ color: corGas[g] }}>{g}</p>
+                                        <p className="text-xl font-bold text-gray-800 mt-1">{dados.totais[g].toLocaleString('pt-BR')} g</p>
+                                        <p className="text-xs text-gray-500">{dados.counts[g]} carga(s)</p>
+                                      </div>
+                                      {isAdmin && dados.counts[g] > 0 && (
+                                        <Button
+                                          onClick={() => handleResetGas(eq, g)}
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-7 text-xs gap-1 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-400"
+                                          title={`Resetar ${g} desta equipe (irreversivel)`}
+                                        >
+                                          <RotateCcw className="w-3 h-3" /> Reset
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Tabela detalhada */}
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                  <thead>
+                                    <tr className="border-b border-gray-200 text-gray-500 text-xs uppercase bg-gray-50">
+                                      <th className="text-left py-2.5 px-3">Data</th>
+                                      <th className="text-left py-2.5 px-3">Cliente</th>
+                                      <th className="text-left py-2.5 px-3">Tipo de Serviço</th>
+                                      <th className="text-center py-2.5 px-3">Gás</th>
+                                      <th className="text-right py-2.5 px-3">Gramas</th>
+                                      <th className="text-left py-2.5 px-3">Observações</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {dados.servicos
+                                      .slice()
+                                      .sort((a, b) => (b.data_programada || '').localeCompare(a.data_programada || ''))
+                                      .map(s => (
+                                        <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                          <td className="py-2.5 px-3 text-gray-500 text-xs whitespace-nowrap">
+                                            {(() => { try { return format(parseISO(s.data_programada), 'dd/MM/yyyy'); } catch { return s.data_programada || '-'; } })()}
+                                          </td>
+                                          <td className="py-2.5 px-3 text-gray-800 font-semibold">{s.cliente_nome || '-'}</td>
+                                          <td className="py-2.5 px-3 text-gray-600 text-xs max-w-[220px] truncate" title={s.tipo_servico}>{formatTipoServicoCompact(s.tipo_servico)}</td>
+                                          <td className="py-2.5 px-3 text-center">
+                                            <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: corGas[s.gas_tipo] + '20', color: corGas[s.gas_tipo] }}>{s.gas_tipo}</span>
+                                          </td>
+                                          <td className="py-2.5 px-3 text-right font-semibold text-gray-800">{(s.gas_quantidade_gramas || 0).toLocaleString('pt-BR')} g</td>
+                                          <td className="py-2.5 px-3 text-gray-600 text-xs max-w-[280px] whitespace-pre-line">{s.observacoes_conclusao || s.descricao || <span className="text-gray-300 italic">—</span>}</td>
+                                        </tr>
+                                      ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+
                 </>
                 )}
                 <NotionExportModal open={notionModal} onClose={() => setNotionModal(false)} />
