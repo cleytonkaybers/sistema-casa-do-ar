@@ -79,6 +79,11 @@ export default function RelatóriosPage() {
   const debouncedBuscaInstalacao = useDebounce(buscaInstalacao);
   const [editarMarcaModal, setEditarMarcaModal] = useState(null); // { instalacao, marcaAtual, novaMarca }
   const [salvandoMarca, setSalvandoMarca] = useState(false);
+  // Modal de nova botija: { eq, gas } quando aberto, null quando fechado
+  const [modalBotija, setModalBotija] = useState(null);
+  const [novaBotijaData, setNovaBotijaData] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [novaBotijaCapacidade, setNovaBotijaCapacidade] = useState('');
+  const [salvandoBotija, setSalvandoBotija] = useState(false);
   const queryClient = useQueryClient();
 
   // Atualiza a marca de UMA instalacao especifica (identificada por servicoId + idx).
@@ -244,9 +249,60 @@ export default function RelatóriosPage() {
     queryFn: () => base44.entities.Servico.list('-data_programada', 2000)
   });
 
+  // Botijas de gas registradas pelo ADM. 1 botija ativa por (equipe, gas).
+  // Quando reseta, o registro e deletado (nao guarda historico).
+  const { data: botijas = [] } = useQuery({
+    queryKey: ['botijas-gas'],
+    queryFn: () => base44.entities.BotijaGas.list('-data_registro'),
+  });
+
+  const botijaAtiva = (equipeNome, gasTipo) =>
+    botijas.find(b => b.ativa !== false && b.equipe_nome === equipeNome && b.gas_tipo === gasTipo);
+
+  const abrirModalBotija = (eq, gas) => {
+    setNovaBotijaData(format(new Date(), 'yyyy-MM-dd'));
+    setNovaBotijaCapacidade('');
+    setModalBotija({ eq, gas });
+  };
+
+  const handleSalvarBotija = async () => {
+    if (!modalBotija) return;
+    if (!novaBotijaData) {
+      toast.error('Data da retirada é obrigatória.');
+      return;
+    }
+    setSalvandoBotija(true);
+    try {
+      const user = await base44.auth.me().catch(() => null);
+      // Se ja existe botija ativa pra essa combinacao, deleta antes (substituir)
+      const existente = botijaAtiva(modalBotija.eq, modalBotija.gas);
+      if (existente) {
+        await base44.entities.BotijaGas.delete(existente.id).catch(err => console.error('[botija] erro deletando existente', err));
+      }
+      await base44.entities.BotijaGas.create({
+        equipe_nome: modalBotija.eq,
+        gas_tipo: modalBotija.gas,
+        data_retirada: novaBotijaData,
+        capacidade_gramas: novaBotijaCapacidade ? Number(novaBotijaCapacidade) : null,
+        ativa: true,
+        usuario_registrou: user?.email || '',
+        data_registro: new Date().toISOString(),
+      });
+      toast.success(`📦 Botija de ${modalBotija.gas} registrada para ${modalBotija.eq}`);
+      queryClient.invalidateQueries({ queryKey: ['botijas-gas'] });
+      setModalBotija(null);
+    } catch (err) {
+      console.error('[botija] erro salvando', err);
+      toast.error('Erro ao salvar botija.');
+    } finally {
+      setSalvandoBotija(false);
+    }
+  };
+
   // Reset de gas: APAGA os campos gas_tipo e gas_quantidade_gramas de todos
   // servicos concluidos de uma (equipe, tipo_gas). Acao IRREVERSIVEL — so ADM,
   // com confirmacao dupla. NAO apaga o servico em si nem outros campos.
+  // Tambem deleta a BotijaGas ativa dessa combinacao (botija "acabou").
   const handleResetGas = async (equipeNome, gasTipo) => {
     if (!isAdmin) {
       toast.error('Apenas ADM pode resetar contagem de gás.');
@@ -284,11 +340,21 @@ export default function RelatóriosPage() {
       }
       await sleep(200); // throttle pra nao estourar 429
     }
+    // Deleta tambem a botija ativa (botija acabou — comeca de zero)
+    const botAtual = botijaAtiva(equipeNome, gasTipo);
+    if (botAtual) {
+      try {
+        await base44.entities.BotijaGas.delete(botAtual.id);
+        queryClient.invalidateQueries({ queryKey: ['botijas-gas'] });
+      } catch (err) {
+        console.error('[reset-gas] erro deletando botija', err);
+      }
+    }
     toast.dismiss('reset-gas');
     if (falhas > 0) {
       toast.error(`⚠️ ${ok} resetado(s), ${falhas} falhou. Tente novamente.`, { duration: 10000 });
     } else {
-      toast.success(`✅ ${ok} registro(s) de ${gasTipo} (${equipeNome}) resetado(s)`, { duration: 8000 });
+      toast.success(`✅ ${ok} registro(s) de ${gasTipo} (${equipeNome}) resetado(s). Botija removida.`, { duration: 8000 });
     }
     queryClient.invalidateQueries({ queryKey: ['servicos'] });
   };
@@ -1075,30 +1141,71 @@ export default function RelatóriosPage() {
                               </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                              {/* Totais por tipo de gas com botao reset */}
+                              {/* Totais por tipo de gas com botao reset e info da botija */}
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                {TIPOS_GAS.map(g => (
-                                  <div key={g} className="rounded-lg border p-3" style={{ borderColor: corGas[g] + '40', backgroundColor: corGas[g] + '08' }}>
-                                    <div className="flex items-center justify-between">
-                                      <div>
-                                        <p className="text-xs uppercase tracking-wide font-semibold" style={{ color: corGas[g] }}>{g}</p>
-                                        <p className="text-xl font-bold text-gray-800 mt-1">{dados.totais[g].toLocaleString('pt-BR')} g</p>
-                                        <p className="text-xs text-gray-500">{dados.counts[g]} carga(s)</p>
+                                {TIPOS_GAS.map(g => {
+                                  const bot = botijaAtiva(eq, g);
+                                  const restante = bot?.capacidade_gramas ? bot.capacidade_gramas - dados.totais[g] : null;
+                                  const percUsado = bot?.capacidade_gramas ? Math.min(100, Math.round((dados.totais[g] / bot.capacidade_gramas) * 100)) : 0;
+                                  const acabou = restante !== null && restante <= 0;
+                                  return (
+                                    <div key={g} className="rounded-lg border p-3 space-y-2" style={{ borderColor: corGas[g] + '40', backgroundColor: corGas[g] + '08' }}>
+                                      <div className="flex items-center justify-between">
+                                        <div>
+                                          <p className="text-xs uppercase tracking-wide font-semibold" style={{ color: corGas[g] }}>{g}</p>
+                                          <p className="text-xl font-bold text-gray-800 mt-1">{dados.totais[g].toLocaleString('pt-BR')} g</p>
+                                          <p className="text-xs text-gray-500">{dados.counts[g]} carga(s)</p>
+                                        </div>
+                                        {isAdmin && dados.counts[g] > 0 && (
+                                          <Button
+                                            onClick={() => handleResetGas(eq, g)}
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-7 text-xs gap-1 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-400"
+                                            title={`Resetar ${g} desta equipe (irreversivel)`}
+                                          >
+                                            <RotateCcw className="w-3 h-3" /> Reset
+                                          </Button>
+                                        )}
                                       </div>
-                                      {isAdmin && dados.counts[g] > 0 && (
+                                      {/* Info da botija ativa */}
+                                      {bot ? (
+                                        <div className={`rounded-md border px-2 py-1.5 text-xs space-y-1 ${acabou ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-white'}`}>
+                                          <div className="flex items-center justify-between gap-2">
+                                            <span className="text-gray-600">📦 Botija desde <span className="font-semibold">{(() => { try { return format(parseISO(bot.data_retirada), 'dd/MM/yyyy'); } catch { return bot.data_retirada; } })()}</span></span>
+                                            {isAdmin && (
+                                              <button onClick={() => abrirModalBotija(eq, g)} className="text-blue-600 hover:underline text-[10px]" title="Substituir botija">trocar</button>
+                                            )}
+                                          </div>
+                                          {bot.capacidade_gramas > 0 && (
+                                            <>
+                                              <div className="text-gray-600">
+                                                Capacidade: <span className="font-semibold">{bot.capacidade_gramas.toLocaleString('pt-BR')} g</span>
+                                                {' · '}
+                                                Restante: <span className={`font-semibold ${acabou ? 'text-red-600' : 'text-green-700'}`}>{Math.max(0, restante).toLocaleString('pt-BR')} g</span>
+                                              </div>
+                                              <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                                                <div className={`h-1.5 rounded-full transition-all ${percUsado >= 90 ? 'bg-red-500' : percUsado >= 70 ? 'bg-amber-500' : 'bg-green-500'}`} style={{ width: `${percUsado}%` }} />
+                                              </div>
+                                              {acabou && <p className="text-red-600 font-bold text-[10px]">⚠ BOTIJA ACABOU — RESETE</p>}
+                                            </>
+                                          )}
+                                        </div>
+                                      ) : isAdmin ? (
                                         <Button
-                                          onClick={() => handleResetGas(eq, g)}
+                                          onClick={() => abrirModalBotija(eq, g)}
                                           size="sm"
                                           variant="outline"
-                                          className="h-7 text-xs gap-1 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-400"
-                                          title={`Resetar ${g} desta equipe (irreversivel)`}
+                                          className="h-7 w-full text-xs gap-1 border-dashed border-gray-300 text-gray-600 hover:bg-gray-50"
                                         >
-                                          <RotateCcw className="w-3 h-3" /> Reset
+                                          📦 Registrar Botija
                                         </Button>
+                                      ) : (
+                                        <p className="text-xs text-gray-400 italic">Nenhuma botija registrada</p>
                                       )}
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
 
                               {/* Tabela detalhada */}
@@ -1146,6 +1253,56 @@ export default function RelatóriosPage() {
                 </>
                 )}
                 <NotionExportModal open={notionModal} onClose={() => setNotionModal(false)} />
+
+                {/* Modal Registrar/Trocar Botija de Gas */}
+                <Dialog open={!!modalBotija} onOpenChange={() => !salvandoBotija && setModalBotija(null)}>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        📦 Registrar Botija de {modalBotija?.gas}
+                      </DialogTitle>
+                    </DialogHeader>
+                    {modalBotija && (
+                      <div className="space-y-4 py-2">
+                        <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm text-blue-900">
+                          <p><span className="font-semibold">Equipe:</span> {modalBotija.eq}</p>
+                          <p><span className="font-semibold">Tipo de Gás:</span> {modalBotija.gas}</p>
+                          {botijaAtiva(modalBotija.eq, modalBotija.gas) && (
+                            <p className="text-amber-700 mt-1 text-xs">⚠ Já existe uma botija ativa — vai ser substituída.</p>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm font-medium text-gray-700">Data de retirada *</label>
+                          <Input
+                            type="date"
+                            value={novaBotijaData}
+                            onChange={(e) => setNovaBotijaData(e.target.value)}
+                            disabled={salvandoBotija}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm font-medium text-gray-700">Capacidade em gramas (opcional)</label>
+                          <Input
+                            type="number" min="0" step="1"
+                            placeholder="ex: 11340 (cilindro 25 lbs)"
+                            value={novaBotijaCapacidade}
+                            onChange={(e) => setNovaBotijaCapacidade(e.target.value)}
+                            disabled={salvandoBotija}
+                          />
+                          <p className="text-xs text-gray-500">Se preenchido, mostra quanto resta da botija. Em branco, só mostra o consumo.</p>
+                        </div>
+                        <DialogFooter className="gap-2">
+                          <Button variant="outline" onClick={() => setModalBotija(null)} disabled={salvandoBotija}>
+                            Cancelar
+                          </Button>
+                          <Button onClick={handleSalvarBotija} disabled={salvandoBotija || !novaBotijaData} className="bg-blue-600 hover:bg-blue-700 text-white">
+                            {salvandoBotija ? '⏳ Salvando...' : 'Registrar Botija'}
+                          </Button>
+                        </DialogFooter>
+                      </div>
+                    )}
+                  </DialogContent>
+                </Dialog>
 
                 {/* Modal Editar Marca da Instalacao */}
                 <Dialog open={!!editarMarcaModal} onOpenChange={() => !salvandoMarca && setEditarMarcaModal(null)}>
