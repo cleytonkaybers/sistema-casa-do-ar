@@ -478,40 +478,43 @@ export default function ServicosPage() {
         throw new Error('Atendimento nao foi criado — abortando criacao de PagamentoCliente para evitar orfao.');
       }
       // PROTECAO 1: respeitar exclusao manual do ADM.
-      // Se ja existe PagamentoCliente para esse servico_id marcado com
-      // excluido_manual=true, o ADM deletou de proposito — NAO recriar.
-      // Isso evita que servicos re-concluidos (clique repetido, regeneracao
-      // de OS) voltem como zumbi mesmo apos exclusao definitiva.
-      const excluidoPeloAdm = await base44.entities.PagamentoCliente
-        .filter({ servico_id: servicoSnapshot.id, excluido_manual: true })
+      // Filtra LOCALMENTE em JS (nao confia no .filter({excluido_manual:true})
+      // do Base44 que pode comportar errado se o campo for undefined em
+      // registros antigos antes do schema ser atualizado).
+      const todosDoServico = await base44.entities.PagamentoCliente
+        .filter({ servico_id: servicoSnapshot.id })
         .catch(() => []);
-      if (excluidoPeloAdm && excluidoPeloAdm.length > 0) {
+      const excluidoPeloAdm = (todosDoServico || []).filter(r => r.excluido_manual === true);
+      const ativoExistente = (todosDoServico || []).find(r => r.arquivado !== true && r.excluido_manual !== true);
+      console.log('[conclusao] PagamentoCliente check servico_id', servicoSnapshot.id, {
+        total: todosDoServico?.length || 0,
+        excluidoPeloAdm: excluidoPeloAdm.length,
+        ativoExistente: !!ativoExistente,
+      });
+      if (excluidoPeloAdm.length > 0) {
         console.warn('[conclusao] servico_id', servicoSnapshot.id, 'tem pagamento excluido pelo ADM — pulando criacao');
+      } else if (ativoExistente) {
+        console.warn('[conclusao] servico_id', servicoSnapshot.id, 'ja tem PagamentoCliente ativo — pulando criacao');
       } else {
-        // PROTECAO 2: dedup por atendimento_id (caso retry da mesma execucao)
-        const jaExistePag = await base44.entities.PagamentoCliente
-          .filter({ atendimento_id: atendimentoCriado?.id })
-          .catch(() => []);
-        if (!jaExistePag || jaExistePag.length === 0) {
-          // SEMPRE 1111 — o ADM precifica MANUALMENTE em Pagamentos de Clientes.
-          // Valor do servico (servicoSnapshot.valor) e usado SO para calcular comissao
-          // dos tecnicos, NAO para cobrar do cliente. Sao precos diferentes.
-          await comRetry('pagamento-create', () =>
-            base44.entities.PagamentoCliente.create({
-              atendimento_id: atendimentoCriado?.id || '',
-              servico_id: servicoSnapshot.id,
-              cliente_nome: servicoSnapshot.cliente_nome || '',
-              telefone: servicoSnapshot.telefone || '',
-              tipo_servico: servicoSnapshot.tipo_servico || '',
-              data_conclusao: agora,
-              valor_total: 1111,
-              valor_pago: 0,
-              status: 'pendente',
-              equipe_nome: servicoSnapshot.equipe_nome || '',
-              historico_pagamentos: [],
-            })
-          );
-        }
+        // SEMPRE 1111 — o ADM precifica MANUALMENTE em Pagamentos de Clientes.
+        // Valor do servico (servicoSnapshot.valor) e usado SO para calcular comissao
+        // dos tecnicos, NAO para cobrar do cliente. Sao precos diferentes.
+        await comRetry('pagamento-create', () =>
+          base44.entities.PagamentoCliente.create({
+            atendimento_id: atendimentoCriado?.id || '',
+            servico_id: servicoSnapshot.id,
+            cliente_nome: servicoSnapshot.cliente_nome || '',
+            telefone: servicoSnapshot.telefone || '',
+            tipo_servico: servicoSnapshot.tipo_servico || '',
+            data_conclusao: agora,
+            valor_total: 1111,
+            valor_pago: 0,
+            status: 'pendente',
+            equipe_nome: servicoSnapshot.equipe_nome || '',
+            historico_pagamentos: [],
+          })
+        );
+        console.log('[conclusao] PagamentoCliente CRIADO para servico_id', servicoSnapshot.id);
       }
 
       // ===== PASSO 5: Atualizar Preventiva do Cliente (BLOQUEANTE) =====
