@@ -66,11 +66,20 @@ export function simularEmprestimo(emprestimo) {
   let jurosAcumulados = 0;           // soma de todo juros gerado (pago + devido)
   let jurosPagoTotal = 0;
   let principalPagoTotal = 0;
-  let dataUltima = inicio;
+
+  // Contamos SEMPRE "dias desde o início do empréstimo" (inteiros, iguais aos
+  // dias exibidos no card). O período de cada trecho é a diferença entre esses
+  // acumulados. Isso evita perder dias: se usássemos differenceInDays(evento,
+  // anterior) em cada trecho, o truncamento das horas (o pagamento tem horário)
+  // somaria 129 onde o total real é 130 — o juros ficava R$10 menor por dia
+  // perdido. Somando os deltas de "dias desde o início", o total fecha exato.
+  const diasDesdeInicio = (data) => Math.max(0, differenceInDays(data, inicio));
+  let diasAnterior = 0;              // dias (desde o início) do ponto anterior
 
   const pagamentos = todosEventos.map(p => {
     const dataP = new Date(p.data);
-    const dias = Math.max(0, differenceInDays(dataP, dataUltima));
+    const diasEvento = diasDesdeInicio(dataP);
+    const dias = Math.max(0, diasEvento - diasAnterior);
     // Juros do período sobre o saldo vigente (antes deste pagamento)
     const jurosPeriodo = saldo * taxaDiaria * dias;
     jurosPendente += jurosPeriodo;
@@ -83,7 +92,7 @@ export function simularEmprestimo(emprestimo) {
     jurosPagoTotal += partJuros;
     saldo = Math.max(0, saldo - partCapital);
     principalPagoTotal += partCapital;
-    dataUltima = dataP;
+    diasAnterior = diasEvento;
 
     return {
       ...p,
@@ -96,7 +105,7 @@ export function simularEmprestimo(emprestimo) {
   });
 
   // ---- Período final: do último evento até hoje, sobre o saldo que sobrou ----
-  const diasFinal = Math.max(0, differenceInDays(new Date(), dataUltima));
+  const diasFinal = Math.max(0, diasDesdeInicio(new Date()) - diasAnterior);
   const jurosFinal = saldo * taxaDiaria * diasFinal;
   jurosPendente += jurosFinal;
   jurosAcumulados += jurosFinal;
