@@ -13,6 +13,62 @@
 
 const apenasDigitos = (s) => String(s || '').replace(/\D/g, '');
 
+// Normaliza um telefone para uma CHAVE de comparacao robusta.
+// Brasil: numero pode vir com/sem codigo do pais (55), com/sem DDD,
+// e celular com/sem o "9" extra. Os ultimos 8 digitos (numero do assinante)
+// sao a parte mais estavel, entao usamos eles como base de comparacao.
+//   '+55 (41) 99654-1234' -> '96541234'
+//   '4199654-1234'        -> '96541234'
+//   '0041 41 9654 1234'   -> '96541234'
+export function normalizarTelefone(telefone) {
+  let d = apenasDigitos(telefone);
+  if (!d) return '';
+  // Remove codigo do pais 55 quando sobra um numero plausivel (>=10 digitos)
+  if (d.length > 11 && d.startsWith('55')) d = d.slice(2);
+  return d.length >= 8 ? d.slice(-8) : d;
+}
+
+// Normaliza um nome para comparacao "fuzzy": sem acentos, minusculo,
+// espacos colapsados e sem espacos nas pontas.
+//   '  José  da   Silva ' -> 'jose da silva'
+export function normalizarNome(nome) {
+  return String(nome || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // remove acentos
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Acha o Cliente correspondente a uma identidade {nome, telefone} dentro de
+// uma lista de clientes. Prioriza telefone normalizado (mais confiavel) e cai
+// para nome normalizado quando o telefone nao casa. Usado na conclusao do
+// servico (Passo 5) para atualizar a preventiva do cliente certo, e em
+// qualquer fluxo que precise reencontrar o cliente a partir de um snapshot.
+// Retorna o objeto cliente ou null.
+export function acharClientePorIdentidade(clientes, { nome, telefone } = {}) {
+  if (!Array.isArray(clientes) || clientes.length === 0) return null;
+
+  // 1) Match por telefone normalizado. Considera sufixo nos dois sentidos para
+  //    tolerar diferencas de "9" extra / DDD entre os dois numeros.
+  const telKey = normalizarTelefone(telefone);
+  if (telKey) {
+    const porTelefone = clientes.find(c => {
+      const ck = normalizarTelefone(c.telefone);
+      return ck && (ck === telKey || ck.endsWith(telKey) || telKey.endsWith(ck));
+    });
+    if (porTelefone) return porTelefone;
+  }
+
+  // 2) Fallback: nome normalizado (sem acento, case-insensitive, espacos colapsados)
+  const nomeKey = normalizarNome(nome);
+  if (nomeKey) {
+    const porNome = clientes.find(c => normalizarNome(c.nome) === nomeKey);
+    if (porNome) return porNome;
+  }
+
+  return null;
+}
+
 export function matchClienteSearch(nome, telefone, search) {
   const termo = String(search || '').trim();
   if (!termo) return true;

@@ -18,7 +18,7 @@ import { format, parseISO, startOfWeek, endOfWeek, isWithinInterval, isAfter } f
 import { ptBR } from 'date-fns/locale';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
-import { matchClienteSearch } from '@/lib/utils/buscaCliente';
+import { matchClienteSearch, acharClientePorIdentidade } from '@/lib/utils/buscaCliente';
 import { calcularComissao } from '@/lib/comissao';
 
 export default function ServicosPage() {
@@ -469,52 +469,82 @@ export default function ServicosPage() {
         }
       }
 
-      // ===== PASSO 4: Criar PagamentoCliente (BLOQUEANTE com retry) =====
+      // ===== PASSO 4: Criar PagamentoCliente (NAO-BLOQUEANTE com retry) =====
+      // Passo 1-3 (servico concluido + atendimento + comissao) ja foram persistidos.
+      // Se a criacao do PagamentoCliente falhar, NAO abortamos a conclusao: o
+      // servico ja esta concluido. Em vez disso, marcamos a falha, avisamos os
+      // ADMs com o caminho de retentativa ("Verificar faltantes") e seguimos.
       toast.info('⏳ Registrando pagamento do cliente...', { id: 'conclusao-progresso', duration: 30000 });
-      // GUARD: nao criar PagamentoCliente orfao (sem atendimento_id).
-      // Se Atendimento falhou nos retries acima, o try ja deveria ter rethrow
-      // mas defesa extra aqui evita registro fantasma com atendimento_id=''.
-      if (!atendimentoCriado?.id) {
-        throw new Error('Atendimento nao foi criado — abortando criacao de PagamentoCliente para evitar orfao.');
-      }
-      // PROTECAO 1: respeitar exclusao manual do ADM.
-      // Filtra LOCALMENTE em JS (nao confia no .filter({excluido_manual:true})
-      // do Base44 que pode comportar errado se o campo for undefined em
-      // registros antigos antes do schema ser atualizado).
-      const todosDoServico = await base44.entities.PagamentoCliente
-        .filter({ servico_id: servicoSnapshot.id })
-        .catch(() => []);
-      const excluidoPeloAdm = (todosDoServico || []).filter(r => r.excluido_manual === true);
-      const ativoExistente = (todosDoServico || []).find(r => r.arquivado !== true && r.excluido_manual !== true);
-      console.log('[conclusao] PagamentoCliente check servico_id', servicoSnapshot.id, {
-        total: todosDoServico?.length || 0,
-        excluidoPeloAdm: excluidoPeloAdm.length,
-        ativoExistente: !!ativoExistente,
-      });
-      if (excluidoPeloAdm.length > 0) {
-        console.warn('[conclusao] servico_id', servicoSnapshot.id, 'tem pagamento excluido pelo ADM — pulando criacao');
-      } else if (ativoExistente) {
-        console.warn('[conclusao] servico_id', servicoSnapshot.id, 'ja tem PagamentoCliente ativo — pulando criacao');
-      } else {
-        // SEMPRE 1111 — o ADM precifica MANUALMENTE em Pagamentos de Clientes.
-        // Valor do servico (servicoSnapshot.valor) e usado SO para calcular comissao
-        // dos tecnicos, NAO para cobrar do cliente. Sao precos diferentes.
-        await comRetry('pagamento-create', () =>
-          base44.entities.PagamentoCliente.create({
-            atendimento_id: atendimentoCriado?.id || '',
-            servico_id: servicoSnapshot.id,
-            cliente_nome: servicoSnapshot.cliente_nome || '',
-            telefone: servicoSnapshot.telefone || '',
-            tipo_servico: servicoSnapshot.tipo_servico || '',
-            data_conclusao: agora,
-            valor_total: 1111,
-            valor_pago: 0,
-            status: 'pendente',
-            equipe_nome: servicoSnapshot.equipe_nome || '',
-            historico_pagamentos: [],
-          })
-        );
-        console.log('[conclusao] PagamentoCliente CRIADO para servico_id', servicoSnapshot.id);
+      // pagamentoClienteOk = true quando ja existe um pagamento ativo OU acabamos
+      // de criar um. false = ficou faltando e o ADM precisa retentar.
+      let pagamentoClienteOk = false;
+      try {
+        // GUARD: nao criar PagamentoCliente orfao (sem atendimento_id).
+        if (!atendimentoCriado?.id) {
+          throw new Error('Atendimento nao foi criado — abortando criacao de PagamentoCliente para evitar orfao.');
+        }
+        // PROTECAO 1: respeitar exclusao manual do ADM.
+        // Filtra LOCALMENTE em JS (nao confia no .filter({excluido_manual:true})
+        // do Base44 que pode comportar errado se o campo for undefined em
+        // registros antigos antes do schema ser atualizado).
+        const todosDoServico = await base44.entities.PagamentoCliente
+          .filter({ servico_id: servicoSnapshot.id })
+          .catch(() => []);
+        const excluidoPeloAdm = (todosDoServico || []).filter(r => r.excluido_manual === true);
+        const ativoExistente = (todosDoServico || []).find(r => r.arquivado !== true && r.excluido_manual !== true);
+        console.log('[conclusao] PagamentoCliente check servico_id', servicoSnapshot.id, {
+          total: todosDoServico?.length || 0,
+          excluidoPeloAdm: excluidoPeloAdm.length,
+          ativoExistente: !!ativoExistente,
+        });
+        if (excluidoPeloAdm.length > 0) {
+          console.warn('[conclusao] servico_id', servicoSnapshot.id, 'tem pagamento excluido pelo ADM — pulando criacao');
+          pagamentoClienteOk = true; // decisao deliberada do ADM, nao e falha
+        } else if (ativoExistente) {
+          console.warn('[conclusao] servico_id', servicoSnapshot.id, 'ja tem PagamentoCliente ativo — pulando criacao');
+          pagamentoClienteOk = true;
+        } else {
+          // SEMPRE 1111 — o ADM precifica MANUALMENTE em Pagamentos de Clientes.
+          // Valor do servico (servicoSnapshot.valor) e usado SO para calcular comissao
+          // dos tecnicos, NAO para cobrar do cliente. Sao precos diferentes.
+          await comRetry('pagamento-create', () =>
+            base44.entities.PagamentoCliente.create({
+              atendimento_id: atendimentoCriado?.id || '',
+              servico_id: servicoSnapshot.id,
+              cliente_nome: servicoSnapshot.cliente_nome || '',
+              telefone: servicoSnapshot.telefone || '',
+              tipo_servico: servicoSnapshot.tipo_servico || '',
+              data_conclusao: agora,
+              valor_total: 1111,
+              valor_pago: 0,
+              status: 'pendente',
+              equipe_nome: servicoSnapshot.equipe_nome || '',
+              historico_pagamentos: [],
+            })
+          );
+          pagamentoClienteOk = true;
+          console.log('[conclusao] PagamentoCliente CRIADO para servico_id', servicoSnapshot.id);
+        }
+      } catch (errPag) {
+        // NAO rethrow: a conclusao continua. Avisa os ADMs para retentar.
+        console.error('[conclusao] PASSO 4 falhou — PagamentoCliente NAO criado:', errPag);
+        try {
+          const admins = (usuarios || []).filter(u => u?.role === 'admin' && u?.email);
+          await Promise.all(admins.map(adm =>
+            base44.entities.Notificacao.create({
+              usuario_email: adm.email,
+              titulo: '⚠️ Pagamento do cliente não gerado',
+              mensagem: `O serviço de "${servicoSnapshot.tipo_servico || 'tipo nao informado'}" para ${servicoSnapshot.cliente_nome || 'cliente'} foi concluído, mas o registro de cobrança falhou. Abra Pagamentos de Clientes › "🔍 Verificar faltantes" › "Sincronizar todos" para gerar.`,
+              tipo: 'pagamento_agendado',
+              atendimento_id: servicoSnapshot.id,
+              cliente_nome: servicoSnapshot.cliente_nome || '',
+              lida: false,
+            }).catch(e => console.error('[conclusao] falha ao notificar ADM da pendencia:', adm.email, e))
+          ));
+          queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
+        } catch (errNotif) {
+          console.error('[conclusao] erro ao notificar ADMs da falha do Passo 4:', errNotif);
+        }
       }
 
       // ===== PASSO 5: Atualizar Preventiva do Cliente (BLOQUEANTE) =====
@@ -522,15 +552,14 @@ export default function ServicosPage() {
         toast.info('⏳ Atualizando preventiva...', { id: 'conclusao-progresso', duration: 30000 });
         try {
           const todosClientes = await base44.entities.Cliente.list();
-          const telefoneLimpo = (servicoSnapshot.telefone || '').replace(/\D/g, '');
-          const nomeNormalizado = (servicoSnapshot.cliente_nome || '').trim().toLowerCase();
-          let clienteMatch = null;
-          if (telefoneLimpo) {
-            clienteMatch = todosClientes.find(c => (c.telefone || '').replace(/\D/g, '') === telefoneLimpo);
-          }
-          if (!clienteMatch && nomeNormalizado) {
-            clienteMatch = todosClientes.find(c => (c.nome || '').trim().toLowerCase() === nomeNormalizado);
-          }
+          // Matching robusto: telefone normalizado (ignora 55/DDD/9 extra) com
+          // fallback para nome fuzzy (sem acento, case-insensitive). Antes o
+          // match exato de telefone/nome falhava silenciosamente e o cliente
+          // nunca recebia proxima_manutencao — sumindo de Preventivas Futuras.
+          const clienteMatch = acharClientePorIdentidade(todosClientes, {
+            nome: servicoSnapshot.cliente_nome,
+            telefone: servicoSnapshot.telefone,
+          });
           if (clienteMatch) {
             const dataConc = servicoSnapshot.data_programada || new Date().toISOString().split('T')[0];
             const proxima = new Date(dataConc);
@@ -559,8 +588,14 @@ export default function ServicosPage() {
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
       const detalhesSucesso = [`✅ Serviço concluído`];
       if (tecnicosComissionados > 0) detalhesSucesso.push(`💰 ${tecnicosComissionados} comissão(ões)`);
-      detalhesSucesso.push('💳 Pagamento registrado');
-      toast.success(detalhesSucesso.join(' · '));
+      if (pagamentoClienteOk) {
+        detalhesSucesso.push('💳 Pagamento registrado');
+        toast.success(detalhesSucesso.join(' · '));
+      } else {
+        // Passo 4 falhou — conclusao seguiu, mas o ADM foi notificado para retentar.
+        detalhesSucesso.push('⚠️ cobrança pendente');
+        toast.warning(`${detalhesSucesso.join(' · ')} — gere em Pagamentos › "Verificar faltantes".`, { duration: 10000 });
+      }
 
       // ===== BACKGROUND: operacoes nao-criticas (nao bloqueiam UI) =====
       // AlteracaoStatus, Notificacao para ADMs, Notificacao de pagamento em dinheiro

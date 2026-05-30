@@ -1838,11 +1838,15 @@ function PagamentosClientesContent() {
   // Lista de servicos orfaos: tem comissao gerada mas sem PagamentoCliente.
   // Usado pelo modal de Diagnostico e pela Camada 4 de auto-sync.
   const servicosOrfaos = useMemo(() => {
-    if (!isAdmin || !lancamentosFinanceirosTodos.length || !servicosConcluidos.length) return [];
+    // AUTORIDADE = o proprio Servico concluido. Todo servico concluido que NAO
+    // seja "ver defeito" deve ter um PagamentoCliente. Antes exigiamos que o
+    // servico tambem tivesse comissao (LancamentoFinanceiro) para ser detectado
+    // como faltante — isso escondia servicos concluidos SEM comissao
+    // (gerar_comissao=false, sem equipe, ou valor=0) que falharam no Passo 4 e
+    // nunca apareciam aqui. Agora detectamos por servico concluido, com ou sem
+    // comissao.
+    if (!isAdmin || !servicosConcluidos.length) return [];
     const hoje = new Date();
-    const servicoIdsComComissao = new Set(
-      lancamentosFinanceirosTodos.map(l => l.servico_id).filter(Boolean)
-    );
     const servicoIdsComPagamento = new Set(
       pagamentos.map(p => p.servico_id).filter(Boolean)
     );
@@ -1851,7 +1855,8 @@ function PagamentosClientesContent() {
     );
     return servicosConcluidos.filter(s => {
       if (!s.id) return false;
-      if (!servicoIdsComComissao.has(s.id)) return false;
+      // Ja tem PagamentoCliente (ativo, arquivado OU excluido pelo ADM) — o set
+      // inclui todos os pagamentos, entao a exclusao manual do ADM e respeitada.
       if (servicoIdsComPagamento.has(s.id)) return false;
       if (isApenasTiposIgnorados(s.tipo_servico)) return false;
       const dataRef = s.data_conclusao || s.data_programada || s.updated_date;
@@ -1982,7 +1987,7 @@ function PagamentosClientesContent() {
             usuario_email: adm.email,
             tipo: 'pagamento_agendado',
             titulo: `⚠ ${novos.length} servico(s) sumiram de Pagamentos`,
-            mensagem: `Detectado: ${novos.length} servico(s) com comissao no Financeiro mas SEM PagamentoCliente. Clientes: ${lista}. Abra Pagamentos de Clientes > Verificar faltantes para investigar.`,
+            mensagem: `Detectado: ${novos.length} servico(s) concluido(s) SEM PagamentoCliente. Clientes: ${lista}. Abra Pagamentos de Clientes > Verificar faltantes para investigar.`,
             atendimento_id: novos[0]?.id || '',
             cliente_nome: novos[0]?.cliente_nome || '',
             lida: false,
@@ -3286,12 +3291,12 @@ function PagamentosClientesContent() {
           </DialogHeader>
           <div className="space-y-3">
             <div className="text-xs text-gray-600 bg-blue-50 border border-blue-100 rounded-lg p-3">
-              Mostra <strong>serviços que geraram comissão no Financeiro</strong> dos técnicos
-              mas <strong>NÃO têm PagamentoCliente</strong> correspondente. Limitado aos últimos 60 dias.
+              Mostra <strong>serviços concluídos</strong> (com ou sem comissão) que
+              <strong> NÃO têm PagamentoCliente</strong> correspondente. Limitado aos últimos 60 dias.
             </div>
             {servicosOrfaos.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
-                ✅ Tudo sincronizado! Nenhum serviço com comissão está sem pagamento.
+                ✅ Tudo sincronizado! Nenhum serviço concluído está sem pagamento.
               </div>
             ) : (
               <>
