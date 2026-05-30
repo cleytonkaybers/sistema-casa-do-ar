@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
+import { chaveIdentidadeCliente } from '@/lib/utils/buscaCliente';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -264,8 +265,8 @@ export default function EmprestimosTable() {
   const ativosPorCliente = useMemo(() => {
     const groups = {};
     ativos.forEach(e => {
-      const key = (e.cliente_nome || '').trim().toLowerCase();
-      if (!groups[key]) groups[key] = { nome: e.cliente_nome, emprestimos: [] };
+      const key = chaveIdentidadeCliente(e.cliente_nome, e.telefone);
+      if (!groups[key]) groups[key] = { nome: e.cliente_nome, telefone: e.telefone, emprestimos: [] };
       groups[key].emprestimos.push(e);
     });
     Object.values(groups).forEach(g => {

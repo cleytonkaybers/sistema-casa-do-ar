@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { chaveIdentidadeCliente } from '@/lib/utils/buscaCliente';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -37,7 +38,8 @@ export default function ClienteDetalhes() {
     queryKey: ['servicos', clienteId],
     queryFn: async () => {
       if (!cliente) return [];
-      return await base44.entities.Servico.filter({ cliente_nome: cliente.nome });
+      const lista = await base44.entities.Servico.filter({ cliente_nome: cliente.nome });
+      return lista.filter(s => chaveIdentidadeCliente(s.cliente_nome, s.telefone) === chaveIdentidadeCliente(cliente.nome, cliente.telefone));
     },
     enabled: !!cliente
   });
@@ -46,7 +48,8 @@ export default function ClienteDetalhes() {
     queryKey: ['atendimentos', clienteId],
     queryFn: async () => {
       if (!cliente) return [];
-      return await base44.entities.Atendimento.filter({ cliente_nome: cliente.nome });
+      const lista = await base44.entities.Atendimento.filter({ cliente_nome: cliente.nome });
+      return lista.filter(a => chaveIdentidadeCliente(a.cliente_nome, a.telefone) === chaveIdentidadeCliente(cliente.nome, cliente.telefone));
     },
     enabled: !!cliente
   });

@@ -20,7 +20,7 @@ import { toast } from 'sonner';
 
 import { Link } from 'react-router-dom';
 import { createPageUrl, formatTipoServicoCompact } from '@/utils';
-import { matchClienteSearch } from '@/lib/utils/buscaCliente';
+import { matchClienteSearch, chaveIdentidadeCliente } from '@/lib/utils/buscaCliente';
 import { calcularComissao } from '@/lib/comissao';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 
@@ -443,9 +443,11 @@ export default function HistoricoClientes() {
     const grupos = {};
     historicoUnificado.forEach(item => {
       const nome = item.cliente_nome?.trim() || 'Desconhecido';
-      if (!grupos[nome]) {
-        grupos[nome] = {
+      const chave = chaveIdentidadeCliente(item.cliente_nome, item.telefone);
+      if (!grupos[chave]) {
+        grupos[chave] = {
           nome,
+          chave,
           telefone: item.telefone,
           itens: [],
           stats: { concluidas: 0, concluidasValor: 0, pendentes: 0 },
@@ -453,19 +455,19 @@ export default function HistoricoClientes() {
         };
       }
       
-      grupos[nome].itens.push(item);
+      grupos[chave].itens.push(item);
       
       if (item.status === 'concluido') {
-        grupos[nome].stats.concluidas++;
-        grupos[nome].stats.concluidasValor += (item.valor || 0);
+        grupos[chave].stats.concluidas++;
+        grupos[chave].stats.concluidasValor += (item.valor || 0);
       } else {
-        grupos[nome].stats.pendentes++;
+        grupos[chave].stats.pendentes++;
       }
 
       const itemDate = parseHistoricoData(item.data);
       if (itemDate) {
-        if (!grupos[nome].ultimaData || itemDate > grupos[nome].ultimaData) {
-          grupos[nome].ultimaData = itemDate;
+        if (!grupos[chave].ultimaData || itemDate > grupos[chave].ultimaData) {
+          grupos[chave].ultimaData = itemDate;
         }
       }
     });
@@ -481,7 +483,7 @@ export default function HistoricoClientes() {
 
       if (matchClienteNomeOuTel || matchItens) {
         grupo.itens.sort((a, b) => (parseHistoricoData(b.data)?.getTime() || 0) - (parseHistoricoData(a.data)?.getTime() || 0));
-        clientesFiltrados[grupo.nome] = grupo;
+        clientesFiltrados[grupo.chave] = grupo;
       }
     });
 
@@ -631,14 +633,14 @@ export default function HistoricoClientes() {
       ) : (
         <div className="space-y-4">
           {paginatedClientes.map((cliente) => {
-            const isExpanded = expandedClients[cliente.nome];
+            const isExpanded = expandedClients[cliente.chave];
             
             return (
-              <Card key={cliente.nome} className="bg-[#152236] border border-white/5 shadow-md overflow-hidden rounded-2xl transition-all">
+              <Card key={cliente.chave} className="bg-[#152236] border border-white/5 shadow-md overflow-hidden rounded-2xl transition-all">
                 
                 {/* Header do Accordion */}
                 <div 
-                  onClick={() => toggleClient(cliente.nome)}
+                  onClick={() => toggleClient(cliente.chave)}
                   className="flex flex-col md:flex-row md:items-center justify-between p-4 sm:p-5 cursor-pointer hover:bg-white/5 transition-colors group select-none gap-4"
                 >
                   <div className="flex items-center gap-4 flex-1">

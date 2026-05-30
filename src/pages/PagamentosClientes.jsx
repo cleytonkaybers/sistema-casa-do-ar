@@ -22,7 +22,7 @@ import { ptBR } from 'date-fns/locale';
 import { parseHistoricoData, toLocalDateSafe } from '@/lib/dateUtils';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 import { isValorPlaceholder, grupoTemPlaceholder } from '@/lib/placeholderPreco';
-import { matchClienteSearch } from '@/lib/utils/buscaCliente';
+import { matchClienteSearch, chaveIdentidadeCliente } from '@/lib/utils/buscaCliente';
 import CompromissoClientePDF from '@/components/financeiro/CompromissoClientePDF';
 import DespesasView from '@/components/financeiro/DespesasView';
 import {
@@ -188,7 +188,7 @@ function resumirServicos(records) {
 function groupPagamentos(lista) {
   const groups = {};
   lista.forEach(p => {
-    const key = (p.cliente_nome || '').trim().toLowerCase();
+    const key = chaveIdentidadeCliente(p.cliente_nome, p.telefone);
     if (!groups[key]) {
       groups[key] = { ...p, _records: p._records || [p] };
     } else {
@@ -1261,7 +1261,7 @@ function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete
           <p className="text-sm">{emptyMsg}</p>
         </div>
       ) : lista.map(p => {
-        const alertaDinheiro = alertasDinheiro.find(n => n.cliente_nome?.trim().toLowerCase() === (p.cliente_nome || '').trim().toLowerCase() && !n.lida);
+        const alertaDinheiro = alertasDinheiro.find(n => chaveIdentidadeCliente(n.cliente_nome, n.telefone) === chaveIdentidadeCliente(p.cliente_nome, p.telefone) && !n.lida);
         return (
           <LinhaTabela key={p.id} pag={p} onPagar={onPagar} onEditarValor={onEditarValor} onHistorico={onHistorico} onDelete={onDelete} onDetalhes={onDetalhes} onDefinirPreco={onDefinirPreco} onAgendarData={onAgendarData} alertaDinheiro={alertaDinheiro} onDismissAlerta={onDismissAlerta} onMarcarPago={onMarcarPago} onReverterPagamento={onReverterPagamento} />
         );
@@ -1360,7 +1360,7 @@ function PagamentosClientesContent() {
 
     const agrupado = {};
     lista.forEach(p => {
-      const key = (p.cliente_nome || '').trim().toLowerCase();
+      const key = chaveIdentidadeCliente(p.cliente_nome, p.telefone);
       if (!agrupado[key]) {
         agrupado[key] = {
           cliente_nome: p.cliente_nome,
@@ -1459,7 +1459,7 @@ function PagamentosClientesContent() {
   const pagamentosPorNome = useMemo(() => {
     const map = new Map();
     pagamentos.forEach(p => {
-      const key = (p.cliente_nome || '').trim().toLowerCase();
+      const key = chaveIdentidadeCliente(p.cliente_nome, p.telefone);
       if (!key) return;
       const arr = map.get(key);
       if (arr) arr.push(p); else map.set(key, [p]);
@@ -1774,7 +1774,7 @@ function PagamentosClientesContent() {
         compoundsRegistrados.add(ck);
         criandoIds.current.add(a.id);
 
-        const nomeNormalizado = (a.cliente_nome || '').trim().toLowerCase();
+        const nomeNormalizado = chaveIdentidadeCliente(a.cliente_nome, a.telefone);
         const telefoneLimpo = (a.telefone || '').replace(/\D/g, '');
 
         const candidatosDoCliente = pagamentosPorNome.get(nomeNormalizado) || [];
@@ -2123,7 +2123,7 @@ function PagamentosClientesContent() {
 
   const handleSalvarPrecos = async (pag, precosGrupo) => {
     // Busca registros frescos direto do pagamentos (evita dados desatualizados de _records)
-    const nomeKey = (pag.cliente_nome || '').trim().toLowerCase();
+    const nomeKey = chaveIdentidadeCliente(pag.cliente_nome, pag.telefone);
     const candidatos = pagamentosPorNome.get(nomeKey) || [];
     const recordsFrescos = candidatos.filter(p => p.status !== 'pago');
     const records = recordsFrescos.length > 0 ? recordsFrescos : (pag._records || [pag]);
