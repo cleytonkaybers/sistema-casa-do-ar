@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import EmprestimosTable from '@/components/cheques/EmprestimosTable';
 import { DinheiroEmprestadoContent } from '@/pages/DinheiroEmprestado';
 import { base44 } from '@/api/base44Client';
-import { format, parseISO, isToday, isPast, differenceInDays, isTomorrow, isValid } from 'date-fns';
+import { format, parseISO, isToday, isPast, differenceInDays, isTomorrow } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2, CheckCircle, XCircle, Bell, AlertTriangle, Clock, DollarSign, Pencil, Landmark, HandCoins, FileText } from 'lucide-react';
+import { calcularDebitoAtual } from '@/lib/emprestimo';
 
 function parseBRL(str) {
   if (!str) return '';
@@ -24,17 +25,10 @@ function formatBRL(value) {
   return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function calcDebitoEmprestimo(e) {
-  if (!e.valor_principal || !e.percentual_mes || !e.data_emprestimo) return e.valor_principal || 0;
-  const inicio = parseISO(e.data_emprestimo);
-  if (!isValid(inicio)) return e.valor_principal;
-  const dias = Math.max(0, differenceInDays(new Date(), inicio));
-  // Juros SIMPLES (nao composto): % ao mes proporcional aos dias decorridos.
-  // Ex.: 10% a.m., 15 dias = 5% sobre o principal.
-  const taxaDiaria = e.percentual_mes / 100 / 30;
-  const juros = e.valor_principal * taxaDiaria * dias;
-  return Math.max(0, e.valor_principal + juros - (e.total_abatido || 0));
-}
+// Débito atual de um empréstimo (principal restante + juros devido) usando a
+// regra centralizada: juros sobre o SALDO DEVEDOR decrescente. Mantido como
+// alias fino para o resumo "Total Aplicado" bater com a soma dos cards.
+const calcDebitoEmprestimo = (e) => calcularDebitoAtual(e);
 import { toast } from 'sonner';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import {

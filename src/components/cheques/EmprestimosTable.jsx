@@ -9,122 +9,12 @@ import { toast } from 'sonner';
 import { Plus, Trash2, MinusCircle, TrendingUp, ChevronDown, ChevronRight, Clock, CheckCircle2, Pencil, PlusCircle, FileText } from 'lucide-react';
 import { differenceInDays, parseISO, isValid, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-
-// Juros SIMPLES sobre o VALOR EMPRESTADO ORIGINAL — sempre. Pagamento de capital
-// nao reduz o valor base do calculo de juros (regra do negocio do usuario).
-// Convencao: pagamento abate juros pendentes primeiro; se sobrar, abate principal.
-//
-// Retorna a simulacao: cada pagamento detalhado (juros/capital), saldo final
-// de principal, juros pago, juros devido, juros total e debito total.
-function simularEmprestimo(emprestimo) {
-  const fallback = (v) => ({
-    pagamentos: [],
-    principalRestante: v || 0,
-    principalPagoTotal: 0,
-    jurosPagoTotal: 0,
-    jurosDevidoTotal: 0,
-    jurosAcumulados: 0,
-    debitoTotal: v || 0,
-  });
-  const { valor_principal, percentual_mes, data_emprestimo } = emprestimo || {};
-  if (!valor_principal || !data_emprestimo) return fallback(valor_principal);
-  const inicio = parseISO(data_emprestimo);
-  if (!isValid(inicio)) return fallback(valor_principal);
-
-  const taxaDiaria = (percentual_mes || 0) / 100 / 30;
-  const diasTotais = Math.max(0, differenceInDays(new Date(), inicio));
-
-  // JUROS sempre sobre o valor emprestado ORIGINAL (nao reduz com pagamentos)
-  const jurosAcumulados = valor_principal * taxaDiaria * diasTotais;
-  const totalAbatido = emprestimo.total_abatido || 0;
-
-  // Pagamento abate juros pendente primeiro, sobra vai pra principal
-  const jurosPagoTotal = Math.min(totalAbatido, jurosAcumulados);
-  const jurosDevidoTotal = Math.max(0, jurosAcumulados - jurosPagoTotal);
-  const principalPagoTotal = Math.max(0, totalAbatido - jurosAcumulados);
-  const principalRestante = Math.max(0, valor_principal - principalPagoTotal);
-  const debitoTotal = principalRestante + jurosDevidoTotal;
-
-  // ---- Eventos detalhados (para o modal Detalhes) ----
-  const eventosReais = (emprestimo.historico_pagamentos || [])
-    .filter(h => h.tipo === 'abatimento' || h.tipo === 'quitacao')
-    .map(h => ({ ...h, _real: true }))
-    .sort((a, b) => new Date(a.data) - new Date(b.data));
-
-  // Se o total_abatido (autoridade) diverge da soma de eventos, insere evento
-  // virtual representando o pagamento legado sem data registrada.
-  const somaEventos = eventosReais.reduce((s, e) => s + (e.valor || 0), 0);
-  const deltaLegado = totalAbatido - somaEventos;
-  const todosEventos = [...eventosReais];
-  if (deltaLegado > 0.01) {
-    const agora = new Date();
-    const meioMs = inicio.getTime() + (agora.getTime() - inicio.getTime()) / 2;
-    todosEventos.push({
-      data: new Date(meioMs).toISOString(),
-      valor: deltaLegado,
-      tipo: 'abatimento',
-      observacao: '[Pagamento sem data registrada — exibido no meio do período]',
-      _legacy: true,
-    });
-    todosEventos.sort((a, b) => new Date(a.data) - new Date(b.data));
-  }
-
-  // Distribui cada pagamento entre juros e capital usando o JUROS TOTAL ate hoje
-  // (consistente com o resumo). Acumula cronologicamente.
-  let jurosPagoAcum = 0;
-  let principalPagoAcum = 0;
-  let dataUltima = inicio;
-
-  const pagamentos = todosEventos.map(p => {
-    const dataP = new Date(p.data);
-    const dias = Math.max(0, differenceInDays(dataP, dataUltima));
-    const jurosDisponivel = Math.max(0, jurosAcumulados - jurosPagoAcum);
-    const valor = p.valor || 0;
-    const partJuros = Math.min(valor, jurosDisponivel);
-    const partCapital = Math.max(0, valor - partJuros);
-    jurosPagoAcum += partJuros;
-    principalPagoAcum += partCapital;
-    dataUltima = dataP;
-    return {
-      ...p,
-      partJuros,
-      partCapital,
-      diasDesdeUltimo: dias,
-      principalApos: Math.max(0, valor_principal - principalPagoAcum),
-      jurosPendenteApos: Math.max(0, jurosAcumulados - jurosPagoAcum),
-    };
-  });
-
-  return {
-    pagamentos,
-    principalRestante,
-    principalPagoTotal,
-    jurosPagoTotal,
-    jurosDevidoTotal,
-    jurosAcumulados,
-    debitoTotal,
-  };
-}
-
-// Wrappers para compatibilidade — todos derivam da simulacao cronologica.
-function calcularDebitoAtual(emprestimo) {
-  return simularEmprestimo(emprestimo).debitoTotal;
-}
-
-function calcularJurosAcumulados(emprestimo) {
-  return simularEmprestimo(emprestimo).jurosAcumulados;
-}
-
-function calcularJurosBreakdown(emprestimo) {
-  const sim = simularEmprestimo(emprestimo);
-  return {
-    jurosAcumulados: sim.jurosAcumulados,
-    jurosPago: sim.jurosPagoTotal,
-    jurosDevido: sim.jurosDevidoTotal,
-    principalPago: sim.principalPagoTotal,
-    principalDevido: sim.principalRestante,
-  };
-}
+import {
+  calcularDebitoAtual,
+  calcularJurosAcumulados,
+  calcularJurosBreakdown,
+  detalharPagamentos,
+} from '@/lib/emprestimo';
 
 function formatMoney(v) {
   return `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -148,13 +38,6 @@ const emptyForm = {
   data_estimada_recebimento: '',
   observacoes: '',
 };
-
-// Wrapper: retorna so a lista de pagamentos com breakdown (juros/capital).
-// Toda a logica esta em simularEmprestimo (juros SIMPLES, principal reduzido a cada
-// pagamento parcial). Mantida assinatura antiga para o modal de Detalhes.
-function detalharPagamentos(emprestimo) {
-  return simularEmprestimo(emprestimo).pagamentos;
-}
 
 export default function EmprestimosTable() {
   const queryClient = useQueryClient();
