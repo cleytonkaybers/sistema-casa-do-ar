@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Search, Trash2, Edit2, Phone, MapPin, Wrench } from 'lucide-react';
 import { useSaaSAuth } from '@/components/saas/SaaSAuthGuard';
+import { matchClienteSearch } from '@/lib/utils/buscaCliente';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import {
@@ -52,8 +53,7 @@ export default function ClientesSaaS() {
   });
 
   const filteredClientes = clientes.filter(c =>
-    c.nome.toLowerCase().includes(search.toLowerCase()) ||
-    c.telefone.includes(search)
+    matchClienteSearch(c.nome, c.telefone, search)
   );
 
   return (

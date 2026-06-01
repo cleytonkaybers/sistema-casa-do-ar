@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { Plus, DollarSign, History, Pencil, Trash2, CheckCircle, HandCoins, Search } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import TechnicianAccessBlock from '@/components/TechnicianAccessBlock';
+import { matchClienteSearch } from '@/lib/utils/buscaCliente';
 
 // Esta pagina reutiliza a entidade Emprestimo do Base44, salvando com
 // percentual_mes = 0 (sem juros). EmprestimosTable em Cheques filtra os
@@ -79,9 +80,8 @@ export function DinheiroEmprestadoContent() {
   });
 
   const filtrados = useMemo(() => {
-    const termo = busca.trim().toLowerCase();
-    if (!termo) return emprestimos;
-    return emprestimos.filter(e => (e.cliente_nome || '').toLowerCase().includes(termo));
+    if (!busca.trim()) return emprestimos;
+    return emprestimos.filter(e => matchClienteSearch(e.cliente_nome, e.telefone, busca));
   }, [emprestimos, busca]);
 
   const totais = useMemo(() => {

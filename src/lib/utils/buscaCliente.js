@@ -81,20 +81,32 @@ export function chaveIdentidadeCliente(nome, telefone) {
   return `nome:${normalizarNome(nome)}`;
 }
 
+// Busca robusta de cliente por nome E/OU telefone.
+// A busca e quebrada em "tokens" (palavras/numeros) e TODOS precisam casar,
+// cada um podendo casar no nome OU no telefone. Isso permite:
+//   - Nome sem acento e em qualquer caixa:  'jose'      casa 'José'
+//   - Palavras fora de ordem:               'silva ana' casa 'Ana Silva'
+//   - Telefone parcial (ex: 4 ultimos):     '1234'      casa '+55 41 99654-1234'
+//   - Nome + telefone juntos:               'ana 1234'  casa 'Ana' com tel ...1234
+//   - Mascara/formato ignorados:            '(41) 9965' casa '4199654...'
 export function matchClienteSearch(nome, telefone, search) {
   const termo = String(search || '').trim();
   if (!termo) return true;
 
-  // Match por nome (case-insensitive) — sempre tenta
-  const nomeLower = String(nome || '').toLowerCase();
-  if (nomeLower.includes(termo.toLowerCase())) return true;
+  const nomeNorm = normalizarNome(nome);            // sem acento, minusculo
+  const telefoneDigitos = apenasDigitos(telefone);  // so digitos
 
-  // Match por telefone — compara apenas digitos para ignorar mascara/formato
-  const termoDigitos = apenasDigitos(termo);
-  if (termoDigitos.length === 0) return false;
+  // Quebra a busca em tokens (separados por espaco), exigindo que cada um case.
+  const tokens = normalizarNome(termo).split(' ').filter(Boolean);
 
-  const telefoneDigitos = apenasDigitos(telefone);
-  if (telefoneDigitos.length === 0) return false;
+  return tokens.every(token => {
+    // 1) casa como trecho do nome (sem acento, parcial)
+    if (nomeNorm && nomeNorm.includes(token)) return true;
 
-  return telefoneDigitos.includes(termoDigitos);
+    // 2) casa como trecho do telefone (apenas digitos do token, parcial)
+    const tokenDigitos = apenasDigitos(token);
+    if (tokenDigitos && telefoneDigitos && telefoneDigitos.includes(tokenDigitos)) return true;
+
+    return false;
+  });
 }

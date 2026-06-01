@@ -18,6 +18,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 
+import { matchClienteSearch } from '@/lib/utils/buscaCliente';
 import ClienteForm from '@/components/clientes/ClienteForm';
 import ClientesTable from '@/components/clientes/ClientesTable';
 import DeleteConfirmDialog from '@/components/clientes/DeleteConfirmDialog';
@@ -183,23 +184,9 @@ export default function Clientes() {
 
   const filteredClientes = useMemo(() => {
     if (!debouncedSearch.trim()) return clientes;
-
-    const searchTerms = debouncedSearch.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    const searchNumeros = debouncedSearch.replace(/\D/g, '');
-
-    const results = clientes.filter(cliente => {
-      const nomeLower = (cliente.nome || '').toLowerCase();
-      const telefoneLimpo = (cliente.telefone || '').replace(/\D/g, '');
-
-      // Match se contém a busca completa OU se contém qualquer uma das palavras
-      const matchNome = nomeLower.includes(debouncedSearch.toLowerCase()) ||
-                        searchTerms.some(term => nomeLower.includes(term));
-      const matchTelefone = searchNumeros && telefoneLimpo.includes(searchNumeros);
-
-      return matchNome || matchTelefone;
-    });
-
-    return results;
+    return clientes.filter(cliente =>
+      matchClienteSearch(cliente.nome, cliente.telefone, debouncedSearch)
+    );
   }, [clientes, debouncedSearch]);
 
   const handleSave = (data) => {

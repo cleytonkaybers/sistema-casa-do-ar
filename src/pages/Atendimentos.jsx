@@ -20,6 +20,7 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseHistoricoData } from '@/lib/dateUtils';
+import { matchClienteSearch } from '@/lib/utils/buscaCliente';
 import { TableSkeleton } from '@/components/LoadingSkeleton';
 import { 
   Search,
@@ -271,13 +272,14 @@ export default function Atendimentos() {
       }
 
       const searchLower = debouncedSearch.toLowerCase();
-      const matchNome = grupo.nome.toLowerCase().includes(searchLower);
+      // Busca por nome OU telefone (parcial, ex: 4 ultimos digitos)
+      const matchCliente = matchClienteSearch(grupo.nome, grupo.telefone, debouncedSearch);
       const matchItens = grupo.itens.some(i =>
         i.tipo_servico?.toLowerCase().includes(searchLower) ||
         i.descricao?.toLowerCase().includes(searchLower)
       );
 
-      if (matchNome || matchItens) {
+      if (matchCliente || matchItens) {
         grupo.itens.sort((a, b) => (parseHistoricoData(b.data)?.getTime() || 0) - (parseHistoricoData(a.data)?.getTime() || 0));
         clientesFiltrados[grupo.nome] = grupo;
       }
@@ -322,7 +324,7 @@ export default function Atendimentos() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <Input
-            placeholder="Buscar por cliente ou serviço..."
+            placeholder="Buscar por cliente, telefone ou serviço..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9 bg-[#0d1826] border-white/10 text-gray-200 placeholder:text-gray-500 w-full h-11 rounded-xl"
