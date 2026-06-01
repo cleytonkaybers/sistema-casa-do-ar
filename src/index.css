@@ -85,16 +85,73 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    background-color: #0a1422;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-display {
+    font-family: 'Bricolage Grotesque', 'Plus Jakarta Sans', sans-serif;
+    letter-spacing: -0.02em;
   }
 }
 
+/* ============================================================
+   FROST PREMIUM — atmosfera de fundo (aurora + grão)
+   Camadas fixas atrás de todo o conteúdo (z-index negativo).
+   ============================================================ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -25%;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 34% at 14% 8%,  rgba(34,211,238,0.18), transparent 70%),
+    radial-gradient(42% 38% at 86% 2%,  rgba(14,165,233,0.20), transparent 72%),
+    radial-gradient(48% 46% at 78% 96%, rgba(99,102,241,0.16), transparent 72%),
+    radial-gradient(40% 40% at 4% 98%,  rgba(20,184,166,0.12), transparent 72%);
+  filter: blur(28px) saturate(120%);
+  animation: aurora-float 26s ease-in-out infinite alternate;
+}
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@keyframes aurora-float {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(2%, -2%, 0) scale(1.06); }
+  100% { transform: translate3d(-2%, 1%, 0) scale(1.04); }
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter { animation: fadeInUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  body::before { animation: none; }
+  .page-enter { animation: none; }
+}
+
 @layer components {
-  /* Cards com sombra suave e borda leve */
+  /* Cards de vidro fosco com realce superior e sombra profunda */
   .card-elegant {
-    @apply bg-card rounded-2xl border border-border shadow-sm;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 4px 12px rgba(14,165,233,0.08);
+    @apply rounded-2xl border;
+    background: linear-gradient(180deg, rgba(28,44,69,0.85), rgba(17,29,46,0.92));
+    border-color: rgba(56,189,248,0.14);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.05) inset,
+      0 12px 32px -14px rgba(2,8,20,0.75),
+      0 0 0 1px rgba(2,8,20,0.35);
+    backdrop-filter: blur(10px);
   }
 
   /* Botões primários com gradiente */
@@ -117,16 +174,16 @@
   }
 
   ::-webkit-scrollbar-track {
-    background: #0d1826;
+    background: #0a1422;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #1e3047;
-    border-radius: 3px;
+    background: linear-gradient(180deg, #0ea5e9, #22d3ee);
+    border-radius: 999px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #0ea5e9;
+    background: linear-gradient(180deg, #38bdf8, #67e8f9);
   }
 }
 
@@ -135,8 +192,8 @@
    Cobre classes hard-coded nas páginas sem editar cada arquivo.
    ============================================================ */
 
-/* Fundos neutros */
-.bg-white    { background-color: #152236 !important; }
+/* Fundos neutros — superfícies de card com leve gradiente p/ profundidade */
+.bg-white    { background-color: #152236 !important; background-image: linear-gradient(180deg, #18293f, #131f31) !important; }
 .bg-gray-50  { background-color: #111f30 !important; }
 .bg-gray-100 { background-color: #1a2d45 !important; }
 .bg-gray-200 { background-color: #1e3047 !important; }
@@ -244,3 +301,19 @@ textarea::placeholder {
 
 /* Texto de labels e spans que podem usar preto */
 label { color: inherit; }
+
+/* ============================================================
+   FROST PREMIUM — realces de interação
+   ============================================================ */
+/* Foco com brilho ciano em campos de formulário */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(34,211,238,0.20) !important;
+  border-color: rgba(34,211,238,0.55) !important;
+}
+
+/* Brilho premium em ações primárias (sem alterar a cor do hover) */
+.btn-primary-gradient { box-shadow: 0 8px 24px -8px rgba(14,165,233,0.55); }
+.bg-primary { box-shadow: 0 6px 20px -8px rgba(14,165,233,0.40); }

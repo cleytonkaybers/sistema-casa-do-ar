@@ -123,7 +123,7 @@ function LayoutContent({ children }) {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-[#0d1826]">
+      <div className="min-h-screen bg-transparent">
         {/* Backdrop mobile com transição suave */}
         <div
           className={`fixed inset-0 bg-[#0d1826]/70 z-40 lg:hidden backdrop-blur-sm transition-opacity duration-300 ${sidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
@@ -134,7 +134,7 @@ function LayoutContent({ children }) {
         <aside className={`
           fixed top-0 left-0 z-50 h-full w-72 transform transition-transform duration-300 ease-in-out
           lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-          bg-[#0A1421] border-r border-white/5
+          bg-[#0a1421]/85 backdrop-blur-xl border-r border-white/5 shadow-[1px_0_30px_-10px_rgba(2,8,20,0.8)]
         `}>
           <div className="flex flex-col h-full overflow-hidden">
 
@@ -145,7 +145,7 @@ function LayoutContent({ children }) {
                 className="flex items-center gap-4 hover:opacity-90 transition-opacity w-full">
 
                 {/* Logo box premium */}
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 bg-[#12233a] border border-white/10 shadow-lg shadow-black/20">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 bg-gradient-to-br from-[#16293f] to-[#0e1c2e] border border-cyan-400/15 shadow-lg shadow-cyan-500/10">
                   {companySettings.company_logo_url ?
                   <img
                     src={companySettings.company_logo_url}
@@ -157,7 +157,7 @@ function LayoutContent({ children }) {
                   <LogoIcon className={`w-7 h-7 text-blue-400 ${companySettings.company_logo_url ? 'hidden' : ''}`} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-100 text-[15px] leading-tight truncate">
+                  <p className="font-display font-bold text-gray-100 text-[15px] leading-tight truncate tracking-tight">
                     {currentEmpresa?.nome || companySettings.company_name}
                   </p>
                   <p className="text-[11px] font-medium text-blue-400 uppercase tracking-wider mt-1 truncate">
@@ -189,10 +189,10 @@ function LayoutContent({ children }) {
                         to={item.href}
                         onClick={() => setSidebarOpen(false)}
                         className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
-                          active ? 'text-white bg-blue-500/10' : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
+                          active ? 'text-white bg-gradient-to-r from-sky-500/20 via-cyan-400/10 to-transparent shadow-[0_0_22px_-8px_rgba(34,211,238,0.6)]' : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
                         }`}
                       >
-                        {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-500 rounded-r-full" />}
+                        {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-sky-400 to-cyan-300 rounded-r-full shadow-[0_0_12px_rgba(34,211,238,0.7)]" />}
                         <Icon className={`w-5 h-5 flex-shrink-0 transition-colors ${active ? 'text-blue-400' : 'text-gray-500 group-hover:text-blue-300'}`} />
                         <span className={`font-medium text-sm flex-1 ${active ? 'font-semibold' : ''}`}>{item.name}</span>
                       </Link>
@@ -227,10 +227,10 @@ function LayoutContent({ children }) {
                                   to={item.href}
                                   onClick={() => setSidebarOpen(false)}
                                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
-                                    active ? 'text-white bg-blue-500/10' : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
+                                    active ? 'text-white bg-gradient-to-r from-sky-500/20 via-cyan-400/10 to-transparent shadow-[0_0_22px_-8px_rgba(34,211,238,0.6)]' : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
                                   }`}
                                 >
-                                  {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-500 rounded-r-full" />}
+                                  {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-sky-400 to-cyan-300 rounded-r-full shadow-[0_0_12px_rgba(34,211,238,0.7)]" />}
                                   <Icon className={`w-4 h-4 flex-shrink-0 transition-colors ${active ? 'text-blue-400' : 'text-gray-500 group-hover:text-blue-300'}`} />
                                   <span className={`font-medium text-sm flex-1 ${active ? 'font-semibold' : ''}`}>{item.name}</span>
                                 </Link>
@@ -294,7 +294,7 @@ function LayoutContent({ children }) {
           </header>
 
           {/* Page content padding otimizado para mobile */}
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto">
+          <main key={location.pathname} className="page-enter flex-1 p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto">
             {children}
           </main>
         </div>
