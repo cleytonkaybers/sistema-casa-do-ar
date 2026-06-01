@@ -69,16 +69,23 @@ export function acharClientePorIdentidade(clientes, { nome, telefone } = {}) {
   return null;
 }
 
-// Gera uma CHAVE de identidade estavel para AGRUPAR registros do mesmo cliente,
-// distinguindo homonimos pelo telefone. Prioriza telefone (mais confiavel);
-// sem telefone, cai para o nome normalizado. Use em agrupamentos/indices
-// (ex: Pagamentos de Clientes) para nao juntar dois clientes de mesmo nome.
-//   chaveIdentidadeCliente('Ana Paula', '+5541996541234') -> 'tel:96541234'
+// Gera uma CHAVE de identidade estavel para AGRUPAR registros do mesmo cliente.
+// A identidade combina NOME + TELEFONE — os dois precisam casar para ser o mesmo
+// cliente. Motivo:
+//   - Telefone sozinho NAO basta: dois clientes DIFERENTES podem compartilhar um
+//     telefone (ex: contato de licitacao, responsavel/sindico comum) e NAO devem
+//     ser fundidos num so pagamento. Era o que juntava "Escola ..." (equipe 2) e
+//     "Matias talba" (equipe 1) numa unica ordem de pagamento.
+//   - Nome sozinho NAO basta: homonimos (mesmo nome, pessoas diferentes) sao
+//     separados pelo telefone.
+// Sem telefone, cai para o nome normalizado.
+//   chaveIdentidadeCliente('Ana Paula', '+5541996541234') -> 'nome:ana paula|tel:96541234'
 //   chaveIdentidadeCliente('Ana Paula', '')               -> 'nome:ana paula'
 export function chaveIdentidadeCliente(nome, telefone) {
   const tel = normalizarTelefone(telefone);
-  if (tel) return `tel:${tel}`;
-  return `nome:${normalizarNome(nome)}`;
+  const nomeKey = normalizarNome(nome);
+  if (tel) return `nome:${nomeKey}|tel:${tel}`;
+  return `nome:${nomeKey}`;
 }
 
 // Busca robusta de cliente por nome E/OU telefone.
