@@ -2908,11 +2908,13 @@ function PagamentosClientesContent() {
       ) : (
       <>
       {/* Header com resumo */}
-      <div className="rounded-2xl p-4 sm:p-5" style={{ backgroundColor: '#1e3a8a' }}>
-        <div className="flex flex-col gap-4">
+      <div className="relative overflow-hidden rounded-2xl p-4 sm:p-5 border border-white/10 bg-gradient-to-br from-[#1e3a8a] via-[#1d4ed8] to-[#0c4a6e] shadow-xl shadow-blue-950/40">
+        <div className="pointer-events-none absolute -top-16 -right-10 w-56 h-56 rounded-full bg-cyan-400/15 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -left-10 w-56 h-56 rounded-full bg-sky-500/10 blur-3xl" />
+        <div className="relative flex flex-col gap-4">
           <div className="flex items-start justify-between flex-wrap gap-2">
             <div>
-              <h1 className="text-lg sm:text-2xl font-bold text-white">Pagamentos dos Clientes</h1>
+              <h1 className="font-display text-lg sm:text-2xl font-bold text-white tracking-tight">Pagamentos dos Clientes</h1>
               <p className="text-blue-200/80 text-xs sm:text-sm mt-1 flex items-center gap-1.5 flex-wrap">
                 <Calendar className="w-4 h-4 flex-shrink-0" />
                 <span>Semana: {format(inicioSemana, "dd/MM", { locale: ptBR })} – {format(fimSemana, "dd/MM/yyyy", { locale: ptBR })}</span>
@@ -2938,29 +2940,29 @@ function PagamentosClientesContent() {
             )}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
-            <div className="bg-white/10 rounded-lg px-2 sm:px-3 py-2 text-center">
-              <p className="text-white font-bold text-sm sm:text-lg">{formatCurrency(totalMes).replace('R$', '').trim()}</p>
+            <div className="bg-white/10 hover:bg-white/[0.16] rounded-xl px-2 sm:px-3 py-2.5 text-center border border-white/10 shadow-sm transition-all duration-200 hover:-translate-y-0.5">
+              <p className="font-display text-white font-bold text-sm sm:text-lg tracking-tight">{formatCurrency(totalMes).replace('R$', '').trim()}</p>
               <p className="text-blue-200 text-xs">Faturado Mês</p>
             </div>
-            <div className="bg-green-500/20 rounded-lg px-2 sm:px-3 py-2 text-center">
-              <p className="text-green-300 font-bold text-sm sm:text-lg">{formatCurrency(totalPagoMes).replace('R$', '').trim()}</p>
+            <div className="bg-green-500/20 hover:bg-green-500/25 rounded-xl px-2 sm:px-3 py-2.5 text-center border border-green-400/20 shadow-sm transition-all duration-200 hover:-translate-y-0.5">
+              <p className="font-display text-green-300 font-bold text-sm sm:text-lg tracking-tight">{formatCurrency(totalPagoMes).replace('R$', '').trim()}</p>
               <p className="text-blue-200 text-xs">Recebido Mês</p>
             </div>
-            <div className="bg-white/10 rounded-lg px-2 sm:px-3 py-2 text-center">
-              <p className="text-white font-bold text-sm sm:text-lg">{formatCurrency(totalSemana).replace('R$', '').trim()}</p>
+            <div className="bg-white/10 hover:bg-white/[0.16] rounded-xl px-2 sm:px-3 py-2.5 text-center border border-white/10 shadow-sm transition-all duration-200 hover:-translate-y-0.5">
+              <p className="font-display text-white font-bold text-sm sm:text-lg tracking-tight">{formatCurrency(totalSemana).replace('R$', '').trim()}</p>
               <p className="text-blue-200 text-xs">Faturado Sem.</p>
             </div>
-            <div className="bg-green-500/20 rounded-lg px-2 sm:px-3 py-2 text-center">
-              <p className="text-green-300 font-bold text-sm sm:text-lg">{formatCurrency(totalPagoSemana).replace('R$', '').trim()}</p>
+            <div className="bg-green-500/20 hover:bg-green-500/25 rounded-xl px-2 sm:px-3 py-2.5 text-center border border-green-400/20 shadow-sm transition-all duration-200 hover:-translate-y-0.5">
+              <p className="font-display text-green-300 font-bold text-sm sm:text-lg tracking-tight">{formatCurrency(totalPagoSemana).replace('R$', '').trim()}</p>
               <p className="text-blue-200 text-xs">Recebido Sem.</p>
             </div>
             {/* Comparativo do mes anterior */}
-            <div className="bg-white/5 rounded-lg px-2 sm:px-3 py-2 text-center border border-white/10">
-              <p className="text-gray-200 font-bold text-sm sm:text-lg">{formatCurrency(totalMesAnterior).replace('R$', '').trim()}</p>
+            <div className="bg-white/5 hover:bg-white/10 rounded-xl px-2 sm:px-3 py-2.5 text-center border border-white/10 shadow-sm transition-all duration-200 hover:-translate-y-0.5">
+              <p className="font-display text-gray-200 font-bold text-sm sm:text-lg tracking-tight">{formatCurrency(totalMesAnterior).replace('R$', '').trim()}</p>
               <p className="text-blue-300/80 text-[10px] sm:text-xs">Faturado Mês Ant.</p>
             </div>
-            <div className="bg-emerald-500/10 rounded-lg px-2 sm:px-3 py-2 text-center border border-emerald-500/20">
-              <p className="text-emerald-200 font-bold text-sm sm:text-lg">{formatCurrency(totalPagoMesAnterior).replace('R$', '').trim()}</p>
+            <div className="bg-emerald-500/10 hover:bg-emerald-500/15 rounded-xl px-2 sm:px-3 py-2.5 text-center border border-emerald-500/20 shadow-sm transition-all duration-200 hover:-translate-y-0.5">
+              <p className="font-display text-emerald-200 font-bold text-sm sm:text-lg tracking-tight">{formatCurrency(totalPagoMesAnterior).replace('R$', '').trim()}</p>
               <p className="text-blue-300/80 text-[10px] sm:text-xs">Recebido Mês Ant.</p>
             </div>
           </div>

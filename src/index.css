@@ -317,3 +317,6 @@ select:focus-visible {
 /* Brilho premium em ações primárias (sem alterar a cor do hover) */
 .btn-primary-gradient { box-shadow: 0 8px 24px -8px rgba(14,165,233,0.55); }
 .bg-primary { box-shadow: 0 6px 20px -8px rgba(14,165,233,0.40); }
+
+/* Seleção de texto com a cor de acento */
+::selection { background: rgba(34,211,238,0.28); color: #f1f5f9; }
