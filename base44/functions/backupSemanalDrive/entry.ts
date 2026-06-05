@@ -55,6 +55,20 @@ Deno.serve(async (req) => {
     const db = base44.asServiceRole;
     const dateStr = new Date().toISOString().split('T')[0];
 
+    // Pagina em blocos de 5000 (limite MAXIMO do Base44 por request). Sem isso,
+    // list() pegava no maximo 5000 (ou 50 padrao) e o backup truncava.
+    const listAll = async (handler, sort = '-created_date') => {
+      const PAGINA = 5000;
+      const todos = [];
+      for (let skip = 0; ; skip += PAGINA) {
+        const lote = await handler.list(sort, PAGINA, skip);
+        todos.push(...lote);
+        if (lote.length < PAGINA) break;
+        if (skip > 500000) break;
+      }
+      return todos;
+    };
+
     // Buscar todas as entidades em paralelo (financeiras incluídas)
     const [
       clientes,
@@ -76,24 +90,24 @@ Deno.serve(async (req) => {
       agendamentos,
       tipoServicoValor,
     ] = await Promise.all([
-      db.entities.Cliente.list('-created_date'),
-      db.entities.Servico.list('-created_date'),
-      db.entities.Atendimento.list('-created_date'),
-      db.entities.Equipe.list('-created_date'),
-      db.entities.AlteracaoStatus.list('-created_date'),
-      db.entities.Notificacao.list('-created_date'),
-      db.entities.PreferenciaNotificacao.list('-created_date'),
-      db.entities.ConfiguracaoRelatorio.list('-created_date'),
-      db.entities.RelatorioGerado.list('-created_date'),
-      db.entities.ManutencaoPreventiva.list('-created_date'),
-      db.entities.User.list(),
-      db.entities.LancamentoFinanceiro.list('-created_date'),
-      db.entities.PagamentoTecnico.list('-created_date'),
-      db.entities.TecnicoFinanceiro.list(),
-      db.entities.Cheque.list('-created_date'),
-      db.entities.Emprestimo.list('-created_date'),
-      db.entities.Agendamento.list('-created_date'),
-      db.entities.TipoServicoValor.list(),
+      listAll(db.entities.Cliente),
+      listAll(db.entities.Servico),
+      listAll(db.entities.Atendimento),
+      listAll(db.entities.Equipe),
+      listAll(db.entities.AlteracaoStatus),
+      listAll(db.entities.Notificacao),
+      listAll(db.entities.PreferenciaNotificacao),
+      listAll(db.entities.ConfiguracaoRelatorio),
+      listAll(db.entities.RelatorioGerado),
+      listAll(db.entities.ManutencaoPreventiva),
+      listAll(db.entities.User),
+      listAll(db.entities.LancamentoFinanceiro),
+      listAll(db.entities.PagamentoTecnico),
+      listAll(db.entities.TecnicoFinanceiro),
+      listAll(db.entities.Cheque),
+      listAll(db.entities.Emprestimo),
+      listAll(db.entities.Agendamento),
+      listAll(db.entities.TipoServicoValor),
     ]);
 
     const backup = {

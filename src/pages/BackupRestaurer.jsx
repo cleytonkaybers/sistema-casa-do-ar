@@ -498,6 +498,35 @@ export default function BackupRestaurerPage() {
       {activeTab === 'overview' && (
         <div className="space-y-5">
 
+          {/* Alerta precoce: entidades se aproximando do limite de 5.000/consulta do Base44.
+              Acima disso, as telas truncam e podem mostrar dados incompletos. */}
+          {(() => {
+            const proximas = ENTIDADES
+              .map(e => ({ label: e.label, n: counts[e.key] || 0 }))
+              .filter(x => x.n >= 4000)
+              .sort((a, b) => b.n - a.n);
+            if (proximas.length === 0) return null;
+            const critico = proximas.some(x => x.n >= 4800);
+            return (
+              <div className={`flex items-start gap-3 rounded-xl p-4 border ${critico ? 'bg-red-500/10 border-red-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
+                <AlertTriangle className={`w-5 h-5 shrink-0 mt-0.5 ${critico ? 'text-red-400' : 'text-amber-400'}`} />
+                <div className="text-sm">
+                  <p className={`font-semibold ${critico ? 'text-red-300' : 'text-amber-300'}`}>
+                    {critico ? 'Atenção: limite de dados quase atingido' : 'Aviso: dados crescendo'}
+                  </p>
+                  <p className="text-gray-300/80 mt-1">
+                    Estas tabelas estão perto do limite de <strong>5.000 registros por consulta</strong> do Base44.
+                    Ao ultrapassar, as telas podem mostrar dados incompletos. Recomendado limpar logs antigos
+                    (botão na aba "Backups na Nuvem") ou arquivar registros antigos:
+                  </p>
+                  <p className="text-gray-200 mt-1.5 font-medium">
+                    {proximas.map(x => `${x.label} (${x.n.toLocaleString('pt-BR')})`).join(' · ')}
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Status cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
