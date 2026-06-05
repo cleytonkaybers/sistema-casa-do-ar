@@ -31,7 +31,6 @@
       "type": "string",
       "enum": [
         "pendente",
-        "depositado",
         "compensado",
         "devolvido"
       ],

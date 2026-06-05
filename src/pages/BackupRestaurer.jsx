@@ -201,19 +201,28 @@ export default function BackupRestaurerPage() {
         metadata: metaObj,
       };
 
+      const fileName = `backup_casa_do_ar_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.json`;
       const json = JSON.stringify(backup, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
+
+      // Aguarda um tick para garantir que o blob está pronto
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       const link = document.createElement('a');
       link.href = url;
-      link.download = `backup_casa_do_ar_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.json`;
+      link.download = fileName;
+      link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
+
+      // Aguarda antes de revogar para garantir que o download iniciou
+      await new Promise(resolve => setTimeout(resolve, 500));
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      setExportResult({ total: totalExportado, entidades: metaObj, arquivo: link.download });
-      toast.success(`Backup exportado com sucesso! ${totalExportado} registros salvos.`);
+      setExportResult({ total: totalExportado, entidades: metaObj, arquivo: fileName });
+      toast.success(`Backup exportado! ${totalExportado} registros • ${(blob.size / 1048576).toFixed(2)} MB`);
     } catch (error) {
       toast.error('Erro ao exportar backup: ' + error.message);
     } finally {
