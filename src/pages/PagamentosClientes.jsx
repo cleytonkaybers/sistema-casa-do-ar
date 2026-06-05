@@ -1169,12 +1169,17 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
                   <span className="hidden sm:inline">WhatsApp</span>
                 </a>
               )}
-              <button onClick={() => onAgendarData(pag)} className="px-2 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded font-semibold whitespace-nowrap flex items-center gap-1">
-                <Calendar className="w-3 h-3" /> Agendar
-              </button>
-              <button onClick={() => onPagar(pag)} className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded font-semibold whitespace-nowrap">
-                Pagar
-              </button>
+              {/* Agendar e Pagar só aparecem APÓS precificar — serviço aguardando preço não pode ser agendado/pago */}
+              {!ehPlaceholderCard && (
+                <>
+                  <button onClick={() => onAgendarData(pag)} className="px-2 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded font-semibold whitespace-nowrap flex items-center gap-1">
+                    <Calendar className="w-3 h-3" /> Agendar
+                  </button>
+                  <button onClick={() => onPagar(pag)} className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded font-semibold whitespace-nowrap">
+                    Pagar
+                  </button>
+                </>
+              )}
               {isAdmin && isParcial && pct >= 90 && onMarcarPago && (
                 <button
                   onClick={() => { if (confirm(`Marcar "${pag.cliente_nome}" como pago (${formatCurrency(pag.valor_total)})?`)) onMarcarPago(pag); }}
