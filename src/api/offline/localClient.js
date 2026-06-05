@@ -15,26 +15,37 @@ let _dataDate = null; // data_backup do arquivo carregado
 
 // ─── Hidratação ──────────────────────────────────────────────────────────────
 
-// Aceita v3.0 (data camelCase) e v2.0/semanal (dados snake_case)
+// Aceita TODOS os formatos de backup do sistema, de forma robusta:
+//   - v3.0 (export manual):      { data: { clientes, pagamentosClientes, ... } }   (camelCase)
+//   - v2.0/semanal:              { dados: { clientes, pagamentos_clientes, ... } } (snake_case)
+//   - incremental (Drive):       { dados: { Cliente, PagamentoCliente, ... } }     (PascalCase = nome da entidade)
+// O lookup é case-insensitive e cobre as 3 convenções. Se varias chaves
+// mapearem pra mesma entidade, os registros sao concatenados (nao sobrescritos).
 export function hydrate(backupJson) {
   store.clear();
   const src = backupJson.data ?? backupJson.dados ?? {};
   _dataDate = backupJson.exported_at ?? backupJson.data_backup ?? null;
 
-  // Build a lookup: qualquer key camelCase ou snake_case → entityName
+  // lookup: chave normalizada (minuscula) -> nome da entidade
   const lookup = new Map();
-  ENTITY_MAP.forEach(({ key, entity }) => lookup.set(key, entity));
-  Object.entries(SNAKE_ALIAS).forEach(([k, entity]) => lookup.set(k, entity));
+  const add = (k, entity) => { if (k) lookup.set(String(k).toLowerCase(), entity); };
+  ENTITY_MAP.forEach(({ key, entity }) => { add(key, entity); add(entity, entity); });
+  Object.entries(SNAKE_ALIAS).forEach(([k, entity]) => { add(k, entity); add(entity, entity); });
 
+  const ignoradas = [];
   for (const [key, records] of Object.entries(src)) {
-    if (!Array.isArray(records)) continue;
-    const entity = lookup.get(key);
+    if (!Array.isArray(records) || records.length === 0) continue;
+    const entity = lookup.get(key.toLowerCase());
     if (entity) {
-      store.set(entity, records);
+      const existente = store.get(entity) || [];
+      store.set(entity, existente.concat(records));
+    } else {
+      ignoradas.push(key);
     }
   }
 
-  return { entities: [...store.keys()], total: [...store.values()].reduce((s, a) => s + a.length, 0) };
+  const total = [...store.values()].reduce((s, a) => s + a.length, 0);
+  return { entities: [...store.keys()], total, ignoradas };
 }
 
 export function getDataDate() { return _dataDate; }

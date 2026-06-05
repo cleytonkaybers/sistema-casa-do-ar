@@ -136,9 +136,23 @@ export default function OfflineImport({ onReady }) {
               </div>
             )}
 
+            {preview.total === 0 && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-300">
+                <p className="font-semibold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Nenhum registro reconhecido neste arquivo</p>
+                <p className="text-xs text-red-300/80 mt-1">
+                  O arquivo foi lido, mas as seções de dados não foram identificadas. Use um backup
+                  gerado em <strong>Central de Backup → Exportar</strong> (ou o backup completo do Drive).
+                </p>
+                {preview.ignoradas?.length > 0 && (
+                  <p className="text-[11px] text-red-300/60 mt-2 break-all">Seções ignoradas: {preview.ignoradas.join(', ')}</p>
+                )}
+              </div>
+            )}
+
             <button
               onClick={onReady}
-              className="w-full h-12 rounded-xl bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-700 hover:to-cyan-700 text-white font-bold text-base transition-all duration-200 active:scale-[0.98] shadow-lg shadow-sky-900/40"
+              disabled={preview.total === 0}
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-700 hover:to-cyan-700 text-white font-bold text-base transition-all duration-200 active:scale-[0.98] shadow-lg shadow-sky-900/40 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Abrir o sistema →
             </button>
