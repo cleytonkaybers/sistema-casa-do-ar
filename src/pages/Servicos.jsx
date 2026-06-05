@@ -504,9 +504,10 @@ export default function ServicosPage() {
           console.warn('[conclusao] servico_id', servicoSnapshot.id, 'ja tem PagamentoCliente ativo — pulando criacao');
           pagamentoClienteOk = true;
         } else {
-          // SEMPRE 1111 — o ADM precifica MANUALMENTE em Pagamentos de Clientes.
-          // Valor do servico (servicoSnapshot.valor) e usado SO para calcular comissao
-          // dos tecnicos, NAO para cobrar do cliente. Sao precos diferentes.
+          // SEMPRE 0 (sem preço) — o ADM precifica MANUALMENTE em Pagamentos de Clientes.
+          // O serviço chega "aguardando preço"; valor 0 nao conta no Faturado ate
+          // ser precificado. Valor do servico (servicoSnapshot.valor) e usado SO para
+          // calcular comissao dos tecnicos, NAO para cobrar do cliente. Sao precos diferentes.
           await comRetry('pagamento-create', () =>
             base44.entities.PagamentoCliente.create({
               atendimento_id: atendimentoCriado?.id || '',
@@ -515,7 +516,7 @@ export default function ServicosPage() {
               telefone: servicoSnapshot.telefone || '',
               tipo_servico: servicoSnapshot.tipo_servico || '',
               data_conclusao: agora,
-              valor_total: 1111,
+              valor_total: 0,
               valor_pago: 0,
               status: 'pendente',
               equipe_nome: servicoSnapshot.equipe_nome || '',

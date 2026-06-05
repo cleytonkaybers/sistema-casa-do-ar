@@ -236,8 +236,13 @@ function groupPagamentos(lista) {
     const valorTotal = recordsDedup.reduce((s, r) => s + (r.valor_total || 0), 0);
     const valorPago = recordsDedup.reduce((s, r) => s + (r.valor_pago || 0), 0);
     const saldo = valorTotal - valorPago;
+    // Servico SEM PRECO (placeholder, ex: valor 0) nunca pode ser "pago" — senao
+    // saldo 0 seria lido como quitado. Fica pendente/parcial ate ser precificado.
+    const temPlaceholderPendente = recordsDedup.some(r => isValorPlaceholder(r.valor_total) && (r.valor_pago || 0) === 0);
     // Tolerancia de R$1 so se houve algum pagamento (cobre arredondamento). Sem pagamento = pendente.
-    const status = saldo <= 0.01 || (valorPago > 0 && saldo <= 5.0) ? 'pago' : valorPago > 0 ? 'parcial' : 'pendente'; // tolerancia R$5 — diferenca pequena conta como quitado
+    const status = temPlaceholderPendente
+      ? (valorPago > 0 ? 'parcial' : 'pendente')
+      : (saldo <= 0.01 || (valorPago > 0 && saldo <= 5.0) ? 'pago' : valorPago > 0 ? 'parcial' : 'pendente'); // tolerancia R$5 — diferenca pequena conta como quitado
     // Mescla historico_pagamentos dos records deduplicados
     const historicoMesclado = recordsDedup.flatMap(r => r.historico_pagamentos || []);
     return {
@@ -843,7 +848,7 @@ function DetalhesClienteModal({ open, onClose, pagamento }) {
     return Object.values(groups).sort((a, b) => b.totalQtd - a.totalQtd);
   }, [records]);
 
-  const totalGeral = records.reduce((s, r) => s + (r.valor_total || 0), 0);
+  const totalGeral = records.reduce((s, r) => s + (isValorPlaceholder(r.valor_total) ? 0 : (r.valor_total || 0)), 0);
   const totalPago = records.reduce((s, r) => s + (r.valor_pago || 0), 0);
   const saldo = totalGeral - totalPago;
 
@@ -1022,8 +1027,13 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   const records = pag._records || [pag];
   const saldo = calcularSaldo(pag.valor_total, pag.valor_pago);
   const _valorPago = pag.valor_pago || 0;
-  // Tolerância de R$1 só se houve algum pagamento (cobre arredondamento em serviços compostos)
-  const isPago = pag.status === 'pago' || saldo <= 0.01 || (_valorPago > 0 && saldo <= 1.0);
+  // ehPlaceholderCard: usa grupo se houver _records (mixed group), senao olha o pag direto
+  const ehPlaceholderCard = pag._records?.length > 0
+    ? grupoTemPlaceholder(pag)
+    : isValorPlaceholder(pag.valor_total) && (pag.valor_pago || 0) === 0;
+  // Tolerância de R$1 só se houve algum pagamento (cobre arredondamento em serviços compostos).
+  // Sem preço (placeholder) NUNCA é "pago" — senao saldo 0 seria lido como quitado.
+  const isPago = !ehPlaceholderCard && (pag.status === 'pago' || saldo <= 0.01 || (_valorPago > 0 && saldo <= 1.0));
   const isParcial = !isPago && pag.status === 'parcial' && _valorPago > 0;
   const temHistoricoReal = (pag.historico_pagamentos || []).some(h => !h.agendada && !h.consolidado);
   // Mostrar 100% apenas se realmente pago — evitar display enganoso
@@ -1031,10 +1041,6 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
     ? isPago ? 100 : Math.min(99, Math.round((_valorPago / pag.valor_total) * 100))
     : 0;
   const temPrecoDefinido = pag.valor_total > 0 && !isValorPlaceholder(pag.valor_total);
-  // ehPlaceholderCard: usa grupo se houver _records (mixed group), senao olha o pag direto
-  const ehPlaceholderCard = pag._records?.length > 0
-    ? grupoTemPlaceholder(pag)
-    : isValorPlaceholder(pag.valor_total) && (pag.valor_pago || 0) === 0;
   const dataAgendada = pag.data_pagamento_agendado ? parseISO(pag.data_pagamento_agendado) : null;
   const hoje = new Date();
   const chegoDataAgendada = dataAgendada && isAfter(hoje, dataAgendada) && !isPago;
@@ -1625,6 +1631,7 @@ function PagamentosClientesContent() {
 
     // Helper: detecta valor placeholder (qualquer um dos 3 legados)
     const isValorPlaceholder = (v) => (
+      v == null || v <= 0 ||
       v === 1111 ||
       Math.abs(v - 5.55) < 0.01 ||
       (v > 0 && v <= 1.0)
@@ -1802,7 +1809,7 @@ function PagamentosClientesContent() {
           telefone: a.telefone || '',
           tipo_servico: a.tipo_servico || '',
           data_conclusao: a.data_conclusao || a.created_date,
-          valor_total: debitoTotal > 0 ? debitoTotal : 1111,
+          valor_total: debitoTotal > 0 ? debitoTotal : 0,
           valor_pago: 0,
           status: 'pendente',
           equipe_nome: a.equipe_nome || '',
@@ -1915,7 +1922,7 @@ function PagamentosClientesContent() {
           });
           atendimentoId = novoAtendimento?.id;
         }
-        // SEMPRE 1111 — ADM precifica manualmente em Pagamentos de Clientes.
+        // SEMPRE 0 (sem preço) — ADM precifica manualmente em Pagamentos de Clientes.
         await base44.entities.PagamentoCliente.create({
           atendimento_id: atendimentoId || '',
           servico_id: s.id,
@@ -1923,7 +1930,7 @@ function PagamentosClientesContent() {
           telefone: s.telefone || '',
           tipo_servico: s.tipo_servico || '',
           data_conclusao: s.data_conclusao || s.data_programada,
-          valor_total: 1111,
+          valor_total: 0,
           valor_pago: 0,
           status: 'pendente',
           equipe_nome: s.equipe_nome || '',
@@ -2089,7 +2096,7 @@ function PagamentosClientesContent() {
             });
             atendimentoId = novoAtendimento?.id;
           }
-          // 2) Criar PagamentoCliente — SEMPRE 1111, ADM precifica manualmente
+          // 2) Criar PagamentoCliente — SEMPRE 0 (sem preço), ADM precifica manualmente
           await base44.entities.PagamentoCliente.create({
             atendimento_id: atendimentoId || '',
             servico_id: s.id,
@@ -2097,7 +2104,7 @@ function PagamentosClientesContent() {
             telefone: s.telefone || '',
             tipo_servico: s.tipo_servico || '',
             data_conclusao: s.data_conclusao || s.data_programada,
-            valor_total: 1111,
+            valor_total: 0,
             valor_pago: 0,
             status: 'pendente',
             equipe_nome: s.equipe_nome || '',
@@ -2494,7 +2501,7 @@ function PagamentosClientesContent() {
             telefone: a.telefone || '',
             tipo_servico: a.tipo_servico || '',
             data_conclusao: a.data_conclusao || a.data_atendimento || new Date().toISOString(),
-            valor_total: 1111, // SEMPRE 1111 — ADM precifica manualmente
+            valor_total: 0, // SEMPRE 0 (sem preço) — ADM precifica manualmente
             valor_pago: 0,
             status: 'pendente',
             equipe_nome: a.equipe_nome || '',
@@ -2755,7 +2762,8 @@ function PagamentosClientesContent() {
     });
   }, [pagamentos, relFiltro, relDataInicio, relDataFim, relCliente, inicioSemana, fimSemana]);
 
-  const totalSemana = pagsSemana.reduce((s, p) => s + (p.valor_total || 0), 0);
+  // Faturado exclui serviços sem preço (placeholder/aguardando) — só conta o que foi precificado.
+  const totalSemana = pagsSemana.reduce((s, p) => s + (isValorPlaceholder(p.valor_total) ? 0 : (p.valor_total || 0)), 0);
   const totalPendencias = pagsPendencias.reduce((s, p) => s + Math.max(0, (p.valor_total || 0) - (p.valor_pago || 0)), 0);
 
   // Auto-abrir o modal "Definir Preços" quando vier via Dashboard com ?highlight=sempreco.
@@ -2834,7 +2842,7 @@ function PagamentosClientesContent() {
     try { return isWithinInterval(parseISO(p.data_conclusao), { start: inicioMes, end: fimMes }); }
     catch { return false; }
   }), [pagamentos, inicioMes, fimMes]);
-  const totalMes = pagsMes.reduce((s, p) => s + (p.valor_total || 0), 0);
+  const totalMes = pagsMes.reduce((s, p) => s + (isValorPlaceholder(p.valor_total) ? 0 : (p.valor_total || 0)), 0);
   const totalPagoMes = useMemo(
     () => calcularRecebidoNoIntervalo(inicioMes, fimMes),
     [calcularRecebidoNoIntervalo, inicioMes, fimMes]
@@ -2848,12 +2856,12 @@ function PagamentosClientesContent() {
     try { return isWithinInterval(parseISO(p.data_conclusao), { start: inicioMesAnterior, end: fimMesAnterior }); }
     catch { return false; }
   }), [pagamentos, inicioMesAnterior, fimMesAnterior]);
-  const totalMesAnterior = pagsMesAnterior.reduce((s, p) => s + (p.valor_total || 0), 0);
+  const totalMesAnterior = pagsMesAnterior.reduce((s, p) => s + (isValorPlaceholder(p.valor_total) ? 0 : (p.valor_total || 0)), 0);
   const totalPagoMesAnterior = useMemo(
     () => calcularRecebidoNoIntervalo(inicioMesAnterior, fimMesAnterior),
     [calcularRecebidoNoIntervalo, inicioMesAnterior, fimMesAnterior]
   );
-  const totalRel = pagsRelatorio.reduce((s, p) => s + (p.valor_total || 0), 0);
+  const totalRel = pagsRelatorio.reduce((s, p) => s + (isValorPlaceholder(p.valor_total) ? 0 : (p.valor_total || 0)), 0);
   const totalPagoRel = pagsRelatorio.reduce((s, p) => s + (p.valor_pago || 0), 0);
 
   const abas = [

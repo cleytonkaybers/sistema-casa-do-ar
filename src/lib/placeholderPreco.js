@@ -9,7 +9,9 @@
 // - Dashboard.jsx (counter de precificacao pendente)
 
 export const isValorPlaceholder = (v) => {
-  if (!v || v <= 0) return false;
+  // Sem preço (0/null/undefined) = aguardando precificação (novo padrão).
+  if (v == null || v <= 0) return true;
+  // Legados ainda reconhecidos por compatibilidade (registros antigos no banco).
   return v === 1111 || Math.abs(v - 5.55) < 0.01 || v <= 1.0;
 };
 
