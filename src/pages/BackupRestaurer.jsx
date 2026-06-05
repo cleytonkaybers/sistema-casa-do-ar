@@ -918,6 +918,9 @@ export default function BackupRestaurerPage() {
                             <span className="text-xs text-gray-500">•</span>
                             <span className="text-xs text-gray-500">{formatBytes(backup.tamanho_bytes)}</span>
                           </div>
+                          {backup.status !== 'sucesso' && backup.mensagem_erro && (
+                            <p className="text-xs text-red-400 mt-1 break-all max-w-xl">⚠ {backup.mensagem_erro}</p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 ml-6 sm:ml-0">
