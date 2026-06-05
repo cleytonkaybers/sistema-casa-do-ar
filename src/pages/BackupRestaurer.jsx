@@ -70,6 +70,21 @@ function formatDateTime(dt) {
   catch { return dt; }
 }
 
+// Busca TODOS os registros de uma entidade paginando em blocos de 5000
+// (limite máximo do Base44 por request). Sem isso, list() pega no máximo 5000
+// e o backup/contagem ficaria incompleto quando a entidade crescer.
+async function fetchAllRecords(entityName) {
+  const PAGINA = 5000;
+  const todos = [];
+  for (let skip = 0; ; skip += PAGINA) {
+    const lote = await base44.entities[entityName].list('-created_date', PAGINA, skip);
+    todos.push(...lote);
+    if (lote.length < PAGINA) break;
+    if (skip > 500000) break; // trava de segurança
+  }
+  return todos;
+}
+
 function ProgressBar({ value, label, current, total, color = 'blue' }) {
   const colors = {
     blue:  'from-blue-500 to-cyan-400',
@@ -129,7 +144,7 @@ export default function BackupRestaurerPage() {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     useQuery({
       queryKey: [e.key + '-count'],
-      queryFn: () => base44.entities[e.entity].list(),
+      queryFn: () => fetchAllRecords(e.entity),
       enabled: isAdmin,
       staleTime: 60_000,
     })
@@ -182,7 +197,7 @@ export default function BackupRestaurerPage() {
           label: e.label,
           pct: ((i) / entidadesSelecionadas.length) * 100,
         });
-        const records = await base44.entities[e.entity].list();
+        const records = await fetchAllRecords(e.entity);
         dataObj[e.key] = records;
         metaObj[`total_${e.key}`] = records.length;
         totalExportado += records.length;

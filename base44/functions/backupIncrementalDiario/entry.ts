@@ -77,7 +77,17 @@ Deno.serve(async (req) => {
       const lote = ENTIDADES.slice(i, i + 6);
       await Promise.all(lote.map(async ([entidade, chave]) => {
         try {
-          const registros = await db.entities[entidade].list('-created_date', 50000);
+          // PAGINA em blocos de 5000 (limite MAXIMO do Base44 por request).
+          // Sem isso, o backup truncava em 5000 por entidade -> perderia dados
+          // quando uma entidade (ex: Atendimento) passasse de 5000 registros.
+          const PAGINA = 5000;
+          const registros: unknown[] = [];
+          for (let skip = 0; ; skip += PAGINA) {
+            const lotePag = await db.entities[entidade].list('-created_date', PAGINA, skip);
+            registros.push(...lotePag);
+            if (lotePag.length < PAGINA) break; // ultima pagina
+            if (skip > 500000) break;           // trava de seguranca (>500k)
+          }
           dataObj[chave] = registros;
           metadata[`total_${chave}`] = registros.length;
           totalRegistros += registros.length;

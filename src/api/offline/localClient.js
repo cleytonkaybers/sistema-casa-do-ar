@@ -84,14 +84,16 @@ const READ_ONLY_ERROR = Promise.reject(
 
 function makeEntityProxy(entityName) {
   return {
-    list(sortStr, limit) {
+    list(sortStr, limit, skip = 0) {
       let r = applySort(getRecords(entityName), sortStr);
+      if (skip) r = r.slice(skip);
       if (limit) r = r.slice(0, limit);
       return Promise.resolve(r);
     },
-    filter(query, sortStr, limit) {
+    filter(query, sortStr, limit, skip = 0) {
       let r = applyFilter(getRecords(entityName), query);
       r = applySort(r, sortStr);
+      if (skip) r = r.slice(skip);
       if (limit) r = r.slice(0, limit);
       return Promise.resolve(r);
     },
