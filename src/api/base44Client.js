@@ -1,11 +1,11 @@
 import { createClient } from '@base44/sdk';
 import { appParams } from '@/lib/app-params';
-import { localClient } from './offline/localClient.js';
+import { OFFLINE_ENABLED, getOfflineClient } from '@/api/offline/gate.js';
 
-// Em modo offline (VITE_OFFLINE=1) substitui o cliente Base44 pelo adaptador local
-// de somente leitura. A produção nunca define essa variável — o Vite faz tree-shaking
-// do branch morto, então o localClient não entra no bundle de produção.
-export const IS_OFFLINE = import.meta.env.VITE_OFFLINE === '1';
+// O "gate" decide o modo: em produção é o stub (OFFLINE_ENABLED=false) e o código
+// offline NÃO entra no bundle. No build offline, o alias troca gate.js por
+// gate.offline.js (OFFLINE_ENABLED=true) e injeta o adaptador local de leitura.
+export const IS_OFFLINE = OFFLINE_ENABLED;
 
 const { appId, token, functionsVersion, appBaseUrl } = appParams;
 
@@ -18,4 +18,4 @@ const onlineClient = IS_OFFLINE ? null : createClient({
   appBaseUrl,
 });
 
-export const base44 = IS_OFFLINE ? localClient : onlineClient;
+export const base44 = IS_OFFLINE ? getOfflineClient() : onlineClient;

@@ -111,6 +111,10 @@ const authProxy = {
       email: 'offline@casadoar.local',
       full_name: 'Modo Offline',
       role: 'admin',
+      // tipo_usuario garante acesso completo de admin no menu (EmpresaGuard
+      // gateia itens como "Pagamentos dos Clientes" por isAdminEmpresa()).
+      // Sem company_id/empresa_id de propósito → guards pulam consultas remotas.
+      tipo_usuario: 'admin_empresa',
     });
   },
   isAuthenticated() { return Promise.resolve(true); },

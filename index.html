@@ -40,7 +40,12 @@
   </head>
   <body>
     <div id="splash-screen">
-      <img src="https://media.base44.com/images/public/698ea42a04e403662faedcb4/20ff2fc9c_logocasadoar.jpg" alt="Casa do Ar Climatização" />
+      <img src="https://media.base44.com/images/public/698ea42a04e403662faedcb4/20ff2fc9c_logocasadoar.jpg" alt="Casa do Ar Climatização"
+           onerror="this.style.display='none'; document.getElementById('splash-fallback').style.display='block';" />
+      <div id="splash-fallback" style="display:none; text-align:center; font-family:'Bricolage Grotesque','Plus Jakarta Sans',sans-serif;">
+        <div style="font-size:42px; font-weight:800; letter-spacing:-0.02em; color:#fde047;">CASA DO AR</div>
+        <div style="font-size:20px; font-weight:700; letter-spacing:0.15em; color:#38bdf8; margin-top:4px;">CLIMATIZAÇÃO</div>
+      </div>
     </div>
     <div id="root"></div>
     <!-- Recupera rota após redirect do 404.html (GitHub Pages SPA fix) -->

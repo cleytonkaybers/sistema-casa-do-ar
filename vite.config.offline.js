@@ -14,14 +14,22 @@ export default defineConfig({
   ],
   base: './',
   define: {
-    'import.meta.env.VITE_OFFLINE': JSON.stringify('1'),
     // Variáveis do base44 que app-params lê — valores dummy (não usados offline)
     'import.meta.env.VITE_BASE44_APP_ID': JSON.stringify('offline'),
     'import.meta.env.VITE_BASE44_FUNCTIONS_VERSION': JSON.stringify('offline'),
     'import.meta.env.VITE_BASE44_APP_BASE_URL': JSON.stringify(''),
   },
   resolve: {
-    alias: { '@': path.resolve(import.meta.dirname ?? process.cwd(), './src') },
+    // A ordem importa: o alias específico do gate vem ANTES do '@' genérico.
+    // Isso troca o stub de produção (gate.js) pela versão real (gate.offline.js),
+    // ativando o modo offline só neste build.
+    alias: [
+      {
+        find: '@/api/offline/gate.js',
+        replacement: path.resolve(import.meta.dirname ?? process.cwd(), './src/api/offline/gate.offline.js'),
+      },
+      { find: '@', replacement: path.resolve(import.meta.dirname ?? process.cwd(), './src') },
+    ],
   },
   build: {
     outDir: 'dist-offline',
