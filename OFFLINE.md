@@ -23,9 +23,9 @@ O banner amarelo **🔌 MODO OFFLINE — somente leitura** fica visível em toda
 ## Onde pegar o backup
 
 ### Opção A — Backup diário automático (recomendado)
-A função `backupCompletoDiario` roda 1×/dia via automação do Base44 e salva no Google Drive
-na pasta **"Backup sistema casa do ar"**. Baixe o arquivo `backup_casa_do_ar_YYYY-MM-DD.json`
-do dia mais recente.
+A função `backupIncrementalDiario` (agora gera snapshot **completo**) roda 1×/dia via automação
+do Base44 e salva no Google Drive na pasta **"Backup sistema casa do ar"**. Baixe o arquivo
+`backup_completo_YYYY-MM-DD_Xh.json` do dia mais recente.
 
 ### Opção B — Export manual (imediato, qualquer hora)
 No app online: **Admin → Backup e Restaurar → Exportar → Baixar Backup JSON**.

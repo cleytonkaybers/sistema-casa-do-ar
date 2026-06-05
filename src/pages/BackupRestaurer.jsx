@@ -845,9 +845,9 @@ export default function BackupRestaurerPage() {
               <CardContent className="p-5 space-y-3">
                 <div className="flex items-center gap-2">
                   <Play className="w-4 h-4 text-blue-400" />
-                  <p className="font-semibold text-gray-200">Backup Incremental Manual</p>
+                  <p className="font-semibold text-gray-200">Backup Completo Manual</p>
                 </div>
-                <p className="text-sm text-gray-400">Cria um backup das alterações das últimas 24h e salva no Google Drive.</p>
+                <p className="text-sm text-gray-400">Cria um snapshot completo de todos os dados e salva no Google Drive.</p>
                 <Button
                   onClick={executarBackupManual}
                   disabled={executandoBackup}
