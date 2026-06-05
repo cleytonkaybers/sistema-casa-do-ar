@@ -34,10 +34,17 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    // Verificar admin
-    const user = await base44.auth.me();
-    if (user?.role !== 'admin') {
-      return Response.json({ error: 'Apenas administradores podem executar backups' }, { status: 403 });
+    // Permite execução por automação agendada (sem usuário) OU por admin.
+    // ANTES: exigia admin e, numa execução agendada (sem token), auth.me()
+    // falhava → o backup diário nunca era gerado. Agora segue o mesmo padrão
+    // do backupSemanalDrive.
+    try {
+      const user = await base44.auth.me();
+      if (user?.role !== 'admin') {
+        return Response.json({ error: 'Apenas administradores podem executar backups' }, { status: 403 });
+      }
+    } catch {
+      // Chamada via automação agendada (sem token de usuário) — permitido
     }
 
     const agora = new Date();
