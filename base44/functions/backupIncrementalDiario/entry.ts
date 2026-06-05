@@ -145,6 +145,9 @@ Deno.serve(async (req) => {
     });
 
     if (!uploadRes.ok) {
+      if (uploadRes.status === 403) {
+        throw new Error('Erro no upload: 403 — sem permissao de gravar no Google Drive. Reconecte a conta Google no Base44 APROVANDO o acesso ao Drive (escopo drive.file).');
+      }
       throw new Error(`Erro no upload: ${uploadRes.status}`);
     }
 
