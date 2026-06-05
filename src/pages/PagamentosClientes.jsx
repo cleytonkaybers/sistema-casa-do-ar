@@ -2694,7 +2694,9 @@ function PagamentosClientesContent() {
       });
     const agrupados = groupPagamentos(filtrados);
     return agrupados
-      .filter(g => filtroStatus.length === 0 || filtroStatus.includes(g.status))
+      // Serviços AGUARDANDO PREÇO ficam SEMPRE visíveis, ignorando o filtro de
+      // status — não somem mesmo que o ADM filtre só "Pagos", por exemplo.
+      .filter(g => grupoTemPlaceholder(g) || filtroStatus.length === 0 || filtroStatus.includes(g.status))
       .sort((a, b) => {
         // PRIORIDADE: servicos AGUARDANDO PRECO (placeholder 1111/5.55/<=1.0) aparecem
         // PRIMEIRO. Usa grupoTemPlaceholder pra cobrir mixed groups (1 placeholder + 1 pago).
