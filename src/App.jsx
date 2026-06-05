@@ -4,9 +4,12 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import NavigationTracker from '@/lib/NavigationTracker'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { IS_OFFLINE } from '@/api/base44Client';
+import { isHydrated, getDataDate } from '@/api/offline/localClient.js';
+import OfflineImport from '@/api/offline/OfflineImport.jsx';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import FinanceiroAdmin from '@/pages/FinanceiroAdmin';
 import MeuFinanceiro from '@/pages/MeuFinanceiro';
@@ -34,8 +37,31 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   <Layout currentPageName={currentPageName}>{children}</Layout>
   : <>{children}</>;
 
+// Banner fixo mostrado em todas as telas quando no modo offline
+function OfflineBanner() {
+  const date = getDataDate();
+  let label = 'dados sem data';
+  if (date) {
+    try {
+      label = 'dados de ' + new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch { label = date; }
+  }
+  return (
+    <div className="fixed top-0 left-0 right-0 z-[9999] flex items-center justify-center gap-2 bg-amber-500 text-amber-950 text-xs font-bold py-1.5 px-4 shadow-lg">
+      <span>🔌</span>
+      <span>MODO OFFLINE — somente leitura — {label}</span>
+    </div>
+  );
+}
+
 const AuthenticatedApp = () => {
   const { isLoading, authError } = useAuth();
+
+  // Gate offline: se ainda não importou o backup, mostra a tela de importação
+  const [offlineReady, setOfflineReady] = React.useState(IS_OFFLINE ? isHydrated() : true);
+  if (IS_OFFLINE && !offlineReady) {
+    return <OfflineImport onReady={() => setOfflineReady(true)} />;
+  }
 
   // Show loading spinner while checking auth
   if (isLoading) {
@@ -53,6 +79,9 @@ const AuthenticatedApp = () => {
 
   // Render the main app
   return (
+    <>
+    {IS_OFFLINE && <OfflineBanner />}
+    <div style={IS_OFFLINE ? { paddingTop: '2rem' } : {}}>
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
         <Route path="/" element={
@@ -129,23 +158,26 @@ const AuthenticatedApp = () => {
         <Route path="*" element={<PageNotFound />} />
       </Routes>
     </Suspense>
+    </div>
+    </>
   );
 };
 
 
-function App() {
+const Router = IS_OFFLINE ? HashRouter : BrowserRouter;
 
+function App() {
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
         <Router>
-          <NavigationTracker />
+          {!IS_OFFLINE && <NavigationTracker />}
           <AuthenticatedApp />
         </Router>
         <Toaster />
       </QueryClientProvider>
     </AuthProvider>
-  )
+  );
 }
 
 export default App

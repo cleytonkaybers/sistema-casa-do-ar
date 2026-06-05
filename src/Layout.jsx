@@ -25,7 +25,7 @@ import {
   DollarSign,
   Trophy } from
 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { base44, IS_OFFLINE } from '@/api/base44Client';
 import ErrorBoundary from '@/components/ErrorBoundary';
 
 import NotificationCenter from '@/components/NotificationCenter';
@@ -107,11 +107,11 @@ function LayoutContent({ children }) {
         { name: 'Ranking de Técnicos', href: '/RankingTecnicos', icon: Trophy },
         { name: 'Usuários', href: createPageUrl('Usuarios'), icon: Users },
         ...(isSuperAdmin() ? [{ name: 'Gerenciar Empresas', href: createPageUrl('GerenciarEmpresas'), icon: Database }] : []),
-        { name: 'Logs de Auditoria', href: createPageUrl('LogsAuditoria'), icon: Database },
-        { name: 'Backup e Restaurar', href: createPageUrl('BackupRestaurer'), icon: Database },
+        ...(!IS_OFFLINE ? [{ name: 'Logs de Auditoria', href: createPageUrl('LogsAuditoria'), icon: Database }] : []),
+        ...(!IS_OFFLINE ? [{ name: 'Backup e Restaurar', href: createPageUrl('BackupRestaurer'), icon: Database }] : []),
         { name: 'Configurações', href: createPageUrl('Configuracoes'), icon: Settings },
-        { name: 'Suporte', href: createPageUrl('Suporte'), icon: MessageCircle },
-        { name: 'Preferências de Notificação', href: createPageUrl('PreferencesNotificacao'), icon: Bell },
+        ...(!IS_OFFLINE ? [{ name: 'Suporte', href: createPageUrl('Suporte'), icon: MessageCircle }] : []),
+        ...(!IS_OFFLINE ? [{ name: 'Preferências de Notificação', href: createPageUrl('PreferencesNotificacao'), icon: Bell }] : []),
       ],
     },
   ];

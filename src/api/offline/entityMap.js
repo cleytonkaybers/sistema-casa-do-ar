@@ -1,0 +1,56 @@
+// Tabela canônica de entidades — mapeia a chave do backup para o nome da entidade
+// Base44. Usado pelo localClient (adaptador offline) e pela tela OfflineImport.
+// Fonte original: BackupRestaurer.jsx > ENTIDADES.
+export const ENTITY_MAP = [
+  { key: 'clientes',               entity: 'Cliente' },
+  { key: 'servicos',               entity: 'Servico' },
+  { key: 'atendimentos',           entity: 'Atendimento' },
+  { key: 'alteracaoStatus',        entity: 'AlteracaoStatus' },
+  { key: 'agendamentos',           entity: 'Agendamento' },
+  { key: 'equipes',                entity: 'Equipe' },
+  { key: 'tipoServicoValor',       entity: 'TipoServicoValor' },
+  { key: 'lancamentosFinanceiros', entity: 'LancamentoFinanceiro' },
+  { key: 'pagamentosClientes',     entity: 'PagamentoCliente' },
+  { key: 'pagamentosTecnicos',     entity: 'PagamentoTecnico' },
+  { key: 'tecnicoFinanceiro',      entity: 'TecnicoFinanceiro' },
+  { key: 'cheques',                entity: 'Cheque' },
+  { key: 'emprestimos',            entity: 'Emprestimo' },
+  { key: 'manutencaoPreventiva',   entity: 'ManutencaoPreventiva' },
+  { key: 'companySettings',        entity: 'CompanySettings' },
+  { key: 'pdfSettings',            entity: 'PDFSettings' },
+  { key: 'notificacoes',           entity: 'Notificacao' },
+  { key: 'preferenciasNotif',      entity: 'PreferenciaNotificacao' },
+  { key: 'configuracaoRelat',      entity: 'ConfiguracaoRelatorio' },
+  { key: 'relatoriosGerados',      entity: 'RelatorioGerado' },
+  { key: 'logsAuditoria',          entity: 'LogAuditoria' },
+  { key: 'chatConversations',      entity: 'ChatConversation' },
+  { key: 'chatMessages',           entity: 'ChatMessage' },
+  { key: 'usuarios',               entity: 'User' },
+];
+
+// Alias snake_case usados pelo backupSemanalDrive (v2.0) e backupCompletoDiario.
+// Mapeados para a mesma entity quando a key camelCase não for encontrada.
+export const SNAKE_ALIAS = {
+  clientes:                  'Cliente',
+  servicos:                  'Servico',
+  atendimentos:              'Atendimento',
+  alteracoes_status:         'AlteracaoStatus',
+  agendamentos:              'Agendamento',
+  equipes:                   'Equipe',
+  tipo_servico_valor:        'TipoServicoValor',
+  lancamentos_financeiros:   'LancamentoFinanceiro',
+  pagamentos_clientes:       'PagamentoCliente',
+  pagamentos_tecnicos:       'PagamentoTecnico',
+  tecnico_financeiro:        'TecnicoFinanceiro',
+  cheques:                   'Cheque',
+  emprestimos:               'Emprestimo',
+  manutencoes_preventivas:   'ManutencaoPreventiva',
+  company_settings:          'CompanySettings',
+  pdf_settings:              'PDFSettings',
+  notificacoes:              'Notificacao',
+  preferencias_notificacao:  'PreferenciaNotificacao',
+  configuracoes_relatorio:   'ConfiguracaoRelatorio',
+  relatorios_gerados:        'RelatorioGerado',
+  logs_auditoria:            'LogAuditoria',
+  usuarios:                  'User',
+};
