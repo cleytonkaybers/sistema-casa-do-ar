@@ -391,6 +391,40 @@ export default function BackupRestaurerPage() {
     }
   };
 
+  const [limpandoLogs, setLimpandoLogs] = useState(false);
+  const handleLimparLogs = async () => {
+    setLimpandoLogs(true);
+    try {
+      // 1) Dry-run: mostra quanto seria removido antes de confirmar
+      const prev = await base44.functions.invoke('limparLogsAntigos', { meses: 12, apenas_contar: true });
+      if (prev.data?.status !== 'success') {
+        toast.error(prev.data?.message || 'Erro ao verificar logs');
+        return;
+      }
+      const por = prev.data.por_entidade || {};
+      const totalNum = Object.values(por).reduce((s, n) => s + (Number(n) || 0), 0);
+      if (totalNum === 0) {
+        toast.info('Nenhum log com mais de 12 meses para remover.');
+        return;
+      }
+      const detalhe = Object.entries(por).map(([k, v]) => `• ${k}: ${v}`).join('\n');
+      if (!window.confirm(`Remover ${totalNum} registro(s) de LOG com mais de 12 meses?\n\n${detalhe}\n\nOs dados continuam no backup completo. Esta ação não pode ser desfeita.`)) return;
+      // 2) Limpeza real
+      const resp = await base44.functions.invoke('limparLogsAntigos', { meses: 12 });
+      if (resp.data?.status === 'success') {
+        toast.success(`Logs antigos removidos: ${resp.data.total}`);
+      } else if (resp.data?.status === 'abortado') {
+        toast.error(resp.data.message); // sem backup completo recente
+      } else {
+        toast.error(resp.data?.message || 'Erro ao limpar logs');
+      }
+    } catch (error) {
+      toast.error('Erro ao limpar logs: ' + error.message);
+    } finally {
+      setLimpandoLogs(false);
+    }
+  };
+
   const handleLimparBackups = async () => {
     if (!window.confirm(`Remover todos os backups com mais de ${diasRetencao} dias do Google Drive?\n\nEsta ação não pode ser desfeita.`)) return;
     setLimpando(true);
@@ -900,6 +934,22 @@ export default function BackupRestaurerPage() {
                     ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Limpando...</>
                     : <><Trash2 className="w-4 h-4 mr-2" />Limpar Backups Antigos</>}
                 </Button>
+
+                <div className="border-t border-white/5 pt-3 mt-1">
+                  <p className="text-sm text-gray-400 mb-2">
+                    Remover <span className="text-gray-200 font-medium">logs antigos (&gt; 12 meses)</span> — histórico de status, auditoria e notificações. Mantém o sistema leve; os dados ficam no backup completo.
+                  </p>
+                  <Button
+                    onClick={handleLimparLogs}
+                    disabled={limpandoLogs}
+                    variant="outline"
+                    className="w-full border-amber-700/50 text-amber-400 hover:bg-amber-500/10 font-semibold"
+                  >
+                    {limpandoLogs
+                      ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Verificando...</>
+                      : <><Trash2 className="w-4 h-4 mr-2" />Limpar Logs Antigos (12m)</>}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
