@@ -236,13 +236,13 @@ function groupPagamentos(lista) {
     const valorTotal = recordsDedup.reduce((s, r) => s + (r.valor_total || 0), 0);
     const valorPago = recordsDedup.reduce((s, r) => s + (r.valor_pago || 0), 0);
     const saldo = valorTotal - valorPago;
-    // Servico SEM PRECO (placeholder, ex: valor 0) nunca pode ser "pago" — senao
-    // saldo 0 seria lido como quitado. Fica pendente/parcial ate ser precificado.
-    const temPlaceholderPendente = recordsDedup.some(r => isValorPlaceholder(r.valor_total) && (r.valor_pago || 0) === 0);
-    // Tolerancia de R$1 so se houve algum pagamento (cobre arredondamento). Sem pagamento = pendente.
-    const status = temPlaceholderPendente
-      ? (valorPago > 0 ? 'parcial' : 'pendente')
-      : (saldo <= 0.01 || (valorPago > 0 && saldo <= 5.0) ? 'pago' : valorPago > 0 ? 'parcial' : 'pendente'); // tolerancia R$5 — diferenca pequena conta como quitado
+    // REGRA: "pago" EXIGE pagamento real. Sem nenhum pagamento (valorPago <= 0)
+    // o status nunca é 'pago' — isso evita que serviço sem preço (saldo 0) ou
+    // recém-precificado seja marcado como quitado sem ninguém ter pago.
+    // Com pagamento: saldo pequeno (tolerância R$5 p/ arredondamento) = pago, senão parcial.
+    const status = valorPago <= 0
+      ? 'pendente'
+      : (saldo <= 5.0 ? 'pago' : 'parcial');
     // Mescla historico_pagamentos dos records deduplicados
     const historicoMesclado = recordsDedup.flatMap(r => r.historico_pagamentos || []);
     return {
@@ -1031,9 +1031,9 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   const ehPlaceholderCard = pag._records?.length > 0
     ? grupoTemPlaceholder(pag)
     : isValorPlaceholder(pag.valor_total) && (pag.valor_pago || 0) === 0;
-  // Tolerância de R$1 só se houve algum pagamento (cobre arredondamento em serviços compostos).
-  // Sem preço (placeholder) NUNCA é "pago" — senao saldo 0 seria lido como quitado.
-  const isPago = !ehPlaceholderCard && (pag.status === 'pago' || saldo <= 0.01 || (_valorPago > 0 && saldo <= 1.0));
+  // "Pago" EXIGE pagamento real: sem nenhum valor pago, nunca é quitado (evita
+  // que serviço sem preço / saldo 0 / recém-precificado apareça como pago).
+  const isPago = _valorPago > 0 && (pag.status === 'pago' || saldo <= 1.0);
   const isParcial = !isPago && pag.status === 'parcial' && _valorPago > 0;
   const temHistoricoReal = (pag.historico_pagamentos || []).some(h => !h.agendada && !h.consolidado);
   // Mostrar 100% apenas se realmente pago — evitar display enganoso
@@ -1570,11 +1570,11 @@ function PagamentosClientesContent() {
   // NUNCA marca placeholder sem pagamento como 'pago'.
   const isEfetivamentePago = useCallback((p) => {
     const valorPago = p.valor_pago || 0;
+    // Sem pagamento real NUNCA é "efetivamente pago" — assim um serviço marcado
+    // pago por engano (saldo 0 sem pagamento) NÃO é auto-arquivado e some da tela.
+    if (valorPago <= 0) return false;
     const saldo = (p.valor_total || 0) - valorPago;
-    return (
-      p.status === 'pago' ||
-      (valorPago > 0 && saldo <= 5.0)        // tolerancia R$5 (diferenca pequena)
-    );
+    return p.status === 'pago' || saldo <= 5.0;   // tolerancia R$5 (diferenca pequena)
   }, []);
 
   // Helper: verifica se data é de semana anterior
@@ -2137,7 +2137,9 @@ function PagamentosClientesContent() {
     // Busca registros frescos direto do pagamentos (evita dados desatualizados de _records)
     const nomeKey = chaveIdentidadeCliente(pag.cliente_nome, pag.telefone);
     const candidatos = pagamentosPorNome.get(nomeKey) || [];
-    const recordsFrescos = candidatos.filter(p => p.status !== 'pago');
+    // Exclui apenas os GENUINAMENTE pagos (com pagamento real). Registros marcados
+    // 'pago' por engano (sem nenhum valor pago) PRECISAM ser precificáveis.
+    const recordsFrescos = candidatos.filter(p => !((p.valor_pago || 0) > 0 && p.status === 'pago'));
     const records = recordsFrescos.length > 0 ? recordsFrescos : (pag._records || [pag]);
 
     let atualizados = 0;
