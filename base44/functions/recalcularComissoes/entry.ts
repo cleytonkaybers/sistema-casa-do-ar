@@ -1,5 +1,23 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
+// Fallback inteligente: taxa MAIS COMUM da Tabela de Serviços (em vez de 30/15
+// fixo). Mantém comissões de serviços não-casados seguindo a política do ADM.
+function modaPercentuais(tipos: any[]): { equipe: number; tecnico: number } {
+  if (!Array.isArray(tipos) || tipos.length === 0) return { equipe: 30, tecnico: 15 };
+  const contagem = new Map<string, number>();
+  for (const t of tipos) {
+    const eq = t?.percentual_equipe, tec = t?.percentual_tecnico;
+    if (eq == null || tec == null) continue;
+    const chave = `${eq}|${tec}`;
+    contagem.set(chave, (contagem.get(chave) || 0) + 1);
+  }
+  if (contagem.size === 0) return { equipe: 30, tecnico: 15 };
+  let melhor = '', melhorN = -1;
+  for (const [chave, n] of contagem) { if (n > melhorN) { melhorN = n; melhor = chave; } }
+  const [equipe, tecnico] = melhor.split('|').map(Number);
+  return { equipe, tecnico };
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -61,7 +79,11 @@ Deno.serve(async (req) => {
     let percentual_equipe = 30;
     let percentual_tecnico = 15;
     try {
-      const todosTipos = await base44.asServiceRole.entities.TipoServicoValor.list();
+      const todosTipos = await base44.asServiceRole.entities.TipoServicoValor.list('-created_date', 5000);
+      // Fallback = taxa mais comum da tabela (segue a política uniforme do ADM).
+      const fb = modaPercentuais(todosTipos);
+      percentual_equipe = fb.equipe;
+      percentual_tecnico = fb.tecnico;
       const tipoServ = servico.tipo_servico || '';
       let match = todosTipos.find((t: any) => norm(t.tipo_servico) === norm(tipoServ));
       if (!match) {
@@ -79,8 +101,8 @@ Deno.serve(async (req) => {
         }
       }
       if (match) {
-        percentual_equipe = match.percentual_equipe ?? 30;
-        percentual_tecnico = match.percentual_tecnico ?? 15;
+        percentual_equipe = match.percentual_equipe ?? fb.equipe;
+        percentual_tecnico = match.percentual_tecnico ?? fb.tecnico;
       }
     } catch (err) {
       console.warn('[recalcularComissoes] erro ao consultar Tabela de Servicos:', err);

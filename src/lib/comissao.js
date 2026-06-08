@@ -5,6 +5,34 @@ const PERCENTUAL_TECNICO_FALLBACK = 15;
 
 const norm = (s) => (s || '').trim().toLowerCase();
 
+// Fallback INTELIGENTE: quando o tipo de serviço não casa com a Tabela de
+// Serviços, usa a taxa MAIS COMUM da própria tabela (em vez do 30/15 fixo).
+// Assim, com uma política uniforme (ex: tudo 34/17), um serviço composto/com
+// nome fora do padrão segue o mesmo 34/17 — e acompanha automaticamente se o
+// ADM mudar a tabela. Só cai no 30/15 se a tabela estiver vazia.
+function fallbackPercentuais(tipos) {
+  if (!Array.isArray(tipos) || tipos.length === 0) {
+    return { equipe: PERCENTUAL_EQUIPE_FALLBACK, tecnico: PERCENTUAL_TECNICO_FALLBACK };
+  }
+  const contagem = new Map(); // "equipe|tecnico" -> ocorrências
+  for (const t of tipos) {
+    const eq = t?.percentual_equipe;
+    const tec = t?.percentual_tecnico;
+    if (eq == null || tec == null) continue;
+    const chave = `${eq}|${tec}`;
+    contagem.set(chave, (contagem.get(chave) || 0) + 1);
+  }
+  if (contagem.size === 0) {
+    return { equipe: PERCENTUAL_EQUIPE_FALLBACK, tecnico: PERCENTUAL_TECNICO_FALLBACK };
+  }
+  let melhor = null, melhorN = -1;
+  for (const [chave, n] of contagem) {
+    if (n > melhorN) { melhorN = n; melhor = chave; }
+  }
+  const [equipe, tecnico] = melhor.split('|').map(Number);
+  return { equipe, tecnico };
+}
+
 // Remove sufixos entre colchetes ("[Marca: TCL]", "[Ar da sogra]") que sao
 // metadados visuais e nao fazem parte do tipo de servico cadastrado na tabela.
 // Ex: "Instalacao de 12k [Marca: TCL]" -> "Instalacao de 12k"
@@ -59,8 +87,9 @@ function findPercentuais(tipoServico, tipos) {
 export function calcularComissaoSync(tipoServico, valorTotal, tipos) {
   const valor = Number(valorTotal) || 0;
   const { match } = findPercentuais(tipoServico, tipos || []);
-  const percentual_equipe = match?.percentual_equipe ?? PERCENTUAL_EQUIPE_FALLBACK;
-  const percentual_tecnico = match?.percentual_tecnico ?? PERCENTUAL_TECNICO_FALLBACK;
+  const fb = fallbackPercentuais(tipos || []);
+  const percentual_equipe = match?.percentual_equipe ?? fb.equipe;
+  const percentual_tecnico = match?.percentual_tecnico ?? fb.tecnico;
   return {
     percentual_equipe,
     percentual_tecnico,
@@ -79,11 +108,12 @@ export async function calcularComissao(tipoServico, valorTotal, queryClient) {
   }
 
   const { match, motivo } = findPercentuais(tipoServico, tipos || []);
-  const percentual_equipe = match?.percentual_equipe ?? PERCENTUAL_EQUIPE_FALLBACK;
-  const percentual_tecnico = match?.percentual_tecnico ?? PERCENTUAL_TECNICO_FALLBACK;
+  const fb = fallbackPercentuais(tipos || []);
+  const percentual_equipe = match?.percentual_equipe ?? fb.equipe;
+  const percentual_tecnico = match?.percentual_tecnico ?? fb.tecnico;
 
   if (motivo === 'fallback' && tipoServico) {
-    console.warn(`[comissao] tipo "${tipoServico}" nao encontrado na Tabela de Servicos, usando fallback ${PERCENTUAL_EQUIPE_FALLBACK}/${PERCENTUAL_TECNICO_FALLBACK}`);
+    console.warn(`[comissao] tipo "${tipoServico}" nao encontrado na Tabela de Servicos, usando fallback ${fb.equipe}/${fb.tecnico} (taxa mais comum da tabela)`);
   }
 
   return {
