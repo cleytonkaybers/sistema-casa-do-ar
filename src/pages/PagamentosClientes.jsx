@@ -257,16 +257,40 @@ function groupPagamentos(lista) {
   });
 }
 
+// Pré-preenche os preços UNITÁRIOS por tipo a partir dos registros já salvos,
+// para que serviços JÁ PRECIFICADOS mostrem o valor salvo ao reabrir o modal.
+// Preço unitário = valor_total do registro / nº de componentes. Prefere registro
+// "puro" (todos os componentes iguais ao tipo) para precisão; se o tipo só
+// aparece em registro MISTO (composto), usa a média (valor_total / nº comp) —
+// assim compostos já precificados também aparecem com preço (antes ficavam 0,00).
+function prefillPrecosPorTipo(records, servicosGrupos, fonte) {
+  const base = (fonte && fonte.length > 0) ? fonte : records;
+  const compor = (r) => (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
+  const inicial = {};
+  servicosGrupos.forEach(({ tipo }) => {
+    let rec = base.find(r => {
+      const c = compor(r);
+      return c.length > 0 && c.every(t => t === tipo) && (r.valor_total || 0) > 1;
+    });
+    if (!rec) rec = base.find(r => compor(r).includes(tipo) && (r.valor_total || 0) > 1);
+    if (rec) {
+      const n = compor(rec).length || 1;
+      inicial[tipo] = Number((rec.valor_total || 0) / n).toFixed(2).replace('.', ',');
+    } else {
+      inicial[tipo] = '';
+    }
+  });
+  return inicial;
+}
+
 // Modal exclusivo para DEFINIR PREÇOS
 function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], onSave }) {
   const [precosGrupo, setPrecosGrupo] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // Agrupa por SERVIÇO INTEIRO (tipo_servico completo), NÃO por tipo dividido
-  // por "+". Assim um serviço composto ("A + B + C") é UMA linha com seu preço,
-  // e serviços iguais repetidos somam quantidade. Isso permite exibir o preço já
-  // salvo de qualquer serviço (inclusive compostos) — antes os compostos ficavam
-  // 0,00 porque não dava pra dividir o total entre os componentes.
+  // Agrupa por TIPO (divide o tipo_servico por "+") com QUANTIDADE.
+  // Ex: serviço "Limpeza 12k + Limpeza 12k" => 1 linha "2x Limpeza 12k".
+  // Tipos diferentes ficam em linhas separadas, cada um com seu quantitativo.
   const servicosGrupos = useMemo(() => {
     if (!pagamento) return [];
     const records = (pagamento._records && pagamento._records.length > 0)
@@ -274,24 +298,21 @@ function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], on
       : [pagamento];
     const counts = {};
     records.forEach(r => {
-      const tipo = (r.tipo_servico || '').trim() || 'Servico';
-      counts[tipo] = (counts[tipo] || 0) + 1;
+      const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
+      tipos.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
     });
+    // Fallback: tipo_servico vazio -> 1 entrada pra permitir precificar.
+    if (Object.keys(counts).length === 0) {
+      const tipoBruto = (pagamento.tipo_servico || '').trim() || 'Servico';
+      counts[tipoBruto] = Math.max(1, records.length);
+    }
     return Object.entries(counts).map(([tipo, qtd]) => ({ tipo, qtd }));
   }, [pagamento]);
 
   useEffect(() => {
     if (!open || !pagamento) return;
     const records = pagamento._records || [pagamento];
-
-    const inicial = {};
-    servicosGrupos.forEach(({ tipo }) => {
-      // Mostra o preço JÁ SALVO deste serviço (registro com este tipo_servico e
-      // valor real > 1). O preço é por serviço (valor_total do registro).
-      const rec = records.find(r => ((r.tipo_servico || '').trim() || 'Servico') === tipo && (r.valor_total || 0) > 1);
-      inicial[tipo] = rec ? Number(rec.valor_total || 0).toFixed(2).replace('.', ',') : '';
-    });
-    setPrecosGrupo(inicial);
+    setPrecosGrupo(prefillPrecosPorTipo(records, servicosGrupos));
   }, [open, pagamento?.id, servicosGrupos]);
 
   const handleSave = async () => {
@@ -392,14 +413,13 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
   // Preços salvos (somente leitura neste modal)
   const [precosGrupo, setPrecosGrupo] = useState({});
 
-  // Agrupa por SERVIÇO INTEIRO (tipo_servico completo) — consistente com o modal
-  // de Definir Preços. Serviço composto = 1 linha; iguais repetidos somam qtd.
+  // Agrupa por TIPO (divide por "+") com quantidade — consistente com Definir Preços.
   const servicosGrupos = useMemo(() => {
     const records = pagamento?._records || (pagamento ? [pagamento] : []);
     const counts = {};
     records.forEach(r => {
-      const tipo = (r.tipo_servico || '').trim() || 'Servico';
-      counts[tipo] = (counts[tipo] || 0) + 1;
+      const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
+      tipos.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
     });
     return Object.entries(counts).map(([tipo, qtd]) => ({ tipo, qtd }));
   }, [pagamento]);
@@ -421,15 +441,9 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
     const frescos = pagamentosAtuais.filter(p => idsAtend.has(p.atendimento_id) || idsAtend.has(p.id));
     const fonte = frescos.length > 0 ? frescos : records;
 
-    const inicial = {};
-    const tiposSet = new Set(records.map(r => (r.tipo_servico || '').trim() || 'Servico'));
-    tiposSet.forEach(tipo => {
-      // Preço já salvo deste serviço inteiro (valor_total do registro).
-      const rec = fonte.find(r => ((r.tipo_servico || '').trim() || 'Servico') === tipo && (r.valor_total || 0) > 0);
-      inicial[tipo] = rec ? Number(rec.valor_total || 0).toFixed(2).replace('.', ',') : '';
-    });
-    setPrecosGrupo(inicial);
-  }, [open, pagamento, pagamentosAtuais, syncKey]);
+    // Preenche o preço unitário por tipo a partir do que já foi salvo (puro ou misto).
+    setPrecosGrupo(prefillPrecosPorTipo(records, servicosGrupos, fonte));
+  }, [open, pagamento, pagamentosAtuais, syncKey, servicosGrupos]);
 
   const totalDefinido = servicosGrupos.reduce((s, g) => {
     const preco = parseFloat((precosGrupo[g.tipo] || '').replace(',', '.')) || 0;
@@ -2116,10 +2130,14 @@ function PagamentosClientesContent() {
 
     let atualizados = 0;
     for (const rec of records) {
-      // Preço é por SERVIÇO INTEIRO (chave = tipo_servico completo). Registros
-      // não tocados (preço vazio) ficam com seu valor atual (guard novoPreco > 0).
-      const tipo = (rec.tipo_servico || '').trim() || 'Servico';
-      const novoPreco = parseFloat((precosGrupo[tipo] || '').replace(',', '.')) || 0;
+      // valor_total do registro = soma do preço unitário de cada componente.
+      // Registros não tocados (componentes com preço vazio) ficam com o valor
+      // atual (guard novoPreco > 0), preservando preços e pagamentos já salvos.
+      const tipos = (rec.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
+      let novoPreco = tipos.reduce((sum, t) => sum + (parseFloat((precosGrupo[t] || '').replace(',', '.')) || 0), 0);
+      if (novoPreco === 0 && records.length === 1 && tipos.length === 0) {
+        novoPreco = Object.values(precosGrupo).reduce((sum, v) => sum + (parseFloat((v || '').replace(',', '.')) || 0), 0);
+      }
       if (novoPreco > 0) {
         const novoStatus = rec.data_pagamento_agendado ? 'agendado' : 'pendente';
         await updateMutation.mutateAsync({ id: rec.id, data: { valor_total: novoPreco, status: novoStatus } });
@@ -2137,10 +2155,10 @@ function PagamentosClientesContent() {
     const dataStr = format(new Date(), "dd/MM/yyyy HH:mm");
 
     const calcularValorRecord = (rec) => {
-      // Preço por SERVIÇO INTEIRO (chave = tipo_servico completo).
-      const tipo = (rec.tipo_servico || '').trim() || 'Servico';
-      const preco = parseFloat((precosGrupo[tipo] || '').replace(',', '.')) || 0;
-      return preco > 0 ? preco : rec.valor_total;
+      // valor_total do registro = soma do preço unitário de cada componente.
+      const tipos = (rec.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
+      const total = tipos.reduce((sum, t) => sum + (parseFloat((precosGrupo[t] || '').replace(',', '.')) || 0), 0);
+      return total > 0 ? total : rec.valor_total;
     };
 
     const recordsAtualizados = records.map(rec => {
