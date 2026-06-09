@@ -262,6 +262,11 @@ function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], on
   const [precosGrupo, setPrecosGrupo] = useState({});
   const [loading, setLoading] = useState(false);
 
+  // Agrupa por SERVIÇO INTEIRO (tipo_servico completo), NÃO por tipo dividido
+  // por "+". Assim um serviço composto ("A + B + C") é UMA linha com seu preço,
+  // e serviços iguais repetidos somam quantidade. Isso permite exibir o preço já
+  // salvo de qualquer serviço (inclusive compostos) — antes os compostos ficavam
+  // 0,00 porque não dava pra dividir o total entre os componentes.
   const servicosGrupos = useMemo(() => {
     if (!pagamento) return [];
     const records = (pagamento._records && pagamento._records.length > 0)
@@ -269,16 +274,9 @@ function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], on
       : [pagamento];
     const counts = {};
     records.forEach(r => {
-      const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-      tipos.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+      const tipo = (r.tipo_servico || '').trim() || 'Servico';
+      counts[tipo] = (counts[tipo] || 0) + 1;
     });
-    // Fallback ROBUSTO: se nenhum tipo foi extraido (tipo_servico vazio, "+",
-    // null, etc), garantir pelo menos 1 entrada para que o modal mostre 1 input
-    // e o ADM possa precificar.
-    if (Object.keys(counts).length === 0) {
-      const tipoBruto = (pagamento.tipo_servico || '').trim() || 'Servico';
-      counts[tipoBruto] = Math.max(1, records.length);
-    }
     return Object.entries(counts).map(([tipo, qtd]) => ({ tipo, qtd }));
   }, [pagamento]);
 
@@ -288,24 +286,10 @@ function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], on
 
     const inicial = {};
     servicosGrupos.forEach(({ tipo }) => {
-      // Busca record onde TODOS os tipos sao iguais a este tipo (preço unitario
-      // pode ser calculado com seguranca: valor_total / qtd_tipos).
-      const recPuro = records.find(r => {
-        const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-        return tipos.length > 0 && tipos.every(t => t === tipo) && (r.valor_total || 0) > 1;
-      });
-      if (recPuro) {
-        const tipos = (recPuro.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-        const precoUnitario = tipos.length > 0 ? (recPuro.valor_total || 0) / tipos.length : (recPuro.valor_total || 0);
-        inicial[tipo] = Number(precoUnitario).toFixed(2).replace('.', ',');
-        return;
-      }
-      // Fallback: se este tipo aparece em records mistos (com outros tipos), nao
-      // ha como determinar seu preco unitario individual a partir do valor_total
-      // total do record. DEIXAR VAZIO — usuario decide. Antes pegava valor_total
-      // do primeiro record com valor > 1, gerando precos aleatorios e iguais
-      // entre tipos diferentes.
-      inicial[tipo] = '';
+      // Mostra o preço JÁ SALVO deste serviço (registro com este tipo_servico e
+      // valor real > 1). O preço é por serviço (valor_total do registro).
+      const rec = records.find(r => ((r.tipo_servico || '').trim() || 'Servico') === tipo && (r.valor_total || 0) > 1);
+      inicial[tipo] = rec ? Number(rec.valor_total || 0).toFixed(2).replace('.', ',') : '';
     });
     setPrecosGrupo(inicial);
   }, [open, pagamento?.id, servicosGrupos]);
@@ -408,12 +392,14 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
   // Preços salvos (somente leitura neste modal)
   const [precosGrupo, setPrecosGrupo] = useState({});
 
+  // Agrupa por SERVIÇO INTEIRO (tipo_servico completo) — consistente com o modal
+  // de Definir Preços. Serviço composto = 1 linha; iguais repetidos somam qtd.
   const servicosGrupos = useMemo(() => {
     const records = pagamento?._records || (pagamento ? [pagamento] : []);
     const counts = {};
     records.forEach(r => {
-      const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-      tipos.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+      const tipo = (r.tipo_servico || '').trim() || 'Servico';
+      counts[tipo] = (counts[tipo] || 0) + 1;
     });
     return Object.entries(counts).map(([tipo, qtd]) => ({ tipo, qtd }));
   }, [pagamento]);
@@ -436,25 +422,11 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
     const fonte = frescos.length > 0 ? frescos : records;
 
     const inicial = {};
-    const counts = {};
-    records.forEach(r => {
-      const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-      tipos.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
-    });
-    Object.keys(counts).forEach(tipo => {
-      // Tenta buscar um record com esse tipo que tenha valor_total > 0
-      const rec = fonte.find(r => {
-        const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-        return tipos.includes(tipo) && (r.valor_total || 0) > 0;
-      });
-      if (rec) {
-        // Se encontrou, calcula o valor individual dividindo pelo número de tipos nesse record
-        const tipos = (rec.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-        const valorIndividual = rec.valor_total / tipos.length;
-        inicial[tipo] = Number(valorIndividual).toFixed(2).replace('.', ',');
-      } else {
-        inicial[tipo] = '';
-      }
+    const tiposSet = new Set(records.map(r => (r.tipo_servico || '').trim() || 'Servico'));
+    tiposSet.forEach(tipo => {
+      // Preço já salvo deste serviço inteiro (valor_total do registro).
+      const rec = fonte.find(r => ((r.tipo_servico || '').trim() || 'Servico') === tipo && (r.valor_total || 0) > 0);
+      inicial[tipo] = rec ? Number(rec.valor_total || 0).toFixed(2).replace('.', ',') : '';
     });
     setPrecosGrupo(inicial);
   }, [open, pagamento, pagamentosAtuais, syncKey]);
@@ -2144,20 +2116,10 @@ function PagamentosClientesContent() {
 
     let atualizados = 0;
     for (const rec of records) {
-      const tipos = (rec.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-      let novoPreco = tipos.reduce((sum, t) => {
-        const val = parseFloat((precosGrupo[t] || '').replace(',', '.')) || 0;
-        return sum + val;
-      }, 0);
-      // Fallback APENAS quando ha 1 unico record com tipo_servico vazio
-      // (caso historico do Wesley). Se ha varios records, NAO somar tudo —
-      // isso multiplicaria o valor total do cliente. Records sem match ficam
-      // com seu valor atual.
-      if (novoPreco === 0 && records.length === 1 && tipos.length === 0) {
-        novoPreco = Object.values(precosGrupo).reduce((sum, v) => {
-          return sum + (parseFloat((v || '').replace(',', '.')) || 0);
-        }, 0);
-      }
+      // Preço é por SERVIÇO INTEIRO (chave = tipo_servico completo). Registros
+      // não tocados (preço vazio) ficam com seu valor atual (guard novoPreco > 0).
+      const tipo = (rec.tipo_servico || '').trim() || 'Servico';
+      const novoPreco = parseFloat((precosGrupo[tipo] || '').replace(',', '.')) || 0;
       if (novoPreco > 0) {
         const novoStatus = rec.data_pagamento_agendado ? 'agendado' : 'pendente';
         await updateMutation.mutateAsync({ id: rec.id, data: { valor_total: novoPreco, status: novoStatus } });
@@ -2175,12 +2137,10 @@ function PagamentosClientesContent() {
     const dataStr = format(new Date(), "dd/MM/yyyy HH:mm");
 
     const calcularValorRecord = (rec) => {
-      const tipos = (rec.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-      const total = tipos.reduce((sum, t) => {
-        const preco = parseFloat((precosGrupo[t] || '').replace(',', '.')) || 0;
-        return sum + preco;
-      }, 0);
-      return total > 0 ? total : rec.valor_total;
+      // Preço por SERVIÇO INTEIRO (chave = tipo_servico completo).
+      const tipo = (rec.tipo_servico || '').trim() || 'Servico';
+      const preco = parseFloat((precosGrupo[tipo] || '').replace(',', '.')) || 0;
+      return preco > 0 ? preco : rec.valor_total;
     };
 
     const recordsAtualizados = records.map(rec => {
