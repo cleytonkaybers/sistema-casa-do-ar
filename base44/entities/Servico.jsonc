@@ -92,6 +92,11 @@
       "type": "string",
       "description": "Descri\u00e7\u00e3o do servi\u00e7o"
     },
+    "instalacoes_relatorio_concluidas": {
+      "type": "array",
+      "items": { "type": "number" },
+      "description": "\u00cdndices das instala\u00e7\u00f5es deste servi\u00e7o marcadas como conclu\u00eddas no Relat\u00f3rio de Instala\u00e7\u00f5es (controle de garantia). Persistido no banco para n\u00e3o reaparecer entre dispositivos."
+    },
     "valor": {
       "type": "number",
       "description": "Valor do servi\u00e7o (pre\u00e7o total)"

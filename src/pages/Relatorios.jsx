@@ -139,7 +139,14 @@ export default function RelatóriosPage() {
   };
 
   const [instalacoesArquivadas, setInstalacoesArquivadas] = useState(lerArquivadasDoLocalStorage);
-  const [verArquivadas, setVerArquivadas] = useState(false);
+  // Filtro de status do relatório de instalações:
+  //   'pendentes'  = faltam concluir (padrão)
+  //   'concluidas' = já concluídas (garantia confirmada)
+  //   'todas'      = ambas
+  const [filtroStatusInst, setFiltroStatusInst] = useState('pendentes');
+  // Piso de data: mostra instalações de 2 meses atrás (início do mês) em diante.
+  // As anteriores ficam ocultas para não poluir.
+  const instalacoesDataPiso = useMemo(() => startOfMonth(subMonths(new Date(), 2)), []);
 
   // Defensivo 1: useEffect persiste sempre que o estado muda
   React.useEffect(() => {
@@ -161,18 +168,32 @@ export default function RelatóriosPage() {
     return () => window.removeEventListener('focus', onFocus);
   }, []);
 
-  // Acao explicita (nao toggle) com persistencia SINCRONA dentro do setter.
-  // Dupla garantia: nao depende de useEffect/re-render para persistir.
+  // Marca/desmarca uma instalação como concluída no relatório.
+  // Persiste no BANCO (no próprio Serviço) para NÃO reaparecer entre dispositivos,
+  // e também em localStorage (atualização instantânea + compatibilidade legada).
   const setArquivada = (key, arquivar) => {
+    // 1) localStorage (instantâneo, legado)
     setInstalacoesArquivadas(prev => {
       const ja = prev.has(key);
-      if (arquivar === ja) return prev; // sem mudanca
+      if (arquivar === ja) return prev;
       const next = new Set(prev);
       if (arquivar) next.add(key); else next.delete(key);
-      // Persiste IMEDIATAMENTE — nao espera o useEffect rodar
       try { localStorage.setItem(LS_KEY_ARQUIVADAS, JSON.stringify([...next])); } catch (_e) { /* ignore */ }
       return next;
     });
+    // 2) Banco: atualiza o array instalacoes_relatorio_concluidas do Serviço.
+    // A key é `${servicoId}-${idx}` (servicoId pode conter '-', idx é o último).
+    const corte = key.lastIndexOf('-');
+    const servicoId = key.slice(0, corte);
+    const idx = Number(key.slice(corte + 1));
+    if (!servicoId || Number.isNaN(idx)) return;
+    const servico = servicos.find(s => s.id === servicoId);
+    if (!servico) return;
+    const atual = Array.isArray(servico.instalacoes_relatorio_concluidas) ? servico.instalacoes_relatorio_concluidas : [];
+    const novo = arquivar ? [...new Set([...atual, idx])] : atual.filter(n => n !== idx);
+    base44.entities.Servico.update(servicoId, { instalacoes_relatorio_concluidas: novo })
+      .then(() => queryClient.invalidateQueries({ queryKey: ['servicos'] }))
+      .catch(err => console.error('[instalacoes] erro ao persistir conclusão:', err));
   };
 
   const dateRange = useMemo(() => {
@@ -429,8 +450,14 @@ export default function RelatóriosPage() {
   // Valor e rateado igualmente entre os itens do servico.
   const instalacoesExpandidas = useMemo(() => {
     const out = [];
-    servicosFiltrados
+    // Independente do período do topo: usa TODOS os serviços concluídos a partir
+    // do piso (2 meses atrás). Brand/equipe/status são filtrados depois.
+    servicos
       .filter(s => s.status === 'concluido')
+      .filter(s => {
+        const d = s.data_conclusao || s.data_programada;
+        return d && new Date(d) >= instalacoesDataPiso;
+      })
       .forEach(s => {
         const partes = (s.tipo_servico || '').split(' + ').filter(Boolean);
         const totalItens = partes.length || 1;
@@ -467,7 +494,17 @@ export default function RelatóriosPage() {
         });
       });
     return out;
-  }, [servicosFiltrados]);
+  }, [servicos, instalacoesDataPiso]);
+
+  // Conjunto de instalações JÁ CONCLUÍDAS no relatório.
+  // Fonte de verdade = banco (campo do Serviço); une o legado de localStorage.
+  const concluidasSet = useMemo(() => {
+    const s = new Set(instalacoesArquivadas);
+    servicos.forEach(srv => {
+      (srv.instalacoes_relatorio_concluidas || []).forEach(idx => s.add(`${srv.id}-${idx}`));
+    });
+    return s;
+  }, [servicos, instalacoesArquivadas]);
 
   const equipesNoPeriodo = useMemo(() => {
     const map = new Map();
@@ -479,17 +516,22 @@ export default function RelatóriosPage() {
 
   const instalacoesFiltradas = useMemo(() =>
     instalacoesExpandidas
-      .filter(i => verArquivadas ? instalacoesArquivadas.has(i.key) : !instalacoesArquivadas.has(i.key))
+      .filter(i => {
+        if (filtroStatusInst === 'concluidas') return concluidasSet.has(i.key);
+        if (filtroStatusInst === 'pendentes') return !concluidasSet.has(i.key);
+        return true; // todas
+      })
       .filter(i => filtroMarca === 'todas' || i.marca === filtroMarca)
       .filter(i => filtroEquipeInst === 'todas' || i.equipe === filtroEquipeInst)
       .filter(i => !debouncedBuscaInstalacao.trim() || matchClienteSearch(i.cliente, i.telefone, debouncedBuscaInstalacao))
       .sort((a, b) => new Date(b.dataConclusao || 0) - new Date(a.dataConclusao || 0))
-  , [instalacoesExpandidas, filtroMarca, filtroEquipeInst, verArquivadas, instalacoesArquivadas, debouncedBuscaInstalacao]);
+  , [instalacoesExpandidas, filtroMarca, filtroEquipeInst, filtroStatusInst, concluidasSet, debouncedBuscaInstalacao]);
 
-  const qtdArquivadas = useMemo(
-    () => instalacoesExpandidas.filter(i => instalacoesArquivadas.has(i.key)).length,
-    [instalacoesExpandidas, instalacoesArquivadas]
+  const qtdConcluidas = useMemo(
+    () => instalacoesExpandidas.filter(i => concluidasSet.has(i.key)).length,
+    [instalacoesExpandidas, concluidasSet]
   );
+  const qtdPendentes = instalacoesExpandidas.length - qtdConcluidas;
 
   const totalValorInstalado = useMemo(
     () => instalacoesFiltradas.reduce((s, i) => s + (i.valor || 0), 0),
@@ -824,26 +866,32 @@ export default function RelatóriosPage() {
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <CardTitle className="text-gray-800 text-base font-semibold flex items-center gap-2">
                           <Wrench className="w-4 h-4 text-emerald-500" />
-                          {verArquivadas ? 'Instalações Arquivadas (Garantia Confirmada)' : 'Relatório Completo de Instalações'}
+                          Instalações por Marca
                         </CardTitle>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            onClick={() => setVerArquivadas(!verArquivadas)}
-                            size="sm"
-                            variant="outline"
-                            className={`h-8 text-xs gap-1.5 rounded-lg ${verArquivadas ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100' : 'border-gray-300'}`}
-                          >
-                            {verArquivadas ? '📋 Ver Ativas' : `📦 Ver Arquivadas (${qtdArquivadas})`}
-                          </Button>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* Filtro de status: Pendentes / Concluídas / Todas */}
+                          <div className="flex items-center rounded-lg border border-gray-300 overflow-hidden">
+                            {[
+                              { k: 'pendentes', label: `Faltam concluir (${qtdPendentes})`, on: 'bg-amber-500 text-white' },
+                              { k: 'concluidas', label: `Concluídas (${qtdConcluidas})`, on: 'bg-emerald-600 text-white' },
+                              { k: 'todas', label: 'Todas', on: 'bg-blue-600 text-white' },
+                            ].map(opt => (
+                              <button
+                                key={opt.k}
+                                onClick={() => setFiltroStatusInst(opt.k)}
+                                className={`h-8 px-3 text-xs font-semibold transition-colors ${filtroStatusInst === opt.k ? opt.on : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
                           <Button onClick={handleExportarExcel} size="sm" className="h-8 text-xs gap-1.5 rounded-lg" style={{ backgroundColor: '#22c55e', color: '#fff' }}>
                             <FileSpreadsheet className="w-3.5 h-3.5" /> Exportar Excel
                           </Button>
                         </div>
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
-                        {verArquivadas
-                          ? `Visualizando ${qtdArquivadas} instalação(ões) marcada(s) como concluída(s).`
-                          : <>Período: {format(dateRange.start, 'dd/MM/yyyy')} — {format(dateRange.end, 'dd/MM/yyyy')}. Use os filtros do topo da página para ajustar.</>}
+                        Mostrando instalações de <strong>{format(instalacoesDataPiso, 'dd/MM/yyyy')}</strong> em diante (independente do período do topo). Anteriores ficam ocultas.
                       </p>
                     </CardHeader>
                     <CardContent>
@@ -910,7 +958,7 @@ export default function RelatóriosPage() {
                               <th className="text-left py-2.5 px-3">Tipo / Local</th>
                               <th className="text-left py-2.5 px-3">Equipe</th>
                               <th className="text-right py-2.5 px-3">Valor</th>
-                              <th className="text-center py-2.5 px-3">{verArquivadas ? 'Restaurar' : 'Concluir'}</th>
+                              <th className="text-center py-2.5 px-3">Status</th>
                               <th className="text-center py-2.5 px-3">Detalhes</th>
                             </tr>
                           </thead>
@@ -967,15 +1015,27 @@ export default function RelatóriosPage() {
                                   )}
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setArquivada(i.key, !verArquivadas)}
-                                    className={`h-7 text-xs ${verArquivadas ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
-                                    title={verArquivadas ? 'Restaurar para lista ativa' : 'Marcar como concluída e arquivar'}
-                                  >
-                                    {verArquivadas ? '↩ Restaurar' : '✓ Concluir'}
-                                  </Button>
+                                  {concluidasSet.has(i.key) ? (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => setArquivada(i.key, false)}
+                                      className="h-7 text-xs text-amber-600 hover:bg-amber-50"
+                                      title="Reabrir (marcar como ainda não concluída)"
+                                    >
+                                      ✓ Concluída · reabrir
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => setArquivada(i.key, true)}
+                                      className="h-7 text-xs text-emerald-600 hover:bg-emerald-50"
+                                      title="Marcar como concluída"
+                                    >
+                                      ✓ Concluir
+                                    </Button>
+                                  )}
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
                                   <Button
@@ -991,9 +1051,11 @@ export default function RelatóriosPage() {
                             ))}
                             {instalacoesFiltradas.length === 0 && (
                               <tr><td colSpan={8} className="text-center py-8 text-gray-400">
-                                {verArquivadas
-                                  ? 'Nenhuma instalação arquivada ainda.'
-                                  : 'Nenhuma instalação concluída no período com os filtros selecionados.'}
+                                {filtroStatusInst === 'concluidas'
+                                  ? 'Nenhuma instalação concluída com os filtros selecionados.'
+                                  : filtroStatusInst === 'pendentes'
+                                  ? 'Nenhuma instalação pendente — tudo concluído nos filtros selecionados! 🎉'
+                                  : 'Nenhuma instalação encontrada com os filtros selecionados.'}
                               </td></tr>
                             )}
                           </tbody>
