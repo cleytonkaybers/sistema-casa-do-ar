@@ -9,6 +9,7 @@ import { Loader2, Search, ExternalLink, Plus, X, Minus, Wrench, Calendar, User }
 import { toast } from 'sonner';
 import TimePickerClock from '@/components/ui/time-picker-clock';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
@@ -25,7 +26,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
 
   const { data: clientes = [] } = useQuery({
     queryKey: ['clientes'],
-    queryFn: () => base44.entities.Cliente.list(),
+    queryFn: () => listAll('Cliente'),
   });
 
   const { data: tiposServicoValores = [] } = useQuery({

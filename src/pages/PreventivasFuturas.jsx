@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -54,7 +55,7 @@ function PreventivasFuturasContent() {
 
   const { data: clientes = [], isLoading: loadingClientes } = useQuery({
     queryKey: ['clientes'],
-    queryFn: () => base44.entities.Cliente.list('-created_date'),
+    queryFn: () => listAll('Cliente'),
   });
 
   const { data: servicos = [], isLoading: loadingServicos } = useQuery({
@@ -184,7 +185,7 @@ function PreventivasFuturasContent() {
     mutationFn: async (servicoData) => {
       const servico = await base44.entities.Servico.create(servicoData);
       
-      const todosClientes = await base44.entities.Cliente.list();
+      const todosClientes = await listAll('Cliente');
       const clienteExistente = todosClientes.find(c => 
         c.telefone?.replace(/\D/g, '') === servicoData.telefone?.replace(/\D/g, '')
       );

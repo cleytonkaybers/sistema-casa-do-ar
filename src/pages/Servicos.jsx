@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,7 +84,7 @@ export default function ServicosPage() {
             const nomeLower = data.cliente_nome?.trim().toLowerCase() || '';
             const [porTelefone, porNome] = await Promise.all([
               telefoneLimpo ? base44.entities.Cliente.filter({ telefone: data.telefone }) : Promise.resolve([]),
-              base44.entities.Cliente.list(),
+              listAll('Cliente'),
             ]);
             const jaExistePorTelefone = porTelefone.length > 0;
             const jaExistePorNome = porNome.some(c => c.nome?.trim().toLowerCase() === nomeLower);
@@ -552,7 +553,7 @@ export default function ServicosPage() {
       if (!servicoSnapshot.sem_registro_cliente) {
         toast.info('⏳ Atualizando preventiva...', { id: 'conclusao-progresso', duration: 30000 });
         try {
-          const todosClientes = await base44.entities.Cliente.list();
+          const todosClientes = await listAll('Cliente');
           // Matching robusto: telefone normalizado (ignora 55/DDD/9 extra) com
           // fallback para nome fuzzy (sem acento, case-insensitive). Antes o
           // match exato de telefone/nome falhava silenciosamente e o cliente

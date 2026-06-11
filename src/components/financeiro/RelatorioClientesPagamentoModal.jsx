@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { jsPDF } from 'jspdf';
 import { formatCurrency } from '@/lib/utils/formatters';
-import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { toast } from 'sonner';
 import { formatTipoServicoCompact } from '@/utils';
 
@@ -57,7 +57,7 @@ export default function RelatorioClientesPagamentoModal({ isOpen, onClose, pagam
       // Buscar dados de clientes se solicitado
       let clientesMap = {};
       if (incluirClientes) {
-        const clientes = await base44.entities.Cliente.list();
+        const clientes = await listAll('Cliente');
         clientesMap = Object.fromEntries(clientes.map(c => [c.nome, c]));
       }
 

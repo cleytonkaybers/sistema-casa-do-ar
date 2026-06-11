@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
 import { useEmpresa } from '@/components/auth/EmpresaGuard';
@@ -46,7 +47,7 @@ export default function Dashboard() {
   
   const { data: clientes = [], isLoading } = useQuery({
     queryKey: ['clientes'],
-    queryFn: () => base44.entities.Cliente.list('-created_date'),
+    queryFn: () => listAll('Cliente'),
   });
 
   const { data: atendimentos = [] } = useQuery({

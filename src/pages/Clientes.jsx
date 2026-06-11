@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -70,7 +71,7 @@ export default function Clientes() {
   const { data: clientes = [], isLoading } = useQuery({
     queryKey: ['clientes'],
     queryFn: async () => {
-      const allClientes = await base44.entities.Cliente.list('-created_date');
+      const allClientes = await listAll('Cliente');
       const filtered = filterByEmpresa(allClientes);
       return filtered;
     },

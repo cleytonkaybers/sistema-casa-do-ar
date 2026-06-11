@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -255,7 +256,7 @@ export default function HistoricoClientes() {
       let preventivaAtualizada = false;
       if (!servico.sem_registro_cliente) {
         try {
-          const todosClientes = await base44.entities.Cliente.list();
+          const todosClientes = await listAll('Cliente');
           const telefoneLimpo = (servico.telefone || '').replace(/\D/g, '');
           const nomeNormalizado = (servico.cliente_nome || '').trim().toLowerCase();
           let clienteMatch = null;
