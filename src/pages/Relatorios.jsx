@@ -322,7 +322,7 @@ export default function RelatóriosPage() {
       setModalBotija(null);
     } catch (err) {
       console.error('[botija] erro salvando', err);
-      toast.error('Erro ao salvar botija.');
+      toast.error('Erro ao salvar botija: ' + (err?.message || 'tente novamente'), { duration: 8000 });
     } finally {
       setSalvandoBotija(false);
     }
@@ -1374,10 +1374,10 @@ export default function RelatóriosPage() {
                         <div className="space-y-1">
                           <label className="text-sm font-medium text-gray-700">Capacidade em gramas (opcional)</label>
                           <Input
-                            type="number" min="0" step="1"
+                            type="text" inputMode="numeric"
                             placeholder="ex: 11340 (cilindro 25 lbs)"
                             value={novaBotijaCapacidade}
-                            onChange={(e) => setNovaBotijaCapacidade(e.target.value)}
+                            onChange={(e) => setNovaBotijaCapacidade(e.target.value.replace(/\D/g, ''))}
                             disabled={salvandoBotija}
                           />
                           <p className="text-xs text-gray-500">Se preenchido, mostra quanto resta da botija. Em branco, só mostra o consumo.</p>

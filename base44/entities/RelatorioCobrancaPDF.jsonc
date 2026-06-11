@@ -1,0 +1,51 @@
+{
+  "name": "RelatorioCobrancaPDF",
+  "type": "object",
+  "properties": {
+    "data_relatorio": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data e hora em que o relatório foi gerado"
+    },
+    "arquivo_drive_id": {
+      "type": "string",
+      "description": "ID do arquivo PDF no Google Drive"
+    },
+    "arquivo_drive_url": {
+      "type": "string",
+      "description": "URL pública do arquivo PDF no Google Drive"
+    },
+    "hash_dados": {
+      "type": "string",
+      "description": "SHA-256 dos PagamentoCliente em aberto — usado para detectar mudanças entre execuções"
+    },
+    "total_clientes": {
+      "type": "number",
+      "default": 0,
+      "description": "Quantidade de clientes com débito em aberto no momento da geração"
+    },
+    "total_devido": {
+      "type": "number",
+      "default": 0,
+      "description": "Soma do saldo devedor (valor_total - valor_pago) de todos os clientes em aberto"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "sucesso",
+        "skipped",
+        "erro"
+      ],
+      "default": "sucesso",
+      "description": "sucesso = PDF gerado e enviado; skipped = sem mudanças, nenhum upload; erro = falha"
+    },
+    "mensagem": {
+      "type": "string",
+      "description": "Mensagem informativa ou de erro"
+    }
+  },
+  "required": [
+    "data_relatorio",
+    "status"
+  ]
+}
