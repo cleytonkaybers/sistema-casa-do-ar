@@ -117,7 +117,6 @@ function LayoutContent({ children }) {
   ];
 
   const isTecnico = currentUser?.tipo_usuario === 'tecnico' || user?.role === 'user';
-  const isAdmin = isAdminEmpresa() || isSuperAdmin();
 
   const LogoIcon = ICON_MAP[companySettings.company_icon] || Snowflake;
 

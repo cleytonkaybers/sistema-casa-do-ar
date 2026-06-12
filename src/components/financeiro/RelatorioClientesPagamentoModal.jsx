@@ -130,8 +130,6 @@ export default function RelatorioClientesPagamentoModal({ isOpen, onClose, pagam
         return y;
       };
 
-
-
       // Tabela de Serviços
       if (servicosFiltrados.length > 0) {
         if (yPos > pageHeight - 60) {

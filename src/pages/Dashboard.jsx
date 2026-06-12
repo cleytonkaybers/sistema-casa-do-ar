@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { listAll } from '@/lib/utils/listAll';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
@@ -17,7 +17,6 @@ import { DashboardStatCardSkeleton, DashboardAdminSkeleton } from '@/components/
 import {
   Users,
   AlertTriangle,
-  ArrowRight,
   Snowflake,
   Clock,
   Plus,
@@ -34,7 +33,6 @@ import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 import { isValorPlaceholder } from '@/lib/placeholderPreco';
 
 export default function Dashboard() {
-  const [filtroServicos, setFiltroServicos] = useState('mes');
   const { user: currentUser } = useAuth();
   const { isAdminEmpresa, isSuperAdmin } = useEmpresa();
   const isAdmin = isAdminEmpresa() || isSuperAdmin();
@@ -152,14 +150,6 @@ export default function Dashboard() {
   });
 
   // Estatísticas
-  const totalClientes = clientes.length;
-  
-  const manutencoesPendentes = clientes.filter(c => {
-    if (!c.proxima_manutencao) return false;
-    const daysUntil = differenceInDays(new Date(c.proxima_manutencao), new Date());
-    return daysUntil <= 30 && daysUntil >= 0;
-  });
-
   const manutencoesVencidas = clientes.filter(c => {
     if (!c.proxima_manutencao) return false;
     const daysUntil = differenceInDays(new Date(c.proxima_manutencao), new Date());
@@ -169,36 +159,6 @@ export default function Dashboard() {
     const daysB = differenceInDays(new Date(b.proxima_manutencao), new Date());
     return daysA - daysB;
   });
-
-  // Filtrar serviços por período
-  const servicosFiltrados = servicos.filter(s => {
-    if (!s.data_programada) return false;
-    const dataServico = toLocalDate(s.data_programada);
-    if (!dataServico) return false;
-    const hoje = getLocalDate();
-    
-    switch(filtroServicos) {
-      case 'dia':
-        return isToday(dataServico);
-      case 'semana':
-        return isWithinInterval(dataServico, {
-          start: getStartOfWeek(),
-          end: getEndOfWeek()
-        });
-      case 'mes':
-        return isWithinInterval(dataServico, {
-          start: startOfMonth(hoje),
-          end: endOfMonth(hoje)
-        });
-      default:
-        return false;
-    }
-  });
-
-  const servicosConcluidos = servicosFiltrados.filter(s => s.status === 'concluido').length;
-  const servicosAbertos = servicosFiltrados.filter(s => s.status === 'aberto').length;
-  const servicosAndamento = servicosFiltrados.filter(s => s.status === 'andamento').length;
-  const servicosAgendados = servicosFiltrados.filter(s => s.status === 'agendado' || s.status === 'reagendado').length;
 
   const atendimentosDoMes = atendimentos.filter(a => {
     const dataAtendimento = toLocalDate(a.data_atendimento);
@@ -210,7 +170,6 @@ export default function Dashboard() {
     });
   });
 
-  const atendimentosConcluidos = atendimentos.filter(a => a.status === 'Concluído').length;
 
   // --- ADMIN STATS ---
   const adminResumoMes = useMemo(() => {
@@ -369,47 +328,6 @@ export default function Dashboard() {
       servicos: servicosFiltradosPorEquipe.filter(s => s.equipe_id === equipe.id)
     }))
     .filter(e => e.servicos.length > 0);
-
-  const StatCard = ({ title, value, icon: Icon, colorClass, subtitle, onClick, href }) => {
-    const content = (
-      <CardContent className="p-3 sm:p-5 flex flex-col justify-between h-full">
-        <div className="flex items-start justify-between mb-2 sm:mb-4">
-          <div className="flex-1 pr-2">
-            <p className="text-[10px] sm:text-[13px] font-semibold text-gray-400 uppercase tracking-wider leading-tight">{title}</p>
-            <p className="text-2xl sm:text-4xl font-bold mt-1 sm:mt-2 text-gray-100 tracking-tight">{value}</p>
-          </div>
-          <div className={`w-9 h-9 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center bg-white/5 border border-white/10 ${colorClass} shrink-0`}>
-            <Icon className="w-4 h-4 sm:w-6 sm:h-6" />
-          </div>
-        </div>
-        <div className="flex items-center justify-between pt-2 sm:pt-4 border-t border-white/5 mt-auto">
-          {subtitle && <p className="text-[11px] sm:text-sm text-gray-500">{subtitle}</p>}
-          {(onClick || href) && (
-            <div className={`flex items-center text-[10px] sm:text-xs font-semibold ${colorClass} group-hover:opacity-80 transition-opacity`}>
-              <span className="hidden sm:inline">Ver Detalhes</span>
-              <ArrowRight className="w-3 h-3 sm:ml-1.5 transition-transform group-hover:translate-x-1" />
-            </div>
-          )}
-        </div>
-      </CardContent>
-    );
-
-    const baseClass = "bg-[#152236] border-white/5 shadow-sm hover:border-white/10 transition-all duration-300 rounded-2xl h-full flex flex-col";
-
-    if (href) {
-      return (
-        <Link to={href} className="block h-full outline-none">
-          <Card className={`${baseClass} cursor-pointer group`}>{content}</Card>
-        </Link>
-      );
-    }
-
-    return (
-      <Card className={`${baseClass} ${onClick ? 'cursor-pointer group' : ''}`} onClick={onClick}>
-        {content}
-      </Card>
-    );
-  };
 
   return (
     <div className="space-y-6 lg:space-y-8 max-w-full overflow-hidden">
