@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -106,7 +107,7 @@ export default function UsuariosPage() {
     queryKey: ['usuarios'],
     queryFn: async () => {
       try {
-        const users = await base44.entities.User.list();
+        const users = await listAll('User');
         return users || [];
       } catch (error) {
         console.error('Erro ao buscar usuários:', error);
@@ -118,7 +119,7 @@ export default function UsuariosPage() {
 
   const { data: empresas = [] } = useQuery({
     queryKey: ['empresas'],
-    queryFn: () => base44.entities.Empresa.list(),
+    queryFn: () => listAll('Empresa'),
     enabled: isSuperAdmin() || isAdminEmpresa()
   });
 
@@ -166,7 +167,7 @@ export default function UsuariosPage() {
       
       // Tenta encontrar e atualizar o usuário com a empresa
       try {
-        const allUsers = await base44.entities.User.list();
+        const allUsers = await listAll('User');
         const newUser = allUsers.find(u => u.email === email);
         
         if (newUser && currentEmpresa) {

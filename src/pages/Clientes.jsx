@@ -79,7 +79,7 @@ export default function Clientes() {
 
   const { data: atendimentos = [] } = useQuery({
     queryKey: ['atendimentos'],
-    queryFn: () => base44.entities.Atendimento.list('-created_date'),
+    queryFn: () => listAll('Atendimento', '-created_date'),
   });
 
   const createMutation = useMutation({

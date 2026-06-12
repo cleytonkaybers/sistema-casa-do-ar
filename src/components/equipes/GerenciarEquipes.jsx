@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,12 +31,12 @@ export default function GerenciarEquipes() {
 
   const { data: equipes = [], isLoading: loadingEquipes } = useQuery({
     queryKey: ['equipes'],
-    queryFn: () => base44.entities.Equipe.list(),
+    queryFn: () => listAll('Equipe'),
   });
 
   const { data: usuarios = [] } = useQuery({
     queryKey: ['usuarios'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => listAll('User'),
   });
 
   const createMutation = useMutation({

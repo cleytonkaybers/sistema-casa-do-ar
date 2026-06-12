@@ -37,7 +37,7 @@ export async function getBannerUrl() {
   // 2. Fallback: entidade PDFSettings (caso tenha sido salvo de outro dispositivo)
   try {
     const { base44 } = await import('@/api/base44Client');
-    const result = await base44.entities.PDFSettings.list();
+    const result = await listAll('PDFSettings');
     const url = result?.[0]?.banner_url || null;
     if (url) {
       localStorage.setItem(LS_KEY, url); // sincroniza local

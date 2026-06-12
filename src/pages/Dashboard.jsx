@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { base44 } from '@/api/base44Client';
 import { listAll } from '@/lib/utils/listAll';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
@@ -7,7 +6,6 @@ import { useEmpresa } from '@/components/auth/EmpresaGuard';
 import TipoServicoDisplay from '@/components/TipoServicoDisplay';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import GanhosSemanaDashboard from '@/components/dashboard/GanhosSemanaDashboard';
@@ -18,17 +16,13 @@ import Historico4SemanasDashboard from '@/components/dashboard/Historico4Semanas
 import { DashboardStatCardSkeleton, DashboardAdminSkeleton } from '@/components/LoadingSkeleton';
 import {
   Users,
-  ClipboardList,
-  Calendar,
   AlertTriangle,
   ArrowRight,
   Snowflake,
   Clock,
-  CheckCircle2,
   Plus,
   Tag,
   Bell,
-  Wrench,
   ShieldAlert,
   Landmark
 } from 'lucide-react';
@@ -52,56 +46,56 @@ export default function Dashboard() {
 
   const { data: atendimentos = [] } = useQuery({
     queryKey: ['atendimentos'],
-    queryFn: () => base44.entities.Atendimento.list('-created_date'),
+    queryFn: () => listAll('Atendimento', '-created_date'),
   });
 
   const { data: servicos = [] } = useQuery({
     queryKey: ['servicos'],
-    queryFn: () => base44.entities.Servico.list('-created_date'),
+    queryFn: () => listAll('Servico', '-created_date'),
   });
 
   const { data: equipes = [] } = useQuery({
     queryKey: ['equipes'],
-    queryFn: () => base44.entities.Equipe.list(),
+    queryFn: () => listAll('Equipe'),
   });
 
   const { data: usuarios = [] } = useQuery({
     queryKey: ['usuarios'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => listAll('User'),
   });
 
   const { data: tecnicosFinanceiro = [] } = useQuery({
     queryKey: ['tecnicosFinanceiro'],
-    queryFn: () => base44.entities.TecnicoFinanceiro.list(),
+    queryFn: () => listAll('TecnicoFinanceiro'),
   });
 
   const { data: lancamentosFinanceiros = [] } = useQuery({
     queryKey: ['lancamentosFinanceiros'],
-    queryFn: () => base44.entities.LancamentoFinanceiro.list(),
+    queryFn: () => listAll('LancamentoFinanceiro'),
   });
 
   const { data: pagamentosTecnicos = [] } = useQuery({
     queryKey: ['pagamentosTecnicos'],
-    queryFn: () => base44.entities.PagamentoTecnico.list(),
+    queryFn: () => listAll('PagamentoTecnico'),
   });
 
   const { data: pagamentosClientes = [] } = useQuery({
     queryKey: ['pagamentos-clientes'],
-    queryFn: () => base44.entities.PagamentoCliente.list('-data_conclusao'),
+    queryFn: () => listAll('PagamentoCliente', '-data_conclusao'),
     enabled: isAdmin,
   });
 
   // Cheques pendentes (para alertar ADM no Dashboard)
   const { data: cheques = [] } = useQuery({
     queryKey: ['cheques'],
-    queryFn: () => base44.entities.Cheque.list('-data_compensacao'),
+    queryFn: () => listAll('Cheque', '-data_compensacao'),
     enabled: isAdmin,
   });
 
   // Despesas (para abater do lucro liquido e mostrar total no Resumo do Mes)
   const { data: despesas = [] } = useQuery({
     queryKey: ['despesas'],
-    queryFn: () => base44.entities.Despesa.list('-data').catch(() => []),
+    queryFn: () => listAll('Despesa', '-data').catch(() => []),
     enabled: isAdmin,
   });
 
@@ -109,7 +103,7 @@ export default function Dashboard() {
   const { data: ultimosBackups = [] } = useQuery({
     queryKey: ['ultimo-backup'],
     queryFn: async () => {
-      try { return await base44.entities.BackupIncremental.list('-data_backup'); }
+      try { return await listAll('BackupIncremental', '-data_backup'); }
       catch { return []; }
     },
     enabled: isAdmin,

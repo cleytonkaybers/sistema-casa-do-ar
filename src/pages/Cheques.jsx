@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import EmprestimosTable from '@/components/cheques/EmprestimosTable';
 import { DinheiroEmprestadoContent } from '@/pages/DinheiroEmprestado';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { format, parseISO, isToday, isPast, differenceInDays, isTomorrow } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,8 +64,8 @@ export default function Cheques() {
   const loadCheques = async () => {
     setLoading(true);
     const [data, empData] = await Promise.all([
-      base44.entities.Cheque.list('-data_compensacao'),
-      base44.entities.Emprestimo.list('-data_emprestimo'),
+      listAll('Cheque', '-data_compensacao'),
+      listAll('Emprestimo', '-data_emprestimo'),
     ]);
     setCheques(data);
     setEmprestimos(empData);

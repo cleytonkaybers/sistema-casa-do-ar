@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -57,7 +58,7 @@ export function DinheiroEmprestadoContent() {
 
   const { data: emprestimosTodos = [], isLoading } = useQuery({
     queryKey: ['emprestimos'],
-    queryFn: () => base44.entities.Emprestimo.list('-data_emprestimo'),
+    queryFn: () => listAll('Emprestimo', '-data_emprestimo'),
   });
 
   // Filtra apenas emprestimos sem juros (esta pagina) — os com juros ficam em Cheques

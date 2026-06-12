@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -82,12 +83,12 @@ export default function Atendimentos() {
 
   const { data: atendimentos = [], isLoading: loadA } = useQuery({
     queryKey: ['atendimentos'],
-    queryFn: () => base44.entities.Atendimento.list('-data_atendimento'),
+    queryFn: () => listAll('Atendimento', '-data_atendimento'),
   });
 
   const { data: pagamentos = [], isLoading: loadP } = useQuery({
     queryKey: ['pagamentos-atendimentos'],
-    queryFn: () => base44.entities.PagamentoCliente.list(),
+    queryFn: () => listAll('PagamentoCliente'),
   });
 
   // Servicos concluidos - usado para detectar orfaos sem Atendimento

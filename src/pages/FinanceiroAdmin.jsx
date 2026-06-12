@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,22 +41,22 @@ export default function FinanceiroAdmin() {
   
   const { data: lancamentos = [], refetch: refetchLancamentos } = useQuery({
     queryKey: ['lancamentos'],
-    queryFn: () => base44.entities.LancamentoFinanceiro.list()
+    queryFn: () => listAll('LancamentoFinanceiro')
   });
 
   const { data: tecnicos = [], refetch: refetchTecnicos } = useQuery({
     queryKey: ['tecnicos'],
-    queryFn: () => base44.entities.TecnicoFinanceiro.list()
+    queryFn: () => listAll('TecnicoFinanceiro')
   });
 
   const { data: equipes = [] } = useQuery({
     queryKey: ['equipes'],
-    queryFn: () => base44.entities.Equipe.list()
+    queryFn: () => listAll('Equipe')
   });
 
   const { data: pagamentos = [], refetch: refetchPagamentos } = useQuery({
     queryKey: ['pagamentos'],
-    queryFn: () => base44.entities.PagamentoTecnico.list()
+    queryFn: () => listAll('PagamentoTecnico')
   });
 
   const updateLancamento = async (id, novoValor, novoPercentual) => {

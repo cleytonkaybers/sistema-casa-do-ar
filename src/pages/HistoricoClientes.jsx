@@ -283,7 +283,7 @@ export default function HistoricoClientes() {
 
       // 5. Notificar ADMs para precificar no PagamentosClientes
       try {
-        const todosUsuarios = await base44.entities.User.list();
+        const todosUsuarios = await listAll('User');
         const admins = todosUsuarios.filter(u => u?.role === 'admin' && u?.email);
         if (admins.length > 0) {
           await Promise.all(admins.map(adm =>
@@ -338,22 +338,22 @@ export default function HistoricoClientes() {
 
   const { data: servicos = [] } = useQuery({
     queryKey: ['servicos'],
-    queryFn: () => base44.entities.Servico.list('-data_programada'),
+    queryFn: () => listAll('Servico', '-data_programada'),
   });
 
   const { data: atendimentos = [] } = useQuery({
     queryKey: ['atendimentos'],
-    queryFn: () => base44.entities.Atendimento.list('-data_atendimento'),
+    queryFn: () => listAll('Atendimento', '-data_atendimento'),
   });
 
   const { data: alteracoes = [] } = useQuery({
     queryKey: ['alteracoes'],
-    queryFn: () => base44.entities.AlteracaoStatus.list('-data_alteracao'),
+    queryFn: () => listAll('AlteracaoStatus', '-data_alteracao'),
   });
 
   const { data: pagamentos = [] } = useQuery({
     queryKey: ['pagamentos-historico'],
-    queryFn: () => base44.entities.PagamentoCliente.list(),
+    queryFn: () => listAll('PagamentoCliente'),
   });
 
   // Índices O(1) por servico_id e atendimento_id — substituem .find() O(N) por item.

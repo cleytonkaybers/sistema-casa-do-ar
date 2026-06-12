@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { chaveIdentidadeCliente } from '@/lib/utils/buscaCliente';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -56,7 +57,7 @@ export default function EmprestimosTable() {
 
   const { data: emprestimosTodos = [], isLoading } = useQuery({
     queryKey: ['emprestimos'],
-    queryFn: () => base44.entities.Emprestimo.list('-data_emprestimo'),
+    queryFn: () => listAll('Emprestimo', '-data_emprestimo'),
     refetchInterval: 60000,
   });
 

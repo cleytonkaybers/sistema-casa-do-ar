@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -126,12 +126,12 @@ export default function RankingTecnicos() {
 
   const { data: lancamentos = [], isLoading: loadLanc } = useQuery({
     queryKey: ['lancamentos-ranking'],
-    queryFn: () => base44.entities.LancamentoFinanceiro.list(),
+    queryFn: () => listAll('LancamentoFinanceiro'),
   });
 
   const { data: pagamentos = [], isLoading: loadPag } = useQuery({
     queryKey: ['pagamentos-tec-ranking'],
-    queryFn: () => base44.entities.PagamentoTecnico.list(),
+    queryFn: () => listAll('PagamentoTecnico'),
   });
 
   const isLoading = loadLanc || loadPag;

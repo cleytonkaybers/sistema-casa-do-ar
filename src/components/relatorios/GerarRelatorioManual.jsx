@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -33,7 +34,7 @@ export default function GerarRelatorioManual({ open, onClose }) {
       setIsGenerating(true);
 
       // Buscar serviços no período
-      const todosServicos = await base44.entities.Servico.list('-data_programada');
+      const todosServicos = await listAll('Servico', '-data_programada');
       
       const servicosFiltrados = todosServicos.filter(s => {
         if (!s.data_programada) return false;

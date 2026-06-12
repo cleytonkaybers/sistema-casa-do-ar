@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,7 +35,7 @@ export default function GerenciarEmpresas() {
 
   const { data: empresas = [], isLoading } = useQuery({
     queryKey: ['empresas'],
-    queryFn: () => base44.entities.Empresa.list('-created_date'),
+    queryFn: () => listAll('Empresa', '-created_date'),
     enabled: isSuperAdmin()
   });
 

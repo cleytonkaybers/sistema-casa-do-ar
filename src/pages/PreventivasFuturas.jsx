@@ -60,12 +60,12 @@ function PreventivasFuturasContent() {
 
   const { data: servicos = [], isLoading: loadingServicos } = useQuery({
     queryKey: ['servicos'],
-    queryFn: () => base44.entities.Servico.list('-created_date'),
+    queryFn: () => listAll('Servico', '-created_date'),
   });
 
   const { data: equipes = [] } = useQuery({
     queryKey: ['equipes'],
-    queryFn: () => base44.entities.Equipe.list(),
+    queryFn: () => listAll('Equipe'),
   });
 
   const formatPhone = (phone) => {

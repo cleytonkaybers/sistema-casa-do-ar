@@ -1,5 +1,5 @@
 import React from 'react';
-import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,8 +25,8 @@ export default function GanhosSemanaDashboard() {
     queryFn: async () => {
       if (!user?.email) return { totalGanho: 0, valorPago: 0, creditoPendente: 0, saldo_total: 0, saldo_anterior: 0 };
       try {
-        const lancamentos = await base44.entities.LancamentoFinanceiro.list();
-        const pagamentos = await base44.entities.PagamentoTecnico.list();
+        const lancamentos = await listAll('LancamentoFinanceiro');
+        const pagamentos = await listAll('PagamentoTecnico');
         const inicioSemana = getStartOfWeek();
         const fimSemana = getEndOfWeek();
 
@@ -77,7 +77,7 @@ export default function GanhosSemanaDashboard() {
         // Diagnostico: log estruturado pra ajudar identificar saldos errados
         // (ex: pagamento duplicado, lancamento orfao). Fica no DevTools so.
         if (typeof window !== 'undefined' && window.localStorage?.getItem('debug_saldo') === '1') {
-          // eslint-disable-next-line no-console
+           
           console.log('[SaldoTecnico]', user.email, {
             saldo_anterior, totalGanho, valorPago, saldo_total,
             comissoes_total: lancamentos.filter(l => l.tecnico_id === user.email && parseDateSafe(l.data_geracao) >= SALDO_INICIO).length,

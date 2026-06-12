@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -311,22 +312,22 @@ export default function RelatorioComissoes() {
 
   const { data: lancamentos = [], isLoading } = useQuery({
     queryKey: ['lancamentos-financeiros'],
-    queryFn: () => base44.entities.LancamentoFinanceiro.list('-data_geracao'),
+    queryFn: () => listAll('LancamentoFinanceiro', '-data_geracao'),
   });
 
   const { data: tecnicos = [] } = useQuery({
     queryKey: ['tecnicos-financeiro'],
-    queryFn: () => base44.entities.TecnicoFinanceiro.list(),
+    queryFn: () => listAll('TecnicoFinanceiro'),
   });
 
   const { data: equipes = [] } = useQuery({
     queryKey: ['equipes'],
-    queryFn: () => base44.entities.Equipe.list(),
+    queryFn: () => listAll('Equipe'),
   });
 
   const { data: tiposServico = [] } = useQuery({
     queryKey: ['tiposServicoValor'],
-    queryFn: () => base44.entities.TipoServicoValor.list(),
+    queryFn: () => listAll('TipoServicoValor'),
   });
 
   const lancamentosFiltrados = useMemo(() => {
@@ -483,7 +484,7 @@ export default function RelatorioComissoes() {
       // Buscar um servico_id real para usar como referência (campo obrigatório no schema)
       let placeholderServicoId = lancamentos.find(l => l.servico_id && l.servico_id.length > 10)?.servico_id;
       if (!placeholderServicoId) {
-        const servicosList = await base44.entities.Servico.list();
+        const servicosList = await listAll('Servico');
         placeholderServicoId = servicosList[0]?.id;
       }
       if (!placeholderServicoId) { toast.error('Nenhum serviço encontrado para referência'); setSalvando(false); return; }
@@ -609,7 +610,7 @@ export default function RelatorioComissoes() {
       if (modo === 'tabela') {
         await queryClient.fetchQuery({
           queryKey: ['tiposServicoValor'],
-          queryFn: () => base44.entities.TipoServicoValor.list(),
+          queryFn: () => listAll('TipoServicoValor'),
           staleTime: 60_000,
         });
       }

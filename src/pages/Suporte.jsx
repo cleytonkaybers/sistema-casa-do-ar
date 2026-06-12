@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,7 +37,7 @@ export default function SuportePage() {
   // Buscar conversas
   const { data: conversations = [], isLoading } = useQuery({
     queryKey: ['conversations'],
-    queryFn: () => base44.entities.ChatConversation.list('-last_message_at'),
+    queryFn: () => listAll('ChatConversation', '-last_message_at'),
     refetchInterval: 3000
   });
 

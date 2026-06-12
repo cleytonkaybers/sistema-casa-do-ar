@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { startOfWeek, endOfWeek } from 'date-fns';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,17 +23,17 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
 
   const { data: tecnicosRaw = [] } = useQuery({
     queryKey: ['tecnicos-financeiro'],
-    queryFn: () => base44.entities.TecnicoFinanceiro.list()
+    queryFn: () => listAll('TecnicoFinanceiro')
   });
 
   const { data: todosLancamentos = [] } = useQuery({
     queryKey: ['lancamentos-financeiro-modal'],
-    queryFn: () => base44.entities.LancamentoFinanceiro.list()
+    queryFn: () => listAll('LancamentoFinanceiro')
   });
 
   const { data: todosPagamentos = [] } = useQuery({
     queryKey: ['pagamentos-financeiro-modal'],
-    queryFn: () => base44.entities.PagamentoTecnico.list()
+    queryFn: () => listAll('PagamentoTecnico')
   });
 
   // Filtrar pela semana atual (igual à tela de Gestão de Créditos)

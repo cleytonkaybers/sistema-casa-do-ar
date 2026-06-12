@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -142,12 +143,12 @@ export default function Agendamentos() {
 
   const { data: agendamentos = [], isLoading } = useQuery({
     queryKey: ['agendamentos'],
-    queryFn: () => base44.entities.Agendamento.list('-data_agendamento'),
+    queryFn: () => listAll('Agendamento', '-data_agendamento'),
   });
 
   const { data: equipes = [] } = useQuery({
     queryKey: ['equipes'],
-    queryFn: () => base44.entities.Equipe.list(),
+    queryFn: () => listAll('Equipe'),
   });
 
   const createMut = useMutation({
@@ -199,7 +200,7 @@ export default function Agendamentos() {
         ? tipos_servico.map(t => `${t.quantidade || 1}x ${t.tipo}`).join(', ')
         : '';
       // Gerar número de OS sequencial
-      const todosServicos = await base44.entities.Servico.list();
+      const todosServicos = await listAll('Servico');
       const maxOs = todosServicos
         .map(s => parseInt((s.os_numero || '').replace(/\D/g, '') || '0'))
         .reduce((max, n) => Math.max(max, n), 0);

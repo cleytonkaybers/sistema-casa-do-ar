@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,7 +24,7 @@ export default function RelatoriosAutomaticosPage() {
 
   const { data: configuracoes = [], isLoading } = useQuery({
     queryKey: ['configuracoes-relatorio'],
-    queryFn: () => base44.entities.ConfiguracaoRelatorio.list('-created_date'),
+    queryFn: () => listAll('ConfiguracaoRelatorio', '-created_date'),
     enabled: isAdmin,
   });
 

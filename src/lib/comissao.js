@@ -1,4 +1,5 @@
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 
 const PERCENTUAL_EQUIPE_FALLBACK = 30;
 const PERCENTUAL_TECNICO_FALLBACK = 15;
@@ -40,7 +41,7 @@ const stripSufixos = (s) => (s || '').replace(/\s*\[[^\]]*\]/g, '').trim();
 
 async function loadTiposServicoValor(queryClient) {
   if (!queryClient) {
-    return base44.entities.TipoServicoValor.list();
+    return listAll('TipoServicoValor');
   }
   // staleTime: 0 garante que SEMPRE busca a Tabela de Servicos fresca ao
   // calcular comissao. React Query deduplica chamadas in-flight, entao
@@ -50,7 +51,7 @@ async function loadTiposServicoValor(queryClient) {
   // mudar a Tabela.
   return queryClient.fetchQuery({
     queryKey: ['tiposServicoValor'],
-    queryFn: () => base44.entities.TipoServicoValor.list(),
+    queryFn: () => listAll('TipoServicoValor'),
     staleTime: 0,
   });
 }

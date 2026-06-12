@@ -3,6 +3,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import TipoServicoDisplay from '@/components/TipoServicoDisplay';
 import { formatTipoServicoCompact } from '@/utils';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useAuth } from '@/lib/AuthContext';
 import { exportarExcel } from '@/lib/excelUtils';
 import TechnicianAccessBlock from '@/components/TechnicianAccessBlock';
@@ -467,7 +468,7 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
     if (valorAtualNum > saldoComDesconto + 0.01) {
       setValorRegistrar(saldoComDesconto > 0.01 ? saldoComDesconto.toFixed(2).replace('.', ',') : '');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [descontoEfetivo]);
 
   const isValidDate = (dateStr) => {
@@ -1415,7 +1416,7 @@ function PagamentosClientesContent() {
 
   const { data: atendimentos = [] } = useQuery({
     queryKey: ['atendimentos-pag'],
-    queryFn: () => base44.entities.Atendimento.list('-data_conclusao'),
+    queryFn: () => listAll('Atendimento', '-data_conclusao'),
   });
 
   const { data: servicosConcluidos = [] } = useQuery({
@@ -1425,13 +1426,13 @@ function PagamentosClientesContent() {
 
   const { data: pagamentos = [], isLoading } = useQuery({
     queryKey: ['pagamentos-clientes'],
-    queryFn: () => base44.entities.PagamentoCliente.list('-data_conclusao'),
+    queryFn: () => listAll('PagamentoCliente', '-data_conclusao'),
   });
 
   // Lista de tecnicos para o Select "Quem recebeu este valor?" no modal de pagamento.
   const { data: tecnicosFinanceiros = [] } = useQuery({
     queryKey: ['tecnicos-financeiro-pag'],
-    queryFn: () => base44.entities.TecnicoFinanceiro.list(),
+    queryFn: () => listAll('TecnicoFinanceiro'),
   });
 
   // LancamentoFinanceiro como AUTORIDADE: se tecnico recebeu comissao, entao
@@ -1439,14 +1440,14 @@ function PagamentosClientesContent() {
   // de sincronizacao defensiva.
   const { data: lancamentosFinanceirosTodos = [] } = useQuery({
     queryKey: ['lancamentos-financeiros-sync'],
-    queryFn: () => base44.entities.LancamentoFinanceiro.list(),
+    queryFn: () => listAll('LancamentoFinanceiro'),
     enabled: isAdmin,
   });
 
   // Usuarios — usado para notificar ADMs quando detectar inconsistencia
   const { data: usuarios = [] } = useQuery({
     queryKey: ['usuarios-pag'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => listAll('User'),
     enabled: isAdmin,
   });
 
@@ -2012,7 +2013,7 @@ function PagamentosClientesContent() {
   // rodava automatico ao abrir a pagina, mas isso escondia o que estava sendo
   // criado. Agora o admin tem total controle.
   const camada4SincronizandoRef = useRef(false);
-  // eslint-disable-next-line no-constant-condition
+   
   useEffect(() => {
     if (true) return; // DESATIVADO — fluxo agora e manual via modal de Diagnostico
     if (!isAdmin) return;
@@ -2776,7 +2777,7 @@ function PagamentosClientesContent() {
     }
     // Limpa o query param para nao reabrir ao re-renderizar
     navigate(location.pathname, { replace: true });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [isLoading, location.search]);
 
 

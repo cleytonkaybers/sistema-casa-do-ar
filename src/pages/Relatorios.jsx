@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -267,14 +268,14 @@ export default function RelatóriosPage() {
 
   const { data: servicos = [], isLoading } = useQuery({
     queryKey: ['servicos'],
-    queryFn: () => base44.entities.Servico.list('-data_programada', 2000)
+    queryFn: () => listAll('Servico', '-data_programada')
   });
 
   // Botijas de gas registradas pelo ADM. 1 botija ativa por (equipe, gas).
   // Quando reseta, o registro e deletado (nao guarda historico).
   const { data: botijas = [] } = useQuery({
     queryKey: ['botijas-gas'],
-    queryFn: () => base44.entities.BotijaGas.list('-data_registro'),
+    queryFn: () => listAll('BotijaGas', '-data_registro'),
   });
 
   // Lista de equipes — usada na view de Gas para mostrar TODAS equipes
@@ -282,7 +283,7 @@ export default function RelatóriosPage() {
   // de qualquer consumo.
   const { data: equipesGas = [] } = useQuery({
     queryKey: ['equipes-gas'],
-    queryFn: () => base44.entities.Equipe.list(),
+    queryFn: () => listAll('Equipe'),
   });
 
   const botijaAtiva = (equipeNome, gasTipo) =>

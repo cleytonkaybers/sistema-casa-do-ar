@@ -31,7 +31,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
 
   const { data: tiposServicoValores = [] } = useQuery({
     queryKey: ['tiposServicoValor'],
-    queryFn: () => base44.entities.TipoServicoValor.list(),
+    queryFn: () => listAll('TipoServicoValor'),
   });
 
   useEffect(() => {

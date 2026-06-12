@@ -1,5 +1,5 @@
 import React from 'react';
-import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -30,8 +30,8 @@ export default function Historico4SemanasDashboard() {
     queryFn: async () => {
       if (!user?.email) return { semanas: [], saldoTotal: 0 };
       const [lancamentos, pagamentos] = await Promise.all([
-        base44.entities.LancamentoFinanceiro.list(),
-        base44.entities.PagamentoTecnico.list(),
+        listAll('LancamentoFinanceiro'),
+        listAll('PagamentoTecnico'),
       ]);
 
       const meusLancamentos = lancamentos.filter(l => l.tecnico_id === user.email);

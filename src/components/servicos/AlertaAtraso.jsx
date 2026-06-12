@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,12 +29,12 @@ export default function AlertaAtraso({ onConcluirServico }) {
 
   const { data: servicos = [] } = useQuery({
     queryKey: ['servicos'],
-    queryFn: () => base44.entities.Servico.list(),
+    queryFn: () => listAll('Servico'),
   });
 
   const { data: usuarios = [] } = useQuery({
     queryKey: ['users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => listAll('User'),
   });
 
   const updateStatusMutation = useMutation({

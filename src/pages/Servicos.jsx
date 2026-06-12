@@ -55,17 +55,17 @@ export default function ServicosPage() {
 
   const { data: servicos = [], isLoading } = useQuery({
     queryKey: ['servicos'],
-    queryFn: () => base44.entities.Servico.list('-created_date'),
+    queryFn: () => listAll('Servico', '-created_date'),
   });
 
   const { data: equipes = [] } = useQuery({
     queryKey: ['equipes'],
-    queryFn: () => base44.entities.Equipe.list(),
+    queryFn: () => listAll('Equipe'),
   });
 
   const { data: usuarios = [] } = useQuery({
     queryKey: ['usuarios'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => listAll('User'),
   });
 
   const createMutation = useMutation({
@@ -107,7 +107,7 @@ export default function ServicosPage() {
         // 2) Notificar membros da equipe (em paralelo)
         if (data.equipe_id) {
           try {
-            const todosUsuarios = await base44.entities.User.list();
+            const todosUsuarios = await listAll('User');
             const membrosDaEquipe = todosUsuarios.filter(u => u.equipe_id === data.equipe_id && u.email);
             await Promise.all(
               membrosDaEquipe.map(u =>

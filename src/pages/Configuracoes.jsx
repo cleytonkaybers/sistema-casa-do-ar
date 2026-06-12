@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,7 +36,7 @@ export default function ConfiguracoesPage() {
   const { data: settings = null } = useQuery({
     queryKey: ['companySettings'],
     queryFn: async () => {
-      const result = await base44.entities.CompanySettings.list();
+      const result = await listAll('CompanySettings');
       return result.length > 0 ? result[0] : null;
     },
   });
@@ -110,7 +111,7 @@ export default function ConfiguracoesPage() {
       setBannerUrl(file_url);
       // 2. Tenta salvar também na entidade PDFSettings (backup cross-device)
       try {
-        const existing = await base44.entities.PDFSettings.list();
+        const existing = await listAll('PDFSettings');
         if (existing.length > 0) {
           await base44.entities.PDFSettings.update(existing[0].id, { banner_url: file_url });
         } else {
@@ -127,7 +128,7 @@ export default function ConfiguracoesPage() {
     saveBannerUrl('');
     setBannerUrl('');
     try {
-      const existing = await base44.entities.PDFSettings.list();
+      const existing = await listAll('PDFSettings');
       if (existing.length > 0) {
         await base44.entities.PDFSettings.update(existing[0].id, { banner_url: '' });
       }
@@ -164,9 +165,9 @@ export default function ConfiguracoesPage() {
     setLimpando(true);
     try {
       const [todoLanc, todosServicos, tecnicosFinanceiros] = await Promise.all([
-        base44.entities.LancamentoFinanceiro.list(),
-        base44.entities.Servico.list(),
-        base44.entities.TecnicoFinanceiro.list(),
+        listAll('LancamentoFinanceiro'),
+        listAll('Servico'),
+        listAll('TecnicoFinanceiro'),
       ]);
 
       const servicoMap = Object.fromEntries(todosServicos.map(s => [s.id, s]));
@@ -218,7 +219,7 @@ export default function ConfiguracoesPage() {
     if (!confirm('Isso vai numerar todos os serviços que ainda não têm número de OS, ordenados por data. Continuar?')) return;
     setBackfilling(true);
     try {
-      const todos = await base44.entities.Servico.list('data_programada');
+      const todos = await listAll('Servico', 'data_programada');
       const semOS = todos.filter(s => !s.os_numero);
       const maxExistente = todos
         .map(s => parseInt((s.os_numero || '').replace(/\D/g, '') || '0'))

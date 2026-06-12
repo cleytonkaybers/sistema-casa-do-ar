@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
+import { listAll } from '@/lib/utils/listAll';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, Receipt, TrendingDown, Calendar } from 'lucide-react';
+import { Plus, Pencil, Trash2, Receipt, TrendingDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -59,7 +60,7 @@ export default function DespesasView() {
 
   const { data: despesas = [], isLoading } = useQuery({
     queryKey: ['despesas'],
-    queryFn: () => base44.entities.Despesa.list('-data').catch(() => []),
+    queryFn: () => listAll('Despesa', '-data').catch(() => []),
   });
 
   const createMutation = useMutation({
