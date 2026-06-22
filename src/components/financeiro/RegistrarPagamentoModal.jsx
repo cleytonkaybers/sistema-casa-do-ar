@@ -133,7 +133,16 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
         observacao
       });
 
-      toast.success(response.data.mensagem);
+      // A SDK nem sempre LANÇA erro em respostas de falha (4xx/5xx) — algumas
+      // voltam com { error } no corpo sem disparar o catch. Sem checar isto, o
+      // modal mostrava "sucesso" mesmo quando o pagamento NÃO era gravado
+      // ("salva mas não aparece"). O fluxo de estorno já faz essa checagem.
+      const data = response?.data;
+      if (!data || data.success !== true) {
+        throw new Error(data?.error || 'O servidor não confirmou o pagamento — nada foi gravado.');
+      }
+
+      toast.success(data.mensagem || 'Pagamento registrado com sucesso.');
 
       // Invalida o cache PRÓPRIO do modal (queries com chaves separadas da
       // página). Sem isto, ao reabrir o modal os totais continuavam defasados,
@@ -150,7 +159,8 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
       setValorPago('');
       setObservacao('');
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Erro ao registrar pagamento');
+      const msg = error.response?.data?.error || error.message || 'Erro ao registrar pagamento';
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
