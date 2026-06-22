@@ -143,17 +143,13 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
 
     setLoading(true);
     try {
-      const payload = {
+      const response = await base44.functions.invoke('registrarPagamentoTecnico', {
         tecnico_id: tecnicoSelecionado.tecnico_id,
         valor_pago: parseFloat(valorPago),
         data_pagamento: dataPagamento,
         metodo_pagamento: metodoPagamento,
         observacao
-      };
-      console.log('[registrarPagamento] enviando:', payload);
-      const response = await base44.functions.invoke('registrarPagamentoTecnico', payload);
-      console.log('[registrarPagamento] resposta completa:', response);
-      console.log('[registrarPagamento] response.data:', response?.data);
+      });
 
       // A SDK nem sempre LANÇA erro em respostas de falha (4xx/5xx) — algumas
       // voltam com { error } no corpo sem disparar o catch. Sem checar isto, o
@@ -162,20 +158,6 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
       const data = response?.data;
       if (!data || data.success !== true) {
         throw new Error(data?.error || 'O servidor não confirmou o pagamento — nada foi gravado.');
-      }
-
-      // Verificação de leitura: o servidor diz que criou (data.pagamento.id).
-      // Tentamos ler de volta NO CONTEXTO DO USUÁRIO. Se não achar, o registro
-      // foi criado num escopo que a listagem do app não enxerga (tenant/owner).
-      try {
-        const novoId = data?.pagamento?.id;
-        console.log('[registrarPagamento] id criado:', novoId);
-        if (novoId) {
-          const lidoDeVolta = await base44.entities.PagamentoTecnico.filter({ id: novoId });
-          console.log('[registrarPagamento] lido de volta (contexto usuário):', lidoDeVolta);
-        }
-      } catch (rbErr) {
-        console.error('[registrarPagamento] falha ao ler de volta:', rbErr);
       }
 
       toast.success(data.mensagem || 'Pagamento registrado com sucesso.');

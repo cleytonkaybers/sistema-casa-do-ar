@@ -256,8 +256,11 @@ export default function Dashboard() {
         const totalGanho = lancamentosSemana.reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
         const pagamentosSemana = pagamentosTecnicos.filter(p => {
-          if (p.tecnico_id !== t.tecnico_id || p.status !== 'Confirmado' || !p.created_date) return false;
-          const d = toLocalDate(new Date(p.created_date));
+          if (p.tecnico_id !== t.tecnico_id || p.status !== 'Confirmado') return false;
+          // Prefere data_pagamento (data escolhida) ao created_date (carimbo do
+          // servidor), igual ao Financeiro/MeuFinanceiro — senão o relógio do
+          // servidor pode jogar o pagamento para fora da semana.
+          const d = toLocalDate(p.data_pagamento || p.created_date);
           return d && isWithinInterval(d, { start: inicioSemanaAtual, end: fimSemanaAtual });
         });
         const creditoPago = pagamentosSemana.reduce((sum, p) => sum + (p.valor_pago || 0), 0);
@@ -274,8 +277,8 @@ export default function Dashboard() {
             .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
           const pagamentosAnt = pagamentosTecnicos
             .filter(p => {
-              if (p.tecnico_id !== t.tecnico_id || p.status !== 'Confirmado' || !p.created_date) return false;
-              const d = toLocalDate(new Date(p.created_date));
+              if (p.tecnico_id !== t.tecnico_id || p.status !== 'Confirmado') return false;
+              const d = toLocalDate(p.data_pagamento || p.created_date);
               return d && d >= SALDO_INICIO && d < inicioSemanaAtual;
             })
             .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
