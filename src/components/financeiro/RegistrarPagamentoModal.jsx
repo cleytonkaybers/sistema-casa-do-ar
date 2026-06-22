@@ -51,7 +51,13 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
   const inicioSemana = startOfWeek(agora, { weekStartsOn: 1 });
   const fimSemana = endOfWeek(agora, { weekStartsOn: 1 });
 
-  // Recalcular credito_pendente dinamicamente pela semana atual
+  // Recalcular credito_pendente com a MESMA lógica da tela Financeiro (Gestão de
+  // Créditos): saldo acumulado de TODAS as semanas anteriores (desde SALDO_INICIO)
+  // somado à semana atual. Antes o modal só olhava a semana corrente, então na
+  // virada de semana um técnico que ainda tinha crédito a receber aparecia com
+  // R$ 0,00 pendente — o campo auto-preenchia 0,00 e parecia que "não aceitava"
+  // o pagamento.
+  const SALDO_INICIO = new Date('2026-04-13T00:00:00');
   const tecnicos = tecnicosRaw.map(t => {
     const totalComissoesSemana = todosLancamentos
       .filter(l => {
@@ -71,31 +77,39 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
       })
       .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-    // Adiantamento: rastreamento começa a partir da semana 2026-04-20
-    const ADIANTAMENTO_INICIO = new Date('2026-04-20T00:00:00');
-    const inicioPreviousSemana = new Date(inicioSemana);
-    inicioPreviousSemana.setDate(inicioPreviousSemana.getDate() - 7);
-
-    let adiantamento_anterior = 0;
-    if (inicioPreviousSemana >= ADIANTAMENTO_INICIO) {
-      const comissoesSemanaAnterior = todosLancamentos
-        .filter(l => l.tecnico_id === t.tecnico_id && l.data_geracao && new Date(l.data_geracao) >= inicioPreviousSemana && new Date(l.data_geracao) < inicioSemana)
+    // Saldo acumulado das semanas anteriores ao período atual.
+    // Positivo = empresa deve ao técnico (crédito carregado) |
+    // Negativo = técnico recebeu a mais (adiantamento).
+    let saldo_anterior = 0;
+    if (inicioSemana > SALDO_INICIO) {
+      const comissoesAnteriores = todosLancamentos
+        .filter(l => l.tecnico_id === t.tecnico_id && l.data_geracao &&
+                     new Date(l.data_geracao) >= SALDO_INICIO &&
+                     new Date(l.data_geracao) < inicioSemana)
         .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
-      const pagamentosSemanaAnterior = todosPagamentos
-        .filter(p => p.tecnico_id === t.tecnico_id && p.status === 'Confirmado' && p.created_date && new Date(p.created_date) >= inicioPreviousSemana && new Date(p.created_date) < inicioSemana)
+      const pagamentosAnteriores = todosPagamentos
+        .filter(p => p.tecnico_id === t.tecnico_id && p.status === 'Confirmado' && p.created_date &&
+                     new Date(p.created_date) >= SALDO_INICIO &&
+                     new Date(p.created_date) < inicioSemana)
         .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-      adiantamento_anterior = Math.max(0, pagamentosSemanaAnterior - comissoesSemanaAnterior);
+      saldo_anterior = comissoesAnteriores - pagamentosAnteriores;
     }
-    const creditoPendenteLiquido = Math.max(0, totalComissoesSemana - totalPagoSemana - adiantamento_anterior);
+
+    const saldo_total = saldo_anterior + totalComissoesSemana - totalPagoSemana;
+    const creditoPendenteLiquido = Math.max(0, saldo_total);
 
     return {
       ...t,
       credito_pendente: creditoPendenteLiquido,
       credito_pago: totalPagoSemana,
       total_ganho: totalComissoesSemana,
-      adiantamento_anterior
+      saldo_anterior,
+      // Crédito carregado de semanas anteriores (positivo) e adiantamento
+      // (técnico recebeu a mais — valor positivo quando saldo_anterior < 0).
+      credito_anterior: Math.max(0, saldo_anterior),
+      adiantamento_anterior: Math.max(0, -saldo_anterior),
     };
   });
 
@@ -190,6 +204,16 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
                       <p className="font-bold text-lg">R$ {tecnicoSelecionado.total_ganho.toFixed(2)}</p>
                     </div>
                   </div>
+                  {(tecnicoSelecionado.credito_anterior || 0) > 0 && (
+                    <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-md text-sm">
+                      <AlertCircle className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      <div>
+                        <span className="font-semibold text-blue-700">Crédito de semanas anteriores: </span>
+                        <span className="font-bold text-blue-700">R$ {tecnicoSelecionado.credito_anterior.toFixed(2)}</span>
+                        <p className="text-xs text-blue-600 mt-0.5">Valor ainda não pago de semanas anteriores. Já somado ao crédito pendente acima.</p>
+                      </div>
+                    </div>
+                  )}
                   {(tecnicoSelecionado.adiantamento_anterior || 0) > 0 && (
                     <div className="flex items-center gap-2 p-2 bg-orange-50 border border-orange-200 rounded-md text-sm">
                       <AlertCircle className="w-4 h-4 text-orange-500 flex-shrink-0" />
