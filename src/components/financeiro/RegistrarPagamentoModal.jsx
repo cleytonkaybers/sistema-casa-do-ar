@@ -11,13 +11,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+
+// Data de hoje no fuso LOCAL (não UTC). new Date().toISOString() devolve UTC,
+// e à noite no Brasil (UTC-3) isso já aponta para o dia seguinte — o que jogava
+// o pagamento para a semana seguinte em telas que filtram por data_pagamento
+// (MeuFinanceiro, Dashboard), fazendo o valor "não contabilizar" na semana atual.
+function hojeLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [tecnicoSelecionado, setTecnicoSelecionado] = useState(null);
   const [valorPago, setValorPago] = useState('');
-  const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().split('T')[0]);
+  const [dataPagamento, setDataPagamento] = useState(hojeLocal());
   const [metodoPagamento, setMetodoPagamento] = useState('PIX');
   const [observacao, setObservacao] = useState('');
 
@@ -110,9 +120,17 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
       });
 
       toast.success(response.data.mensagem);
+
+      // Invalida o cache PRÓPRIO do modal (queries com chaves separadas da
+      // página). Sem isto, ao reabrir o modal os totais continuavam defasados,
+      // dando a impressão de que o pagamento "não contabilizou".
+      await queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro'] });
+      await queryClient.invalidateQueries({ queryKey: ['lancamentos-financeiro-modal'] });
+      await queryClient.invalidateQueries({ queryKey: ['pagamentos-financeiro-modal'] });
+
       onSuccess?.();
       onClose();
-      
+
       // Reset form
       setTecnicoSelecionado(null);
       setValorPago('');
