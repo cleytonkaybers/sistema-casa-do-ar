@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { startOfWeek, endOfWeek } from 'date-fns';
+import { startOfWeek, endOfWeek, parseISO } from 'date-fns';
 import { base44 } from '@/api/base44Client';
 import { listAll } from '@/lib/utils/listAll';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -20,6 +20,22 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 function hojeLocal() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Data de referência de um pagamento para fins de bucketing por semana.
+// Prefere data_pagamento (data escolhida no lançamento) ao created_date
+// (carimbo do servidor). Sem isso, se o relógio do servidor estiver à frente
+// do cliente, o pagamento de hoje cai FORA da semana e some dos totais.
+// Alinha com MeuFinanceiro e Dashboard, que já usam data_pagamento.
+function dataRefPagamento(p) {
+  const raw = p?.data_pagamento || p?.created_date;
+  if (!raw) return null;
+  try {
+    const d = parseISO(raw);
+    return isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
 }
 
 export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
@@ -71,8 +87,8 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
     const totalPagoSemana = todosPagamentos
       .filter(p => {
         if (p.tecnico_id !== t.tecnico_id || p.status !== 'Confirmado') return false;
-        if (!p.created_date) return false;
-        const d = new Date(p.created_date);
+        const d = dataRefPagamento(p);
+        if (!d) return false;
         return d >= inicioSemana && d <= fimSemana;
       })
       .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
@@ -89,9 +105,11 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
         .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
       const pagamentosAnteriores = todosPagamentos
-        .filter(p => p.tecnico_id === t.tecnico_id && p.status === 'Confirmado' && p.created_date &&
-                     new Date(p.created_date) >= SALDO_INICIO &&
-                     new Date(p.created_date) < inicioSemana)
+        .filter(p => {
+          if (p.tecnico_id !== t.tecnico_id || p.status !== 'Confirmado') return false;
+          const d = dataRefPagamento(p);
+          return d && d >= SALDO_INICIO && d < inicioSemana;
+        })
         .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
       saldo_anterior = comissoesAnteriores - pagamentosAnteriores;

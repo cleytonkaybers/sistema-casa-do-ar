@@ -21,6 +21,21 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import GerarPDFModal from '@/components/financeiro/GerarPDFModal';
 import { formatTipoServicoCompact } from '@/utils';
 
+// Data de referência de um pagamento para bucketing por semana. Prefere
+// data_pagamento (data escolhida) ao created_date (carimbo do servidor), para
+// não depender do relógio do servidor — que pode jogar o pagamento para fora
+// da semana. Alinha com MeuFinanceiro, Dashboard e o modal de pagamento.
+function dataRefPagamento(p) {
+  const raw = p?.data_pagamento || p?.created_date;
+  if (!raw) return null;
+  try {
+    const d = parseISO(raw);
+    return isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
+}
+
 export default function FinanceiroAdmin() {
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -235,8 +250,8 @@ export default function FinanceiroAdmin() {
       const pagamentosSemana = pagamentos.filter(p => {
         if (p.tecnico_id !== t.tecnico_id) return false;
         if (p.status !== 'Confirmado') return false;
-        if (!p.created_date) return false;
-        const dataPagamento = new Date(p.created_date);
+        const dataPagamento = dataRefPagamento(p);
+        if (!dataPagamento) return false;
         return dataPagamento >= inicioSemana && dataPagamento <= fimSemana;
       });
 
@@ -255,9 +270,11 @@ export default function FinanceiroAdmin() {
           .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
         const pagamentosAnteriores = pagamentos
-          .filter(p => p.tecnico_id === t.tecnico_id && p.status === 'Confirmado' && p.created_date &&
-                       new Date(p.created_date) >= SALDO_INICIO &&
-                       new Date(p.created_date) < inicioSemana)
+          .filter(p => {
+            if (p.tecnico_id !== t.tecnico_id || p.status !== 'Confirmado') return false;
+            const d = dataRefPagamento(p);
+            return d && d >= SALDO_INICIO && d < inicioSemana;
+          })
           .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
         saldo_anterior = comissoesAnteriores - pagamentosAnteriores;
@@ -298,10 +315,10 @@ export default function FinanceiroAdmin() {
 
   // Histórico de pagamentos com filtros globais (equipe + tecnico + periodo)
   const pagamentosFiltrados = pagamentos.filter(pag => {
-    // Fallback: usa created_date, mas se ausente tenta data_pagamento.
-    const dataRef = pag.created_date || pag.data_pagamento;
-    if (!dataRef) return false;
-    const dataPag = new Date(dataRef);
+    // Prefere data_pagamento (data escolhida) ao created_date, igual ao cálculo
+    // de créditos — para o pagamento cair na semana correta.
+    const dataPag = dataRefPagamento(pag);
+    if (!dataPag) return false;
     // "todos" desabilita filtro de periodo (mostra historico completo)
     if (filtroSemana === 'atual') {
       if (dataPag < inicioSemanaAtual || dataPag > fimSemanaAtual) return false;
