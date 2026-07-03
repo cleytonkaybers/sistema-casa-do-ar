@@ -446,19 +446,39 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
     setPrecosGrupo(prefillPrecosPorTipo(records, servicosGrupos, fonte));
   }, [open, pagamento, pagamentosAtuais, syncKey, servicosGrupos]);
 
-  const totalDefinido = servicosGrupos.reduce((s, g) => {
+  // Registros frescos (mesmo critério do prefill) para ler o valor_total salvo
+  // direto — fonte da verdade. Evita depender só da reconstrução por tipo.
+  const recordsFrescos = useMemo(() => {
+    const base = pagamento?._records || (pagamento ? [pagamento] : []);
+    const ids = new Set(base.map(r => r.atendimento_id || r.id).filter(Boolean));
+    const frescos = pagamentosAtuais.filter(p => ids.has(p.atendimento_id) || ids.has(p.id));
+    return frescos.length > 0 ? frescos : base;
+  }, [pagamento, pagamentosAtuais]);
+
+  // Total reconstruído pelo preço unitário por tipo (reflete preços por tipo).
+  const totalReconstruido = servicosGrupos.reduce((s, g) => {
     const preco = parseFloat((precosGrupo[g.tipo] || '').replace(',', '.')) || 0;
     return s + preco * g.qtd;
   }, 0);
+  // Total salvo direto nos registros (soma de valor_total). Fallback quando a
+  // reconstrução por tipo falha (ex.: tipo_servico vazio/sem match) — antes
+  // isso fazia o modal exibir "A definir" mesmo com o preço já salvo.
+  const totalSalvo = recordsFrescos.reduce((s, r) => s + (r.valor_total || 0), 0);
+  const totalDefinido = totalReconstruido > 0 ? totalReconstruido : totalSalvo;
 
-  const totalPago = (pagamento?._records || (pagamento ? [pagamento] : [])).reduce((s, r) => s + (r.valor_pago || 0), 0);
+  const totalPago = recordsFrescos.reduce((s, r) => s + (r.valor_pago || 0), 0);
   const saldo = totalDefinido - totalPago;
   const descontoNum = Math.max(0, parseFloat((desconto || '').replace(',', '.')) || 0);
   // Desconto nao pode ser maior que o saldo
   const descontoEfetivo = Math.min(descontoNum, Math.max(0, saldo));
   const saldoComDesconto = Math.max(0, saldo - descontoEfetivo);
   const valorAtualNum = parseFloat((valorRegistrar || '').replace(',', '.')) || 0;
-  const todosPrecosDefinidos = servicosGrupos.every(g => parseFloat((precosGrupo[g.tipo] || '').replace(',', '.')) > 0);
+  // Preços considerados definidos se a reconstrução por tipo está completa OU
+  // se há total salvo (valor_total) — assim o pagamento não fica bloqueado
+  // quando o preço existe mas a reconstrução por tipo não casou.
+  const todosPrecosDefinidos = totalReconstruido > 0
+    ? servicosGrupos.every(g => parseFloat((precosGrupo[g.tipo] || '').replace(',', '.')) > 0)
+    : totalSalvo > 0;
 
   // Auto-ajuste: quando o usuario adiciona/altera o desconto e o valor digitado
   // passa do saldo com desconto, ajusta o valor para nao bloquear a confirmacao.
