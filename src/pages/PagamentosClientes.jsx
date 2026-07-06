@@ -425,6 +425,10 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
     return Object.entries(counts).map(([tipo, qtd]) => ({ tipo, qtd }));
   }, [pagamento]);
 
+  // Reset dos campos DIGITADOS: apenas quando o modal abre ou muda de cliente.
+  // NÃO pode depender de pagamentosAtuais — a página tem sync automático que
+  // recarrega a lista em segundo plano, e cada recarga disparava este efeito
+  // apagando o valor que o usuário estava digitando ("o preço some sozinho").
   useEffect(() => {
     if (!open) return;
     setObs('');
@@ -435,7 +439,12 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
     setValorRegistrar('');
     setDesconto('');
     setDivisoesTecnicos([]);
+  }, [open, pagamento]);
 
+  // Preços salvos (somente leitura): estes PODEM acompanhar os dados frescos,
+  // pois não tocam nos campos digitados pelo usuário.
+  useEffect(() => {
+    if (!open) return;
     // Busca preços dos records mais frescos
     const records = pagamento?._records || (pagamento ? [pagamento] : []);
     const idsAtend = new Set(records.map(r => r.atendimento_id || r.id).filter(Boolean));
