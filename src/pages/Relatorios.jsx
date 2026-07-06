@@ -217,50 +217,6 @@ export default function RelatóriosPage() {
     }
   };
 
-  // Migração (uma vez por sessão): marcações legadas que existem SÓ no
-  // localStorage deste navegador são gravadas no banco. Sem isto, conclusões
-  // feitas antes da persistência no banco (ou em outro endereço do app) não
-  // existiam nos demais aparelhos e as instalações "voltavam" para pendentes.
-  const migrouLegadoRef = React.useRef(false);
-  React.useEffect(() => {
-    if (migrouLegadoRef.current) return;
-    if (!servicos.length || instalacoesArquivadas.size === 0) return;
-    const porServico = new Map();
-    instalacoesArquivadas.forEach(key => {
-      const corte = key.lastIndexOf('-');
-      const sid = key.slice(0, corte);
-      const idx = Number(key.slice(corte + 1));
-      if (!sid || Number.isNaN(idx)) return;
-      const srv = servicos.find(s => s.id === sid);
-      if (!srv) return; // serviço não existe mais — ignora
-      const noBanco = Array.isArray(srv.instalacoes_relatorio_concluidas) ? srv.instalacoes_relatorio_concluidas : [];
-      if (noBanco.includes(idx)) return; // já persistido
-      if (!porServico.has(sid)) porServico.set(sid, new Set());
-      porServico.get(sid).add(idx);
-    });
-    migrouLegadoRef.current = true;
-    if (porServico.size === 0) return;
-    (async () => {
-      let migrados = 0;
-      for (const [sid, idxSet] of porServico) {
-        try {
-          // Lê fresco e UNE (nunca sobrescreve marcações de outros aparelhos)
-          const frescos = await base44.entities.Servico.filter({ id: sid });
-          const alvo = frescos && frescos[0];
-          if (!alvo) continue;
-          const noBanco = Array.isArray(alvo.instalacoes_relatorio_concluidas) ? alvo.instalacoes_relatorio_concluidas : [];
-          const novo = [...new Set([...noBanco, ...idxSet])];
-          if (novo.length === noBanco.length) continue;
-          await base44.entities.Servico.update(sid, { instalacoes_relatorio_concluidas: novo });
-          migrados++;
-        } catch (e) {
-          console.error('[instalacoes] falha ao migrar conclusão legada:', sid, e);
-        }
-      }
-      if (migrados > 0) queryClient.invalidateQueries({ queryKey: ['servicos'] });
-    })();
-  }, [servicos, instalacoesArquivadas, queryClient]);
-
   const dateRange = useMemo(() => {
     if (periodoSelecionado === 5 && customStart && customEnd) {
       return { start: new Date(customStart), end: new Date(customEnd + 'T23:59:59') };
@@ -334,6 +290,51 @@ export default function RelatóriosPage() {
     queryKey: ['servicos'],
     queryFn: () => listAll('Servico', '-data_programada')
   });
+
+  // Migração (uma vez por sessão): marcações legadas que existem SÓ no
+  // localStorage deste navegador são gravadas no banco. Sem isto, conclusões
+  // feitas antes da persistência no banco (ou em outro endereço do app) não
+  // existiam nos demais aparelhos e as instalações "voltavam" para pendentes.
+  // (Declarado APÓS a query de servicos — const em TDZ não pode ser lida antes.)
+  const migrouLegadoRef = React.useRef(false);
+  React.useEffect(() => {
+    if (migrouLegadoRef.current) return;
+    if (!servicos.length || instalacoesArquivadas.size === 0) return;
+    const porServico = new Map();
+    instalacoesArquivadas.forEach(key => {
+      const corte = key.lastIndexOf('-');
+      const sid = key.slice(0, corte);
+      const idx = Number(key.slice(corte + 1));
+      if (!sid || Number.isNaN(idx)) return;
+      const srv = servicos.find(s => s.id === sid);
+      if (!srv) return; // serviço não existe mais — ignora
+      const noBanco = Array.isArray(srv.instalacoes_relatorio_concluidas) ? srv.instalacoes_relatorio_concluidas : [];
+      if (noBanco.includes(idx)) return; // já persistido
+      if (!porServico.has(sid)) porServico.set(sid, new Set());
+      porServico.get(sid).add(idx);
+    });
+    migrouLegadoRef.current = true;
+    if (porServico.size === 0) return;
+    (async () => {
+      let migrados = 0;
+      for (const [sid, idxSet] of porServico) {
+        try {
+          // Lê fresco e UNE (nunca sobrescreve marcações de outros aparelhos)
+          const frescos = await base44.entities.Servico.filter({ id: sid });
+          const alvo = frescos && frescos[0];
+          if (!alvo) continue;
+          const noBanco = Array.isArray(alvo.instalacoes_relatorio_concluidas) ? alvo.instalacoes_relatorio_concluidas : [];
+          const novo = [...new Set([...noBanco, ...idxSet])];
+          if (novo.length === noBanco.length) continue;
+          await base44.entities.Servico.update(sid, { instalacoes_relatorio_concluidas: novo });
+          migrados++;
+        } catch (e) {
+          console.error('[instalacoes] falha ao migrar conclusão legada:', sid, e);
+        }
+      }
+      if (migrados > 0) queryClient.invalidateQueries({ queryKey: ['servicos'] });
+    })();
+  }, [servicos, instalacoesArquivadas, queryClient]);
 
   // Botijas de gas registradas pelo ADM. 1 botija ativa por (equipe, gas).
   // Quando reseta, o registro e deletado (nao guarda historico).
