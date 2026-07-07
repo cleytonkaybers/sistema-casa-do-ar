@@ -1,11 +1,4 @@
 {
-  "redirects": [
-    {
-      "source": "/api/apps/auth/:path*",
-      "destination": "https://app.base44.com/api/apps/auth/:path*",
-      "permanent": false
-    }
-  ],
   "rewrites": [
     {
       "source": "/api/:path*",
