@@ -4,7 +4,12 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import NavigationTracker from '@/lib/NavigationTracker'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter, HashRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Route, Routes, Navigate } from 'react-router-dom';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import Login from '@/pages/Login';
+import Register from '@/pages/Register';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPassword from '@/pages/ResetPassword';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { IS_OFFLINE, BASE44_APP_BASE_URL } from '@/api/base44Client';
@@ -28,18 +33,7 @@ const LoadingFallback = () => (
   </div>
 );
 
-// /login não existe no SPA — a tela de login é da plataforma Base44. Quando o
-// app roda em domínio próprio (ex.: casadoarservice.com), redirects antigos ou
-// de sessão expirada podem cair aqui; encaminha para o login real preservando
-// o from_url para voltar ao mesmo lugar após autenticar.
-function LoginRedirect() {
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const fromUrl = params.get('from_url') || window.location.origin;
-    window.location.replace(`${BASE44_APP_BASE_URL}/login?from_url=${encodeURIComponent(fromUrl)}`);
-  }, []);
-  return <LoadingFallback />;
-}
+
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -67,7 +61,7 @@ function OfflineBanner() {
 }
 
 const AuthenticatedApp = () => {
-  const { isLoading, authError } = useAuth();
+  const { isLoadingAuth } = useAuth();
 
   // Gate offline: se ainda não importou o backup, mostra a tela de importação
   const [offlineReady, setOfflineReady] = React.useState(IS_OFFLINE ? isHydrated() : true);
@@ -76,17 +70,12 @@ const AuthenticatedApp = () => {
   }
 
   // Show loading spinner while checking auth
-  if (isLoading) {
+  if (isLoadingAuth) {
     return (
       <div className="fixed inset-0 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
       </div>
     );
-  }
-
-  // Handle user not registered error
-  if (authError?.type === 'user_not_registered') {
-    return <UserNotRegisteredError />;
   }
 
   // Render the main app
@@ -96,6 +85,14 @@ const AuthenticatedApp = () => {
     <div style={IS_OFFLINE ? { paddingTop: '2rem' } : {}}>
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
+        {/* Public auth routes */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+
+        {/* Protected app routes — all require authentication */}
+        <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route path="/" element={
           <LayoutWrapper currentPageName={mainPageKey}>
             <MainPage />
@@ -167,7 +164,7 @@ const AuthenticatedApp = () => {
             <DinheiroEmprestado />
           </LayoutWrapper>
         } />
-        <Route path="/login" element={<LoginRedirect />} />
+        </Route>
         <Route path="*" element={<PageNotFound />} />
       </Routes>
     </Suspense>

@@ -5,7 +5,8 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authError, setAuthError] = useState(null);
 
   useEffect(() => {
@@ -14,50 +15,52 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuth = async () => {
     try {
-      setIsLoading(true);
+      setIsLoadingAuth(true);
       const isAuth = await base44.auth.isAuthenticated();
-      
+
       if (!isAuth) {
-        // Not authenticated - redirect to login
-        const currentPath = window.location.pathname;
-        if (!currentPath.includes('/login') && !window.location.search.includes('from_url')) {
-          base44.auth.redirectToLogin(currentPath);
-          return;
+        setUser(null);
+        setIsAuthenticated(false);
+        setAuthError(null);
+        return;
+      }
+
+      // Authenticated — fetch user profile
+      try {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+        setIsAuthenticated(true);
+        setAuthError(null);
+      } catch (meError) {
+        // Authenticated by the platform but not registered in this app
+        if (meError.status === 403 && meError.data?.extra_data?.reason === 'user_not_registered') {
+          setIsAuthenticated(true);
+          setAuthError({ type: 'user_not_registered' });
+        } else {
+          setUser(null);
+          setIsAuthenticated(false);
         }
       }
-      
-      // If authenticated, get user data
-      const currentUser = await base44.auth.me();
-      setUser(currentUser);
-      setAuthError(null);
     } catch (error) {
       console.error('Auth check failed:', error);
       setUser(null);
-      
-      // Check if it's a "not registered" error
-      if (error.status === 403 && error.data?.extra_data?.reason === 'user_not_registered') {
-        setAuthError({ type: 'user_not_registered' });
-      } else if (error.status === 401 || error.status === 403) {
-        // Auth required - redirect to login
-        const currentPath = window.location.pathname;
-        if (!currentPath.includes('/login') && !window.location.search.includes('from_url')) {
-          base44.auth.redirectToLogin(currentPath);
-        }
-      }
+      setIsAuthenticated(false);
     } finally {
-      setIsLoading(false);
+      setIsLoadingAuth(false);
     }
   };
 
   const logout = () => {
     setUser(null);
+    setIsAuthenticated(false);
     base44.auth.logout();
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isLoading,
+    <AuthContext.Provider value={{
+      user,
+      isLoadingAuth,
+      isAuthenticated,
       authError,
       logout,
       checkAuth
