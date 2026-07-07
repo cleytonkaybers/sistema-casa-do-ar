@@ -9,13 +9,23 @@ export const IS_OFFLINE = OFFLINE_ENABLED;
 
 const { appId, token, functionsVersion, appBaseUrl } = appParams;
 
+// Valores PÚBLICOS do app (aparecem em qualquer URL do Base44), usados como
+// fallback quando o build é feito sem o .env.local — caso da hospedagem
+// externa que compila a partir do GitHub (o .env.local é gitignored).
+// Sem o fallback de appBaseUrl, o SDK usava o domínio do próprio site
+// (ex.: casadoarservice.com) para montar a URL de login, e o redirect de
+// sessão expirada caía em /login — rota que não existe no app → 404.
+export const BASE44_APP_BASE_URL =
+  import.meta.env.VITE_BASE44_APP_BASE_URL || 'https://sistema-casa-do-ar-copy-ef8ddf65.base44.app';
+const FALLBACK_APP_ID = '69c180d661f0af9eef8ddf65';
+
 const onlineClient = IS_OFFLINE ? null : createClient({
-  appId,
+  appId: appId || FALLBACK_APP_ID,
   token,
   functionsVersion,
-  serverUrl: import.meta.env.VITE_BASE44_APP_BASE_URL ?? 'https://sistema-casa-do-ar-copy-ef8ddf65.base44.app',
+  serverUrl: BASE44_APP_BASE_URL,
   requiresAuth: false,
-  appBaseUrl,
+  appBaseUrl: appBaseUrl || BASE44_APP_BASE_URL,
 });
 
 export const base44 = IS_OFFLINE ? getOfflineClient() : onlineClient;

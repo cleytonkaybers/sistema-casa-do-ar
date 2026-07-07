@@ -7,7 +7,7 @@ import { pagesConfig } from './pages.config'
 import { BrowserRouter, HashRouter, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
-import { IS_OFFLINE } from '@/api/base44Client';
+import { IS_OFFLINE, BASE44_APP_BASE_URL } from '@/api/base44Client';
 import { isHydrated, getDataDate, OfflineImport } from '@/api/offline/gate.js';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import FinanceiroAdmin from '@/pages/FinanceiroAdmin';
@@ -27,6 +27,19 @@ const LoadingFallback = () => (
     <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
   </div>
 );
+
+// /login não existe no SPA — a tela de login é da plataforma Base44. Quando o
+// app roda em domínio próprio (ex.: casadoarservice.com), redirects antigos ou
+// de sessão expirada podem cair aqui; encaminha para o login real preservando
+// o from_url para voltar ao mesmo lugar após autenticar.
+function LoginRedirect() {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = params.get('from_url') || window.location.origin;
+    window.location.replace(`${BASE44_APP_BASE_URL}/login?from_url=${encodeURIComponent(fromUrl)}`);
+  }, []);
+  return <LoadingFallback />;
+}
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -154,6 +167,7 @@ const AuthenticatedApp = () => {
             <DinheiroEmprestado />
           </LayoutWrapper>
         } />
+        <Route path="/login" element={<LoginRedirect />} />
         <Route path="*" element={<PageNotFound />} />
       </Routes>
     </Suspense>
