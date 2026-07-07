@@ -418,7 +418,8 @@ async function gerarExcel(
   };
 
   // Proteger planilha (somente leitura)
-  await ws.protect('casadoar2024', {
+  const senhaPlanilha = Deno.env.get("RELATORIO_COBRANCA_SENHA") || "casadoar2024";
+  await ws.protect(senhaPlanilha, {
     selectLockedCells:   true,
     selectUnlockedCells: true,
   });

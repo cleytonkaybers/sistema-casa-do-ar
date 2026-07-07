@@ -24,7 +24,11 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Apenas administradores podem limpar logs' }, { status: 403 });
       }
     } catch {
-      // automação agendada (sem token) — permitido
+      // Valida chamada de automação: exige token válido da plataforma (service role)
+      const isPlatformCall = await base44.auth.isAuthenticated().catch(() => false);
+      if (!isPlatformCall) {
+        return Response.json({ error: 'Autenticação necessária' }, { status: 401 });
+      }
     }
 
     let meses = 12;

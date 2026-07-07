@@ -48,7 +48,11 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Acesso negado' }, { status: 403 });
       }
     } catch {
-      // Chamada via automação agendada (sem token de usuário)
+      // Valida chamada de automação: exige token válido da plataforma (service role)
+      const isPlatformCall = await base44.auth.isAuthenticated().catch(() => false);
+      if (!isPlatformCall) {
+        return Response.json({ error: 'Autenticação necessária' }, { status: 401 });
+      }
       isAutomation = true;
     }
 
