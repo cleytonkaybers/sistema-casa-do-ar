@@ -17,6 +17,37 @@ import { MARCAS_AR, isInstalacao, embutirMarca, extrairMarca, removerMarca } fro
 import { matchClienteSearch } from '@/lib/utils/buscaCliente';
 import { incluiGas, TIPOS_GAS } from '@/lib/utils/tipoServico';
 
+// Tipos cujo NOME contém ' + ' (são UM ÚNICO tipo na Tabela de Serviços).
+// O split ingênuo por ' + ' fragmentava esses nomes em pedaços ("Mudança",
+// "limpeza ar 9/12/18") que não existem na tabela — o valor saía 0 e a % dos
+// técnicos caía no fallback. Lista fixa espelhando o enum; nomes com ' + '
+// vindos da tabela carregada são unidos a ela em tempo de execução.
+const TIPOS_COMPOSTOS_FIXOS = [
+  'Mudança + limpeza ar 9/12/18',
+  'Mudança + limpeza 22/24/30',
+];
+
+// Re-une fragmentos consecutivos cujo conjunto forma um nome composto
+// conhecido. Ex.: ['Instalação de 18k', 'Mudança', 'limpeza ar 9/12/18']
+// → ['Instalação de 18k', 'Mudança + limpeza ar 9/12/18'].
+const juntarTiposCompostos = (partes, nomesCompostos) => {
+  const nomes = new Set(nomesCompostos.map(n => (n || '').trim().toLowerCase()));
+  const out = [];
+  let i = 0;
+  while (i < partes.length) {
+    let usados = 1;
+    for (let take = Math.min(3, partes.length - i); take >= 2; take--) {
+      const cand = partes.slice(i, i + take).join(' + ');
+      // O sufixo [Marca/local] fica no último fragmento; compara só o nome base
+      const base = (cand.match(/^(.+?)\s*\[.+\]$/) || [null, cand])[1].trim().toLowerCase();
+      if (nomes.has(base)) { out.push(cand); usados = take; break; }
+    }
+    if (usados === 1) out.push(partes[i]);
+    i += usados;
+  }
+  return out;
+};
+
 export default function ServicoForm({ open, onClose, onSave, servico, isLoading, prefilledData, equipes = [], currentUserEquipeId = null, isAdmin = false }) {
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [clienteSearch, setClienteSearch] = useState('');
@@ -58,10 +89,14 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
     ? servicosDisponiveis.filter(s => s.toLowerCase().includes(servicoSearch.toLowerCase()))
     : servicosDisponiveis;
 
+  // Comparação tolerante (trim + minúsculas) — evita valor 0 por diferença
+  // de caixa/espaço entre o tipo da linha e o nome cadastrado na tabela.
+  const normTipo = (s) => (s || '').trim().toLowerCase();
+
   const calcularValorTotal = () => {
     let total = 0;
     formData.tipos_servico.forEach(item => {
-      const tipoEncontrado = tiposServicoValores.find(t => t.tipo_servico === item.tipo);
+      const tipoEncontrado = tiposServicoValores.find(t => normTipo(t.tipo_servico) === normTipo(item.tipo));
       const valor = tipoEncontrado?.valor_tabela || 0;
       total += valor * (Number(item.quantidade) || 1);
     });
@@ -69,7 +104,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
   };
 
   const getValorTipo = (tipo) => {
-    const tipoEncontrado = tiposServicoValores.find(t => t.tipo_servico === tipo);
+    const tipoEncontrado = tiposServicoValores.find(t => normTipo(t.tipo_servico) === normTipo(tipo));
     return tipoEncontrado?.valor_tabela || 0;
   };
 
@@ -200,7 +235,11 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
 
   const parseTiposServico = (tipoServicoStr) => {
     if (!tipoServicoStr) return [{ tipo: 'Limpeza de 9k', quantidade: 1, equipamento: '', marca: '' }];
-    const partes = tipoServicoStr.split(' + ').filter(Boolean);
+    const nomesCompostos = [
+      ...TIPOS_COMPOSTOS_FIXOS,
+      ...tiposServicoValores.map(t => t.tipo_servico).filter(n => (n || '').includes(' + ')),
+    ];
+    const partes = juntarTiposCompostos(tipoServicoStr.split(' + ').filter(Boolean), nomesCompostos);
     const chaves = [];
     const contagem = {};
     partes.forEach(p => {
@@ -777,7 +816,13 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                       const valor = getValorTipo(item.tipo);
                       return valor > 0 ? (
                         <div key={idx}>{item.tipo}: R$ {valor.toFixed(2)} × {item.quantidade}</div>
-                      ) : null;
+                      ) : (
+                        // Antes o tipo sem preço era simplesmente OMITIDO do
+                        // detalhamento — o total saía menor sem nenhum aviso.
+                        <div key={idx} className="text-amber-500">
+                          ⚠ {item.tipo}: sem preço na Tabela de Serviços (não somado)
+                        </div>
+                      );
                     })}
                     <div className="font-semibold text-gray-400 pt-0.5 border-t border-gray-700">
                       Total: R$ {calcularValorTotal().toFixed(2)}
