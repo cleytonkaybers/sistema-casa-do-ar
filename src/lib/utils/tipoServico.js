@@ -30,19 +30,6 @@ export const isApenasTiposIgnorados = (tipoServico) => {
   return tipos.every(t => IGNORADOS_NORM.has(t.toLowerCase()));
 };
 
-// True quando algum tipo do servico envolve gas (recarga, carga completa, 1/3,
-// 2/3, 1/2). Aceita string direta ou array de itens {tipo:string,...}.
-// Usado pra mostrar campos de controle de gas (R410/R22/R32 + gramas).
-export const incluiGas = (tipoServicoOuItems) => {
-  const matchGas = (s) => {
-    if (!s) return false;
-    const lower = s.toLowerCase();
-    return lower.includes('gás') || lower.includes('gas');
-  };
-  if (Array.isArray(tipoServicoOuItems)) {
-    return tipoServicoOuItems.some(item => matchGas(item?.tipo));
-  }
-  return parseTipos(tipoServicoOuItems).some(matchGas);
-};
-
-export const TIPOS_GAS = ['R410', 'R22', 'R32'];
+// (Controle de gás removido do app em 15/07/2026 — campos gas_tipo e
+// gas_quantidade_gramas continuam no schema do Servico apenas para preservar
+// dados históricos; nenhuma tela lê ou grava mais.)
