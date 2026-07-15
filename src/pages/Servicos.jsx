@@ -428,12 +428,19 @@ export default function ServicosPage() {
           const valorTotal = servicoSnapshot.valor;
           const comissao = await calcularComissao(servicoSnapshot.tipo_servico, valorTotal, queryClient);
           const valorComissaoTecnico = comissao.valor_comissao_tecnico;
+          // Dedup por id OU NOME: a função backend (gerarComissoes) grava
+          // tecnico_id = e-mail do User; aqui usamos TecnicoFinanceiro.tecnico_id.
+          // Quando divergem, o dedup só por id deixava o MESMO técnico com 2
+          // lançamentos de valores diferentes no mesmo serviço.
+          const normDedup = (s) => (s || '').trim().toLowerCase();
+          const lancsDoServico = await base44.entities.LancamentoFinanceiro
+            .filter({ servico_id: servicoSnapshot.id })
+            .catch(() => []);
           for (const tec of tecnicos) {
-            // Dedup
-            const ja = await base44.entities.LancamentoFinanceiro
-              .filter({ servico_id: servicoSnapshot.id, tecnico_id: tec.tecnico_id })
-              .catch(() => []);
-            if (ja && ja.length > 0) continue;
+            const ja = (lancsDoServico || []).some(l =>
+              normDedup(l.tecnico_id) === normDedup(tec.tecnico_id) ||
+              (l.tecnico_nome && tec.tecnico_nome && normDedup(l.tecnico_nome) === normDedup(tec.tecnico_nome)));
+            if (ja) continue;
             await comRetry(`lancamento-${tec.tecnico_id}`, () =>
               base44.entities.LancamentoFinanceiro.create({
                 servico_id: servicoSnapshot.id,
@@ -453,6 +460,7 @@ export default function ServicosPage() {
                 usuario_geracao: user?.email,
               })
             );
+            lancsDoServico.push({ tecnico_id: tec.tecnico_id, tecnico_nome: tec.tecnico_nome });
             await comRetry(`tecnico-fin-${tec.tecnico_id}`, () =>
               base44.entities.TecnicoFinanceiro.update(tec.id, {
                 credito_pendente: (tec.credito_pendente || 0) + valorComissaoTecnico,

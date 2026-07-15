@@ -217,12 +217,18 @@ export default function HistoricoClientes() {
           // Le percentuais da Tabela de Servicos (TipoServicoValor). Fallback 30/15.
           const comissao = await calcularComissao(servico.tipo_servico, valorTotal, queryClient);
           const valorComissaoTecnico = comissao.valor_comissao_tecnico;
+          // Dedup por id OU NOME: o backend (gerarComissoes) grava tecnico_id =
+          // e-mail do User; aqui usamos TecnicoFinanceiro.tecnico_id. Quando
+          // divergem, dedup só por id deixava o mesmo técnico com 2 lançamentos.
+          const normDedup = (s) => (s || '').trim().toLowerCase();
+          const lancsDoServico = await base44.entities.LancamentoFinanceiro
+            .filter({ servico_id: servico.id })
+            .catch(() => []);
           await Promise.all(tecnicos.map(async (tec) => {
-            // Dedup atomico: evita duplicar comissao em chamadas paralelas de regerar
-            const ja = await base44.entities.LancamentoFinanceiro
-              .filter({ servico_id: servico.id, tecnico_id: tec.tecnico_id })
-              .catch(() => []);
-            if (ja && ja.length > 0) return;
+            const ja = (lancsDoServico || []).some(l =>
+              normDedup(l.tecnico_id) === normDedup(tec.tecnico_id) ||
+              (l.tecnico_nome && tec.tecnico_nome && normDedup(l.tecnico_nome) === normDedup(tec.tecnico_nome)));
+            if (ja) return;
 
             await base44.entities.LancamentoFinanceiro.create({
               servico_id: servico.id,

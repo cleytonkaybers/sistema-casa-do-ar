@@ -46,45 +46,66 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Comissão já foi gerada para este serviço' }, { status: 400 });
     }
 
-    // Buscar valor da tabela se não houver valor no serviço
-    let valorFinal = servico.valor;
-    
-    // Se o tipo de serviço contém "+" (múltiplos serviços), recalcular somando valores da tabela
-    if (servico.tipo_servico && servico.tipo_servico.includes('+')) {
-      const partes = servico.tipo_servico.split('+').map(p => p.trim());
-      let somaTabela = 0;
-      
-      for (const parte of partes) {
-        const tiposServico = await base44.asServiceRole.entities.TipoServicoValor.filter({
-          tipo_servico: parte
-        });
-        
-        if (tiposServico.length > 0) {
-          somaTabela += tiposServico[0].valor_tabela;
+    // Normalizadores (usados no valor, nos percentuais e no dedup)
+    const norm = (s: string) => (s || '').trim().toLowerCase();
+    const stripSufixos = (s: string) => (s || '').replace(/\s*\[[^\]]*\]/g, '').trim();
+
+    // Tipos cujo NOME contém ' + ' (são UM ÚNICO tipo na Tabela de Serviços).
+    // O split ingênuo por '+' fragmentava esses nomes em pedaços inexistentes.
+    // Lista fixa espelhando o enum + nomes com ' + ' vindos da própria tabela.
+    const TIPOS_COMPOSTOS_FIXOS = ['Mudança + limpeza ar 9/12/18', 'Mudança + limpeza 22/24/30'];
+
+    // Re-une fragmentos consecutivos que formam um nome composto conhecido.
+    const juntarTiposCompostos = (partes: string[], nomesCompostos: string[]) => {
+      const nomes = new Set(nomesCompostos.map((n) => norm(n)));
+      const out: string[] = [];
+      let i = 0;
+      while (i < partes.length) {
+        let usados = 1;
+        for (let take = Math.min(3, partes.length - i); take >= 2; take--) {
+          const cand = partes.slice(i, i + take).join(' + ');
+          if (nomes.has(norm(stripSufixos(cand)))) { out.push(cand); usados = take; break; }
         }
+        if (usados === 1) out.push(partes[i]);
+        i += usados;
       }
-      
-      if (somaTabela > 0) {
-        valorFinal = somaTabela;
-        console.log(`Serviço combinado detectado. Valor recalculado: R$ ${somaTabela}`);
-      }
-    }
-    
-    // Se ainda não tem valor ou é zero, buscar na tabela normalmente
+      return out;
+    };
+
+    // Tabela de Serviços carregada UMA vez (com limite explícito — SDK novo
+    // trunca em 50 sem limite). Reusada no valor e nos percentuais.
+    const todosTipos = await base44.asServiceRole.entities.TipoServicoValor.list('-created_date', 5000);
+    const nomesCompostosConhecidos = [
+      ...TIPOS_COMPOSTOS_FIXOS,
+      ...todosTipos.map((t: any) => t.tipo_servico).filter((n: string) => (n || '').includes(' + ')),
+    ];
+    const buscarValorTabela = (nome: string) => {
+      const alvo = norm(stripSufixos(nome));
+      const m = todosTipos.find((t: any) => norm(stripSufixos(t.tipo_servico)) === alvo);
+      return m ? (m.valor_tabela || 0) : 0;
+    };
+    const splitTipos = (tipoStr: string) =>
+      juntarTiposCompostos(tipoStr.split(' + ').map((p: string) => p.trim()).filter(Boolean), nomesCompostosConhecidos);
+
+    // Base do valor: usa o VALOR DO SERVIÇO quando preenchido — mesma base do
+    // fluxo do front (Servicos.jsx usa servico.valor). Antes, todo tipo
+    // composto era recalculado somando a tabela MESMO com valor preenchido,
+    // divergindo do front e gerando lançamentos com bases diferentes para o
+    // mesmo serviço (ex.: R$ 525 aqui vs R$ 125 no front).
+    let valorFinal = servico.valor;
+
+    // Só recalcula pela tabela quando o serviço está sem valor (0/placeholder)
     if (!valorFinal || valorFinal <= 0) {
-      const tiposServico = await base44.asServiceRole.entities.TipoServicoValor.filter({
-        tipo_servico: servico.tipo_servico
-      });
-      
-      if (tiposServico.length === 0) {
-        return Response.json({ error: 'Nenhum valor configurado para este tipo de serviço' }, { status: 400 });
+      const tipoStr = servico.tipo_servico || '';
+      const partes = splitTipos(tipoStr);
+      valorFinal = partes.reduce((s: number, p: string) => s + buscarValorTabela(p), 0);
+      if (valorFinal > 0) {
+        console.log(`Serviço sem valor — recalculado pela Tabela: R$ ${valorFinal}`);
       }
-      
-      valorFinal = tiposServico[0].valor_tabela;
     }
 
-    if (valorFinal <= 0) {
-      return Response.json({ error: 'Valor do serviço inválido' }, { status: 400 });
+    if (!valorFinal || valorFinal <= 0) {
+      return Response.json({ error: 'Serviço sem valor e nenhum valor configurado na Tabela para este tipo' }, { status: 400 });
     }
 
     if (!servico.equipe_id) {
@@ -115,15 +136,12 @@ Deno.serve(async (req) => {
 
     // Calcular comissão LENDO da Tabela de Serviços (TipoServicoValor).
     // Fallback 30/15 se nao encontrar tipo. Aceita tipos com sufixo [Marca: X]
-    // e tipos compostos "A + B" (usa o primeiro componente).
+    // e tipos compostos "A + B" (usa o primeiro componente que casar).
     const valor_total = valorFinal;
-    const norm = (s: string) => (s || '').trim().toLowerCase();
-    const stripSufixos = (s: string) => (s || '').replace(/\s*\[[^\]]*\]/g, '').trim();
 
     let percentual_equipe = 30;
     let percentual_tecnico = 15;
     try {
-      const todosTipos = await base44.asServiceRole.entities.TipoServicoValor.list();
       const tipoServ = servico.tipo_servico || '';
       // 1) Match exato
       let match = todosTipos.find((t: any) => norm(t.tipo_servico) === norm(tipoServ));
@@ -134,10 +152,9 @@ Deno.serve(async (req) => {
           match = todosTipos.find((t: any) => norm(stripSufixos(t.tipo_servico)) === norm(semSufixo));
         }
       }
-      // 3) Primeiro componente do split('+')
+      // 3) Componentes do tipo composto (split consciente de nomes com ' + ')
       if (!match) {
-        const partes = tipoServ.split('+').map((p: string) => p.trim()).filter(Boolean);
-        for (const parte of partes) {
+        for (const parte of splitTipos(tipoServ)) {
           const semSuf = stripSufixos(parte);
           const m = todosTipos.find((t: any) => norm(t.tipo_servico) === norm(parte) || norm(stripSufixos(t.tipo_servico)) === norm(semSuf));
           if (m) { match = m; break; }
@@ -158,14 +175,21 @@ Deno.serve(async (req) => {
     // de tecnicos). Regra de negocio definida pela Tabela de Servicos.
     const valor_por_tecnico = (valor_total * percentual_tecnico) / 100;
 
+    // Dedup: 1 lançamento por técnico por serviço. Compara por tecnico_id E
+    // por NOME — o fluxo do front grava tecnico_id do TecnicoFinanceiro e esta
+    // função usa o e-mail do User; quando esses identificadores divergem, o
+    // dedup só por id deixava passar duplicata (mesmo técnico com 2 lançamentos
+    // de valores diferentes no mesmo serviço).
+    const lancsDoServico = await base44.asServiceRole.entities.LancamentoFinanceiro
+      .filter({ servico_id: servico.id });
+    const jaTemLancamento = (tec: any) => (lancsDoServico || []).some((l: any) =>
+      norm(l.tecnico_id) === norm(tec.email) ||
+      (l.tecnico_nome && tec.full_name && norm(l.tecnico_nome) === norm(tec.full_name)));
+
     // Gerar lançamentos para cada técnico
     const lancamentos = [];
     for (const tecnico of tecnicos) {
-      // Dedup atomico: evita duplicar lancamento se a funcao for chamada
-      // mais de uma vez para o mesmo servico (ex: clique duplo + automacao).
-      const existentes = await base44.asServiceRole.entities.LancamentoFinanceiro
-        .filter({ servico_id: servico.id, tecnico_id: tecnico.email });
-      if (existentes && existentes.length > 0) continue;
+      if (jaTemLancamento(tecnico)) continue;
 
       const lancamento = {
         servico_id: servico.id,
@@ -187,6 +211,7 @@ Deno.serve(async (req) => {
 
       const created = await base44.asServiceRole.entities.LancamentoFinanceiro.create(lancamento);
       lancamentos.push(created);
+      lancsDoServico.push(created); // dedup também dentro do mesmo run
 
       // Atualizar/criar registro de crédito do técnico (respeitando crédito negativo)
       const tecnicoFinanceiroExistente = await base44.asServiceRole.entities.TecnicoFinanceiro.filter({
