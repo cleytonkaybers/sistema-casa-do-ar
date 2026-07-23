@@ -2691,7 +2691,17 @@ function PagamentosClientesContent() {
     // Ordem do card Serviços da Semana (pedido do ADM): 1º aguardando preço
     // (placeholder, tratado no sort abaixo), 2º pendentes, 3º parciais,
     // 4º agendados e por último os pagos.
-    const statusOrder = { 'pendente': 0, 'parcial': 1, 'agendado': 2, 'pago': 3 };
+    // Dois cuidados: (a) o status do GRUPO nunca é 'agendado' (groupPagamentos
+    // só produz pendente/parcial/pago) — "agendado" é derivado da data
+    // agendada, igual ao selo da linha; (b) não usar `|| indice` porque o
+    // rank 0 é falsy e jogava os pendentes para o fim da lista.
+    const rankSemana = (g) => {
+      if (g.status === 'pago') return 3;
+      if (g.status === 'parcial') return 1;
+      const temAgendamento = g.data_pagamento_agendado ||
+        (g._records || []).some(r => r.data_pagamento_agendado);
+      return temAgendamento ? 2 : 0; // agendado : pendente
+    };
     const filtrados = pagsFiltrados
       .filter(p => {
         // Placeholder de preco (1111 atual, 5.55 antigo, <=1.0 legado) — fica aqui ate ser precificado
@@ -2717,7 +2727,7 @@ function PagamentosClientesContent() {
         const bPlaceholder = grupoTemPlaceholder(b);
         if (aPlaceholder !== bPlaceholder) return aPlaceholder ? -1 : 1;
         // Depois, ordena por status (pendente/parcial/agendado/pago)
-        return (statusOrder[a.status] || 4) - (statusOrder[b.status] || 4);
+        return rankSemana(a) - rankSemana(b);
       });
   }, [pagsFiltrados, inicioSemana, fimSemana, temPagamentoNaSemana, filtroStatus]);
 
