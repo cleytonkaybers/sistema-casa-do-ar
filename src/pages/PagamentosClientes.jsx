@@ -2688,7 +2688,10 @@ function PagamentosClientesContent() {
   // aqui mesmo de semanas anteriores, ate serem precificados. Ao precificar,
   // se forem de semana anterior, descem para Pendencias normalmente.
   const pagsSemana = useMemo(() => {
-    const statusOrder = { 'pendente': 0, 'agendado': 1, 'parcial': 2, 'pago': 3 };
+    // Ordem do card Serviços da Semana (pedido do ADM): 1º aguardando preço
+    // (placeholder, tratado no sort abaixo), 2º pendentes, 3º parciais,
+    // 4º agendados e por último os pagos.
+    const statusOrder = { 'pendente': 0, 'parcial': 1, 'agendado': 2, 'pago': 3 };
     const filtrados = pagsFiltrados
       .filter(p => {
         // Placeholder de preco (1111 atual, 5.55 antigo, <=1.0 legado) — fica aqui ate ser precificado
@@ -2713,7 +2716,7 @@ function PagamentosClientesContent() {
         const aPlaceholder = grupoTemPlaceholder(a);
         const bPlaceholder = grupoTemPlaceholder(b);
         if (aPlaceholder !== bPlaceholder) return aPlaceholder ? -1 : 1;
-        // Depois, ordena por status (pendente/agendado/parcial/pago)
+        // Depois, ordena por status (pendente/parcial/agendado/pago)
         return (statusOrder[a.status] || 4) - (statusOrder[b.status] || 4);
       });
   }, [pagsFiltrados, inicioSemana, fimSemana, temPagamentoNaSemana, filtroStatus]);
