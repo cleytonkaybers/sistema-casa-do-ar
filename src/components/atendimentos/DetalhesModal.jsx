@@ -23,7 +23,7 @@ function InfoRow({ icon: Icon, label, value, className = '' }) {
   );
 }
 
-export default function DetalhesModal({ open, onClose, atendimento }) {
+export default function DetalhesModal({ open, onClose, atendimento, isAdmin = false }) {
   if (!atendimento) return null;
 
   const formatCurrency = (value) => {
@@ -134,13 +134,15 @@ export default function DetalhesModal({ open, onClose, atendimento }) {
             <TipoServicoDisplay value={atendimento.tipo_servico} />
           </div>
 
-          {/* Valor */}
+          {/* Valor — visível SOMENTE para ADM */}
+          {isAdmin && (
           <div className="p-4 bg-green-50 rounded-lg">
             <p className="text-sm text-gray-500 flex items-center gap-1.5 mb-1">
               <DollarSign className="w-4 h-4" /> Valor
             </p>
             <p className="text-xl font-bold text-green-600">{formatCurrency(atendimento.valor)}</p>
           </div>
+          )}
 
           {/* Equipe */}
           <InfoRow icon={Users} label="Equipe Responsável" value={atendimento.equipe_nome} />

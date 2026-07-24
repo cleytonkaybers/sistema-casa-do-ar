@@ -444,8 +444,9 @@ export default function Atendimentos() {
                                 <th className="px-4 py-3 text-gray-400 font-semibold w-40">Data / Equipe</th>
                                 <th className="px-4 py-3 text-gray-400 font-semibold w-16 text-center">Qtd</th>
                                 <th className="px-4 py-3 text-gray-400 font-semibold">Serviço</th>
-                                <th className="px-4 py-3 text-gray-400 font-semibold text-right w-32">Valor Unit.</th>
-                                <th className="px-4 py-3 text-gray-400 font-semibold text-right w-32">Total</th>
+                                {/* Valores financeiros: visíveis SOMENTE para ADM */}
+                                {isAdmin && <th className="px-4 py-3 text-gray-400 font-semibold text-right w-32">Valor Unit.</th>}
+                                {isAdmin && <th className="px-4 py-3 text-gray-400 font-semibold text-right w-32">Total</th>}
                               </tr>
                             </thead>
                             <tbody>
@@ -517,9 +518,13 @@ export default function Atendimentos() {
                                             </span>
                                           )}
                                         </td>
+                                        {/* Valores financeiros: visíveis SOMENTE para ADM */}
+                                        {isAdmin && (
                                         <td className="px-4 py-3 align-middle text-right text-gray-300 font-medium tabular-nums">
                                           {s.valorUnit ? `R$ ${s.valorUnit.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '—'}
                                         </td>
+                                        )}
+                                        {isAdmin && (
                                         <td className="px-4 py-3 align-middle text-right font-bold tabular-nums">
                                           {s.totalValor ? (
                                             <div className="flex flex-col items-end gap-0.5">
@@ -538,12 +543,15 @@ export default function Atendimentos() {
                                             </div>
                                           ) : '—'}
                                         </td>
+                                        )}
                                       </tr>
                                     );
                                   });
                                 });
                               })()}
                             </tbody>
+                            {/* Total Geral: visível SOMENTE para ADM */}
+                            {isAdmin && (
                             <tfoot>
                               <tr className="bg-[#0b1420] border-t border-white/10 shadow-lg">
                                 <td colSpan={4} className="px-4 py-4 text-right font-bold text-gray-400 tracking-wider">Total Geral:</td>
@@ -552,6 +560,7 @@ export default function Atendimentos() {
                                 </td>
                               </tr>
                             </tfoot>
+                            )}
                           </table>
                         </div>
 
@@ -566,7 +575,7 @@ export default function Atendimentos() {
       )}
 
       {selectedAtendimento && (
-        <DetalhesModal open={detalhesOpen} onClose={() => { setDetalhesOpen(false); setSelectedAtendimento(null); }} atendimento={{ ...selectedAtendimento, id: selectedAtendimento.originalId }} />
+        <DetalhesModal open={detalhesOpen} onClose={() => { setDetalhesOpen(false); setSelectedAtendimento(null); }} atendimento={{ ...selectedAtendimento, id: selectedAtendimento.originalId }} isAdmin={isAdmin} />
       )}
     </div>
   );
