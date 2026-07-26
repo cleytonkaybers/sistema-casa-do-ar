@@ -1049,7 +1049,11 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
     : isValorPlaceholder(pag.valor_total) && (pag.valor_pago || 0) === 0;
   // "Pago" EXIGE pagamento real: sem nenhum valor pago, nunca é quitado (evita
   // que serviço sem preço / saldo 0 / recém-precificado apareça como pago).
-  const isPago = _valorPago > 0 && (pag.status === 'pago' || saldo <= 1.0);
+  // E nunca é "pago" enquanto houver serviço NOVO aguardando preço no grupo:
+  // cliente com serviços antigos quitados + serviço novo sem preço deve voltar
+  // a mostrar 💲 DEFINIR PREÇO com o botão Preço (antes o cartão ficava ✓Pago
+  // e escondia todos os botões, impedindo precificar o serviço novo).
+  const isPago = !ehPlaceholderCard && _valorPago > 0 && (pag.status === 'pago' || saldo <= 1.0);
   const isParcial = !isPago && pag.status === 'parcial' && _valorPago > 0;
   const temHistoricoReal = (pag.historico_pagamentos || []).some(h => !h.agendada && !h.consolidado);
   // Mostrar 100% apenas se realmente pago — evitar display enganoso
@@ -1261,7 +1265,7 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
               <span>Agendado para: {format(dataAgendada, 'dd/MM/yyyy')}</span>
             </div>
           )}
-          {!isPago && temPrecoDefinido && (
+          {!isPago && temPrecoDefinido && saldo > 0.01 && (
             <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded px-3 py-2">
               <span className="text-red-700 font-semibold text-xs">Saldo devido:</span>
               <span className="text-red-700 font-bold">{formatCurrency(saldo)}</span>
