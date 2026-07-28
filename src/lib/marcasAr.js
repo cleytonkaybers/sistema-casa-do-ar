@@ -16,6 +16,9 @@ export const MARCAS_AR = [
   'TCL',
   'Britânia',
   'Elgin',
+  'EOS',
+  'Agratto',
+  'Outra',
 ];
 
 // Detecta se um tipo do enum (ex: "Instalacao de 9k") e instalacao de AC.
