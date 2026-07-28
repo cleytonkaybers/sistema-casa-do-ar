@@ -109,6 +109,14 @@ export default function RelatóriosPage() {
       });
       const novoTipoServico = partesNovas.join(' + ');
       await base44.entities.Servico.update(servico.id, { tipo_servico: novoTipoServico });
+      // Verificação de leitura: o schema já rejeitou silenciosamente valores
+      // fora do enum de tipo_servico (update respondia ok mas nada mudava e a
+      // marca "não salvava"). Lê de volta e só declara sucesso se gravou mesmo.
+      const conferido = await base44.entities.Servico.filter({ id: servico.id }).catch(() => null);
+      const gravado = conferido && conferido[0] && conferido[0].tipo_servico === novoTipoServico;
+      if (!gravado) {
+        throw new Error('O servidor não gravou a alteração — publique a versão nova do app (schema do Serviço atualizado) e tente de novo.');
+      }
       queryClient.invalidateQueries({ queryKey: ['servicos'] });
       queryClient.invalidateQueries({ queryKey: ['servicos-relatorios'] });
       toast.success(`✓ Marca atualizada para ${novaMarca || 'não informada'}`);
