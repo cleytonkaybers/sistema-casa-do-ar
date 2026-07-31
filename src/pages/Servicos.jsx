@@ -6,7 +6,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, Loader2, Calendar } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Plus, Search, Loader2, Calendar, CheckCircle2, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import ServicoForm from '../components/servicos/ServicoForm';
 import ServicoCard from '../components/servicos/ServicoCard';
@@ -48,6 +49,10 @@ export default function ServicosPage() {
   // Por padrao mostra so a semana atual; toggle abre semanas futuras
   // (evita confusao do tecnico com servicos agendados pra proxima semana).
   const [verFuturos, setVerFuturos] = useState(false);
+  // Painel ADM "Concluídos da semana" com exclusão TOTAL (cascata)
+  const [verConcluidos, setVerConcluidos] = useState(false);
+  // { servico, resumo (prévia da função), confirmado (checkbox), executando }
+  const [exclusaoTotal, setExclusaoTotal] = useState(null);
   const SERVICOS_POR_DIA = 5;
   const SERVICOS_POR_PAGINA = 20;
 
@@ -757,6 +762,65 @@ export default function ServicosPage() {
   // Lista renderizada nos cards de dia depende do toggle
   const servicosComData = verFuturos ? servicosFuturos : servicosSemanaAtual;
 
+  // ===== Concluídos da semana (painel ADM com exclusão TOTAL) =====
+  // Usa data_conclusao (fallback data_programada) dentro da semana atual.
+  const concluidosDaSemana = !isAdmin ? [] : servicos
+    .filter(s => {
+      if (s.status !== 'concluido') return false;
+      const ref = s.data_conclusao || s.data_programada;
+      if (!ref) return false;
+      try {
+        return isWithinInterval(parseISO(ref), { start: inicioSemanaAtual, end: fimSemanaAtual });
+      } catch { return false; }
+    })
+    .sort((a, b) => new Date(b.data_conclusao || b.data_programada || 0) - new Date(a.data_conclusao || a.data_programada || 0));
+
+  const fmtBRL = (v) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  // Abre o diálogo e busca a PRÉVIA (o que será apagado) no backend
+  const abrirExclusaoTotal = async (servico) => {
+    setExclusaoTotal({ servico, resumo: null, confirmado: false, executando: false });
+    try {
+      const resp = await base44.functions.invoke('excluirServicoCompleto', {
+        servico_id: servico.id, modo: 'contar',
+      });
+      const data = resp?.data;
+      if (!data || data.success !== true) throw new Error(data?.error || 'Falha ao carregar a prévia');
+      setExclusaoTotal(prev => (prev && prev.servico?.id === servico.id) ? { ...prev, resumo: data } : prev);
+    } catch (err) {
+      toast.error('Erro ao preparar exclusão: ' + (err?.response?.data?.error || err.message));
+      setExclusaoTotal(null);
+    }
+  };
+
+  const executarExclusaoTotal = async () => {
+    if (!exclusaoTotal?.servico) return;
+    setExclusaoTotal(prev => ({ ...prev, executando: true }));
+    try {
+      const resp = await base44.functions.invoke('excluirServicoCompleto', {
+        servico_id: exclusaoTotal.servico.id, modo: 'executar',
+      });
+      const data = resp?.data;
+      // Nunca declarar sucesso sem confirmação real do servidor
+      if (!data || data.success !== true) throw new Error(data?.error || 'O servidor não confirmou a exclusão');
+      const d = data.deletados || {};
+      toast.success(
+        `🗑 Excluído de todos os registros: ${d.atendimentos || 0} atendimento(s), ` +
+        `${d.pagamentosCliente || 0} cobrança(s), ${d.lancamentos || 0} comissão(ões).`,
+        { duration: 8000 }
+      );
+      if (data.falhas?.length) {
+        toast.warning(`${data.falhas.length} item(ns) não puderam ser apagados — detalhes em Logs de Auditoria.`, { duration: 10000 });
+      }
+      ['servicos', 'atendimentos', 'pagamentos-clientes', 'lancamentos', 'tecnicos', 'pagamentos', 'minhasComissoes']
+        .forEach(k => queryClient.invalidateQueries({ queryKey: [k] }));
+      setExclusaoTotal(null);
+    } catch (err) {
+      toast.error('Erro na exclusão: ' + (err?.response?.data?.error || err.message));
+      setExclusaoTotal(prev => prev ? { ...prev, executando: false } : prev);
+    }
+  };
+
   // Reset page when filter changes
   React.useEffect(() => { setCurrentPageSemData(1); setExpandedDias({}); }, [debouncedSearch, equipeFilter]);
 
@@ -821,6 +885,22 @@ export default function ServicosPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {isAdmin && (
+            <Button
+              type="button"
+              onClick={() => setVerConcluidos(v => !v)}
+              variant="outline"
+              className={`h-10 text-xs font-semibold rounded-xl border ${
+                verConcluidos
+                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/25'
+                  : 'bg-[#0f1a2b] border-white/10 text-gray-300 hover:bg-white/5'
+              }`}
+              title="Ver serviços executados nesta semana (com exclusão total)"
+            >
+              <CheckCircle2 className="w-4 h-4 mr-1.5" />
+              Concluídos da semana{concluidosDaSemana.length > 0 ? ` (${concluidosDaSemana.length})` : ''}
+            </Button>
+          )}
           <Button
             type="button"
             onClick={() => setVerFuturos(v => !v)}
@@ -849,6 +929,50 @@ export default function ServicosPage() {
           </Button>
         </div>
       </div>
+
+      {/* Painel ADM: serviços executados na semana, com exclusão TOTAL */}
+      {isAdmin && verConcluidos && (
+        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-emerald-300 font-semibold text-sm flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4" />
+              Serviços executados na semana ({format(inicioSemanaAtual, 'dd/MM', { locale: ptBR })} – {format(fimSemanaAtual, 'dd/MM', { locale: ptBR })})
+            </p>
+            <span className="text-xs text-gray-400">{concluidosDaSemana.length} serviço(s)</span>
+          </div>
+          {concluidosDaSemana.length === 0 ? (
+            <p className="text-xs text-gray-500 italic">Nenhum serviço concluído nesta semana.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {concluidosDaSemana.map(s => (
+                <div key={s.id} className="flex flex-col sm:flex-row sm:items-center gap-2 bg-[#0f1a2b] border border-white/10 rounded-xl px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-gray-200 text-sm font-semibold truncate">{s.cliente_nome}</p>
+                    <p className="text-gray-500 text-xs truncate">{s.tipo_servico}</p>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className="text-xs text-gray-400 whitespace-nowrap">
+                      {(() => { const ref = s.data_conclusao || s.data_programada; try { return format(parseISO(ref), 'dd/MM HH:mm', { locale: ptBR }).replace(' 00:00', ''); } catch { return '-'; } })()}
+                    </span>
+                    {s.equipe_nome && <span className="text-xs text-blue-400 whitespace-nowrap">👷 {s.equipe_nome}</span>}
+                    <span className="text-xs text-emerald-400 font-semibold whitespace-nowrap">{fmtBRL(s.valor)}</span>
+                    <button
+                      onClick={() => abrirExclusaoTotal(s)}
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-red-600/90 hover:bg-red-700 text-white flex items-center gap-1.5 whitespace-nowrap"
+                      title="Excluir este serviço de TODOS os registros do sistema"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Excluir tudo
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-[11px] text-gray-500">
+            ⚠ "Excluir tudo" apaga o serviço de Atendimentos, Histórico, Pagamentos dos Clientes e Comissões, e reverte o crédito dos técnicos. Ação irreversível.
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -1062,6 +1186,84 @@ export default function ServicosPage() {
         variant="destructive"
         isLoading={isDeleting}
       />
+
+      {/* Exclusão TOTAL (cascata) — prévia + confirmação extra quando há pagamentos */}
+      <Dialog open={!!exclusaoTotal} onOpenChange={(o) => { if (!o && !exclusaoTotal?.executando) setExclusaoTotal(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="w-5 h-5" /> Exclusão TOTAL do serviço
+            </DialogTitle>
+          </DialogHeader>
+          {exclusaoTotal && (
+            <div className="space-y-3 py-1 text-sm">
+              <div className="bg-gray-50 rounded-lg p-3 text-xs space-y-1">
+                <div><strong>Cliente:</strong> {exclusaoTotal.servico.cliente_nome}</div>
+                <div><strong>Serviço:</strong> {exclusaoTotal.servico.tipo_servico}</div>
+                <div><strong>Valor:</strong> {fmtBRL(exclusaoTotal.servico.valor)}</div>
+              </div>
+
+              {!exclusaoTotal.resumo ? (
+                <div className="flex items-center gap-2 text-gray-500 text-xs py-2">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Verificando o que será apagado…
+                </div>
+              ) : (() => {
+                const c = exclusaoTotal.resumo.contagens || {};
+                const v = exclusaoTotal.resumo.valores || {};
+                const precisaConfirmarExtra = (v.valor_pago_cliente || 0) > 0 || v.tem_comissao_paga;
+                return (
+                  <>
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800 space-y-1">
+                      <p className="font-bold">Será apagado DEFINITIVAMENTE:</p>
+                      <ul className="list-disc ml-4 space-y-0.5">
+                        <li>O próprio serviço</li>
+                        <li>{c.atendimentos || 0} registro(s) em Atendimentos / Histórico de Clientes</li>
+                        <li>{c.pagamentosCliente || 0} cobrança(s) em Pagamentos dos Clientes</li>
+                        <li>{c.lancamentos || 0} comissão(ões) de técnico ({fmtBRL(v.comissao_total)}) — o crédito será revertido</li>
+                        {(c.notificacoes || 0) > 0 && <li>{c.notificacoes} notificação(ões)</li>}
+                      </ul>
+                    </div>
+
+                    {precisaConfirmarExtra && (
+                      <div className="rounded-lg border border-orange-300 bg-orange-50 p-3 text-xs text-orange-800 space-y-2">
+                        <p className="font-bold">⚠ Atenção — há pagamentos envolvidos:</p>
+                        {(v.valor_pago_cliente || 0) > 0 && (
+                          <p>O cliente <strong>já pagou {fmtBRL(v.valor_pago_cliente)}</strong> deste serviço. Esse histórico de pagamento será apagado junto.</p>
+                        )}
+                        {v.tem_comissao_paga && (
+                          <p>Há comissão deste serviço <strong>já marcada como paga</strong> ao técnico.</p>
+                        )}
+                        <label className="flex items-start gap-2 cursor-pointer font-semibold">
+                          <input
+                            type="checkbox"
+                            checked={!!exclusaoTotal.confirmado}
+                            onChange={(e) => setExclusaoTotal(prev => ({ ...prev, confirmado: e.target.checked }))}
+                            className="mt-0.5"
+                          />
+                          Entendo e quero apagar mesmo assim
+                        </label>
+                      </div>
+                    )}
+
+                    <DialogFooter className="gap-2 pt-2">
+                      <Button variant="outline" onClick={() => setExclusaoTotal(null)} disabled={exclusaoTotal.executando}>
+                        Cancelar
+                      </Button>
+                      <Button
+                        onClick={executarExclusaoTotal}
+                        disabled={exclusaoTotal.executando || (precisaConfirmarExtra && !exclusaoTotal.confirmado)}
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                      >
+                        {exclusaoTotal.executando ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Excluindo…</> : '🗑 Excluir TUDO'}
+                      </Button>
+                    </DialogFooter>
+                  </>
+                );
+              })()}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
