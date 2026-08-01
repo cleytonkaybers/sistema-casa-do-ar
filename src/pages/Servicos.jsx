@@ -22,6 +22,7 @@ import { usePermissions } from '@/components/auth/PermissionGuard';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 import { matchClienteSearch, acharClientePorIdentidade } from '@/lib/utils/buscaCliente';
 import { calcularComissao } from '@/lib/comissao';
+import { provisionarTecnicosFinanceiro } from '@/lib/utils/tecnicosFinanceiro';
 
 export default function ServicosPage() {
   const { hasPermission, isAdmin, user: currentUser, loading: loadingUser } = usePermissions();
@@ -426,6 +427,14 @@ export default function ServicosPage() {
       let tecnicosComissionados = 0;
       if (comissaoHabilitada && servicoSnapshot.equipe_id && servicoSnapshot.valor && !servicoSnapshot.comissao_gerada) {
         toast.info('⏳ Lançando comissões dos técnicos...', { id: 'conclusao-progresso', duration: 30000 });
+        // Técnico recém-cadastrado só existe em User — sem registro em
+        // TecnicoFinanceiro ele ficaria de FORA da comissão deste serviço.
+        // Provisiona os faltantes da equipe (saldo zero) antes de buscar.
+        try {
+          await provisionarTecnicosFinanceiro({ apenasEquipeId: servicoSnapshot.equipe_id });
+        } catch (e) {
+          console.error('[conclusao] provisionar técnicos falhou:', e);
+        }
         const tecnicos = await base44.entities.TecnicoFinanceiro.filter({ equipe_id: servicoSnapshot.equipe_id });
         if (!tecnicos || tecnicos.length === 0) {
           toast.error(`⚠️ Comissão não gerada: nenhum técnico na equipe "${servicoSnapshot.equipe_nome || servicoSnapshot.equipe_id}"`);

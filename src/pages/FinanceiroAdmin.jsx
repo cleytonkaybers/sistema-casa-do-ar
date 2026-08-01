@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { listAll } from '@/lib/utils/listAll';
-import { useQuery } from '@tanstack/react-query';
+import { provisionarTecnicosFinanceiro } from '@/lib/utils/tecnicosFinanceiro';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,7 @@ function dataRefPagamento(p) {
 
 export default function FinanceiroAdmin() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [filtroEquipe, setFiltroEquipe] = useState('todas');
@@ -190,6 +192,24 @@ export default function FinanceiroAdmin() {
     };
     checkAdmin();
   }, [navigate]);
+
+  // Provisiona técnicos NOVOS: usuário técnico sem registro em TecnicoFinanceiro
+  // não aparecia no modal de pagamento nem recebia comissão. Roda uma vez por
+  // sessão da página; também corrige equipe de técnico que mudou de time.
+  const provisionouRef = React.useRef(false);
+  useEffect(() => {
+    if (!isAdmin || provisionouRef.current) return;
+    provisionouRef.current = true;
+    provisionarTecnicosFinanceiro()
+      .then(({ criados, atualizados }) => {
+        if (criados > 0 || atualizados > 0) {
+          if (criados > 0) toast.info(`👷 ${criados} técnico(s) novo(s) adicionado(s) ao financeiro.`);
+          queryClient.invalidateQueries({ queryKey: ['tecnicos'] });
+          queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro'] });
+        }
+      })
+      .catch(err => console.error('[financeiro] provisionar técnicos falhou:', err));
+  }, [isAdmin]);
 
   if (loading) return <div className="flex items-center justify-center h-screen"><div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div></div>;
   if (!isAdmin) return null;

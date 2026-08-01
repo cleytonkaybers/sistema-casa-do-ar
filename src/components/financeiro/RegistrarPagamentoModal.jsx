@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { startOfWeek, endOfWeek, parseISO } from 'date-fns';
 import { base44 } from '@/api/base44Client';
 import { listAll } from '@/lib/utils/listAll';
+import { provisionarTecnicosFinanceiro } from '@/lib/utils/tecnicosFinanceiro';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,7 +50,13 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
 
   const { data: tecnicosRaw = [] } = useQuery({
     queryKey: ['tecnicos-financeiro'],
-    queryFn: () => listAll('TecnicoFinanceiro')
+    queryFn: async () => {
+      // Técnico recém-cadastrado só existe em User; sem registro em
+      // TecnicoFinanceiro ele não aparecia nesta lista. Provisiona os
+      // faltantes (saldo zero) antes de listar.
+      try { await provisionarTecnicosFinanceiro(); } catch (e) { console.error('[modal-pagamento] provisionar falhou:', e); }
+      return listAll('TecnicoFinanceiro');
+    }
   });
 
   const { data: todosLancamentos = [] } = useQuery({
