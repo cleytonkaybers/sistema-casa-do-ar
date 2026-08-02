@@ -22,7 +22,7 @@ import { usePermissions } from '@/components/auth/PermissionGuard';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 import { matchClienteSearch, acharClientePorIdentidade } from '@/lib/utils/buscaCliente';
 import { calcularComissao } from '@/lib/comissao';
-import { provisionarTecnicosFinanceiro } from '@/lib/utils/tecnicosFinanceiro';
+import { provisionarTecnicosFinanceiro, ehAssalariado } from '@/lib/utils/tecnicosFinanceiro';
 
 export default function ServicosPage() {
   const { hasPermission, isAdmin, user: currentUser, loading: loadingUser } = usePermissions();
@@ -435,9 +435,16 @@ export default function ServicosPage() {
         } catch (e) {
           console.error('[conclusao] provisionar técnicos falhou:', e);
         }
-        const tecnicos = await base44.entities.TecnicoFinanceiro.filter({ equipe_id: servicoSnapshot.equipe_id });
+        const tecnicosEquipe = await base44.entities.TecnicoFinanceiro.filter({ equipe_id: servicoSnapshot.equipe_id });
+        // Assalariados (salário fixo semanal) não recebem comissão por serviço.
+        const tecnicos = (tecnicosEquipe || []).filter(t => !ehAssalariado(t));
         if (!tecnicos || tecnicos.length === 0) {
-          toast.error(`⚠️ Comissão não gerada: nenhum técnico na equipe "${servicoSnapshot.equipe_nome || servicoSnapshot.equipe_id}"`);
+          // Equipe só com assalariado(s) é situação NORMAL — não é erro.
+          if (tecnicosEquipe && tecnicosEquipe.length > 0) {
+            toast.info('💼 Equipe com técnico(s) de salário fixo — sem comissão por serviço.');
+          } else {
+            toast.error(`⚠️ Comissão não gerada: nenhum técnico na equipe "${servicoSnapshot.equipe_nome || servicoSnapshot.equipe_id}"`);
+          }
         } else {
           const valorTotal = servicoSnapshot.valor;
           const comissao = await calcularComissao(servicoSnapshot.tipo_servico, valorTotal, queryClient);

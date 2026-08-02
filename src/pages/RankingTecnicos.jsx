@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { listAll } from '@/lib/utils/listAll';
+import { ehAssalariado } from '@/lib/utils/tecnicosFinanceiro';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -134,6 +135,17 @@ export default function RankingTecnicos() {
     queryFn: () => listAll('PagamentoTecnico'),
   });
 
+  // Técnicos com salário fixo ficam fora do ranking de produção por comissão.
+  const { data: usuariosRanking = [] } = useQuery({
+    queryKey: ['usuarios-ranking'],
+    queryFn: () => listAll('User'),
+  });
+  const idsAssalariados = React.useMemo(() => new Set(
+    (usuariosRanking || [])
+      .filter(u => ehAssalariado(u))
+      .map(u => (u.email || '').trim().toLowerCase())
+  ), [usuariosRanking]);
+
   const isLoading = loadLanc || loadPag;
 
   const dentro = (dataStr, ini, fim) => {
@@ -218,7 +230,10 @@ export default function RankingTecnicos() {
   });
 
   // Ordena pelo ganho do periodo selecionado (mantém comportamento do filtro do header)
+  // Assalariados ficam FORA: o ranking compara produção por comissão e eles
+  // apareceriam sempre em último com R$ 0,00, distorcendo a comparação.
   const ranking = Object.values(tecnicoMap)
+    .filter((t) => !idsAssalariados.has((t.id || '').trim().toLowerCase()))
     .map((t) => ({
       ...t,
       pendente: Math.max(0, t.total_ganho - t.total_pago),

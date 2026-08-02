@@ -23,6 +23,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl, formatTipoServicoCompact } from '@/utils';
 import { matchClienteSearch, chaveIdentidadeCliente } from '@/lib/utils/buscaCliente';
 import { calcularComissao } from '@/lib/comissao';
+import { ehAssalariado } from '@/lib/utils/tecnicosFinanceiro';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 
 // Helper de telefone extraído dos padrões
@@ -209,9 +210,11 @@ export default function HistoricoClientes() {
       const comissaoHabilitada = servico.gerar_comissao !== false;
       let tecnicosComissionados = 0;
       if (comissaoHabilitada && servico.equipe_id && servico.valor && !servico.comissao_gerada) {
-        const tecnicos = await base44.entities.TecnicoFinanceiro
+        const tecnicosEquipe = await base44.entities.TecnicoFinanceiro
           .filter({ equipe_id: servico.equipe_id })
           .catch(() => []);
+        // Assalariados (salário fixo semanal) não recebem comissão por serviço.
+        const tecnicos = (tecnicosEquipe || []).filter(t => !ehAssalariado(t));
         if (tecnicos && tecnicos.length > 0) {
           const valorTotal = servico.valor;
           // Le percentuais da Tabela de Servicos (TipoServicoValor). Fallback 30/15.

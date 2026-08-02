@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { startOfWeek, endOfWeek, parseISO } from 'date-fns';
 import { base44 } from '@/api/base44Client';
 import { listAll } from '@/lib/utils/listAll';
-import { provisionarTecnicosFinanceiro } from '@/lib/utils/tecnicosFinanceiro';
+import { provisionarTecnicosFinanceiro, ehAssalariado } from '@/lib/utils/tecnicosFinanceiro';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -125,6 +125,21 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
     const saldo_total = saldo_anterior + totalComissoesSemana - totalPagoSemana;
     const creditoPendenteLiquido = Math.max(0, saldo_total);
 
+    // Assalariado: valor é digitado na hora; não há crédito/adiantamento a
+    // calcular. Só o total recebido na semana é informativo.
+    if (ehAssalariado(t)) {
+      return {
+        ...t,
+        _assalariado: true,
+        credito_pendente: 0,
+        credito_pago: totalPagoSemana,
+        total_ganho: 0,
+        saldo_anterior: 0,
+        credito_anterior: 0,
+        adiantamento_anterior: 0,
+      };
+    }
+
     return {
       ...t,
       credito_pendente: creditoPendenteLiquido,
@@ -144,7 +159,8 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
       return;
     }
 
-    if (parseFloat(valorPago) > tecnicoSelecionado.credito_pendente) {
+    // Assalariado não tem crédito pendente — o valor é livre (salário da semana)
+    if (!tecnicoSelecionado._assalariado && parseFloat(valorPago) > tecnicoSelecionado.credito_pendente) {
       toast.warning(`Valor superior ao crédito pendente (R$ ${tecnicoSelecionado.credito_pendente.toFixed(2)})`);
     }
 
@@ -205,7 +221,8 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
             <Select value={tecnicoSelecionado?.id || ''} onValueChange={(id) => {
               const tecnico = tecnicos.find(t => t.id === id);
               setTecnicoSelecionado(tecnico);
-              if (tecnico) setValorPago(tecnico.credito_pendente.toFixed(2));
+              // Assalariado: valor é digitado na hora (salário da semana)
+              if (tecnico) setValorPago(tecnico._assalariado ? '' : tecnico.credito_pendente.toFixed(2));
             }}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecionar técnico..." />
@@ -213,7 +230,9 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
               <SelectContent>
                 {tecnicos.map(tecnico => (
                   <SelectItem key={tecnico.id} value={tecnico.id}>
-                    {tecnico.tecnico_nome} - Crédito Pendente: R$ {tecnico.credito_pendente.toFixed(2)}
+                    {tecnico._assalariado
+                      ? `${tecnico.tecnico_nome} — 💼 Salário semanal`
+                      : `${tecnico.tecnico_nome} - Crédito Pendente: R$ ${tecnico.credito_pendente.toFixed(2)}`}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -222,7 +241,21 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
 
           {tecnicoSelecionado && (
             <>
-              {/* Resumo do Técnico */}
+              {/* Resumo do Técnico — assalariado tem visão própria */}
+              {tecnicoSelecionado._assalariado ? (
+                <Card className="bg-slate-50 border-slate-200">
+                  <CardContent className="pt-4 space-y-2">
+                    <p className="text-sm font-semibold text-slate-700">💼 Técnico com salário fixo semanal</p>
+                    <p className="text-xs text-slate-600">
+                      Não recebe comissão por serviço — informe o valor do salário desta semana.
+                    </p>
+                    <div className="pt-1">
+                      <p className="text-gray-600 text-sm">Já recebido nesta semana</p>
+                      <p className="font-bold text-lg text-green-600">R$ {tecnicoSelecionado.credito_pago.toFixed(2)}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
               <Card className="bg-blue-50 border-blue-200">
                 <CardContent className="pt-4 space-y-3">
                   <div className="grid grid-cols-3 gap-4 text-sm">
@@ -261,6 +294,7 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
                   )}
                 </CardContent>
               </Card>
+              )}
 
               {/* Dados do Pagamento */}
               <div className="grid grid-cols-2 gap-4">
@@ -275,15 +309,18 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
                       placeholder="0.00"
                       min="0"
                     />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="whitespace-nowrap text-green-700 border-green-300 hover:bg-green-50"
-                      onClick={() => setValorPago(tecnicoSelecionado.credito_pendente.toFixed(2))}
-                      title="Usar valor total pendente"
-                    >
-                      R$ {tecnicoSelecionado.credito_pendente.toFixed(2)}
-                    </Button>
+                    {/* Atalho de crédito não se aplica ao assalariado */}
+                    {!tecnicoSelecionado._assalariado && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="whitespace-nowrap text-green-700 border-green-300 hover:bg-green-50"
+                        onClick={() => setValorPago(tecnicoSelecionado.credito_pendente.toFixed(2))}
+                        title="Usar valor total pendente"
+                      >
+                        R$ {tecnicoSelecionado.credito_pendente.toFixed(2)}
+                      </Button>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-2">

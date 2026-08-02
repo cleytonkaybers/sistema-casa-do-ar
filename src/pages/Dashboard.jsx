@@ -28,6 +28,7 @@ import {
 import { format, differenceInDays, startOfMonth, endOfMonth, isWithinInterval, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getLocalDate, getStartOfWeek, getEndOfWeek, toLocalDate, toLocalDateSafe, parseHistoricoData } from '@/lib/dateUtils';
+import { ehAssalariado } from '@/lib/utils/tecnicosFinanceiro';
 import { formatPhone } from '@/lib/utils/formatters';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 import { isValorPlaceholder } from '@/lib/placeholderPreco';
@@ -247,6 +248,9 @@ export default function Dashboard() {
     const SALDO_INICIO = new Date('2026-04-13T00:00:00');
 
     return tecnicosFinanceiro
+      // Assalariado (salário fixo) não tem saldo de comissão — sem este filtro
+      // apareceria em vermelho como "recebeu a mais" a cada pagamento semanal.
+      .filter(t => !ehAssalariado(t))
       .map(t => {
         const lancamentosSemana = lancamentosFinanceiros.filter(l => {
           if (l.tecnico_id !== t.tecnico_id || !l.data_geracao) return false;
@@ -527,9 +531,13 @@ export default function Dashboard() {
               <div className="col-span-2 xl:col-span-2">
                 <GanhosSemanaDashboard />
               </div>
-              <div className="col-span-2 xl:col-span-2">
-                <Historico4SemanasDashboard />
-              </div>
+              {/* Histórico compara produzido x recebido — não se aplica a quem
+                  recebe salário fixo (não há produção por comissão). */}
+              {!ehAssalariado(currentUser) && (
+                <div className="col-span-2 xl:col-span-2">
+                  <Historico4SemanasDashboard />
+                </div>
+              )}
             </>
           )}
         </div>

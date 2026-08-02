@@ -113,20 +113,32 @@ Deno.serve(async (req) => {
     }
 
     // Buscar técnicos da equipe - buscar por role em vez de tipo_usuario
-    const usuarios = await base44.asServiceRole.entities.User.list();
+    const usuarios = await base44.asServiceRole.entities.User.list('-created_date', 5000);
     console.log(`Total de usuários: ${usuarios.length}`);
-    
-    const tecnicos = usuarios.filter(u => {
-      console.log(`Verificando usuário: ${u.full_name}, equipe_id: ${u.equipe_id}, role: ${u.role}`);
-      return u.equipe_id === servico.equipe_id && (u.role === 'user' || u.role === 'admin');
-    });
 
-    console.log(`Técnicos encontrados para equipe ${servico.equipe_id}: ${tecnicos.length}`);
+    // Técnico ASSALARIADO (remuneracao 'fixo') recebe salário semanal e NÃO
+    // gera comissão por serviço. Lê top-level e do bag `data` (a tela de
+    // Usuários grava nos dois).
+    const ehAssalariado = (u: any) => (u?.remuneracao || u?.data?.remuneracao) === 'fixo';
+
+    const daEquipe = usuarios.filter(u =>
+      u.equipe_id === servico.equipe_id && (u.role === 'user' || u.role === 'admin'));
+    const tecnicos = daEquipe.filter(u => !ehAssalariado(u));
+
+    console.log(`Técnicos comissionados na equipe ${servico.equipe_id}: ${tecnicos.length} (de ${daEquipe.length} na equipe)`);
 
     if (tecnicos.length === 0) {
-      return Response.json({ 
+      // Equipe só com assalariados é situação NORMAL — não é erro.
+      if (daEquipe.length > 0) {
+        return Response.json({
+          success: true,
+          message: 'Equipe possui apenas técnico(s) com salário fixo — nenhuma comissão gerada.',
+          lancamentos: [],
+        });
+      }
+      return Response.json({
         error: 'Nenhum técnico encontrado para a equipe',
-        debug: { 
+        debug: {
           equipe_id: servico.equipe_id,
           total_usuarios: usuarios.length,
           usuarios_da_equipe: usuarios.filter(u => u.equipe_id === servico.equipe_id).map(u => ({ name: u.full_name, role: u.role }))

@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Loader2, Users, Shield, Mail, Edit, Trash2, Copy, Check, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
+import { ehAssalariado } from '@/lib/utils/tecnicosFinanceiro';
 import { usePermissions } from '../components/auth/PermissionGuard';
 import { useEmpresa } from '../components/auth/EmpresaGuard';
 import GerenciarEquipes from '../components/equipes/GerenciarEquipes';
@@ -218,6 +219,8 @@ export default function UsuariosPage() {
       perfil: userData.perfil || 'atendente',
       tipo_usuario: userData.tipo_usuario || 'administrativo',
       empresa_id: userData.empresa_id,
+      // Lê top-level OU do bag (o app lê top-level; esta tela grava no bag)
+      remuneracao: user.remuneracao || userData.remuneracao || 'comissao',
       permissoes: userData.permissoes || perfisPreDefinidos.atendente.permissoes
     });
     setShowEditModal(true);
@@ -226,16 +229,21 @@ export default function UsuariosPage() {
   const handleSavePermissions = () => {
     if (!editingUser) return;
     const originalData = usuarios.find(u => u.id === editingUser.id)?.data || {};
+    const remuneracao = editingUser.remuneracao || 'comissao';
     updateUserMutation.mutate({
       id: editingUser.id,
       closesModal: true,
       data: {
+        // Grava a remuneração TAMBÉM top-level: o resto do app (comissões,
+        // financeiro, Meu Financeiro) lê top-level, não o bag `data`.
+        remuneracao,
         data: {
           ...originalData,
           perfil: editingUser.perfil,
           permissoes: editingUser.permissoes,
           empresa_id: editingUser.empresa_id,
-          tipo_usuario: editingUser.tipo_usuario
+          tipo_usuario: editingUser.tipo_usuario,
+          remuneracao
         }
       }
     });
@@ -389,6 +397,11 @@ export default function UsuariosPage() {
                       {userData.tipo_usuario && (
                         <Badge className="bg-purple-100 text-purple-700 text-xs">
                           {userData.tipo_usuario}
+                        </Badge>
+                      )}
+                      {ehAssalariado(usuario) && (
+                        <Badge className="bg-slate-200 text-slate-700 text-xs" title="Pago por salário fixo semanal — não recebe comissão por serviço">
+                          💼 Salário
                         </Badge>
                       )}
                     </div>
@@ -640,6 +653,29 @@ export default function UsuariosPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              {/* Forma de pagamento — só faz sentido para técnico.
+                  'comissao' (padrão) mantém o comportamento atual; 'fixo' é o
+                  técnico assalariado: não gera comissão por serviço. */}
+              <div className="space-y-2">
+                <Label>Forma de pagamento (técnico)</Label>
+                <Select
+                  value={editingUser.remuneracao || 'comissao'}
+                  onValueChange={(value) => setEditingUser({ ...editingUser, remuneracao: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="comissao">Comissão (%) por serviço</SelectItem>
+                    <SelectItem value="fixo">💼 Salário fixo semanal</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500">
+                  "Salário fixo semanal": não recebe comissão por serviço e não entra na Gestão de Créditos —
+                  o pagamento é registrado normalmente pelo Financeiro, com o valor digitado na hora.
+                </p>
               </div>
 
               <div className="space-y-2">

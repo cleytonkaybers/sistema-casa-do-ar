@@ -38,6 +38,10 @@
       "format": "date-time",
       "description": "Data do \u00faltimo pagamento"
     },
+    "remuneracao": {
+      "type": "string",
+      "description": "Espelho de User.remuneracao: 'comissao' (padrão) ou 'fixo' (salário semanal — não recebe comissão por serviço)"
+    },
     "data_ultima_atualizacao": {
       "type": "string",
       "format": "date-time",

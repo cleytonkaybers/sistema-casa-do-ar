@@ -8,9 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DollarSign, TrendingUp, TrendingDown, CheckCircle2, Clock, FileText, AlertCircle } from 'lucide-react';
-import { format, parseISO, startOfWeek, endOfWeek, subWeeks, isValid } from 'date-fns';
+import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/lib/AuthContext';
+import { ehAssalariado } from '@/lib/utils/tecnicosFinanceiro';
 
 function formatMoney(v) {
   return `R$ ${(v || 0).toFixed(2).replace('.', ',')}`;
@@ -40,6 +41,11 @@ export default function MeuFinanceiro() {
       return {
         inicio: format(startOfWeek(sem, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
         fim: format(endOfWeek(sem, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+      };
+    } else if (periodo === 'mes') {
+      return {
+        inicio: format(startOfMonth(hoje), 'yyyy-MM-dd'),
+        fim: format(endOfMonth(hoje), 'yyyy-MM-dd'),
       };
     }
     return { inicio: null, fim: null };
@@ -81,6 +87,24 @@ export default function MeuFinanceiro() {
   const totalPago = pagamentosPeriodo.reduce((s, p) => s + (p.valor_pago || 0), 0);
   const totalGanho = comissoesPeriodo.reduce((s, c) => s + (c.valor_comissao_tecnico || 0), 0);
 
+  // Técnico com salário fixo semanal: os ganhos dele são os PAGAMENTOS
+  // recebidos (não há comissão por serviço).
+  const assalariado = ehAssalariado(user);
+  const inicioMesStr = format(startOfMonth(hoje), 'yyyy-MM-dd');
+  const fimMesStr = format(endOfMonth(hoje), 'yyyy-MM-dd');
+  const inicioSemanaStr = format(startOfWeek(hoje, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const fimSemanaStr = format(endOfWeek(hoje, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const somaPagamentosEntre = (ini, f) => meusPagamentos
+    .filter(p => {
+      const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date);
+      if (!d) return false;
+      const ds = format(d, 'yyyy-MM-dd');
+      return ds >= ini && ds <= f;
+    })
+    .reduce((s, p) => s + (p.valor_pago || 0), 0);
+  const recebidoSemana = somaPagamentosEntre(inicioSemanaStr, fimSemanaStr);
+  const recebidoMes = somaPagamentosEntre(inicioMesStr, fimMesStr);
+
   // Saldo acumulado de todas as semanas anteriores ao período selecionado
   // Positivo = empresa deve ao técnico | Negativo = técnico recebeu a mais
   const SALDO_INICIO = new Date('2026-04-13T00:00:00');
@@ -121,10 +145,67 @@ export default function MeuFinanceiro() {
           <SelectContent className="bg-[#152236] border-white/10 text-gray-200">
             <SelectItem value="atual">Semana Atual</SelectItem>
             <SelectItem value="anterior">Semana Anterior</SelectItem>
+            <SelectItem value="mes">Mês Atual</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
+      {/* ===== Visão do técnico com SALÁRIO FIXO ===== */}
+      {assalariado ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="bg-[#152236] border-white/5 rounded-2xl">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-gray-400 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Recebido no Período
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingPagamentos ? <Skeleton className="h-8 w-32 bg-white/10 rounded" /> : (
+                  <>
+                    <div className="text-2xl font-bold text-emerald-400">{formatMoney(totalPago)}</div>
+                    <p className="text-xs text-gray-500 mt-1">{pagamentosPeriodo.length} pagamento(s)</p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+            <Card className="bg-[#152236] border-white/5 rounded-2xl">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-gray-400 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-blue-400" /> Ganhos da Semana
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingPagamentos ? <Skeleton className="h-8 w-32 bg-white/10 rounded" /> : (
+                  <>
+                    <div className="text-2xl font-bold text-blue-400">{formatMoney(recebidoSemana)}</div>
+                    <p className="text-xs text-gray-500 mt-1">Semana atual</p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+            <Card className="bg-[#152236] border-white/5 rounded-2xl">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-gray-400 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-purple-400" /> Ganhos do Mês
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingPagamentos ? <Skeleton className="h-8 w-32 bg-white/10 rounded" /> : (
+                  <>
+                    <div className="text-2xl font-bold text-purple-400">{formatMoney(recebidoMes)}</div>
+                    <p className="text-xs text-gray-500 mt-1">{format(hoje, 'MMMM', { locale: ptBR })}</p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-slate-300 bg-slate-500/10 border border-slate-500/20 rounded-xl px-4 py-3">
+            💼 <span>Você recebe <strong>salário fixo semanal</strong> — seus ganhos são os pagamentos recebidos abaixo, sem comissão por serviço.</span>
+          </div>
+        </>
+      ) : (
+      <>
       {/* Cards de Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-[#152236] border-white/5 rounded-2xl">
@@ -310,8 +391,10 @@ export default function MeuFinanceiro() {
           )}
         </CardContent>
       </Card>
+      </>
+      )}
 
-      {/* Pagamentos Recebidos */}
+      {/* Pagamentos Recebidos — comum aos dois tipos de técnico */}
       <Card className="bg-[#152236] border-white/5 rounded-2xl">
         <CardHeader className="border-b border-white/5">
           <CardTitle className="text-sm font-bold text-gray-200 flex items-center gap-2">

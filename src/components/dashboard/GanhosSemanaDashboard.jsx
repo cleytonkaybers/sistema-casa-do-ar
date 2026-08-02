@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { DollarSign, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
 import { getStartOfWeek, getEndOfWeek } from '@/lib/dateUtils';
+import { ehAssalariado } from '@/lib/utils/tecnicosFinanceiro';
 import { parseISO, isValid } from 'date-fns';
 
 // Mesma logica de MeuFinanceiro — parseISO trata corretamente strings
@@ -104,6 +105,40 @@ export default function GanhosSemanaDashboard() {
   const saldo_total = dadosSemana.saldo_total ?? (totalGanho - valorPago);
   const saldoPositivo = saldo_total > 0.01;
   const saldoNegativo = saldo_total < -0.01;
+
+  // Técnico com salário fixo: ganho = o que recebeu. Sem o bloco de saldo,
+  // que o marcaria como "recebeu a mais" a cada pagamento semanal.
+  if (ehAssalariado(user)) {
+    return (
+      <Card
+        className="bg-gradient-to-br from-emerald-50 to-green-50 border-green-200 hover:shadow-lg transition-shadow cursor-pointer"
+        onClick={() => navigate('/MeuFinanceiro')}
+      >
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-gray-700">
+              <TrendingUp className="w-4 h-4 text-green-600" />
+              Recebido na Semana
+            </CardTitle>
+            <DollarSign className="w-5 h-5 text-green-600" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <div className="text-3xl font-bold text-green-700 tabular-nums">
+              R$ {valorPago.toFixed(2)}
+            </div>
+            <p className="text-xs text-gray-600 border-t border-green-200 pt-2">
+              💼 Salário fixo semanal
+            </p>
+            <Button className="w-full bg-green-600 hover:bg-green-700" size="sm">
+              Ver Detalhes
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card

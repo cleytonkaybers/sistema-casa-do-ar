@@ -33,6 +33,10 @@
     "permissoes": {
       "type": "object",
       "description": "Permiss\u00f5es personalizadas do usu\u00e1rio"
+    },
+    "remuneracao": {
+      "type": "string",
+      "description": "Forma de pagamento do t\u00e9cnico: 'comissao' (padr\u00e3o \u2014 % por servi\u00e7o) ou 'fixo' (sal\u00e1rio semanal, n\u00e3o gera comiss\u00e3o)"
     }
   },
   "required": [

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { listAll } from '@/lib/utils/listAll';
-import { provisionarTecnicosFinanceiro } from '@/lib/utils/tecnicosFinanceiro';
+import { provisionarTecnicosFinanceiro, ehAssalariado } from '@/lib/utils/tecnicosFinanceiro';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -309,6 +309,21 @@ export default function FinanceiroAdmin() {
       // Crédito pendente exibe apenas o que há para pagar (nunca negativo)
       const creditoPendenteLiquido = Math.max(0, saldo_total);
 
+      // Assalariado (salário fixo semanal): não tem crédito por comissão.
+      // Só o que recebeu na semana é relevante — saldo sempre zero para não
+      // aparecer como "recebeu a mais" nem somar nos totais de crédito.
+      if (ehAssalariado(t)) {
+        return {
+          ...t,
+          _assalariado: true,
+          credito_pendente: 0,
+          credito_pago: totalPagoSemana,
+          total_ganho: 0,
+          saldo_anterior: 0,
+          saldo_total: 0,
+        };
+      }
+
       return {
         ...t,
         credito_pendente: creditoPendenteLiquido,
@@ -517,13 +532,22 @@ export default function FinanceiroAdmin() {
                   <TableRow key={tecnico.id} className={Math.abs(saldo) > 0.01 ? (saldo > 0 ? 'bg-red-900/20' : 'bg-emerald-900/20') : ''}>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{tecnico.tecnico_nome}</p>
+                        <p className="font-medium flex items-center gap-1.5">
+                          {tecnico.tecnico_nome}
+                          {tecnico._assalariado && (
+                            <Badge className="bg-slate-200 text-slate-700 text-[10px]" title="Salário fixo semanal — não recebe comissão por serviço">
+                              💼 Salário
+                            </Badge>
+                          )}
+                        </p>
                         <p className="text-xs text-gray-500">{tecnico.tecnico_id}</p>
                       </div>
                     </TableCell>
                     <TableCell>{tecnico.equipe_nome}</TableCell>
                     <TableCell>
-                      {Math.abs(saldo) > 0.01 ? (
+                      {tecnico._assalariado ? (
+                        <span className="text-gray-400 text-sm">—</span>
+                      ) : Math.abs(saldo) > 0.01 ? (
                         <div className="flex flex-col gap-0.5">
                           <Badge className={saldo > 0
                             ? 'bg-red-100 text-red-700 border border-red-300'
@@ -540,9 +564,13 @@ export default function FinanceiroAdmin() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={tecnico.credito_pendente > 0 ? 'default' : 'secondary'}>
-                        R$ {(tecnico.credito_pendente || 0).toFixed(2)}
-                      </Badge>
+                      {tecnico._assalariado ? (
+                        <span className="text-gray-400 text-sm">—</span>
+                      ) : (
+                        <Badge variant={tecnico.credito_pendente > 0 ? 'default' : 'secondary'}>
+                          R$ {(tecnico.credito_pendente || 0).toFixed(2)}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">
@@ -550,7 +578,9 @@ export default function FinanceiroAdmin() {
                       </Badge>
                     </TableCell>
                     <TableCell className="font-bold">
-                      R$ {(tecnico.total_ganho || 0).toFixed(2)}
+                      {tecnico._assalariado
+                        ? <span className="text-gray-400 text-sm font-normal">—</span>
+                        : `R$ ${(tecnico.total_ganho || 0).toFixed(2)}`}
                     </TableCell>
                   </TableRow>
                   );
