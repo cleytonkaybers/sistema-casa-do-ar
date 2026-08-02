@@ -19,22 +19,42 @@ export const ehAssalariado = (x) =>
 // o nome quando o id estiver vazio).
 const chaveTecFin = (t) => norm(t?.tecnico_id) || norm(t?.tecnico_nome);
 
-// Filtra a lista de TecnicoFinanceiro deixando só quem ainda é usuário do app.
-// Ex-usuários com histórico financeiro são preservados no banco, mas somem das
-// listas — exceto se ainda houver crédito pendente (o ADM precisa poder quitar).
-export function filtrarTecnicosAtivos(tecFins, usuarios) {
+// Localiza o User correspondente a um TecnicoFinanceiro (por e-mail ou nome).
+export function acharUsuarioDoTecnico(t, usuarios) {
+  return (usuarios || []).find(u =>
+    norm(u.email) === norm(t?.tecnico_id) ||
+    (u.full_name && t?.tecnico_nome && norm(u.full_name) === norm(t.tecnico_nome))) || null;
+}
+
+// Assalariado considerando TAMBÉM o cadastro do usuário — o espelho
+// `remuneracao` no TecnicoFinanceiro só existe depois do provisionamento
+// rodar, então sozinho ele não é confiável.
+export const ehAssalariadoCom = (t, usuarios) =>
+  ehAssalariado(t) || ehAssalariado(acharUsuarioDoTecnico(t, usuarios));
+
+// Filtra a lista de TecnicoFinanceiro deixando só quem deve aparecer.
+// Remove: marcados como ocultos pelo ADM e ex-usuários (acesso removido).
+// Ex-usuário com crédito pendente PERMANECE — o ADM precisa poder quitar.
+// options.excluirAssalariados: também tira quem recebe salário fixo (Dashboard).
+export function filtrarTecnicosAtivos(tecFins, usuarios, options = {}) {
+  const { excluirAssalariados = false } = options;
+  const lista = (tecFins || []).filter(t => t?.oculto !== true);
+
   const ids = new Set();
   const nomes = new Set();
   for (const u of usuarios || []) {
     if (u?.email) ids.add(norm(u.email));
     if (u?.full_name) nomes.add(norm(u.full_name));
   }
-  if (ids.size === 0) return tecFins || []; // sem referência confiável, não filtra
-  return (tecFins || []).filter(t => {
+  const semReferencia = ids.size === 0; // query de User falhou → não filtra por vínculo
+
+  return lista.filter(t => {
+    if (excluirAssalariados && ehAssalariadoCom(t, usuarios)) return false;
+    if (semReferencia) return true;
     const temUsuario = ids.has(norm(t.tecnico_id)) ||
       (t.tecnico_nome && nomes.has(norm(t.tecnico_nome)));
     if (temUsuario) return true;
-    return (t.credito_pendente || 0) > 0.01; // ex-usuário só fica se há saldo a pagar
+    return (t.credito_pendente || 0) > 0.01;
   });
 }
 

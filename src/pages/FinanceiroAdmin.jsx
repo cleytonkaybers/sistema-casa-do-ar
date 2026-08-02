@@ -55,6 +55,8 @@ export default function FinanceiroAdmin() {
   const [estornando, setEstornando] = useState(false);
   const [showPDFModal, setShowPDFModal] = useState(false);
   const [pagamentoDetalhes, setPagamentoDetalhes] = useState(null);
+  const [confirmOcultarTecnico, setConfirmOcultarTecnico] = useState(null);
+  const [ocultando, setOcultando] = useState(false);
   
   const { data: lancamentos = [], refetch: refetchLancamentos } = useQuery({
     queryKey: ['lancamentos'],
@@ -123,6 +125,27 @@ export default function FinanceiroAdmin() {
       setEditandoLancamento(null);
     } catch {
       toast.error('Erro ao atualizar lançamento');
+    }
+  };
+
+  // Oculta o técnico das listas de crédito/pagamento (ex-funcionário já
+  // acertado). NÃO apaga nada: o histórico de lançamentos e pagamentos fica
+  // intacto — só o cadastro deixa de aparecer.
+  const handleOcultarTecnico = async () => {
+    if (!confirmOcultarTecnico) return;
+    setOcultando(true);
+    try {
+      await base44.entities.TecnicoFinanceiro.update(confirmOcultarTecnico.id, { oculto: true });
+      toast.success(`${confirmOcultarTecnico.tecnico_nome} ocultado das listas. O histórico foi preservado.`);
+      queryClient.invalidateQueries({ queryKey: ['tecnicos'] });
+      queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro'] });
+      queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro-pag'] });
+      queryClient.invalidateQueries({ queryKey: ['tecnicosFinanceiro'] });
+      setConfirmOcultarTecnico(null);
+    } catch (err) {
+      toast.error('Erro ao ocultar: ' + (err?.message || 'tente novamente'));
+    } finally {
+      setOcultando(false);
     }
   };
 
@@ -533,6 +556,7 @@ export default function FinanceiroAdmin() {
                   <TableHead>Crédito Pendente</TableHead>
                   <TableHead>Crédito Pago</TableHead>
                   <TableHead>Total Ganho</TableHead>
+                  <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -591,6 +615,17 @@ export default function FinanceiroAdmin() {
                       {tecnico._assalariado
                         ? <span className="text-gray-400 text-sm font-normal">—</span>
                         : `R$ ${(tecnico.total_ganho || 0).toFixed(2)}`}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setConfirmOcultarTecnico(tecnico)}
+                        className="h-7 text-xs text-gray-400 hover:text-red-500"
+                        title="Ocultar este técnico das listas (ex-funcionário já acertado). O histórico é preservado."
+                      >
+                        🚫 Ocultar
+                      </Button>
                     </TableCell>
                   </TableRow>
                   );
@@ -978,6 +1013,24 @@ export default function FinanceiroAdmin() {
         confirmText={estornando ? "Cancelando..." : "Sim, Cancelar Pagamento"}
         variant="destructive"
         disabled={estornando}
+      />
+
+      <ConfirmDialog
+        open={!!confirmOcultarTecnico}
+        onClose={() => !ocultando && setConfirmOcultarTecnico(null)}
+        onConfirm={handleOcultarTecnico}
+        title="Ocultar técnico das listas"
+        description={confirmOcultarTecnico
+          ? `Ocultar ${confirmOcultarTecnico.tecnico_nome} da Gestão de Créditos, do Dashboard e da lista de pagamento?\n\n` +
+            `Use para ex-funcionário que já foi acertado. NADA é apagado: os lançamentos e pagamentos dele continuam no histórico e nos relatórios.` +
+            ((confirmOcultarTecnico.credito_pendente || 0) > 0.01
+              ? `\n\n⚠ ATENÇÃO: ele ainda tem R$ ${confirmOcultarTecnico.credito_pendente.toFixed(2)} de crédito pendente. Confirme que já acertou antes de ocultar.`
+              : '')
+          : ''}
+        confirmText={ocultando ? 'Ocultando...' : 'Ocultar'}
+        variant="destructive"
+        disabled={ocultando}
+        isLoading={ocultando}
       />
       </div>
       </>
