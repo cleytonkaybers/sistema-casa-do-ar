@@ -4,6 +4,7 @@ import TipoServicoDisplay from '@/components/TipoServicoDisplay';
 import { formatTipoServicoCompact } from '@/utils';
 import { base44 } from '@/api/base44Client';
 import { listAll } from '@/lib/utils/listAll';
+import { filtrarTecnicosAtivos } from '@/lib/utils/tecnicosFinanceiro';
 import { useAuth } from '@/lib/AuthContext';
 import { exportarExcel } from '@/lib/excelUtils';
 import TechnicianAccessBlock from '@/components/TechnicianAccessBlock';
@@ -1465,7 +1466,14 @@ function PagamentosClientesContent() {
   // Lista de tecnicos para o Select "Quem recebeu este valor?" no modal de pagamento.
   const { data: tecnicosFinanceiros = [] } = useQuery({
     queryKey: ['tecnicos-financeiro-pag'],
-    queryFn: () => listAll('TecnicoFinanceiro'),
+    queryFn: async () => {
+      const [tecFins, users] = await Promise.all([
+        listAll('TecnicoFinanceiro'),
+        listAll('User').catch(() => []),
+      ]);
+      // Não oferecer ex-usuário (acesso removido) na divisão do pagamento
+      return filtrarTecnicosAtivos(tecFins, users);
+    },
   });
 
   // LancamentoFinanceiro como AUTORIDADE: se tecnico recebeu comissao, entao

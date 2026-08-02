@@ -19,6 +19,25 @@ export const ehAssalariado = (x) =>
 // o nome quando o id estiver vazio).
 const chaveTecFin = (t) => norm(t?.tecnico_id) || norm(t?.tecnico_nome);
 
+// Filtra a lista de TecnicoFinanceiro deixando só quem ainda é usuário do app.
+// Ex-usuários com histórico financeiro são preservados no banco, mas somem das
+// listas — exceto se ainda houver crédito pendente (o ADM precisa poder quitar).
+export function filtrarTecnicosAtivos(tecFins, usuarios) {
+  const ids = new Set();
+  const nomes = new Set();
+  for (const u of usuarios || []) {
+    if (u?.email) ids.add(norm(u.email));
+    if (u?.full_name) nomes.add(norm(u.full_name));
+  }
+  if (ids.size === 0) return tecFins || []; // sem referência confiável, não filtra
+  return (tecFins || []).filter(t => {
+    const temUsuario = ids.has(norm(t.tecnico_id)) ||
+      (t.tecnico_nome && nomes.has(norm(t.tecnico_nome)));
+    if (temUsuario) return true;
+    return (t.credito_pendente || 0) > 0.01; // ex-usuário só fica se há saldo a pagar
+  });
+}
+
 // Remove registros DUPLICADOS do mesmo técnico (mesma chave). Mantém o de
 // maior movimento financeiro (crédito pago + total ganho + pendente) e, em
 // empate, o mais antigo — os zerados extras são apagados.
@@ -58,6 +77,44 @@ async function removerDuplicatas(tecFins) {
   return { sobreviventes, removidos };
 }
 
+// Remove/marca cadastros de técnico que NÃO têm mais usuário no app (acesso
+// removido). Regra de segurança: só APAGA quem está zerado; quem tem histórico
+// financeiro é preservado no banco e apenas marcado como ex-usuário
+// (_semUsuario), para as telas ocultarem sem perder o histórico de pagamentos.
+async function tratarOrfaos(tecFins, users) {
+  const idsUsuarios = new Set();
+  const nomesUsuarios = new Set();
+  for (const u of users || []) {
+    if (u?.email) idsUsuarios.add(norm(u.email));
+    if (u?.full_name) nomesUsuarios.add(norm(u.full_name));
+  }
+  // Sem lista de usuários confiável, não mexe em nada (evita falso positivo)
+  if (idsUsuarios.size === 0) return { ativos: tecFins, removidos: 0 };
+
+  const peso = (t) => (t.credito_pago || 0) + (t.total_ganho || 0) + (t.credito_pendente || 0);
+  const ativos = [];
+  let removidos = 0;
+  for (const t of tecFins || []) {
+    const temUsuario = idsUsuarios.has(norm(t.tecnico_id)) ||
+      (t.tecnico_nome && nomesUsuarios.has(norm(t.tecnico_nome)));
+    if (temUsuario) { ativos.push(t); continue; }
+
+    if (peso(t) > 0.001) {
+      // Tem histórico financeiro: NÃO apaga — só marca para as telas ocultarem
+      ativos.push({ ...t, _semUsuario: true });
+      continue;
+    }
+    try {
+      await base44.entities.TecnicoFinanceiro.delete(t.id);
+      removidos++;
+    } catch (e) {
+      console.error('[tecnicosFinanceiro] falha ao remover órfão', t.id, e);
+      ativos.push({ ...t, _semUsuario: true });
+    }
+  }
+  return { ativos, removidos };
+}
+
 // Trava de concorrência: as 3 chamadas do app podem disparar juntas (página
 // Financeiro + modal de pagamento no mesmo mount). Sem isto, ambas liam
 // "não existe" e criavam o MESMO técnico duas vezes.
@@ -82,7 +139,13 @@ async function _provisionar({ apenasEquipeId = null, usuarios = null } = {}) {
     usuarios ? Promise.resolve(usuarios) : listAll('User'),
     listAll('TecnicoFinanceiro'),
   ]);
-  const { sobreviventes: tecFins, removidos } = await removerDuplicatas(tecFinsBrutos);
+  const { sobreviventes, removidos: removidosDup } = await removerDuplicatas(tecFinsBrutos);
+  // Só varre órfãos quando temos a lista COMPLETA de usuários (chamadas com
+  // `usuarios` pré-filtrados não servem de referência para "quem não existe").
+  const { ativos: tecFins, removidos: removidosOrfaos } = usuarios
+    ? { ativos: sobreviventes, removidos: 0 }
+    : await tratarOrfaos(sobreviventes, users);
+  const removidos = removidosDup + removidosOrfaos;
   const tecnicosUsers = (users || []).filter(u =>
     ehTecnicoUser(u) && (!apenasEquipeId || u.equipe_id === apenasEquipeId));
 

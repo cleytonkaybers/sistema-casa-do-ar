@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { startOfWeek, endOfWeek, parseISO } from 'date-fns';
 import { base44 } from '@/api/base44Client';
 import { listAll } from '@/lib/utils/listAll';
-import { provisionarTecnicosFinanceiro, ehAssalariado } from '@/lib/utils/tecnicosFinanceiro';
+import { provisionarTecnicosFinanceiro, ehAssalariado, filtrarTecnicosAtivos } from '@/lib/utils/tecnicosFinanceiro';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,7 +55,13 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
       // TecnicoFinanceiro ele não aparecia nesta lista. Provisiona os
       // faltantes (saldo zero) antes de listar.
       try { await provisionarTecnicosFinanceiro(); } catch (e) { console.error('[modal-pagamento] provisionar falhou:', e); }
-      return listAll('TecnicoFinanceiro');
+      const [tecFins, users] = await Promise.all([
+        listAll('TecnicoFinanceiro'),
+        listAll('User').catch(() => []),
+      ]);
+      // Ex-usuário (acesso removido) não deve aparecer para pagamento —
+      // salvo se ainda houver crédito pendente para quitar.
+      return filtrarTecnicosAtivos(tecFins, users);
     }
   });
 

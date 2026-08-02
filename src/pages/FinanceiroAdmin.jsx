@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { listAll } from '@/lib/utils/listAll';
-import { provisionarTecnicosFinanceiro, ehAssalariado } from '@/lib/utils/tecnicosFinanceiro';
+import { provisionarTecnicosFinanceiro, ehAssalariado, filtrarTecnicosAtivos } from '@/lib/utils/tecnicosFinanceiro';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -63,7 +63,15 @@ export default function FinanceiroAdmin() {
 
   const { data: tecnicos = [], refetch: refetchTecnicos } = useQuery({
     queryKey: ['tecnicos'],
-    queryFn: () => listAll('TecnicoFinanceiro')
+    queryFn: async () => {
+      const [tecFins, users] = await Promise.all([
+        listAll('TecnicoFinanceiro'),
+        listAll('User').catch(() => []),
+      ]);
+      // Oculta ex-usuários (acesso removido). Quem ainda tem crédito pendente
+      // permanece para o ADM conseguir quitar.
+      return filtrarTecnicosAtivos(tecFins, users);
+    }
   });
 
   const { data: equipes = [] } = useQuery({
