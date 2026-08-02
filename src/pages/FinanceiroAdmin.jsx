@@ -201,11 +201,13 @@ export default function FinanceiroAdmin() {
     if (!isAdmin || provisionouRef.current) return;
     provisionouRef.current = true;
     provisionarTecnicosFinanceiro()
-      .then(({ criados, atualizados }) => {
-        if (criados > 0 || atualizados > 0) {
+      .then(({ criados, atualizados, removidos }) => {
+        if (criados > 0 || atualizados > 0 || removidos > 0) {
           if (criados > 0) toast.info(`👷 ${criados} técnico(s) novo(s) adicionado(s) ao financeiro.`);
+          if (removidos > 0) toast.success(`🧹 ${removidos} cadastro(s) duplicado(s) de técnico removido(s).`);
           queryClient.invalidateQueries({ queryKey: ['tecnicos'] });
           queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro'] });
+          queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro-pag'] });
         }
       })
       .catch(err => console.error('[financeiro] provisionar técnicos falhou:', err));
