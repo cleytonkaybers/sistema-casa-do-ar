@@ -22,7 +22,7 @@ import { usePermissions } from '@/components/auth/PermissionGuard';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 import { matchClienteSearch, acharClientePorIdentidade } from '@/lib/utils/buscaCliente';
 import { calcularComissao } from '@/lib/comissao';
-import { provisionarTecnicosFinanceiro, ehAssalariado } from '@/lib/utils/tecnicosFinanceiro';
+import { provisionarTecnicosFinanceiro, filtrarTecnicosParaComissao } from '@/lib/utils/tecnicosFinanceiro';
 
 export default function ServicosPage() {
   const { hasPermission, isAdmin, user: currentUser, loading: loadingUser } = usePermissions();
@@ -436,12 +436,15 @@ export default function ServicosPage() {
           console.error('[conclusao] provisionar técnicos falhou:', e);
         }
         const tecnicosEquipe = await base44.entities.TecnicoFinanceiro.filter({ equipe_id: servicoSnapshot.equipe_id });
-        // Assalariados (salário fixo semanal) não recebem comissão por serviço.
-        const tecnicos = (tecnicosEquipe || []).filter(t => !ehAssalariado(t));
+        // Só recebe comissão quem é usuário ATIVO do app, não está oculto e
+        // não é assalariado. Sem isto, ex-funcionário cujo cadastro financeiro
+        // continuava na equipe seguia ganhando % de serviços novos.
+        const usuariosApp = await listAll('User').catch(() => []);
+        const tecnicos = filtrarTecnicosParaComissao(tecnicosEquipe, usuariosApp);
         if (!tecnicos || tecnicos.length === 0) {
-          // Equipe só com assalariado(s) é situação NORMAL — não é erro.
+          // Equipe só com assalariado(s)/ex-funcionário é situação NORMAL.
           if (tecnicosEquipe && tecnicosEquipe.length > 0) {
-            toast.info('💼 Equipe com técnico(s) de salário fixo — sem comissão por serviço.');
+            toast.info('💼 Nenhum técnico comissionado ativo nesta equipe — sem comissão por serviço.');
           } else {
             toast.error(`⚠️ Comissão não gerada: nenhum técnico na equipe "${servicoSnapshot.equipe_nome || servicoSnapshot.equipe_id}"`);
           }

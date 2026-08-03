@@ -32,6 +32,29 @@ export function acharUsuarioDoTecnico(t, usuarios) {
 export const ehAssalariadoCom = (t, usuarios) =>
   ehAssalariado(t) || ehAssalariado(acharUsuarioDoTecnico(t, usuarios));
 
+// Filtro ESTRITO para GERAR COMISSÃO: só recebe % quem é usuário ativo do app,
+// não está oculto e não é assalariado. Diferente de filtrarTecnicosAtivos, aqui
+// crédito pendente NÃO mantém ninguém — ex-funcionário pode ter saldo a acertar,
+// mas não pode continuar ganhando comissão de serviços novos.
+export function filtrarTecnicosParaComissao(tecFins, usuarios) {
+  const ids = new Set();
+  const nomes = new Set();
+  for (const u of usuarios || []) {
+    if (u?.email) ids.add(norm(u.email));
+    if (u?.full_name) nomes.add(norm(u.full_name));
+  }
+  // Sem lista de usuários confiável, mantém o comportamento antigo (não
+  // arrisca deixar técnico legítimo sem comissão por falha de rede).
+  const semReferencia = ids.size === 0;
+  return (tecFins || []).filter(t => {
+    if (t?.oculto === true) return false;
+    if (ehAssalariadoCom(t, usuarios)) return false;
+    if (semReferencia) return true;
+    return ids.has(norm(t.tecnico_id)) ||
+      (t.tecnico_nome && nomes.has(norm(t.tecnico_nome)));
+  });
+}
+
 // Filtra a lista de TecnicoFinanceiro deixando só quem deve aparecer.
 // Remove: marcados como ocultos pelo ADM e ex-usuários (acesso removido).
 // Ex-usuário com crédito pendente PERMANECE — o ADM precisa poder quitar.

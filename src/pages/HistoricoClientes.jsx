@@ -23,7 +23,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl, formatTipoServicoCompact } from '@/utils';
 import { matchClienteSearch, chaveIdentidadeCliente } from '@/lib/utils/buscaCliente';
 import { calcularComissao } from '@/lib/comissao';
-import { ehAssalariado } from '@/lib/utils/tecnicosFinanceiro';
+import { filtrarTecnicosParaComissao } from '@/lib/utils/tecnicosFinanceiro';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 
 // Helper de telefone extraído dos padrões
@@ -213,8 +213,10 @@ export default function HistoricoClientes() {
         const tecnicosEquipe = await base44.entities.TecnicoFinanceiro
           .filter({ equipe_id: servico.equipe_id })
           .catch(() => []);
-        // Assalariados (salário fixo semanal) não recebem comissão por serviço.
-        const tecnicos = (tecnicosEquipe || []).filter(t => !ehAssalariado(t));
+        // Só recebe comissão quem é usuário ATIVO do app, não está oculto e
+        // não é assalariado (ex-funcionário não ganha % de serviço novo).
+        const usuariosApp = await listAll('User').catch(() => []);
+        const tecnicos = filtrarTecnicosParaComissao(tecnicosEquipe, usuariosApp);
         if (tecnicos && tecnicos.length > 0) {
           const valorTotal = servico.valor;
           // Le percentuais da Tabela de Servicos (TipoServicoValor). Fallback 30/15.

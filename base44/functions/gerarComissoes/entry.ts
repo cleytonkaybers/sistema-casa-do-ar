@@ -121,9 +121,18 @@ Deno.serve(async (req) => {
     // Usuários grava nos dois).
     const ehAssalariado = (u: any) => (u?.remuneracao || u?.data?.remuneracao) === 'fixo';
 
+    // Cadastros financeiros marcados como ocultos (ex-funcionário acertado)
+    // também não recebem comissão de serviço novo.
+    const tecFinsTodos = await base44.asServiceRole.entities.TecnicoFinanceiro
+      .list('-created_date', 5000).catch(() => []) || [];
+    const ocultos = new Set(
+      tecFinsTodos.filter((t: any) => t?.oculto === true)
+        .map((t: any) => norm(t.tecnico_id))
+    );
+
     const daEquipe = usuarios.filter(u =>
       u.equipe_id === servico.equipe_id && (u.role === 'user' || u.role === 'admin'));
-    const tecnicos = daEquipe.filter(u => !ehAssalariado(u));
+    const tecnicos = daEquipe.filter(u => !ehAssalariado(u) && !ocultos.has(norm(u.email)));
 
     console.log(`Técnicos comissionados na equipe ${servico.equipe_id}: ${tecnicos.length} (de ${daEquipe.length} na equipe)`);
 
