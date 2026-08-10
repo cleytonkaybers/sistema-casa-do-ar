@@ -1893,11 +1893,32 @@ function PagamentosClientesContent() {
     const servicoIdsComAtendimento = new Set(
       atendimentos.map(a => a.servico_id).filter(Boolean)
     );
+    // Rede de segurança: pagamentos JÁ PAGOS indexados por cliente+tipo+dia.
+    // Cobre o caso do pagamento pago que perdeu o vínculo por servico_id —
+    // sem isto o serviço parecia órfão e uma segunda cobrança era criada.
+    const chavePagos = new Set(
+      pagamentos
+        .filter(p => {
+          const vp = p.valor_pago || 0;
+          const saldo = (p.valor_total || 0) - vp;
+          return p.status === 'pago' || (vp > 0 && saldo <= 5.0);
+        })
+        .map(p => `${(p.cliente_nome || '').trim().toLowerCase()}|${(p.tipo_servico || '').trim()}|${(p.data_conclusao || '').slice(0, 10)}`)
+    );
+    const atendimentoIdsComPagamento = new Set(
+      pagamentos.map(p => p.atendimento_id).filter(Boolean)
+    );
     return servicosConcluidos.filter(s => {
       if (!s.id) return false;
       // Ja tem PagamentoCliente (ativo, arquivado OU excluido pelo ADM) — o set
       // inclui todos os pagamentos, entao a exclusao manual do ADM e respeitada.
       if (servicoIdsComPagamento.has(s.id)) return false;
+      // Vínculo pelo atendimento do serviço (pagamento sem servico_id)
+      const atendDoServico = atendimentos.find(a => a.servico_id === s.id);
+      if (atendDoServico && atendimentoIdsComPagamento.has(atendDoServico.id)) return false;
+      // Já existe pagamento PAGO equivalente → não recriar (evita cobrar 2x)
+      const chaveS = `${(s.cliente_nome || '').trim().toLowerCase()}|${(s.tipo_servico || '').trim()}|${(s.data_conclusao || s.data_programada || '').slice(0, 10)}`;
+      if (chavePagos.has(chaveS)) return false;
       if (isApenasTiposIgnorados(s.tipo_servico)) return false;
       const dataRef = s.data_conclusao || s.data_programada || s.updated_date;
       if (!dataRef) return false;
@@ -2480,6 +2501,17 @@ function PagamentosClientesContent() {
       const pags = pagsPorAtendimento.get(a.id) || [];
       const pagAtivo = pags.find(p => p.arquivado !== true);
       if (pagAtivo) return; // ja tem pag ativo, nada a fazer
+      // NUNCA ressuscitar dívida JÁ PAGA. Ao dar baixa, o pagamento fica
+      // pago + arquivado; sem esta guarda ele voltava para a lista como
+      // dívida ativa e o cliente corria risco de ser cobrado de novo.
+      // Vale tanto para desarquivar quanto para criar (um novo pagamento
+      // aqui seria uma segunda cobrança do mesmo atendimento).
+      const temPago = pags.some(p => {
+        const valorPago = p.valor_pago || 0;
+        const saldo = (p.valor_total || 0) - valorPago;
+        return p.status === 'pago' || (valorPago > 0 && saldo <= 5.0);
+      });
+      if (temPago) return;
       // RESPEITAR EXCLUSAO MANUAL: se o ADM excluiu de proposito (excluido_manual=true),
       // NAO recriar nem desarquivar aqui. O ADM pode recuperar via botao
       // "Recuperar Dividas Arquivadas" (handleRecuperarDividas) se mudou de ideia.
