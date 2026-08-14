@@ -15,6 +15,7 @@ import { ptBR } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
 import { MARCAS_AR, isInstalacao, embutirMarca, extrairMarca, removerMarca } from '@/lib/marcasAr';
 import { matchClienteSearch } from '@/lib/utils/buscaCliente';
+import { EQUIPE_ADM_ID, EQUIPE_ADM_NOME, ehEquipeAdm } from '@/lib/utils/tecnicosFinanceiro';
 
 // Tipos cujo NOME contém ' + ' (são UM ÚNICO tipo na Tabela de Serviços).
 // O split ingênuo por ' + ' fragmentava esses nomes em pedaços ("Mudança",
@@ -425,7 +426,10 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
       dia_semana: diaSemana,
       valor: formData.valor ? parseFloat(formData.valor) : 0,
       equipe_id: formData.equipe_id || null,
-      equipe_nome: equipeSelecionada?.nome || null,
+      // "ADM" é uma equipe sentinela (não existe na tabela de Equipes)
+      equipe_nome: ehEquipeAdm(formData.equipe_id)
+        ? EQUIPE_ADM_NOME
+        : (equipeSelecionada?.nome || null),
       sem_registro_cliente: semRegistroCliente,
       equipamento: equipamentoGlobal,
       google_maps_link: formData.google_maps_link || null,
@@ -804,11 +808,21 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                   </SelectTrigger>
                   <SelectContent className="bg-[#1e2a3a] border-[#2d3f55] text-white">
                     <SelectItem value="sem-equipe" className="text-gray-400">Sem equipe específica</SelectItem>
+                    {/* Serviço feito pelo próprio ADM: cobra o cliente normalmente,
+                        mas não gera comissão para técnico. */}
+                    <SelectItem value={EQUIPE_ADM_ID} className="text-amber-300 hover:bg-white/10">
+                      🧑‍💼 ADM (eu mesmo) — sem comissão
+                    </SelectItem>
                     {equipes.map(eq => (
                       <SelectItem key={eq.id} value={eq.id} className="text-white hover:bg-white/10">{eq.nome}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {ehEquipeAdm(formData.equipe_id) && (
+                  <p className="text-xs text-amber-400/80">
+                    Serviço executado pelo ADM: vai para Pagamentos dos Clientes normalmente, mas <strong>não gera comissão</strong> a técnico.
+                  </p>
+                )}
               </div>
             )}
           </div>

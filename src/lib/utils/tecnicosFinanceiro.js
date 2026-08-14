@@ -3,6 +3,13 @@ import { listAll } from '@/lib/utils/listAll';
 
 const norm = (s) => (s || '').trim().toLowerCase();
 
+// Serviço executado pelo próprio ADM: cobra o cliente normalmente (vai para
+// Pagamentos dos Clientes), mas NÃO gera comissão para técnico. Usado como
+// "equipe" sentinela no cadastro do serviço.
+export const EQUIPE_ADM_ID = 'ADM';
+export const EQUIPE_ADM_NOME = 'ADM (administrador)';
+export const ehEquipeAdm = (equipeId) => norm(equipeId) === norm(EQUIPE_ADM_ID);
+
 // Usuário conta como técnico quando tem equipe e é tipo 'tecnico'
 // (ou role 'user' legado sem tipo_usuario definido).
 export const ehTecnicoUser = (u) =>

@@ -22,7 +22,7 @@ import { usePermissions } from '@/components/auth/PermissionGuard';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 import { matchClienteSearch, acharClientePorIdentidade } from '@/lib/utils/buscaCliente';
 import { calcularComissao } from '@/lib/comissao';
-import { provisionarTecnicosFinanceiro, filtrarTecnicosParaComissao } from '@/lib/utils/tecnicosFinanceiro';
+import { provisionarTecnicosFinanceiro, filtrarTecnicosParaComissao, ehEquipeAdm } from '@/lib/utils/tecnicosFinanceiro';
 
 export default function ServicosPage() {
   const { hasPermission, isAdmin, user: currentUser, loading: loadingUser } = usePermissions();
@@ -423,7 +423,10 @@ export default function ServicosPage() {
       );
 
       // ===== PASSO 3: Gerar Comissao (BLOQUEANTE com retry) =====
-      const comissaoHabilitada = servicoSnapshot.gerar_comissao !== false;
+      // Serviço executado pelo próprio ADM: cobra o cliente normalmente
+      // (Passo 4 cria o PagamentoCliente), mas NÃO gera comissão.
+      const comissaoHabilitada = servicoSnapshot.gerar_comissao !== false
+        && !ehEquipeAdm(servicoSnapshot.equipe_id);
       let tecnicosComissionados = 0;
       if (comissaoHabilitada && servicoSnapshot.equipe_id && servicoSnapshot.valor && !servicoSnapshot.comissao_gerada) {
         toast.info('⏳ Lançando comissões dos técnicos...', { id: 'conclusao-progresso', duration: 30000 });

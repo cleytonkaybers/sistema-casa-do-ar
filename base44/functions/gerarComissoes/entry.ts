@@ -112,6 +112,16 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Serviço não possui equipe atribuída' }, { status: 400 });
     }
 
+    // Serviço executado pelo próprio ADM: cobra o cliente normalmente, mas
+    // não gera comissão. "ADM" é uma equipe sentinela (não existe na tabela).
+    if (norm(servico.equipe_id) === 'adm') {
+      return Response.json({
+        success: true,
+        message: 'Serviço executado pelo ADM — nenhuma comissão gerada.',
+        lancamentos: [],
+      });
+    }
+
     // Buscar técnicos da equipe - buscar por role em vez de tipo_usuario
     const usuarios = await base44.asServiceRole.entities.User.list('-created_date', 5000);
     console.log(`Total de usuários: ${usuarios.length}`);

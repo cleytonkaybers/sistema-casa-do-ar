@@ -23,7 +23,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl, formatTipoServicoCompact } from '@/utils';
 import { matchClienteSearch, chaveIdentidadeCliente } from '@/lib/utils/buscaCliente';
 import { calcularComissao } from '@/lib/comissao';
-import { filtrarTecnicosParaComissao } from '@/lib/utils/tecnicosFinanceiro';
+import { filtrarTecnicosParaComissao, ehEquipeAdm } from '@/lib/utils/tecnicosFinanceiro';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 
 // Helper de telefone extraído dos padrões
@@ -207,7 +207,8 @@ export default function HistoricoClientes() {
       });
 
       // 3. Gerar comissao se elegivel e ainda nao gerada
-      const comissaoHabilitada = servico.gerar_comissao !== false;
+      // Serviço executado pelo ADM não gera comissão (só cobrança do cliente)
+      const comissaoHabilitada = servico.gerar_comissao !== false && !ehEquipeAdm(servico.equipe_id);
       let tecnicosComissionados = 0;
       if (comissaoHabilitada && servico.equipe_id && servico.valor && !servico.comissao_gerada) {
         const tecnicosEquipe = await base44.entities.TecnicoFinanceiro
