@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Phone, MapPin, Calendar, MessageCircle, Navigation, Search, Loader2, Share2, Eye, Plus, Trash2, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Phone, MapPin, Calendar, MessageCircle, Navigation, Search, Loader2, Share2, Eye, Plus, Trash2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { usePermissions } from '../components/auth/PermissionGuard';
 import TechnicianAccessBlock from '@/components/TechnicianAccessBlock';
 import { 
@@ -152,11 +152,20 @@ function PreventivasFuturasContent() {
         const dataUltima = new Date(cliente.ultima_manutencao);
         proximaManutencao = format(addMonths(dataUltima, 6), 'yyyy-MM-dd');
       }
-      
+
+      // Aviso já enviado? Só vale para a MESMA previsão: se a data de
+      // manutenção mudar (cliente atendido de novo), a marcação deixa de
+      // valer sozinha e o aviso pode ser enviado outra vez.
+      const refAtual = (proximaManutencao || '').slice(0, 10);
+      const msgEnviada = !!cliente.preventiva_msg_enviada_em &&
+        (cliente.preventiva_msg_referencia || '').slice(0, 10) === refAtual;
+
       return {
         ...cliente,
         tipo: 'cliente',
         proximaManutencao,
+        msgEnviada,
+        msgEnviadaEm: msgEnviada ? cliente.preventiva_msg_enviada_em : null,
         status: getManutencaoStatus(proximaManutencao)
       };
     })
@@ -219,6 +228,41 @@ function PreventivasFuturasContent() {
       toast.success('Data de manutenção atualizada!');
     },
   });
+
+  // Controle de aviso enviado: marca/desmarca no próprio Cliente, guardando
+  // para QUAL previsão o aviso foi mandado (ver msgEnviada acima).
+  const marcarMsgMutation = useMutation({
+    mutationFn: ({ id, enviada, referencia }) =>
+      base44.entities.Cliente.update(id, {
+        preventiva_msg_enviada_em: enviada ? new Date().toISOString() : null,
+        preventiva_msg_referencia: enviada ? (referencia || '').slice(0, 10) : null,
+      }),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['clientes'] });
+      toast.success(vars.enviada ? '✅ Marcado como avisado' : '↩ Marcação removida');
+    },
+    onError: () => toast.error('Erro ao salvar a marcação'),
+  });
+
+  const toggleMsgEnviada = (item) => {
+    marcarMsgMutation.mutate({
+      id: item.id,
+      enviada: !item.msgEnviada,
+      referencia: item.proximaManutencao,
+    });
+  };
+
+  // Ao abrir o WhatsApp, marca automaticamente (se ainda não estava marcado).
+  // O link abre normalmente — a marcação é só um efeito colateral.
+  const handleAbrirWhatsApp = (item) => {
+    if (!item.msgEnviada) {
+      marcarMsgMutation.mutate({
+        id: item.id,
+        enviada: true,
+        referencia: item.proximaManutencao,
+      });
+    }
+  };
 
   const deleteClienteMutation = useMutation({
     mutationFn: (id) => base44.entities.Cliente.delete(id),
@@ -452,9 +496,17 @@ function PreventivasFuturasContent() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge className={`${item.status.color} border px-2 py-0.5 whitespace-nowrap`}>
-                          {item.status.label}
-                        </Badge>
+                        <div className="flex flex-col items-start gap-1">
+                          <Badge className={`${item.status.color} border px-2 py-0.5 whitespace-nowrap`}>
+                            {item.status.label}
+                          </Badge>
+                          {item.msgEnviada && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5 whitespace-nowrap">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Avisado{(() => { try { return ' ' + format(new Date(item.msgEnviadaEm), 'dd/MM', { locale: ptBR }); } catch { return ''; } })()}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                          {/* Action Buttons styled modernly */}
@@ -473,9 +525,31 @@ function PreventivasFuturasContent() {
                                <Trash2 className="w-4 h-4" />
                              </Button>
                            )}
-                           <a href={getWhatsAppLink(item.telefone)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center h-8 w-8 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-md transition-colors border border-emerald-500/20 ml-1" title="WhatsApp">
+                           <a
+                             href={getWhatsAppLink(item.telefone)}
+                             target="_blank"
+                             rel="noopener noreferrer"
+                             onClick={() => handleAbrirWhatsApp(item)}
+                             className="inline-flex items-center justify-center h-8 w-8 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-md transition-colors border border-emerald-500/20 ml-1"
+                             title="Enviar WhatsApp (marca como avisado)"
+                           >
                              <MessageCircle className="w-4 h-4" />
                            </a>
+                           {/* Controle de aviso enviado — evita mandar 2x */}
+                           <Button
+                             variant="ghost"
+                             size="icon"
+                             onClick={() => toggleMsgEnviada(item)}
+                             disabled={marcarMsgMutation.isPending}
+                             className={`h-8 w-8 ${item.msgEnviada
+                               ? 'text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/25'
+                               : 'text-gray-500 hover:text-emerald-400 hover:bg-emerald-500/10'}`}
+                             title={item.msgEnviada
+                               ? `Avisado em ${(() => { try { return format(new Date(item.msgEnviadaEm), "dd/MM 'às' HH:mm", { locale: ptBR }); } catch { return '-'; } })()} — clique para desmarcar`
+                               : 'Marcar como avisado'}
+                           >
+                             <CheckCircle2 className="w-4 h-4" />
+                           </Button>
                            {mapsLink && (
                              <a href={mapsLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center h-8 w-8 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 rounded-md transition-colors border border-blue-500/20" title="Google Maps">
                                <Navigation className="w-4 h-4" />
@@ -522,6 +596,12 @@ function PreventivasFuturasContent() {
                           <Badge className={`${item.status.color} border px-2 py-0.5 w-max text-xs`}>
                             {item.status.label}
                           </Badge>
+                          {item.msgEnviada && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5 w-max mt-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Avisado{(() => { try { return ' ' + format(new Date(item.msgEnviadaEm), 'dd/MM', { locale: ptBR }); } catch { return ''; } })()}
+                            </span>
+                          )}
                        </div>
                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
                           <div>
@@ -540,7 +620,7 @@ function PreventivasFuturasContent() {
                      </div>
 
                      {/* Actions Grid (Mobile Touch Friendly) */}
-                     <div className="grid grid-cols-5 gap-2 mt-auto pt-2 border-t border-white/5">
+                     <div className="grid grid-cols-6 gap-2 mt-auto pt-2 border-t border-white/5">
                          <Button variant="outline" className="col-span-2 bg-[#0d1826] border-white/10 hover:bg-blue-500/10 hover:text-blue-400 text-gray-300 h-10 px-0 flex" onClick={() => handleCreateServico(item)}>
                             <Plus className="w-4 h-4 mr-1.5" />
                             <span className="text-xs font-semibold">Agendar</span>
@@ -548,9 +628,27 @@ function PreventivasFuturasContent() {
                          <Button variant="outline" className="col-span-1 bg-[#0d1826] border-white/10 hover:bg-white/10 text-gray-300 h-10 px-0 flex items-center justify-center" onClick={() => handleViewDetails(item)}>
                             <Eye className="w-4 h-4" />
                          </Button>
-                         <a href={getWhatsAppLink(item.telefone)} target="_blank" rel="noopener noreferrer" className="col-span-1 flex items-center justify-center h-10 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg hover:bg-emerald-500/20">
+                         <a
+                           href={getWhatsAppLink(item.telefone)}
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           onClick={() => handleAbrirWhatsApp(item)}
+                           className="col-span-1 flex items-center justify-center h-10 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg hover:bg-emerald-500/20"
+                         >
                             <MessageCircle className="w-5 h-5" />
                          </a>
+                         {/* Marcar/desmarcar aviso enviado */}
+                         <Button
+                           variant="outline"
+                           onClick={() => toggleMsgEnviada(item)}
+                           disabled={marcarMsgMutation.isPending}
+                           className={`col-span-1 h-10 px-0 flex items-center justify-center rounded-lg ${item.msgEnviada
+                             ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                             : 'bg-[#0d1826] border-white/10 text-gray-400'}`}
+                           title={item.msgEnviada ? 'Avisado — clique para desmarcar' : 'Marcar como avisado'}
+                         >
+                            <CheckCircle2 className="w-5 h-5" />
+                         </Button>
                          {mapsLink ? (
                            <a href={mapsLink} target="_blank" rel="noopener noreferrer" className="col-span-1 flex items-center justify-center h-10 bg-blue-500/10 border border-blue-500/20 text-blue-500 rounded-lg hover:bg-blue-500/20">
                               <Navigation className="w-5 h-5" />

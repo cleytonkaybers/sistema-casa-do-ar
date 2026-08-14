@@ -35,6 +35,15 @@
       "format": "date",
       "description": "Data da \u00faltima manuten\u00e7\u00e3o"
     },
+    "preventiva_msg_enviada_em": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Quando o aviso de manutenção preventiva foi enviado ao cliente (controle da tela Preventivas Futuras)"
+    },
+    "preventiva_msg_referencia": {
+      "type": "string",
+      "description": "Data de previsão (yyyy-MM-dd) para a qual o aviso foi enviado. Se a previsão mudar, a marcação deixa de valer automaticamente."
+    },
     "proxima_manutencao": {
       "type": "string",
       "format": "date",
