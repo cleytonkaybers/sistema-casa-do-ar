@@ -264,18 +264,34 @@ function PreventivasFuturasContent() {
     }
   };
 
-  const deleteClienteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Cliente.delete(id),
+  // ANTES esta ação APAGAVA O CLIENTE do banco (Cliente.delete), com um confirm
+  // genérico "Excluir X?" — nesta tela isso parecia "tirar da lista de
+  // preventivas" e causou perda de cadastros com histórico.
+  // Agora apenas LIMPA a previsão de manutenção: o cliente sai desta lista e
+  // continua no cadastro, com todo o histórico. Excluir cliente de vez só na
+  // tela Clientes (que registra log de auditoria).
+  const removerPreventivaMutation = useMutation({
+    mutationFn: (id) => base44.entities.Cliente.update(id, {
+      proxima_manutencao: null,
+      ultima_manutencao: null,
+      preventiva_msg_enviada_em: null,
+      preventiva_msg_referencia: null,
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
-      toast.success('Cliente excluído com sucesso!');
+      toast.success('Removido das preventivas. O cliente continua cadastrado.');
     },
-    onError: () => toast.error('Erro ao excluir cliente'),
+    onError: () => toast.error('Erro ao remover da lista de preventivas'),
   });
 
   const handleDelete = async (item) => {
-    if (confirm(`Excluir ${item.nome}?`)) {
-      await deleteClienteMutation.mutateAsync(item.id);
+    if (confirm(
+      `Remover "${item.nome}" da lista de Preventivas Futuras?\n\n` +
+      `O CADASTRO DO CLIENTE NÃO SERÁ APAGADO — apenas a previsão de manutenção é limpa, ` +
+      `e ele deixa de aparecer aqui.\n\n` +
+      `Para excluir o cliente de vez, use a tela Clientes.`
+    )) {
+      await removerPreventivaMutation.mutateAsync(item.id);
     }
   };
 
@@ -521,7 +537,7 @@ function PreventivasFuturasContent() {
                              <Share2 className="w-4 h-4" />
                            </Button>
                            {isCliente && isAdmin && (
-                             <Button variant="ghost" size="icon" onClick={() => handleDelete(item)} className="h-8 w-8 text-gray-400 hover:text-red-400 hover:bg-red-500/10" title="Excluir">
+                             <Button variant="ghost" size="icon" onClick={() => handleDelete(item)} className="h-8 w-8 text-gray-400 hover:text-amber-400 hover:bg-amber-500/10" title="Remover da lista de preventivas (não apaga o cliente)">
                                <Trash2 className="w-4 h-4" />
                              </Button>
                            )}
@@ -661,7 +677,7 @@ function PreventivasFuturasContent() {
                      </div>
                      {isAdmin && isCliente && (
                         <div className="mt-2 pt-2 flex items-center justify-end">
-                           <Button variant="ghost" size="sm" className="h-8 text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10 px-2" onClick={() => handleDelete(item)}>Excluir registro</Button>
+                           <Button variant="ghost" size="sm" className="h-8 text-xs text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 px-2" onClick={() => handleDelete(item)}>Remover das preventivas</Button>
                         </div>
                      )}
                    </CardContent>
