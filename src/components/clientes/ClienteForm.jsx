@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import { useEmpresa } from '@/components/auth/EmpresaGuard';
+import { formatarTelefoneBR, telefoneParaSalvar } from '@/lib/utils/telefone';
 
 export default function ClienteForm({ open, onClose, onSave, cliente, isLoading }) {
   const { currentUser } = useEmpresa();
@@ -68,22 +69,10 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
     }
   }, [cliente, open, currentUser?.empresa_id]);
 
-  // Formata só DDD + número, sem +55
-  const formatPhoneInput = (value) => {
-    const cleaned = value.replace(/\D/g, '');
-    if (!cleaned) return '';
-    if (cleaned.length <= 2) return cleaned;
-    if (cleaned.length <= 6) return `${cleaned.slice(0, 2)} ${cleaned.slice(2)}`;
-    if (cleaned.length <= 10) return `${cleaned.slice(0, 2)} ${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
-    return `${cleaned.slice(0, 2)} ${cleaned.slice(2, 7)}-${cleaned.slice(7, 11)}`;
-  };
-
-  // Remove +55 e formata para exibição
-  const stripAndFormat = (value) => {
-    let cleaned = (value || '').replace(/\D/g, '');
-    if (cleaned.startsWith('55') && cleaned.length > 11) cleaned = cleaned.slice(2);
-    return formatPhoneInput(cleaned);
-  };
+  // Formatação/normalização compartilhada (src/lib/utils/telefone.js):
+  // limita pelos DÍGITOS já normalizados e não duplica o DDI quando o número
+  // é colado com +55.
+  const stripAndFormat = (value) => formatarTelefoneBR(value);
 
   const formatCPFInput = (value) => {
     const cleaned = value.replace(/\D/g, '');
@@ -126,11 +115,8 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Adicionar +55 ao salvar se não tiver
-    const telLimpo = (formData.telefone || '').replace(/\D/g, '');
-    const telefoneFinal = telLimpo
-      ? (telLimpo.startsWith('55') && telLimpo.length > 11 ? '+' + telLimpo : '+55' + telLimpo)
-      : '';
+    // Nunca duplica o DDI: o helper já normaliza (+55 vindo colado é tratado)
+    const telefoneFinal = telefoneParaSalvar(formData.telefone);
     onSave({ ...formData, telefone: telefoneFinal });
   };
 
@@ -471,10 +457,14 @@ export default function ClienteForm({ open, onClose, onSave, cliente, isLoading 
                 id="telefone"
                 value={formData.telefone}
                 onChange={handlePhoneChange}
+                onPaste={(e) => {
+                  e.preventDefault();
+                  setFormData({ ...formData, telefone: stripAndFormat(e.clipboardData.getData('text')) });
+                }}
                 placeholder="92 99999-1234"
                 required
                 className="h-11"
-                maxLength={14}
+                inputMode="tel"
               />
             </div>
           </div>

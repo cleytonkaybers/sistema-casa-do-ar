@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { MARCAS_AR, isInstalacao, embutirMarca, extrairMarca, removerMarca } from '@/lib/marcasAr';
 import { matchClienteSearch } from '@/lib/utils/buscaCliente';
 import { EQUIPE_ADM_ID, EQUIPE_ADM_NOME, ehEquipeAdm } from '@/lib/utils/tecnicosFinanceiro';
+import { formatarTelefoneBR, telefoneParaSalvar } from '@/lib/utils/telefone';
 
 // Tipos cujo NOME contém ' + ' (são UM ÚNICO tipo na Tabela de Serviços).
 // O split ingênuo por ' + ' fragmentava esses nomes em pedaços ("Mudança",
@@ -248,20 +249,9 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
     return chaves.map(k => contagem[k]);
   };
 
-  const formatPhoneInput = (value) => {
-    const cleaned = value.replace(/\D/g, '');
-    if (!cleaned) return '';
-    if (cleaned.length <= 2) return cleaned;
-    if (cleaned.length <= 6) return `${cleaned.slice(0, 2)} ${cleaned.slice(2)}`;
-    if (cleaned.length <= 10) return `${cleaned.slice(0, 2)} ${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
-    return `${cleaned.slice(0, 2)} ${cleaned.slice(2, 7)}-${cleaned.slice(7, 11)}`;
-  };
-
-  const stripAndFormatPhone = (value) => {
-    let cleaned = (value || '').replace(/\D/g, '');
-    if (cleaned.startsWith('55') && cleaned.length > 11) cleaned = cleaned.slice(2);
-    return formatPhoneInput(cleaned);
-  };
+  // Formatação/normalização compartilhada (src/lib/utils/telefone.js):
+  // limita pelos DÍGITOS já normalizados e não duplica o DDI ao colar com +55.
+  const stripAndFormatPhone = (value) => formatarTelefoneBR(value);
 
   const handlePhoneChange = (e) => {
     setFormData({ ...formData, telefone: stripAndFormatPhone(e.target.value) });
@@ -414,10 +404,8 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
       .filter(Boolean)
       .join(' | ') || null;
 
-    const telLimpo = (formData.telefone || '').replace(/\D/g, '');
-    const telefoneFinal = telLimpo
-      ? (telLimpo.startsWith('55') && telLimpo.length > 11 ? '+' + telLimpo : '+55' + telLimpo)
-      : '';
+    // Nunca duplica o DDI: o helper já normaliza (+55 vindo colado é tratado)
+    const telefoneFinal = telefoneParaSalvar(formData.telefone);
 
     const dataToSave = {
       ...formData,
@@ -522,7 +510,7 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
                   }}
                   placeholder="(00) 00000-0000"
                   required
-                  maxLength={14}
+                  inputMode="tel"
                   className={inputDark}
                 />
               </div>
