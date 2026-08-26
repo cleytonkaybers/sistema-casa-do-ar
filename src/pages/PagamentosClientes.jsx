@@ -2731,6 +2731,38 @@ function PagamentosClientesContent() {
   // EXCECAO: servicos sem preco definido (placeholder R$1, sem pagamento) FICAM
   // aqui mesmo de semanas anteriores, ate serem precificados. Ao precificar,
   // se forem de semana anterior, descem para Pendencias normalmente.
+  // Um registro "ancora" a semana quando: aguarda preço, foi concluído nesta
+  // semana, ou recebeu pagamento nesta semana.
+  const ehRegistroDaSemana = useCallback((p) => {
+    if (isValorPlaceholder(p.valor_total) && (p.valor_pago || 0) === 0) return true;
+    if (p.data_conclusao) {
+      try {
+        if (isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana })) return true;
+      } catch {}
+    }
+    return temPagamentoNaSemana(p);
+  }, [inicioSemana, fimSemana, temPagamentoNaSemana]);
+
+  // Débito de semana ANTERIOR ainda em aberto (não pago, fora da semana).
+  const ehDebitoAnteriorEmAberto = useCallback((p) => {
+    if (ehRegistroDaSemana(p)) return false;
+    if (p.status === 'pago') return false;
+    const valorPago = p.valor_pago || 0;
+    const saldo = (p.valor_total || 0) - valorPago;
+    // "pago por tolerância" (saldo <= R$5 com algum pagamento) não é débito
+    if (valorPago > 0 && saldo <= 5.0) return false;
+    return saldo > 0.01 || !p.valor_total;
+  }, [ehRegistroDaSemana]);
+
+  // Clientes (nome|telefone) que têm serviço nesta semana. Débitos antigos
+  // desses clientes sobem para o card da semana — pedido do ADM: mesmo cliente
+  // não deve ficar dividido entre "Serviços da Semana" e "Pendências".
+  const chavesClientesDaSemana = useMemo(() => new Set(
+    pagsFiltrados
+      .filter(ehRegistroDaSemana)
+      .map(p => chaveIdentidadeCliente(p.cliente_nome, p.telefone))
+  ), [pagsFiltrados, ehRegistroDaSemana]);
+
   const pagsSemana = useMemo(() => {
     // Ordem do card Serviços da Semana (pedido do ADM): 1º aguardando preço
     // (placeholder, tratado no sort abaixo), 2º pendentes, 3º parciais,
@@ -2746,19 +2778,13 @@ function PagamentosClientesContent() {
         (g._records || []).some(r => r.data_pagamento_agendado);
       return temAgendamento ? 2 : 0; // agendado : pendente
     };
-    const filtrados = pagsFiltrados
-      .filter(p => {
-        // Placeholder de preco (1111 atual, 5.55 antigo, <=1.0 legado) — fica aqui ate ser precificado
-        if (isValorPlaceholder(p.valor_total) && (p.valor_pago || 0) === 0) return true;
-        // Serviço concluído esta semana
-        if (p.data_conclusao) {
-          try {
-            if (isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana })) return true;
-          } catch {}
-        }
-        // Ou: pagamento atrasado que foi recebido esta semana
-        return temPagamentoNaSemana(p);
-      });
+    const filtrados = pagsFiltrados.filter(p => {
+      if (ehRegistroDaSemana(p)) return true;
+      // Débito antigo do MESMO cliente que já aparece na semana: entra junto,
+      // e o groupPagamentos funde tudo num único card.
+      return ehDebitoAnteriorEmAberto(p) &&
+        chavesClientesDaSemana.has(chaveIdentidadeCliente(p.cliente_nome, p.telefone));
+    });
     const agrupados = groupPagamentos(filtrados);
     return agrupados
       // Serviços AGUARDANDO PREÇO ficam SEMPRE visíveis, ignorando o filtro de
@@ -2773,32 +2799,15 @@ function PagamentosClientesContent() {
         // Depois, ordena por status (pendente/parcial/agendado/pago)
         return rankSemana(a) - rankSemana(b);
       });
-  }, [pagsFiltrados, inicioSemana, fimSemana, temPagamentoNaSemana, filtroStatus]);
+  }, [pagsFiltrados, ehRegistroDaSemana, ehDebitoAnteriorEmAberto, chavesClientesDaSemana, filtroStatus]);
 
-  // 2. PENDÊNCIAS: apenas itens de semanas ANTERIORES com saldo em aberto
-  //    Exclui os que receberam pagamento esta semana
-  //    Exclui PLACEHOLDERS (R$1 sem pagamento) — esses ficam em "Servicos da
-  //    Semana" ate serem precificados, regra unificada.
+  // 2. PENDÊNCIAS: débitos de semanas ANTERIORES de clientes que NÃO têm
+  //    serviço nesta semana (os que têm sobem para o card da semana).
+  //    Exclui PLACEHOLDERS (sem preço) — esses ficam em "Serviços da Semana".
   const pagsPendencias = useMemo(() => {
     const filtrados = pagsFiltrados
-      .filter(p => {
-        if (p.status === 'pago') return false;
-        // Placeholder de preco (1111/5.55/<=1.0) → aparece em Servicos da Semana, nao aqui
-        if (isValorPlaceholder(p.valor_total) && (p.valor_pago || 0) === 0) return false;
-        // Se recebeu pagamento esta semana → aparece na aba semana, não aqui
-        if (temPagamentoNaSemana(p)) return false;
-        if (p.data_conclusao) {
-          try {
-            if (isWithinInterval(parseISO(p.data_conclusao), { start: inicioSemana, end: fimSemana })) return false;
-          } catch {}
-        }
-        const saldo = (p.valor_total || 0) - (p.valor_pago || 0);
-        const valorPago = p.valor_pago || 0;
-        // Excluir apenas se "pago por tolerancia" (saldo <= R$1 com algum pagamento feito)
-        if (valorPago > 0 && saldo <= 5.0) return false;
-        // Mostrar: saldo real > R$0,01 OU servico sem preco definido (valor_total = 0)
-        return saldo > 0.01 || !p.valor_total;
-      })
+      .filter(p => ehDebitoAnteriorEmAberto(p) &&
+        !chavesClientesDaSemana.has(chaveIdentidadeCliente(p.cliente_nome, p.telefone)))
       .sort((a, b) => {
         const prioridade = { agendado: 0, parcial: 1, pendente: 2 };
         const pa = prioridade[a.status] ?? 3;
@@ -2810,7 +2819,7 @@ function PagamentosClientesContent() {
       });
     return groupPagamentos(filtrados)
       .filter(g => filtroStatus.length === 0 || filtroStatus.includes(g.status));
-  }, [pagsFiltrados, inicioSemana, fimSemana, temPagamentoNaSemana, filtroStatus]);
+  }, [pagsFiltrados, ehDebitoAnteriorEmAberto, chavesClientesDaSemana, filtroStatus]);
 
   const pagsArquivados = useMemo(() =>
     pagamentos
