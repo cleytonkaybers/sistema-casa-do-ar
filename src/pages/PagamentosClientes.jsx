@@ -1371,7 +1371,9 @@ function PagamentosClientesContent() {
   const [precosSyncKey, setPrecosSyncKey] = useState(0);
   const [abrirRelatorio, setAbrirRelatorio] = useState(false);
   const [compartilharModal, setCompartilharModal] = useState(null);
-  const [filtroStatus, setFiltroStatus] = useState(['pendente', 'parcial', 'agendado', 'pago']);
+  // "Pagos" começa DESATIVADO a cada visita: a tela é de cobrança, então abre
+  // mostrando só o que falta receber. O ADM ativa o filtro quando precisar.
+  const [filtroStatus, setFiltroStatus] = useState(['pendente', 'parcial', 'agendado']);
 
   const toggleFiltroStatus = (status) => {
     setFiltroStatus(prev =>
