@@ -2699,7 +2699,9 @@ function PagamentosClientesContent() {
     const records = pag._records?.length > 0 ? pag._records : [pag];
     try {
       for (const rec of records) {
-        await updateMutation.mutateAsync({ id: rec.id, data: { arquivado: false } });
+        // Limpa TAMBEM excluido_manual: sem isso o registro voltava marcado
+        // como 'excluido pelo ADM' e os sincronizadores seguiam ignorando ele.
+        await updateMutation.mutateAsync({ id: rec.id, data: { arquivado: false, excluido_manual: false } });
       }
       toast.success('↩ Registro restaurado!');
     } catch {
@@ -2823,7 +2825,10 @@ function PagamentosClientesContent() {
 
   const pagsArquivados = useMemo(() =>
     pagamentos
-      .filter(p => p.arquivado === true && !p.excluido_manual)
+      // Inclui os excluidos pela lixeira (excluido_manual): eram invisiveis
+      // aqui, entao um registro apagado por engano nao tinha como ser achado
+      // nem restaurado pela interface.
+      .filter(p => p.arquivado === true)
       .sort((a, b) => new Date(b.data_conclusao || 0) - new Date(a.data_conclusao || 0)),
   [pagamentos]);
 
@@ -3209,7 +3214,7 @@ function PagamentosClientesContent() {
                 </div>
                 <div>
                   <h2 className="text-base font-bold text-gray-800">Registros Arquivados</h2>
-                  <p className="text-xs text-gray-500">Pagamentos concluídos de semanas anteriores</p>
+                  <p className="text-xs text-gray-500">Pagamentos arquivados e registros excluídos pela lixeira</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -3250,7 +3255,7 @@ function PagamentosClientesContent() {
               </div>
             </div>
             <p className="text-xs text-gray-400 mt-3 border-t pt-3">
-              Arquivar remove os registros das listas principais e do alerta do Dashboard. Use "Restaurar" para trazer de volta quando necessário.
+              Aqui ficam os registros arquivados E os excluídos pela lixeira (marcados como "excluído"). Nada é apagado de verdade — use "Restaurar" para trazer qualquer um de volta.
             </p>
           </div>
 
@@ -3269,11 +3274,20 @@ function PagamentosClientesContent() {
                 return (
                   <div key={p.id} className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3 hover:border-gray-300 transition-colors">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${p.excluido_manual ? 'bg-red-50' : 'bg-green-50'}`}>
+                        {p.excluido_manual
+                          ? <Trash2 className="w-4 h-4 text-red-500" />
+                          : <CheckCircle2 className="w-4 h-4 text-green-500" />}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-semibold text-gray-800 text-sm truncate">{p.cliente_nome}</p>
+                        <p className="font-semibold text-gray-800 text-sm truncate flex items-center gap-1.5">
+                          {p.cliente_nome}
+                          {p.excluido_manual && (
+                            <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 whitespace-nowrap">
+                              excluído
+                            </span>
+                          )}
+                        </p>
                         <p className="text-xs text-gray-400 truncate">{formatTipoServicoCompact(p.tipo_servico)} · Concluído {dataConc}{dataPag ? ` · Pago ${dataPag}` : ''}</p>
                       </div>
                     </div>
