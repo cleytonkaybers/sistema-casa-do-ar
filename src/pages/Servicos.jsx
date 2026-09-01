@@ -265,7 +265,10 @@ export default function ServicosPage() {
     }
   };
 
-  const handleConfirmarConclusao = async (observacoes, pagouDinheiro = false) => {
+  // tipoServicoAtualizado: vem preenchido quando o modal exigiu a marca do ar
+  // (instalação sem marca não pode ser concluída) — grava antes de tudo para
+  // que o snapshot e o Atendimento já levem a marca.
+  const handleConfirmarConclusao = async (observacoes, pagouDinheiro = false, tipoServicoAtualizado = null) => {
     if (!servicoParaConcluir) return;
     // BLOQUEIO DE RE-ENTRADA: ref sincrono evita disparar 2x via double-click,
     // mesmo durante os 10-15s dos Passos 2-5 (onde updateMutation.isPending nao cobre).
@@ -277,7 +280,9 @@ export default function ServicosPage() {
     setIsConcluindo(true);
     // Limpa snapshot do estado IMEDIATAMENTE para evitar que cliques subsequentes
     // entrem aqui antes do try/finally rodar (servicoParaConcluir e do useState).
-    const servicoSnapshot = { ...servicoParaConcluir };
+    const servicoSnapshot = tipoServicoAtualizado
+      ? { ...servicoParaConcluir, tipo_servico: tipoServicoAtualizado }
+      : { ...servicoParaConcluir };
     setServicoParaConcluir(null);
 
     // Helper: tenta uma operacao ate N vezes com delay entre tentativas.
