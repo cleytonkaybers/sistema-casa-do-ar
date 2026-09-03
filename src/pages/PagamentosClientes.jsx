@@ -26,6 +26,7 @@ import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 import { isValorPlaceholder, grupoTemPlaceholder } from '@/lib/placeholderPreco';
 import { matchClienteSearch, chaveIdentidadeCliente } from '@/lib/utils/buscaCliente';
 import CompromissoClientePDF from '@/components/financeiro/CompromissoClientePDF';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import DespesasView from '@/components/financeiro/DespesasView';
 import {
   Search, CheckCircle2, AlertCircle, Calendar,
@@ -1371,6 +1372,9 @@ function PagamentosClientesContent() {
   const [precosSyncKey, setPrecosSyncKey] = useState(0);
   const [abrirRelatorio, setAbrirRelatorio] = useState(false);
   const [compartilharModal, setCompartilharModal] = useState(null);
+  // Cobranca aguardando confirmacao de exclusao
+  const [confirmExcluir, setConfirmExcluir] = useState(null);
+  const [excluindo, setExcluindo] = useState(false);
   // "Pagos" começa DESATIVADO a cada visita: a tela é de cobrança, então abre
   // mostrando só o que falta receber. O ADM ativa o filtro quando precisar.
   const [filtroStatus, setFiltroStatus] = useState(['pendente', 'parcial', 'agendado']);
@@ -1552,7 +1556,11 @@ function PagamentosClientesContent() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] }),
   });
 
-  const handleDelete = async (pag) => {
+  // Abre a confirmacao (nao exclui direto): a lixeira apagava na hora e um
+  // clique errado sumia com a cobranca do cliente.
+  const handleDelete = (pag) => setConfirmExcluir(pag);
+
+  const executarExclusao = async (pag) => {
     // Soft-delete BLOQUEANTE: arquiva em vez de deletar do banco.
     // Antes usava .mutate (fire-and-forget) — se falhasse silenciosamente, o
     // registro 'voltava' depois. Agora usa mutateAsync + await + retry pra
@@ -3389,6 +3397,49 @@ function PagamentosClientesContent() {
       <DetalhesClienteModal open={!!detalhesModal} onClose={() => setDetalhesModal(null)} pagamento={detalhesModal} />
       <RelatorioClientesPagamentoModal isOpen={abrirRelatorio} onClose={() => setAbrirRelatorio(false)} pagamentos={pagamentos} servicos={servicosConcluidos} />
       <CompromissoClientePDF isOpen={!!compartilharModal} onClose={() => setCompartilharModal(null)} pagamento={compartilharModal} />
+
+      {/* Confirmação de exclusão da cobrança — a lixeira excluía direto e um
+          clique errado sumia com o registro do cliente. */}
+      <ConfirmDialog
+        open={!!confirmExcluir}
+        onClose={() => !excluindo && setConfirmExcluir(null)}
+        onConfirm={async () => {
+          const alvo = confirmExcluir;
+          if (!alvo) return;
+          setExcluindo(true);
+          try {
+            await executarExclusao(alvo);
+            setConfirmExcluir(null);
+          } finally {
+            setExcluindo(false);
+          }
+        }}
+        title="Excluir cobrança do cliente"
+        description={(() => {
+          if (!confirmExcluir) return '';
+          const recs = confirmExcluir._records?.length > 0 ? confirmExcluir._records : [confirmExcluir];
+          const total = recs.reduce((s, r) => s + (r.valor_total || 0), 0);
+          const pago = recs.reduce((s, r) => s + (r.valor_pago || 0), 0);
+          const saldo = Math.max(0, total - pago);
+          const linhas = [
+            `Excluir a cobrança de "${confirmExcluir.cliente_nome}"?`,
+            '',
+            `• ${recs.length} registro(s) de serviço`,
+            total > 0 ? `• Valor total: ${formatCurrency(total)}` : '• Serviço ainda sem preço definido',
+          ];
+          if (pago > 0) {
+            linhas.push(`• ⚠ Já recebido deste cliente: ${formatCurrency(pago)} — este histórico de pagamento também sai da lista.`);
+          }
+          if (saldo > 0.01) {
+            linhas.push(`• ⚠ Saldo em aberto: ${formatCurrency(saldo)} — você deixará de cobrar este valor.`);
+          }
+          linhas.push('', 'Nada é apagado do banco: dá para restaurar na aba 📦 Arquivo.');
+          return linhas.join('\n');
+        })()}
+        confirmText={excluindo ? 'Excluindo...' : 'Excluir cobrança'}
+        variant="destructive"
+        isLoading={excluindo}
+      />
 
       {/* Modal Diagnostico: servicos no Financeiro sem PagamentoCliente */}
       <Dialog open={diagModalOpen} onOpenChange={(v) => !diagSincronizando && setDiagModalOpen(v)}>
