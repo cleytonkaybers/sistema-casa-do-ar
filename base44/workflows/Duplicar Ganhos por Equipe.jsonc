@@ -1,0 +1,37 @@
+{
+  "name": "Duplicar Ganhos por Equipe",
+  "description": "Quando um servi\u00e7o \u00e9 conclu\u00eddo, duplica o ganho para todos os membros da equipe\"",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "update"
+      ],
+      "entity_name": "Servico"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "duplicar_ganhos_por_equipe",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "duplicarGanhosEquipe",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "duplicarGanhosEquipe"
+  }
+}

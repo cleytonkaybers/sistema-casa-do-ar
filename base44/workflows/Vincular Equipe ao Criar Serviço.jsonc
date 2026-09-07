@@ -1,0 +1,37 @@
+{
+  "name": "Vincular Equipe ao Criar Servi\u00e7o",
+  "description": "Vincula automaticamente uma equipe padr\u00e3o quando um novo servi\u00e7o \u00e9 criado sem equipe\"",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "Servico"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "vincular_equipe_ao_criar_servi_o",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "vincularEquipesServicos",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "vincularEquipesServicos"
+  }
+}
