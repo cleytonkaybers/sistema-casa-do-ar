@@ -368,6 +368,13 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
       return;
     }
 
+    // Equipe obrigatória: sem ela o serviço não gera comissão nem entra nos
+    // filtros por equipe. Para serviço próprio existe a opção "ADM (eu mesmo)".
+    if (!formData.equipe_id) {
+      toast.error('Selecione a equipe responsável pelo serviço!');
+      return;
+    }
+
     if (!formData.data_programada) {
       toast.error('Data programada é obrigatória!');
       return;
@@ -788,14 +795,13 @@ export default function ServicoForm({ open, onClose, onSave, servico, isLoading,
               <div className="space-y-1">
                 <Label className={labelDark}>Equipe Responsável *</Label>
                 <Select
-                  value={formData.equipe_id || 'sem-equipe'}
-                  onValueChange={(value) => setFormData({ ...formData, equipe_id: value === 'sem-equipe' ? '' : value })}
+                  value={formData.equipe_id || ''}
+                  onValueChange={(value) => setFormData({ ...formData, equipe_id: value })}
                 >
                   <SelectTrigger className={selectDark}>
-                    <SelectValue placeholder="Selecione a equipe" />
+                    <SelectValue placeholder="Selecione a equipe responsável..." />
                   </SelectTrigger>
                   <SelectContent className="bg-[#1e2a3a] border-[#2d3f55] text-white">
-                    <SelectItem value="sem-equipe" className="text-gray-400">Sem equipe específica</SelectItem>
                     {/* Serviço feito pelo próprio ADM: cobra o cliente normalmente,
                         mas não gera comissão para técnico. */}
                     <SelectItem value={EQUIPE_ADM_ID} className="text-amber-300 hover:bg-white/10">
