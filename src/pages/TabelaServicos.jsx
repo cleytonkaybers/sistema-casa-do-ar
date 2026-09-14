@@ -34,6 +34,7 @@ export default function TabelaServicos() {
     };
     checkAdmin();
   }, [navigate]);
+  const [editingNome, setEditingNome] = useState('');
   const [editingValor, setEditingValor] = useState('');
   const [editingPercEquipe, setEditingPercEquipe] = useState('');
   const [editingPercTecnico, setEditingPercTecnico] = useState('');
@@ -55,14 +56,23 @@ export default function TabelaServicos() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, valor_tabela, percentual_equipe, percentual_tecnico }) =>
-      base44.entities.TipoServicoValor.update(id, { valor_tabela, percentual_equipe, percentual_tecnico }),
+    mutationFn: async ({ id, tipo_servico, valor_tabela, percentual_equipe, percentual_tecnico }) => {
+      await base44.entities.TipoServicoValor.update(id, { tipo_servico, valor_tabela, percentual_equipe, percentual_tecnico });
+      // Verificação de leitura: o schema já rejeitou valor fora do enum em
+      // silêncio (o update respondia ok e nada mudava). Só declara sucesso
+      // se o nome realmente persistiu no banco.
+      const conferido = await base44.entities.TipoServicoValor.filter({ id }).catch(() => null);
+      const gravado = conferido && conferido[0] && conferido[0].tipo_servico === tipo_servico;
+      if (!gravado) {
+        throw new Error('O servidor não gravou a alteração — publique a versão nova do app e tente de novo.');
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tiposServicoValor'] });
       setEditingId(null);
       toast.success('Valores atualizados');
     },
-    onError: () => toast.error('Erro ao atualizar')
+    onError: (err) => toast.error(err?.message || 'Erro ao atualizar', { duration: 8000 })
   });
 
   const deleteMutation = useMutation({
@@ -226,7 +236,19 @@ export default function TabelaServicos() {
               <TableBody>
                 {valores.map(item => (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.tipo_servico}</TableCell>
+                    <TableCell className="font-medium">
+                      {editingId === item.id ? (
+                        <Input
+                          type="text"
+                          value={editingNome}
+                          onChange={(e) => setEditingNome(e.target.value)}
+                          className="min-w-[220px]"
+                          placeholder="Nome do serviço"
+                        />
+                      ) : (
+                        item.tipo_servico
+                      )}
+                    </TableCell>
                     <TableCell>
                       {editingId === item.id ? (
                         <Input
@@ -282,12 +304,30 @@ export default function TabelaServicos() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => updateMutation.mutate({ 
-                              id: item.id, 
-                              valor_tabela: parseFloat(editingValor),
-                              percentual_equipe: parseFloat(editingPercEquipe),
-                              percentual_tecnico: parseFloat(editingPercTecnico)
-                            })}
+                            onClick={() => {
+                              const nome = (editingNome || '').trim();
+                              if (!nome) {
+                                toast.error('O nome do serviço não pode ficar vazio.');
+                                return;
+                              }
+                              // Renomear NÃO atualiza os serviços já cadastrados:
+                              // eles guardam o nome como texto e deixariam de casar
+                              // com esta tabela (perdendo valor e % no cálculo).
+                              if (nome !== item.tipo_servico && !confirm(
+                                `Renomear "${item.tipo_servico}" para "${nome}"?\n\n` +
+                                `ATENÇÃO: serviços JÁ cadastrados com o nome antigo continuam com ele ` +
+                                `e deixam de encontrar o preço/percentual nesta tabela.\n\n` +
+                                `Use para corrigir a escrita de um nome novo. Para mudanças em ` +
+                                `serviços antigos, edite cada um deles.`
+                              )) return;
+                              updateMutation.mutate({
+                                id: item.id,
+                                tipo_servico: nome,
+                                valor_tabela: parseFloat(editingValor),
+                                percentual_equipe: parseFloat(editingPercEquipe),
+                                percentual_tecnico: parseFloat(editingPercTecnico)
+                              });
+                            }}
                           >
                             <Save className="w-4 h-4" />
                           </Button>
@@ -306,6 +346,7 @@ export default function TabelaServicos() {
                             variant="ghost"
                             onClick={() => {
                               setEditingId(item.id);
+                              setEditingNome(item.tipo_servico || '');
                               setEditingValor(item.valor_tabela.toString());
                               setEditingPercEquipe((item.percentual_equipe || 30).toString());
                               setEditingPercTecnico((item.percentual_tecnico || 15).toString());
