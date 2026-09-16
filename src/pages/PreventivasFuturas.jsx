@@ -295,6 +295,55 @@ function PreventivasFuturasContent() {
     }
   };
 
+
+  // Limpeza em massa dos que JÁ foram avisados: tira da lista sem apagar o
+  // cadastro (mesma regra do remover individual — só zera a previsão).
+  const [limpandoAvisados, setLimpandoAvisados] = useState(false);
+
+  const handleLimparAvisados = async () => {
+    // Usa todosItens (lista completa, não a página atual) para limpar tudo
+    const avisados = todosItens.filter(i => i.msgEnviada);
+    if (avisados.length === 0) {
+      toast.info('Nenhuma preventiva avisada para limpar.');
+      return;
+    }
+    if (!confirm(
+      `Remover da lista as ${avisados.length} preventiva(s) já avisada(s)?\n\n` +
+      `Os CADASTROS DOS CLIENTES NÃO SÃO APAGADOS — apenas a previsão de ` +
+      `manutenção é limpa, e eles deixam de aparecer aqui.\n\n` +
+      `Quando um desses clientes fizer um novo serviço, a preventiva é gerada ` +
+      `de novo automaticamente.`
+    )) return;
+
+    setLimpandoAvisados(true);
+    const total = avisados.length;
+    toast.info(`⏳ Limpando ${total} preventiva(s)...`, { id: 'limpar-prev', duration: 120000 });
+    let ok = 0;
+    let falhas = 0;
+    for (const item of avisados) {
+      try {
+        await base44.entities.Cliente.update(item.id, {
+          proxima_manutencao: null,
+          ultima_manutencao: null,
+          preventiva_msg_enviada_em: null,
+          preventiva_msg_referencia: null,
+        });
+        ok++;
+      } catch (err) {
+        console.error('[limpar-avisados] falhou', item.id, err);
+        falhas++;
+      }
+    }
+    toast.dismiss('limpar-prev');
+    queryClient.invalidateQueries({ queryKey: ['clientes'] });
+    setLimpandoAvisados(false);
+    if (falhas > 0) {
+      toast.error(`⚠ ${ok} removida(s), ${falhas} falhou(ram). Tente de novo.`, { duration: 10000 });
+    } else {
+      toast.success(`🧹 ${ok} preventiva(s) avisada(s) removida(s) da lista.`, { duration: 8000 });
+    }
+  };
+
   const handleViewDetails = (item) => {
     setSelectedItem(item);
     setShowDetails(true);
@@ -379,6 +428,26 @@ function PreventivasFuturasContent() {
             Manutenções programadas ou serviços ativos
           </p>
         </div>
+        {/* Limpeza dos já avisados — enxuga a lista sem apagar cadastros */}
+        {isAdmin && (() => {
+          const qtdAvisados = todosItens.filter(i => i.msgEnviada).length;
+          if (qtdAvisados === 0) return null;
+          return (
+            <Button
+              onClick={handleLimparAvisados}
+              disabled={limpandoAvisados}
+              variant="outline"
+              className="h-10 text-xs font-semibold rounded-xl border bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20"
+              title="Remove da lista as preventivas já avisadas (não apaga os clientes)"
+            >
+              {limpandoAvisados ? (
+                <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Limpando...</>
+              ) : (
+                <><CheckCircle2 className="w-4 h-4 mr-1.5" /> Limpar avisados ({qtdAvisados})</>
+              )}
+            </Button>
+          );
+        })()}
       </div>
 
       <div className="bg-[#152236] border border-white/5 rounded-2xl p-4 shadow-sm flex items-center">
