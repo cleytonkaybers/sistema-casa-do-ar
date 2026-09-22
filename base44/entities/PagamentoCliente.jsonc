@@ -18,6 +18,10 @@
       "type": "string",
       "description": "Telefone/WhatsApp do cliente"
     },
+    "indicacao": {
+      "type": "string",
+      "description": "Nome de quem indicou este cliente (opcional, apenas informativo)"
+    },
     "tipo_servico": {
       "type": "string",
       "description": "Tipo de servi\u00e7o realizado"

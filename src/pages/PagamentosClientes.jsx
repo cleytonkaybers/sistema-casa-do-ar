@@ -1038,10 +1038,25 @@ function HistoricoModal({ open, onClose, pagamento }) {
 }
 
 // Card compacto estilo tabela com expansão
-function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData, alertaDinheiro, onDismissAlerta, onMarcarPago, onReverterPagamento }) {
+function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData, alertaDinheiro, onDismissAlerta, onMarcarPago, onReverterPagamento, indicacao = '', onSalvarIndicacao }) {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const [expandido, setExpandido] = useState(false);
+  // Indicacao: anotacao opcional de quem indicou o cliente. Visual discreto —
+  // nao e alerta nem obrigacao, so uma informacao a mais na linha.
+  const [editandoIndic, setEditandoIndic] = useState(false);
+  const [rascunhoIndic, setRascunhoIndic] = useState('');
+  const [salvandoIndic, setSalvandoIndic] = useState(false);
+  const salvarIndic = async () => {
+    if (salvandoIndic || !onSalvarIndicacao) return;
+    setSalvandoIndic(true);
+    try {
+      await onSalvarIndicacao(pag, rascunhoIndic.trim());
+      setEditandoIndic(false);
+    } finally {
+      setSalvandoIndic(false);
+    }
+  };
   const records = pag._records || [pag];
   const saldo = calcularSaldo(pag.valor_total, pag.valor_pago);
   const _valorPago = pag.valor_pago || 0;
@@ -1137,6 +1152,41 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
             </div>
             <p className="text-xs text-gray-500 truncate">{pag._tipoResumido || formatTipoServicoCompact(pag.tipo_servico)}</p>
           </div>
+        </div>
+
+        {/* Indicacao — quem indicou o cliente (opcional, visual suave) */}
+        <div className="w-full sm:w-36 flex-shrink-0 min-w-0" onClick={(e) => e.stopPropagation()}>
+          {editandoIndic ? (
+            <div className="flex items-center gap-1">
+              <input
+                autoFocus
+                value={rascunhoIndic}
+                onChange={(e) => setRascunhoIndic(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') salvarIndic();
+                  if (e.key === 'Escape') setEditandoIndic(false);
+                }}
+                placeholder="Quem indicou?"
+                maxLength={60}
+                className="w-full min-w-0 text-xs px-2 py-1 rounded border border-gray-300 bg-white text-gray-800 outline-none focus:border-blue-400"
+              />
+              <button
+                onClick={salvarIndic}
+                disabled={salvandoIndic}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-700 px-1 flex-shrink-0 disabled:opacity-50"
+              >
+                {salvandoIndic ? '...' : 'OK'}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => { setRascunhoIndic(indicacao || ''); setEditandoIndic(true); }}
+              className={`w-full text-left text-xs truncate px-1.5 py-1 rounded transition-colors hover:bg-gray-100 ${indicacao ? 'text-gray-500 hover:text-gray-700' : 'text-gray-300 hover:text-gray-500'}`}
+              title={indicacao ? `Indicacao: ${indicacao} — clique para editar` : 'Anotar quem indicou este cliente (opcional)'}
+            >
+              {indicacao ? `\u{1F464} ${indicacao}` : 'Indicação'}
+            </button>
+          )}
         </div>
 
         <div className="flex items-center justify-between w-full sm:w-auto gap-3">
@@ -1285,7 +1335,7 @@ function LinhaTabela({ pag, onPagar, onEditarValor, onHistorico, onDelete, onDet
   );
 }
 
-function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData, emptyMsg, alertasDinheiro = [], onDismissAlerta, onMarcarPago, onReverterPagamento }) {
+function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete, onDetalhes, onDefinirPreco, onAgendarData, emptyMsg, alertasDinheiro = [], onDismissAlerta, onMarcarPago, onReverterPagamento, indicacoes = {}, onSalvarIndicacao }) {
   return (
     <div className="space-y-2">
       {lista.length === 0 ? (
@@ -1296,7 +1346,7 @@ function TabelaPagamentos({ lista, onPagar, onEditarValor, onHistorico, onDelete
       ) : lista.map(p => {
         const alertaDinheiro = alertasDinheiro.find(n => chaveIdentidadeCliente(n.cliente_nome, n.telefone) === chaveIdentidadeCliente(p.cliente_nome, p.telefone) && !n.lida);
         return (
-          <LinhaTabela key={p.id} pag={p} onPagar={onPagar} onEditarValor={onEditarValor} onHistorico={onHistorico} onDelete={onDelete} onDetalhes={onDetalhes} onDefinirPreco={onDefinirPreco} onAgendarData={onAgendarData} alertaDinheiro={alertaDinheiro} onDismissAlerta={onDismissAlerta} onMarcarPago={onMarcarPago} onReverterPagamento={onReverterPagamento} />
+          <LinhaTabela key={p.id} pag={p} onPagar={onPagar} onEditarValor={onEditarValor} onHistorico={onHistorico} onDelete={onDelete} onDetalhes={onDetalhes} onDefinirPreco={onDefinirPreco} onAgendarData={onAgendarData} alertaDinheiro={alertaDinheiro} onDismissAlerta={onDismissAlerta} onMarcarPago={onMarcarPago} onReverterPagamento={onReverterPagamento} indicacao={indicacoes[chaveIdentidadeCliente(p.cliente_nome, p.telefone)] || p.indicacao || ''} onSalvarIndicacao={onSalvarIndicacao} />
         );
       })}
     </div>
@@ -1468,6 +1518,51 @@ function PagamentosClientesContent() {
     queryKey: ['pagamentos-clientes'],
     queryFn: () => listAll('PagamentoCliente', '-data_conclusao'),
   });
+
+  // Cadastro de clientes — usado so para ler/gravar a "indicacao" (quem indicou).
+  const { data: clientesCadastro = [] } = useQuery({
+    queryKey: ['clientes-indicacao'],
+    queryFn: () => listAll('Cliente', '-created_date').catch(() => []),
+  });
+
+  const clientePorChave = useMemo(() => {
+    const mapa = {};
+    clientesCadastro.forEach(c => {
+      const k = chaveIdentidadeCliente(c.nome, c.telefone);
+      if (k && !mapa[k]) mapa[k] = c;
+    });
+    return mapa;
+  }, [clientesCadastro]);
+
+  const indicacoesPorCliente = useMemo(() => {
+    const mapa = {};
+    Object.entries(clientePorChave).forEach(([k, c]) => {
+      if (c.indicacao) mapa[k] = c.indicacao;
+    });
+    return mapa;
+  }, [clientePorChave]);
+
+  // A indicacao pertence ao CLIENTE (acompanha ele nos proximos servicos), mas
+  // tambem e gravada nas cobrancas do cartao para aparecer mesmo quando nao
+  // existe cadastro de Cliente correspondente.
+  const handleSalvarIndicacao = async (pag, texto) => {
+    const valor = (texto || '').trim();
+    const chave = chaveIdentidadeCliente(pag.cliente_nome, pag.telefone);
+    const cliente = clientePorChave[chave];
+    const registros = pag._records?.length ? pag._records : [pag];
+    try {
+      if (cliente) await base44.entities.Cliente.update(cliente.id, { indicacao: valor });
+      for (const r of registros) {
+        if (r.id) await base44.entities.PagamentoCliente.update(r.id, { indicacao: valor });
+      }
+      queryClient.invalidateQueries({ queryKey: ['clientes-indicacao'] });
+      queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
+      toast.success(valor ? `Indicação salva: ${valor}` : 'Indicação removida.');
+    } catch (err) {
+      console.error('[indicacao] falha ao salvar', err);
+      toast.error('Não foi possível salvar a indicação. Tente de novo.');
+    }
+  };
 
   // Lista de tecnicos para o Select "Quem recebeu este valor?" no modal de pagamento.
   const { data: tecnicosFinanceiros = [] } = useQuery({
@@ -3166,6 +3261,8 @@ function PagamentosClientesContent() {
               onReverterPagamento={handleReverterPagamento}
               alertasDinheiro={alertasDinheiro}
               onDismissAlerta={handleDismissAlerta}
+              indicacoes={indicacoesPorCliente}
+              onSalvarIndicacao={handleSalvarIndicacao}
               emptyMsg="Nenhum serviço nesta semana"
             />
           </div>
@@ -3203,6 +3300,8 @@ function PagamentosClientesContent() {
                 onReverterPagamento={handleReverterPagamento}
                 alertasDinheiro={alertasDinheiro}
                 onDismissAlerta={handleDismissAlerta}
+                indicacoes={indicacoesPorCliente}
+                onSalvarIndicacao={handleSalvarIndicacao}
                 emptyMsg="Nenhuma pendência encontrada"
               />
             </div>
@@ -3381,6 +3480,8 @@ function PagamentosClientesContent() {
             onAgendarData={setAgendarDataModal}
             onDelete={handleDelete}
             onReverterPagamento={handleReverterPagamento}
+            indicacoes={indicacoesPorCliente}
+            onSalvarIndicacao={handleSalvarIndicacao}
             emptyMsg="Nenhum registro no período selecionado"
           />
         </div>
