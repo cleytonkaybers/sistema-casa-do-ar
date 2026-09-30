@@ -80,7 +80,7 @@ function PreventivasFuturasContent() {
   const getWhatsAppLink = (phone) => {
     const cleaned = phone?.replace(/\D/g, '') || '';
     const mensagem = encodeURIComponent(
-      `Olá! 👋\nNotamos que já está no período recomendado para a manutenção do seu ar-condicionado.\nA limpeza preventiva melhora o desempenho, reduz o consumo de energia, evita mau cheiro e aumenta a vida útil do aparelho.\nQuer que eu agende um horário para você?`
+      `Olá! 👋\nSomos da empresa CASA DO AR CLIMATIZAÇÃO e notamos que já está no período recomendado para a manutenção do seu ar-condicionado.\nA limpeza preventiva melhora o desempenho, reduz o consumo de energia, evita mau cheiro e aumenta a vida útil do aparelho.\nQuer que eu agende um horário para você?`
     );
     return `https://wa.me/55${cleaned}?text=${mensagem}`;
   };
