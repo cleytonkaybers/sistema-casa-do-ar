@@ -87,8 +87,10 @@ export default function Atendimentos() {
   });
 
   const { data: pagamentos = [], isLoading: loadP } = useQuery({
-    queryKey: ['pagamentos-atendimentos'],
-    queryFn: () => listAll('PagamentoCliente'),
+    // Mesma chave usada por Pagamentos de Clientes, Dashboard e Historico:
+    // a tabela de PagamentoCliente e grande e era baixada de novo a cada tela.
+    queryKey: ['pagamentos-clientes'],
+    queryFn: () => listAll('PagamentoCliente', '-data_conclusao'),
   });
 
   // Servicos concluidos - usado para detectar orfaos sem Atendimento
@@ -169,7 +171,7 @@ export default function Atendimentos() {
       sincronizandoOrfaos.current = false;
       if (criados > 0) {
         queryClient.invalidateQueries({ queryKey: ['atendimentos'] });
-        queryClient.invalidateQueries({ queryKey: ['pagamentos-atendimentos'] });
+        queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
         toast.success(`🔄 ${criados} atendimento(s) sincronizado(s) automaticamente`);
       }
       if (falhas > 0) {

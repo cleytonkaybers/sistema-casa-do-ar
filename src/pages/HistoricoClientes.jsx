@@ -364,8 +364,9 @@ export default function HistoricoClientes() {
   });
 
   const { data: pagamentos = [] } = useQuery({
-    queryKey: ['pagamentos-historico'],
-    queryFn: () => listAll('PagamentoCliente'),
+    // Mesma chave das demais telas — evita re-baixar a tabela inteira.
+    queryKey: ['pagamentos-clientes'],
+    queryFn: () => listAll('PagamentoCliente', '-data_conclusao'),
   });
 
   // Índices O(1) por servico_id e atendimento_id — substituem .find() O(N) por item.

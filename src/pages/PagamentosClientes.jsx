@@ -35,6 +35,23 @@ import {
   Receipt, DollarSign
 } from 'lucide-react';
 
+// As rotinas de manutencao automatica (arquivar antigos, restaurar enganos,
+// quitar centavos) nao precisam rodar toda vez que a tela abre: elas varrem a
+// tabela inteira e gravam de um em um, deixando a abertura lenta. Passam a
+// rodar no maximo 1x a cada 12h por navegador.
+const INTERVALO_MANUTENCAO_MS = 12 * 60 * 60 * 1000;
+function podeRodarManutencao(chave) {
+  try {
+    const k = 'pag_manutencao_' + chave;
+    const ultimo = Number(localStorage.getItem(k) || 0);
+    if (Date.now() - ultimo < INTERVALO_MANUTENCAO_MS) return false;
+    localStorage.setItem(k, String(Date.now()));
+    return true;
+  } catch {
+    return true; // sem localStorage: mantem o comportamento antigo
+  }
+}
+
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 const formatPhone = (p) => {
   if (!p) return '';
@@ -1519,49 +1536,47 @@ function PagamentosClientesContent() {
     queryFn: () => listAll('PagamentoCliente', '-data_conclusao'),
   });
 
-  // Cadastro de clientes — usado so para ler/gravar a "indicacao" (quem indicou).
-  const { data: clientesCadastro = [] } = useQuery({
-    queryKey: ['clientes-indicacao'],
-    queryFn: () => listAll('Cliente', '-created_date').catch(() => []),
-  });
-
-  const clientePorChave = useMemo(() => {
-    const mapa = {};
-    clientesCadastro.forEach(c => {
-      const k = chaveIdentidadeCliente(c.nome, c.telefone);
-      if (k && !mapa[k]) mapa[k] = c;
-    });
-    return mapa;
-  }, [clientesCadastro]);
-
+  // A indicacao e lida das proprias cobrancas ja carregadas — como ela e
+  // gravada em TODOS os registros do cliente, um servico novo do mesmo cliente
+  // ja aparece com o nome preenchido, sem precisar baixar a tabela de Clientes.
   const indicacoesPorCliente = useMemo(() => {
     const mapa = {};
-    Object.entries(clientePorChave).forEach(([k, c]) => {
-      if (c.indicacao) mapa[k] = c.indicacao;
+    pagamentos.forEach(p => {
+      if (!p.indicacao) return;
+      const k = chaveIdentidadeCliente(p.cliente_nome, p.telefone);
+      if (k && !mapa[k]) mapa[k] = p.indicacao;
     });
     return mapa;
-  }, [clientePorChave]);
+  }, [pagamentos]);
 
-  // A indicacao pertence ao CLIENTE (acompanha ele nos proximos servicos), mas
-  // tambem e gravada nas cobrancas do cartao para aparecer mesmo quando nao
-  // existe cadastro de Cliente correspondente.
+  // Grava a indicacao nas cobrancas do cartao (a tela atualiza na hora pelo
+  // cache) e replica no cadastro do Cliente em segundo plano, com busca
+  // direcionada pelo nome em vez de listar todos os clientes.
   const handleSalvarIndicacao = async (pag, texto) => {
     const valor = (texto || '').trim();
-    const chave = chaveIdentidadeCliente(pag.cliente_nome, pag.telefone);
-    const cliente = clientePorChave[chave];
     const registros = pag._records?.length ? pag._records : [pag];
     try {
-      if (cliente) await base44.entities.Cliente.update(cliente.id, { indicacao: valor });
       for (const r of registros) {
-        if (r.id) await base44.entities.PagamentoCliente.update(r.id, { indicacao: valor });
+        if (r.id) await updateMutation.mutateAsync({ id: r.id, data: { indicacao: valor } });
       }
-      queryClient.invalidateQueries({ queryKey: ['clientes-indicacao'] });
-      queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
       toast.success(valor ? `Indicação salva: ${valor}` : 'Indicação removida.');
     } catch (err) {
       console.error('[indicacao] falha ao salvar', err);
       toast.error('Não foi possível salvar a indicação. Tente de novo.');
+      return;
     }
+    // Cadastro do cliente: melhor esforco, sem segurar a tela.
+    (async () => {
+      try {
+        const chave = chaveIdentidadeCliente(pag.cliente_nome, pag.telefone);
+        const achados = await base44.entities.Cliente.filter({ nome: pag.cliente_nome });
+        const alvo = (achados || []).find(c => chaveIdentidadeCliente(c.nome, c.telefone) === chave)
+          || (achados || [])[0];
+        if (alvo?.id) await base44.entities.Cliente.update(alvo.id, { indicacao: valor });
+      } catch (err) {
+        console.warn('[indicacao] cadastro do cliente nao atualizado', err);
+      }
+    })();
   };
 
   // Lista de tecnicos para o Select "Quem recebeu este valor?" no modal de pagamento.
@@ -1641,14 +1656,52 @@ function PagamentosClientesContent() {
     return enriquecido;
   };
 
+  // Antes, CADA gravacao disparava invalidateQueries e re-baixava a tabela
+  // inteira de PagamentoCliente (mais de mil registros). Em rotinas que gravam
+  // varios registros em sequencia isso virava N downloads completos — a causa
+  // principal da demora pra salvar e pra mostrar o resultado.
+  //
+  // Agora a gravacao corrige o registro direto no cache (a tela atualiza na
+  // hora) e UMA unica recarga de confirmacao e agendada para 4s depois da
+  // ultima gravacao, em segundo plano.
+  const resyncTimerRef = useRef(null);
+  const agendarResyncPagamentos = useCallback(() => {
+    if (resyncTimerRef.current) clearTimeout(resyncTimerRef.current);
+    resyncTimerRef.current = setTimeout(() => {
+      resyncTimerRef.current = null;
+      queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
+    }, 4000);
+  }, [queryClient]);
+
+  useEffect(() => () => { if (resyncTimerRef.current) clearTimeout(resyncTimerRef.current); }, []);
+
+  const patchPagamentoNoCache = useCallback((id, data, retorno) => {
+    queryClient.setQueryData(['pagamentos-clientes'], (antigos) => {
+      if (!Array.isArray(antigos)) return antigos;
+      return antigos.map(p => (
+        p.id === id
+          ? { ...p, ...data, ...(retorno && typeof retorno === 'object' && retorno.id ? retorno : {}) }
+          : p
+      ));
+    });
+  }, [queryClient]);
+
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.PagamentoCliente.create(data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] }),
+    onSuccess: (novo) => {
+      queryClient.setQueryData(['pagamentos-clientes'], (antigos) => (
+        Array.isArray(antigos) && novo?.id ? [novo, ...antigos] : antigos
+      ));
+      agendarResyncPagamentos();
+    },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.PagamentoCliente.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] }),
+    onSuccess: (retorno, { id, data }) => {
+      patchPagamentoNoCache(id, data, retorno);
+      agendarResyncPagamentos();
+    },
   });
 
   // Abre a confirmacao (nao exclui direto): a lixeira apagava na hora e um
@@ -1722,6 +1775,7 @@ function PagamentosClientesContent() {
   // Auto-arquivar pagamentos pagos de semanas anteriores ao carregar a página
   useEffect(() => {
     if (!isAdmin || autoArquivadoRef.current || pagamentos.length === 0) return;
+    if (!podeRodarManutencao('arquivar')) { autoArquivadoRef.current = true; return; }
 
     const candidatos = pagamentos.filter(p =>
       !p.arquivado &&
@@ -1751,6 +1805,7 @@ function PagamentosClientesContent() {
   useEffect(() => {
     if (!isAdmin || autoRestauradoRef.current || pagamentos.length === 0) return;
     autoRestauradoRef.current = true;
+    if (!podeRodarManutencao('restaurar')) return;
 
     const restaurar = pagamentos.filter(p => {
       if (p.arquivado !== true) return false;
@@ -1820,6 +1875,7 @@ function PagamentosClientesContent() {
   useEffect(() => {
     if (!isAdmin || autoQuitadoRef.current || pagamentos.length === 0) return;
     autoQuitadoRef.current = true;
+    if (!podeRodarManutencao('quitar-pequenos')) return;
 
     const pequenos = pagamentos.filter(p => {
       if (p.arquivado === true) return false; // ja arquivado, nada a fazer
