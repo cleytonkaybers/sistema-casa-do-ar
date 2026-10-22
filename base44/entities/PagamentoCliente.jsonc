@@ -22,6 +22,29 @@
       "type": "string",
       "description": "Nome de quem indicou este cliente (opcional, apenas informativo)"
     },
+    "metodo_pagamento": {
+      "type": "string",
+      "description": "Como o cliente pagou (PIX, Cartao de Credito, Cartao de Debito, Maquina de Cartao, Transferencia, Dinheiro)"
+    },
+    "pago_direto_tecnico": {
+      "type": "boolean",
+      "default": false,
+      "description": "true quando o valor foi recebido direto por um tecnico, e nao pelo caixa da empresa. Nao entra na fila de Nota Fiscal."
+    },
+    "nf_gerada": {
+      "type": "boolean",
+      "default": false,
+      "description": "Nota fiscal ja emitida para esta cobranca (tela Nota Fiscal)"
+    },
+    "nf_gerada_em": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Quando a nota fiscal foi marcada como emitida"
+    },
+    "nf_gerada_por": {
+      "type": "string",
+      "description": "Quem marcou a nota fiscal como emitida"
+    },
     "tipo_servico": {
       "type": "string",
       "description": "Tipo de servi\u00e7o realizado"

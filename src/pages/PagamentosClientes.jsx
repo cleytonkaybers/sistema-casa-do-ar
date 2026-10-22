@@ -2374,6 +2374,9 @@ function PagamentosClientesContent() {
 
   const handleRegistrarPagamento = async (pag, valor, obs, parcelas = [], precosGrupo = {}, dataPagamentoAgendado = '', desconto = 0, divisoesTecnicos = [], metodoPagamento = '') => {
     const records = pag._records?.length > 1 ? pag._records : [pag];
+    // Dinheiro na mao de tecnico (ou qualquer divisao entre tecnicos) nao passa
+    // pelo caixa da empresa — a tela de Nota Fiscal ignora esses recebimentos.
+    const recebidoPorTecnico = (divisoesTecnicos || []).some(d => d.tecnico_id && (d.valor || 0) > 0.01);
     let remaining = valor;
     let descontoRemaining = Math.max(0, desconto || 0);
     const dataStr = format(new Date(), "dd/MM/yyyy HH:mm");
@@ -2448,6 +2451,10 @@ function PagamentosClientesContent() {
           historico_pagamentos: novoHistorico,
           data_pagamento_completo: isQuitado ? new Date().toISOString() : undefined,
           data_pagamento_agendado: dataPagamentoAgendado || undefined,
+          ...(toPay > 0.01 ? {
+            metodo_pagamento: metodoPagamento || '',
+            pago_direto_tecnico: recebidoPorTecnico,
+          } : {}),
         },
       });
       // Atualizar snapshot para o modal com os valores já gravados

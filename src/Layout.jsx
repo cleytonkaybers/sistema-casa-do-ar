@@ -23,6 +23,7 @@ import {
   RotateCw,
   ChevronDown,
   DollarSign,
+  FileText,
   Trophy } from
 'lucide-react';
 import { base44, IS_OFFLINE } from '@/api/base44Client';
@@ -87,6 +88,7 @@ function LayoutContent({ children }) {
       label: 'Financeiro',
       items: [
         ...(isAdminEmpresa() || isSuperAdmin() ? [{ name: 'Pagamentos dos Clientes', href: createPageUrl('PagamentosClientes'), icon: DollarSign }] : []),
+        ...(isAdminEmpresa() || isSuperAdmin() ? [{ name: 'Nota Fiscal', href: createPageUrl('NotaFiscal'), icon: FileText }] : []),
         { name: 'Financeiro', href: createPageUrl('FinanceiroAdmin'), icon: DollarSign },
         { name: 'Cheques', href: createPageUrl('Cheques'), icon: DollarSign },
         { name: 'Relatório Comissões', href: createPageUrl('RelatorioComissoes'), icon: DollarSign },

@@ -23,6 +23,7 @@ import LogsAuditoria from '@/pages/LogsAuditoria';
 import GerenciarBackups from '@/pages/GerenciarBackups';
 import Cheques from '@/pages/Cheques';
 import PagamentosClientes from '@/pages/PagamentosClientes';
+import NotaFiscal from '@/pages/NotaFiscal';
 import Agendamentos from '@/pages/Agendamentos';
 import RankingTecnicos from '@/pages/RankingTecnicos';
 import DinheiroEmprestado from '@/pages/DinheiroEmprestado';
@@ -137,6 +138,11 @@ const AuthenticatedApp = () => {
         <Route path="/PagamentosClientes" element={
           <LayoutWrapper currentPageName="PagamentosClientes">
             <PagamentosClientes />
+          </LayoutWrapper>
+        } />
+        <Route path="/NotaFiscal" element={
+          <LayoutWrapper currentPageName="NotaFiscal">
+            <NotaFiscal />
           </LayoutWrapper>
         } />
         <Route path="/GerenciarBackups" element={
