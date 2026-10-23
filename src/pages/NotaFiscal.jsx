@@ -23,6 +23,13 @@ const METODOS_NF = ['PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Máquin
 const METODO_DINHEIRO = 'Dinheiro';
 const TODOS_METODOS = [...METODOS_NF, METODO_DINHEIRO];
 
+// Data de corte: o ADM decidiu nao emitir nota do que ja passou, entao a fila
+// comeca a contar daqui pra frente. Nada foi apagado nem marcado no banco — os
+// pagamentos anteriores a esta data simplesmente nao entram nesta tela.
+// Para voltar a contar de outra data, basta mudar o valor abaixo (aaaa-mm-dd).
+const NF_DATA_INICIO = '2026-10-23';
+const nfInicio = new Date(`${NF_DATA_INICIO}T00:00:00`);
+
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
 const formatPhone = (p) => {
@@ -332,7 +339,11 @@ function NotaFiscalContent() {
       .filter(p => {
         if ((p.valor_pago || 0) <= 0.01) return false;
         if (p.pago_direto_tecnico === true) return false;
-        return METODOS_NF.includes(metodoDoPagamento(p));
+        if (!METODOS_NF.includes(metodoDoPagamento(p))) return false;
+        // Corte historico: so pagamentos a partir de NF_DATA_INICIO.
+        const quando = dataDoPagamento(p);
+        if (!quando || quando < nfInicio) return false;
+        return true;
       })
       .map(p => {
         const cad = dadosCadastrais.get(chaveIdentidadeCliente(p.cliente_nome, p.telefone)) || {};
@@ -405,6 +416,10 @@ function NotaFiscalContent() {
           <p className="text-xs text-gray-500 mt-0.5">
             Pagamentos que entraram no caixa da empresa por PIX, cartão, máquina ou transferência.
             Dinheiro e valores recebidos direto pelo técnico não aparecem aqui.
+            <br />
+            <span className="text-gray-400">
+              Contando a partir de {format(nfInicio, "dd/MM/yyyy", { locale: ptBR })} — pagamentos anteriores não entram nesta lista.
+            </span>
           </p>
         </div>
         {aba === 'emitir' && aEmitir.length > 0 && (
