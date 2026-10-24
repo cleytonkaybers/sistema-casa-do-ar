@@ -632,7 +632,7 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
           <div>
            <label className="text-xs sm:text-sm font-medium text-gray-700 mb-2 block">Método de pagamento</label>
            <div className="grid grid-cols-2 gap-1.5">
-             {['PIX', 'Dinheiro', 'Crédito', 'Débito', 'Máquina', 'Transferência'].map(m => {
+             {['PIX', 'Dinheiro', 'Crédito', 'Débito', 'Máquina', 'Transferência', 'PIX Técnico'].map(m => {
                const mapLabel = { 'Crédito': 'Cartão de Crédito', 'Débito': 'Cartão de Débito', 'Máquina': 'Máquina de Cartão' };
                const fullLabel = mapLabel[m] || m;
                return (

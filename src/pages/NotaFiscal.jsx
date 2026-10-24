@@ -21,8 +21,12 @@ import {
 // Dinheiro fica de fora por decisao do ADM, e o que o tecnico recebe na mao
 // tambem (marcado em pago_direto_tecnico no momento do pagamento).
 const METODOS_NF = ['PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Máquina de Cartão', 'Transferência'];
-const METODO_DINHEIRO = 'Dinheiro';
-const TODOS_METODOS = [...METODOS_NF, METODO_DINHEIRO];
+// Fora da nota: dinheiro vivo e o PIX que cai direto na conta do tecnico.
+const METODOS_SEM_NF = ['Dinheiro', 'PIX Técnico'];
+// Ordenado do nome mais longo para o mais curto: ao garimpar o metodo em
+// observacoes antigas, "PIX Técnico" precisa ser testado ANTES de "PIX",
+// senao um PIX de tecnico seria lido como PIX comum e cairia na nota.
+const TODOS_METODOS = [...METODOS_NF, ...METODOS_SEM_NF].sort((a, b) => b.length - a.length);
 
 // Data de corte: o ADM decidiu nao emitir nota do que ja passou, entao a fila
 // comeca a contar daqui pra frente. Nada foi apagado nem marcado no banco — os
@@ -340,6 +344,7 @@ function NotaFiscalContent() {
       .filter(p => {
         if ((p.valor_pago || 0) <= 0.01) return false;
         if (p.pago_direto_tecnico === true) return false;
+        // Comparacao exata: "PIX Técnico" nunca passa pelo filtro de "PIX".
         if (!METODOS_NF.includes(metodoDoPagamento(p))) return false;
         // Corte historico: so pagamentos a partir de NF_DATA_INICIO.
         const quando = dataDoPagamento(p);
