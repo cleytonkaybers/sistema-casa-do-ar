@@ -8,12 +8,13 @@ import TechnicianAccessBlock from '@/components/TechnicianAccessBlock';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { matchClienteSearch, chaveIdentidadeCliente } from '@/lib/utils/buscaCliente';
 import {
   Search, FileText, MessageCircle, Copy, Check, Archive,
   RotateCcw, Loader2, Receipt, MapPin, Calendar, CreditCard,
+  ChevronLeft, ChevronRight, Calculator,
 } from 'lucide-react';
 
 // Meios de pagamento que entram no caixa da empresa e, portanto, geram nota.
@@ -372,6 +373,37 @@ function NotaFiscalContent() {
 
   const totalAEmitir = aEmitir.reduce((s, p) => s + (p.valor_pago || 0), 0);
 
+  // Controle do imposto: soma das notas MARCADAS COMO GERADAS dentro do mes,
+  // do dia 1 ao ultimo dia. A data que conta e a da emissao da nota
+  // (nf_gerada_em), nao a do pagamento — o imposto segue a nota.
+  const [mesRef, setMesRef] = useState(() => startOfMonth(new Date()));
+
+  const resumoMes = useMemo(() => {
+    const inicio = startOfMonth(mesRef);
+    const fim = endOfMonth(mesRef);
+    const doMes = elegiveis.filter(p => {
+      if (p.nf_gerada !== true || !p.nf_gerada_em) return false;
+      try {
+        return isWithinInterval(parseISO(p.nf_gerada_em), { start: inicio, end: fim });
+      } catch {
+        return false;
+      }
+    });
+    return {
+      quantidade: doMes.length,
+      totalNotas: doMes.reduce((acc, p) => acc + (p.valor_pago || 0), 0),
+      totalServicos: doMes.reduce((acc, p) => acc + (p.valor_total || 0), 0),
+    };
+  }, [elegiveis, mesRef]);
+
+  // Aliquota opcional, so para estimar o imposto. Fica guardada neste navegador.
+  const [aliquota, setAliquota] = useState(() => {
+    try { return localStorage.getItem('nf_aliquota') || ''; } catch { return ''; }
+  });
+  const aliquotaNum = parseFloat(String(aliquota).replace(',', '.'));
+  const impostoEstimado = aliquotaNum > 0 ? resumoMes.totalNotas * (aliquotaNum / 100) : null;
+  const mesAtual = isSameMonth(mesRef, new Date());
+
   const gravar = async (item, dados, mensagem) => {
     setProcessandoId(item.id);
     try {
@@ -428,6 +460,85 @@ function NotaFiscalContent() {
             <p className="font-bold text-blue-600">{formatCurrency(totalAEmitir)}</p>
           </div>
         )}
+      </div>
+
+      {/* Fechamento do mes — base para o imposto sobre as notas emitidas */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+            <Calculator className="w-4 h-4 text-emerald-600" />
+            Notas emitidas no mês
+          </h2>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setMesRef(m => subMonths(m, 1))}
+              className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100"
+              title="Mês anterior"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-xs font-semibold text-gray-700 min-w-[110px] text-center capitalize">
+              {format(mesRef, "MMMM 'de' yyyy", { locale: ptBR })}
+            </span>
+            <button
+              onClick={() => setMesRef(m => addMonths(m, 1))}
+              disabled={mesAtual}
+              className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"
+              title={mesAtual ? 'Este já é o mês atual' : 'Próximo mês'}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+            <p className="text-[11px] text-emerald-700 font-medium">Valor das notas</p>
+            <p className="text-lg font-bold text-emerald-700 leading-tight">
+              {formatCurrency(resumoMes.totalNotas)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-gray-200 px-3 py-2">
+            <p className="text-[11px] text-gray-500 font-medium">Notas emitidas</p>
+            <p className="text-lg font-bold text-gray-800 leading-tight">{resumoMes.quantidade}</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 px-3 py-2 col-span-2 sm:col-span-1">
+            <label className="text-[11px] text-gray-500 font-medium block mb-1">
+              Imposto estimado
+            </label>
+            <div className="flex items-center gap-1.5">
+              <input
+                value={aliquota}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^0-9.,]/g, '');
+                  setAliquota(v);
+                  try { localStorage.setItem('nf_aliquota', v); } catch { /* ignora */ }
+                }}
+                placeholder="0"
+                inputMode="decimal"
+                className="w-14 text-sm font-semibold px-2 py-1 rounded border border-gray-300 bg-white text-gray-800 outline-none focus:border-emerald-400"
+                title="Alíquota em % — usada só para estimar"
+              />
+              <span className="text-xs text-gray-400">%</span>
+              <span className="text-sm font-bold text-gray-800 ml-auto truncate">
+                {impostoEstimado != null ? formatCurrency(impostoEstimado) : '—'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {Math.abs(resumoMes.totalServicos - resumoMes.totalNotas) > 0.01 && (
+          <p className="text-[11px] text-amber-600">
+            ⚠ Há nota de pagamento parcial neste mês. O valor cheio dos serviços seria{' '}
+            {formatCurrency(resumoMes.totalServicos)} — o número acima soma só o que o cliente
+            pagou de fato.
+          </p>
+        )}
+
+        <p className="text-[11px] text-gray-400">
+          Conta do dia 1 ao último dia do mês, pela data em que você marcou "NF gerada".
+          {aliquotaNum > 0 && ' A alíquota é só uma estimativa sua, não vale como cálculo fiscal.'}
+        </p>
       </div>
 
       <div className="relative">
