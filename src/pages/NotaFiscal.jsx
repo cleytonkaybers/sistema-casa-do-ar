@@ -409,12 +409,44 @@ function NotaFiscalContent() {
   const impostoEstimado = aliquotaNum > 0 ? resumoMes.totalNotas * (aliquotaNum / 100) : null;
   const mesAtual = isSameMonth(mesRef, new Date());
 
+  // Grava e CONFERE no servidor antes de mover a linha de aba.
+  //
+  // Este backend ja aceitou gravacao de campo novo respondendo "ok" e jogando
+  // o valor fora quando o schema ainda nao tinha sido publicado. Sem a
+  // conferencia, a tela marcava a nota, movia pro arquivo e ela "voltava"
+  // sozinha pra fila na recarga seguinte — que foi exatamente o que aconteceu.
+  // Numa tela que serve de base pro imposto, marcacao perdida em silencio e
+  // inaceitavel: ou grava de verdade, ou avisa.
   const gravar = async (item, dados, mensagem) => {
     setProcessandoId(item.id);
     try {
       await base44.entities.PagamentoCliente.update(item.id, dados);
+
+      const conferido = await base44.entities.PagamentoCliente
+        .filter({ id: item.id })
+        .catch(() => null);
+      const noServidor = conferido && conferido[0];
+      const esperado = dados.nf_gerada === true;
+
+      if (!noServidor) {
+        toast.error('Não consegui conferir no servidor se a marcação foi salva. Recarregue a página (Ctrl+F5) e confira antes de seguir.', { duration: 14000 });
+        return;
+      }
+
+      if ((noServidor.nf_gerada === true) !== esperado) {
+        // Alinha a tela com a verdade do servidor em vez de mostrar o que nao ficou.
+        queryClient.setQueryData(['pagamentos-clientes'], (antigos) => (
+          Array.isArray(antigos) ? antigos.map(p => (p.id === item.id ? { ...p, ...noServidor } : p)) : antigos
+        ));
+        toast.error(
+          'O servidor NÃO guardou a marcação de nota fiscal. Publique a versão nova do app no Base44 e tente de novo — enquanto isso a marcação não se mantém.',
+          { duration: 16000 }
+        );
+        return;
+      }
+
       queryClient.setQueryData(['pagamentos-clientes'], (antigos) => (
-        Array.isArray(antigos) ? antigos.map(p => (p.id === item.id ? { ...p, ...dados } : p)) : antigos
+        Array.isArray(antigos) ? antigos.map(p => (p.id === item.id ? { ...p, ...dados, ...noServidor } : p)) : antigos
       ));
       toast.success(mensagem);
     } catch (err) {
