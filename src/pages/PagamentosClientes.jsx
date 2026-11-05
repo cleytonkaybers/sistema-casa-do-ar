@@ -316,17 +316,35 @@ function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], on
     const records = (pagamento._records && pagamento._records.length > 0)
       ? pagamento._records
       : [pagamento];
+    // Junto da quantidade, guarda a data de cada unidade. O card junta as
+    // dividas antigas do mesmo cliente com os servicos da semana, entao uma
+    // quantidade "a mais" pode ser um servico de outro dia — ou uma cobranca
+    // duplicada. Sem mostrar a data nao da pra saber qual dos dois e.
     const counts = {};
+    const somar = (tipo, dataRef) => {
+      if (!counts[tipo]) counts[tipo] = { qtd: 0, datas: {} };
+      counts[tipo].qtd += 1;
+      const chave = dataRef || 'sem data';
+      counts[tipo].datas[chave] = (counts[tipo].datas[chave] || 0) + 1;
+    };
     records.forEach(r => {
+      const dataRef = (r.data_conclusao || r.created_date || '').slice(0, 10);
       const tipos = (r.tipo_servico || '').split('+').map(s => s.trim()).filter(Boolean);
-      tipos.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+      tipos.forEach(t => somar(t, dataRef));
     });
     // Fallback: tipo_servico vazio -> 1 entrada pra permitir precificar.
     if (Object.keys(counts).length === 0) {
       const tipoBruto = (pagamento.tipo_servico || '').trim() || 'Servico';
-      counts[tipoBruto] = Math.max(1, records.length);
+      const dataRef = (pagamento.data_conclusao || pagamento.created_date || '').slice(0, 10);
+      for (let i = 0; i < Math.max(1, records.length); i++) somar(tipoBruto, dataRef);
     }
-    return Object.entries(counts).map(([tipo, qtd]) => ({ tipo, qtd }));
+    return Object.entries(counts).map(([tipo, info]) => ({
+      tipo,
+      qtd: info.qtd,
+      porData: Object.entries(info.datas)
+        .sort((a, b) => String(b[0]).localeCompare(String(a[0])))
+        .map(([data, qtd]) => ({ data, qtd })),
+    }));
   }, [pagamento]);
 
   useEffect(() => {
@@ -387,6 +405,19 @@ function DefinirPrecoModal({ open, onClose, pagamento, pagamentosAtuais = [], on
                     : <span className="text-amber-500">Digite o valor unitário e pressione Enter</span>
                   }
                 </div>
+                {g.porData && g.porData.length > 1 && (
+                  <div className="text-[11px] text-amber-600 flex items-start gap-1">
+                    <span className="flex-shrink-0">📅</span>
+                    <span>
+                      Vem de mais de um dia:{' '}
+                      {g.porData.map(d => `${d.qtd}× em ${
+                        d.data && d.data !== 'sem data'
+                          ? format(new Date(`${d.data}T12:00:00`), 'dd/MM')
+                          : 'data não informada'
+                      }`).join(' · ')}
+                    </span>
+                  </div>
+                )}
               </div>
             );
           })}
