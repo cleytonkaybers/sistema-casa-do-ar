@@ -235,7 +235,26 @@ function groupPagamentos(lista) {
     unicos.forEach(r => {
       const tipo = (r.tipo_servico || '').trim().toLowerCase();
       const dataRef = (r.data_conclusao || r.created_date || '').slice(0, 10);
-      const chave = `${tipo}|${dataRef}`;
+      // Chave de identidade do EVENTO real.
+      //
+      // Antes era tipo+dia, e isso APAGAVA cobranca de verdade: dois servicos
+      // iguais para o mesmo cliente no mesmo dia (duas instalacoes de 12k no
+      // mesmo endereco, por exemplo) viravam um so, e o segundo nunca era
+      // cobrado. Dinheiro perdido em silencio.
+      //
+      // Servicos diferentes tem servico_id diferente, entao a chave passa a
+      // ser o servico (+ dia, porque o mesmo Servico pode ser atendido em dias
+      // diferentes e cada atendimento e uma cobranca). Duplicata fantasma do
+      // MESMO servico no MESMO dia continua colapsando, que e o caso que essa
+      // deduplicacao existe para resolver.
+      //
+      // Registro antigo sem servico_id nem atendimento_id nao da para
+      // distinguir: continua caindo na regra velha de tipo+dia.
+      const chave = r.servico_id
+        ? `servico:${r.servico_id}|${dataRef}`
+        : r.atendimento_id
+          ? `atendimento:${r.atendimento_id}`
+          : `legado:${tipo}|${dataRef}`;
       const existente = porChave.get(chave);
       if (!existente) {
         porChave.set(chave, r);
