@@ -311,7 +311,29 @@ export default function ServicosPage() {
       // e adicionar outro servico (ex: "Ver defeito + Limpeza 9k"), gera tudo normal.
       const isVerDefeito = isApenasTiposIgnorados(servicoSnapshot.tipo_servico);
 
+      // Decidido ANTES do update por causa da trava logo abaixo.
+      // Serviço executado pelo próprio ADM: cobra o cliente normalmente
+      // (Passo 4 cria o PagamentoCliente), mas NÃO gera comissão.
+      const comissaoHabilitada = servicoSnapshot.gerar_comissao !== false
+        && !ehEquipeAdm(servicoSnapshot.equipe_id)
+        && !!servicoSnapshot.equipe_id
+        && !!servicoSnapshot.valor
+        && !servicoSnapshot.comissao_gerada;
+
       // ===== PASSO 1: Atualizar Servico para concluido (BLOQUEANTE com retry) =====
+      //
+      // comissao_gerada vai JUNTO com a conclusão, de propósito: existe um
+      // workflow no Base44 ("Gerar Comissões ao Concluir Serviço") que dispara
+      // a cada update de Servico e chama a função gerarComissoes. Essa função e
+      // este código criavam lançamentos em paralelo: os dois liam "ainda não
+      // tem lançamento" antes de qualquer um gravar, e o técnico acabava com a
+      // comissão lançada DUAS VEZES no mesmo serviço.
+      //
+      // gerarComissoes já desiste quando comissao_gerada é true. Marcando a
+      // flag no mesmo update que conclui o serviço, o workflow nasce vendo a
+      // trava fechada e sai sem gravar nada — quem gera a comissão é só o
+      // código daqui, que é o que sabe excluir assalariado, oculto e
+      // ex-funcionário da divisão.
       toast.info('⏳ Concluindo serviço...', { id: 'conclusao-progresso', duration: 30000 });
       await comRetry('servico-update', () => updateMutation.mutateAsync({
         id: servicoSnapshot.id,
@@ -322,6 +344,7 @@ export default function ServicosPage() {
           observacoes_conclusao: observacoes,
           usuario_atualizacao_status: user?.email,
           data_atualizacao_status: agora,
+          ...(comissaoHabilitada ? { comissao_gerada: true } : {}),
         }
       }));
       queryClient.invalidateQueries({ queryKey: ['servicos'] });
@@ -428,12 +451,10 @@ export default function ServicosPage() {
       );
 
       // ===== PASSO 3: Gerar Comissao (BLOQUEANTE com retry) =====
-      // Serviço executado pelo próprio ADM: cobra o cliente normalmente
-      // (Passo 4 cria o PagamentoCliente), mas NÃO gera comissão.
-      const comissaoHabilitada = servicoSnapshot.gerar_comissao !== false
-        && !ehEquipeAdm(servicoSnapshot.equipe_id);
+      // comissaoHabilitada foi decidido antes do Passo 1 (ver a trava lá).
       let tecnicosComissionados = 0;
-      if (comissaoHabilitada && servicoSnapshot.equipe_id && servicoSnapshot.valor && !servicoSnapshot.comissao_gerada) {
+      if (comissaoHabilitada) {
+       try {
         toast.info('⏳ Lançando comissões dos técnicos...', { id: 'conclusao-progresso', duration: 30000 });
         // Técnico recém-cadastrado só existe em User — sem registro em
         // TecnicoFinanceiro ele ficaria de FORA da comissão deste serviço.
@@ -502,12 +523,24 @@ export default function ServicosPage() {
             );
             tecnicosComissionados++;
           }
-          // Flag de idempotencia da comissao com retry — se falhar, proxima conclusao
-          // regenera tudo, dobrando creditos. Tem que persistir.
-          await comRetry('servico-comissao-gerada-flag', () =>
-            base44.entities.Servico.update(servicoSnapshot.id, { comissao_gerada: true })
-          );
+          // A trava ja foi gravada no Passo 1; nao precisa gravar de novo.
         }
+       } catch (errComissao) {
+        // A trava foi fechada no Passo 1 para o workflow do backend nao gerar
+        // lancamento em paralelo. Se a geracao daqui falhou, a trava precisa
+        // ser reaberta: senao ninguem gera e o tecnico fica sem a comissao.
+        console.error('[conclusao] falha ao lançar comissões:', errComissao);
+        try {
+          await base44.entities.Servico.update(servicoSnapshot.id, { comissao_gerada: false });
+        } catch (errLiberar) {
+          console.error('[conclusao] falha ao reabrir a trava de comissão:', errLiberar);
+        }
+        toast.error(
+          '⚠️ O serviço foi concluído, mas a comissão NÃO foi lançada. ' +
+          'Abra Relatório de Comissões e confira — pode ser preciso lançar à mão.',
+          { duration: 14000 }
+        );
+       }
       }
 
       // ===== PASSO 4: Criar PagamentoCliente (NAO-BLOQUEANTE com retry) =====
