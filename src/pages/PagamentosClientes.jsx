@@ -260,13 +260,25 @@ function groupPagamentos(lista) {
         porChave.set(chave, r);
         return;
       }
-      // Mantem o que tem mais valor_total. Se empate, mantem o atualizado por
-      // ultimo (updated_date mais recente). Garante preferir registro precificado
-      // a placeholder R$1, e preferir versao recem-editada a versao antiga.
+      // 1o criterio: QUEM TEM PAGAMENTO GANHA.
+      //
+      // Quando o mesmo servico tem registro duplicado e um deles ja foi pago,
+      // escolher pelo valor/data podia descartar justamente o registro PAGO e
+      // manter o zerado. Resultado: divida quitada voltava a aparecer como
+      // pendente no card, e o modal de pagamento — que lia outro conjunto de
+      // registros — mostrava saldo R$ 0,00 e nao deixava fazer nada. Pior
+      // ainda, o cliente corria o risco de ser cobrado de novo.
+      const pagoR = r.valor_pago || 0;
+      const pagoE = existente.valor_pago || 0;
+      if (pagoR > pagoE) { porChave.set(chave, r); return; }
+      if (pagoR < pagoE) return;
+      // 2o criterio: mantem o de maior valor_total — prefere registro
+      // precificado a placeholder.
       const valR = r.valor_total || 0;
       const valE = existente.valor_total || 0;
       if (valR > valE) { porChave.set(chave, r); return; }
       if (valR < valE) return;
+      // 3o criterio: versao editada por ultimo.
       const dtR = new Date(r.updated_date || r.created_date || 0).getTime();
       const dtE = new Date(existente.updated_date || existente.created_date || 0).getTime();
       if (dtR > dtE) porChave.set(chave, r);
@@ -526,11 +538,27 @@ function PagamentoModal({ open, onClose, pagamento, onSave, pagamentosAtuais = [
 
   // Registros frescos (mesmo critério do prefill) para ler o valor_total salvo
   // direto — fonte da verdade. Evita depender só da reconstrução por tipo.
+  // Uma versao fresca PARA CADA registro do card — nunca mais nem menos.
+  //
+  // Antes isto montava um conjunto de ids misturando id e atendimento_id e
+  // varria a tabela inteira atras de qualquer coisa que casasse. Com registro
+  // duplicado, o modal acabava somando registros que o card nao estava
+  // mostrando: o total vinha do card e o pago vinha desse conjunto maior, e os
+  // dois numeros se contradiziam (card "Pendente R$ 250,00", modal "Pago
+  // R$ 250,00 / Saldo R$ 0,00" com o botao de confirmar travado).
   const recordsFrescos = useMemo(() => {
     const base = pagamento?._records || (pagamento ? [pagamento] : []);
-    const ids = new Set(base.map(r => r.atendimento_id || r.id).filter(Boolean));
-    const frescos = pagamentosAtuais.filter(p => ids.has(p.atendimento_id) || ids.has(p.id));
-    return frescos.length > 0 ? frescos : base;
+    const porId = new Map();
+    const porAtendimento = new Map();
+    pagamentosAtuais.forEach(p => {
+      if (p.id) porId.set(p.id, p);
+      if (p.atendimento_id && !porAtendimento.has(p.atendimento_id)) porAtendimento.set(p.atendimento_id, p);
+    });
+    return base.map(r => (
+      (r.id && porId.get(r.id))
+      || (r.atendimento_id && porAtendimento.get(r.atendimento_id))
+      || r
+    ));
   }, [pagamento, pagamentosAtuais]);
 
   // Total reconstruído pelo preço unitário por tipo (reflete preços por tipo).
