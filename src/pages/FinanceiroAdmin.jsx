@@ -21,6 +21,7 @@ import RegistrarPagamentoModal from '@/components/financeiro/RegistrarPagamentoM
 import ConfirmDialog from '@/components/ConfirmDialog';
 import GerarPDFModal from '@/components/financeiro/GerarPDFModal';
 import ComissoesFaltantesModal from '@/components/financeiro/ComissoesFaltantesModal';
+import ExcluirTecnicoModal from '@/components/financeiro/ExcluirTecnicoModal';
 import { formatTipoServicoCompact } from '@/utils';
 
 // Data de referência de um pagamento para bucketing por semana. Prefere
@@ -59,6 +60,7 @@ export default function FinanceiroAdmin() {
   const [confirmOcultarTecnico, setConfirmOcultarTecnico] = useState(null);
   const [ocultando, setOcultando] = useState(false);
   const [showFaltantes, setShowFaltantes] = useState(false);
+  const [tecnicoParaExcluir, setTecnicoParaExcluir] = useState(null);
   
   const { data: lancamentos = [], refetch: refetchLancamentos } = useQuery({
     queryKey: ['lancamentos'],
@@ -619,15 +621,28 @@ export default function FinanceiroAdmin() {
                         : `R$ ${(tecnico.total_ganho || 0).toFixed(2)}`}
                     </TableCell>
                     <TableCell className="text-center">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setConfirmOcultarTecnico(tecnico)}
-                        className="h-7 text-xs text-gray-400 hover:text-red-500"
-                        title="Ocultar este técnico das listas (ex-funcionário já acertado). O histórico é preservado."
-                      >
-                        🚫 Ocultar
-                      </Button>
+                      <div className="flex items-center justify-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setConfirmOcultarTecnico(tecnico)}
+                          className="h-7 text-xs text-gray-400 hover:text-red-500"
+                          title="Ocultar este técnico das listas (ex-funcionário já acertado). O histórico é preservado."
+                        >
+                          🚫 Ocultar
+                        </Button>
+                        {/* Desligamento definitivo: apaga comissões, pagamentos,
+                            cadastro e acesso. Diferente do Ocultar, NÃO volta. */}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setTecnicoParaExcluir(tecnico)}
+                          className="h-7 text-xs text-gray-400 hover:text-red-600"
+                          title="APAGAR DE VEZ todos os dados deste técnico (comissões, pagamentos, cadastro e acesso). Não tem como desfazer."
+                        >
+                          🗑️ Excluir tudo
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                   );
@@ -1009,6 +1024,19 @@ export default function FinanceiroAdmin() {
           )}
         </DialogContent>
       </Dialog>
+
+      <ExcluirTecnicoModal
+        tecnico={tecnicoParaExcluir}
+        open={!!tecnicoParaExcluir}
+        onOpenChange={(v) => { if (!v) setTecnicoParaExcluir(null); }}
+        onExcluiu={() => {
+          refetchLancamentos();
+          refetchTecnicos();
+          refetchPagamentos();
+          queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+          queryClient.invalidateQueries({ queryKey: ['minhasComissoes'] });
+        }}
+      />
 
       <ComissoesFaltantesModal
         open={showFaltantes}
