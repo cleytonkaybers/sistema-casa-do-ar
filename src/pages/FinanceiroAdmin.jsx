@@ -20,6 +20,7 @@ import { ptBR } from 'date-fns/locale';
 import RegistrarPagamentoModal from '@/components/financeiro/RegistrarPagamentoModal';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import GerarPDFModal from '@/components/financeiro/GerarPDFModal';
+import ComissoesFaltantesModal from '@/components/financeiro/ComissoesFaltantesModal';
 import { formatTipoServicoCompact } from '@/utils';
 
 // Data de referência de um pagamento para bucketing por semana. Prefere
@@ -57,6 +58,7 @@ export default function FinanceiroAdmin() {
   const [pagamentoDetalhes, setPagamentoDetalhes] = useState(null);
   const [confirmOcultarTecnico, setConfirmOcultarTecnico] = useState(null);
   const [ocultando, setOcultando] = useState(false);
+  const [showFaltantes, setShowFaltantes] = useState(false);
   
   const { data: lancamentos = [], refetch: refetchLancamentos } = useQuery({
     queryKey: ['lancamentos'],
@@ -704,7 +706,21 @@ export default function FinanceiroAdmin() {
 
       <Card>
          <CardHeader>
-           <CardTitle className="flex items-center gap-2"><FileText className="w-4 h-4" /> Relatório de Comissões por Serviço</CardTitle>
+           <div className="flex items-center justify-between gap-2 flex-wrap">
+             <CardTitle className="flex items-center gap-2"><FileText className="w-4 h-4" /> Relatório de Comissões por Serviço</CardTitle>
+             {/* Serviço concluído pode acabar sem comissão nenhuma (falha no meio
+                 da conclusão, ou lançamento apagado depois — apagar não reabre a
+                 trava do serviço). Sem este botão, o técnico simplesmente não
+                 recebia e não havia tela que mostrasse. */}
+             <Button
+               variant="outline"
+               size="sm"
+               onClick={() => setShowFaltantes(true)}
+               title="Procura serviços concluídos que ficaram sem comissão para o técnico"
+             >
+               🔍 Comissões faltantes
+             </Button>
+           </div>
          </CardHeader>
          <CardContent>
            <div className="overflow-x-auto">
@@ -994,12 +1010,24 @@ export default function FinanceiroAdmin() {
         </DialogContent>
       </Dialog>
 
+      <ComissoesFaltantesModal
+        open={showFaltantes}
+        onOpenChange={setShowFaltantes}
+        onGerou={() => {
+          refetchLancamentos();
+          refetchTecnicos();
+          queryClient.invalidateQueries({ queryKey: ['minhasComissoes'] });
+        }}
+      />
+
       <ConfirmDialog
         open={!!confirmDeleteLanc}
         onClose={() => setConfirmDeleteLanc(null)}
         onConfirm={() => confirmDeleteLanc && deleteLancamento(confirmDeleteLanc.id)}
         title="Excluir Lançamento Financeiro"
-        description={`Tem certeza que deseja excluir o lançamento de R$ ${confirmDeleteLanc?.valor_comissao_tecnico?.toFixed(2)} para ${confirmDeleteLanc?.tecnico_nome}? Esta ação irá recalcular automaticamente os créditos do técnico.`}
+        description={`Tem certeza que deseja excluir o lançamento de R$ ${confirmDeleteLanc?.valor_comissao_tecnico?.toFixed(2)} para ${confirmDeleteLanc?.tecnico_nome}? Esta ação irá recalcular automaticamente os créditos do técnico.
+
+Se este for o ÚNICO lançamento do serviço, o técnico fica sem comissão nenhuma por ele — o botão "🔍 Comissões faltantes" encontra e refaz depois, se for engano.`}
         confirmText="Excluir Lançamento"
         variant="destructive"
       />
