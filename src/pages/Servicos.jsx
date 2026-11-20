@@ -21,8 +21,8 @@ import { ptBR } from 'date-fns/locale';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 import { matchClienteSearch, acharClientePorIdentidade } from '@/lib/utils/buscaCliente';
-import { calcularComissao } from '@/lib/comissao';
-import { provisionarTecnicosFinanceiro, filtrarTecnicosParaComissao, ehEquipeAdm } from '@/lib/utils/tecnicosFinanceiro';
+import { calcularComissao, percentualComissaoDe } from '@/lib/comissao';
+import { provisionarTecnicosFinanceiro, filtrarTecnicosParaComissao, ehEquipeAdm, acharUsuarioDoTecnico } from '@/lib/utils/tecnicosFinanceiro';
 
 export default function ServicosPage() {
   const { hasPermission, isAdmin, user: currentUser, loading: loadingUser } = usePermissions();
@@ -480,7 +480,10 @@ export default function ServicosPage() {
         } else {
           const valorTotal = servicoSnapshot.valor;
           const comissao = await calcularComissao(servicoSnapshot.tipo_servico, valorTotal, queryClient);
-          const valorComissaoTecnico = comissao.valor_comissao_tecnico;
+          // O valor por tecnico NAO pode mais ser calculado aqui fora: cada
+          // tecnico pode ter percentual proprio (ex.: Equipe 2 = 29% + 5%).
+          // Fica dentro do laco, por pessoa.
+
           // Dedup por id OU NOME: a função backend (gerarComissoes) grava
           // tecnico_id = e-mail do User; aqui usamos TecnicoFinanceiro.tecnico_id.
           // Quando divergem, o dedup só por id deixava o MESMO técnico com 2
@@ -494,6 +497,15 @@ export default function ServicosPage() {
               normDedup(l.tecnico_id) === normDedup(tec.tecnico_id) ||
               (l.tecnico_nome && tec.tecnico_nome && normDedup(l.tecnico_nome) === normDedup(tec.tecnico_nome)));
             if (ja) continue;
+
+            // Percentual DESTE tecnico. A fonte da verdade e o cadastro do
+            // usuario (sempre fresco); o espelho no TecnicoFinanceiro so
+            // entra quando o User nao e encontrado. Sem percentual proprio,
+            // cai no percentual_tecnico da Tabela de Servicos — o de sempre.
+            const pessoa = acharUsuarioDoTecnico(tec, usuariosApp) || tec;
+            const percTec = percentualComissaoDe(pessoa, comissao.percentual_tecnico);
+            const valorComissaoTecnico = valorTotal * (percTec / 100);
+
             await comRetry(`lancamento-${tec.tecnico_id}`, () =>
               base44.entities.LancamentoFinanceiro.create({
                 servico_id: servicoSnapshot.id,
@@ -506,7 +518,7 @@ export default function ServicosPage() {
                 valor_total_servico: valorTotal,
                 percentual_equipe: comissao.percentual_equipe,
                 valor_comissao_equipe: comissao.valor_comissao_equipe,
-                percentual_tecnico: comissao.percentual_tecnico,
+                percentual_tecnico: percTec,
                 valor_comissao_tecnico: valorComissaoTecnico,
                 status: 'pendente',
                 data_geracao: agora,

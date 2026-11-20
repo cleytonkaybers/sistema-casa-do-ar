@@ -1,5 +1,6 @@
 import { base44 } from '@/api/base44Client';
 import { listAll } from '@/lib/utils/listAll';
+import { percentualComissaoDe } from '@/lib/comissao';
 
 const norm = (s) => (s || '').trim().toLowerCase();
 
@@ -212,6 +213,12 @@ async function _provisionar({ apenasEquipeId = null, usuarios = null } = {}) {
     const remuneracaoUser = (u.remuneracao || u.data?.remuneracao) === REMUNERACAO_FIXA
       ? REMUNERACAO_FIXA : 'comissao';
 
+    // Espelha tambem o percentual proprio do tecnico (quando ele ganha
+    // diferente dos outros). null = sem percentual proprio, usa a Tabela.
+    // Passar null como fallback faz a funcao devolver o valor BRUTO validado
+    // em vez de resolver para a Tabela — e o que queremos guardar aqui.
+    const percentualUser = percentualComissaoDe(u, null);
+
     try {
       if (!existente) {
         const novo = await base44.entities.TecnicoFinanceiro.create({
@@ -223,6 +230,7 @@ async function _provisionar({ apenasEquipeId = null, usuarios = null } = {}) {
           credito_pago: 0,
           total_ganho: 0,
           remuneracao: remuneracaoUser,
+          percentual_comissao: percentualUser,
           data_ultima_atualizacao: new Date().toISOString(),
         });
         // Registra na lista local: sem isto, dois usuários que casassem com o
@@ -239,6 +247,12 @@ async function _provisionar({ apenasEquipeId = null, usuarios = null } = {}) {
         }
         if ((existente.remuneracao || 'comissao') !== remuneracaoUser) {
           patch.remuneracao = remuneracaoUser;
+        }
+        // O percentual proprio mudou no cadastro do usuario — atualiza o
+        // espelho. Sem isto, a tela de Comissoes (que nao carrega User)
+        // seguiria usando o percentual antigo.
+        if (percentualComissaoDe(existente, null) !== percentualUser) {
+          patch.percentual_comissao = percentualUser;
         }
         if (Object.keys(patch).length > 0) {
           patch.data_ultima_atualizacao = new Date().toISOString();

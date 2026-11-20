@@ -109,7 +109,24 @@ Deno.serve(async (req) => {
     }
 
     const valor_comissao_equipe = (valor_total * percentual_equipe) / 100;
-    const valor_por_tecnico_novo = (valor_total * percentual_tecnico) / 100;
+
+    // Percentual PROPRIO do tecnico, para quando ele ganha diferente dos
+    // outros da equipe (ex.: Equipe 2 = 29% ao experiente + 5% ao novato).
+    // Espelha percentualComissaoDe de src/lib/comissao.js — duplicado de
+    // proposito, o Deno nao importa de src/.
+    //
+    // CRITICO aqui: sem isto, um recalculo em massa sobrescreveria em
+    // silencio o 29/5 de volta para o percentual da Tabela, desfazendo o
+    // cadastro sem ninguem pedir.
+    //
+    // 0, vazio e invalido contam como "nao definido" e caem na Tabela: um 0
+    // acidental deixaria o tecnico sem comissao sem ninguem perceber.
+    const percentualProprio = (p: any, padrao: number) => {
+      const bruto = p?.percentual_comissao ?? p?.data?.percentual_comissao;
+      const n = typeof bruto === 'string' ? parseFloat(bruto.replace(',', '.')) : bruto;
+      if (!Number.isFinite(n) || n <= 0 || n > 100) return padrao;
+      return n;
+    };
 
     // Processar cada técnico
     const atualizacoes = [];
@@ -117,6 +134,9 @@ Deno.serve(async (req) => {
     for (let i = 0; i < tecnicos.length; i++) {
       const tecnico = tecnicos[i];
       const lancamentoAntigo = lancamentosAntigos[i];
+      // Por pessoa: quem tem percentual proprio mantem o dele no recalculo.
+      const percentual_tecnico_pessoa = percentualProprio(tecnico, percentual_tecnico);
+      const valor_por_tecnico_novo = (valor_total * percentual_tecnico_pessoa) / 100;
       const diferenca = valor_por_tecnico_novo - (lancamentoAntigo?.valor_comissao_tecnico || 0);
 
       if (lancamentoAntigo) {
@@ -126,7 +146,7 @@ Deno.serve(async (req) => {
           valor_comissao_equipe: valor_comissao_equipe,
           valor_comissao_tecnico: valor_por_tecnico_novo,
           percentual_equipe: percentual_equipe,
-          percentual_tecnico: percentual_tecnico
+          percentual_tecnico: percentual_tecnico_pessoa
         });
 
         atualizacoes.push({
@@ -160,7 +180,10 @@ Deno.serve(async (req) => {
       message: 'Comissões recalculadas com sucesso',
       atualizacoes: atualizacoes,
       valor_total_novo: valor_comissao_equipe,
-      valor_por_tecnico_novo: valor_por_tecnico_novo
+      // Antes era um unico valor para todos. Com percentual proprio por
+      // pessoa, o detalhamento esta em `atualizacoes`.
+      valor_pago_aos_tecnicos: atualizacoes.reduce(
+        (soma: number, a: any) => soma + (a?.valor_novo || 0), 0)
     });
 
   } catch (error) {

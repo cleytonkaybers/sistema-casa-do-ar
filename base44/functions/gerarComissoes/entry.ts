@@ -131,6 +131,22 @@ Deno.serve(async (req) => {
     // Usuários grava nos dois).
     const ehAssalariado = (u: any) => (u?.remuneracao || u?.data?.remuneracao) === 'fixo';
 
+    // Percentual PROPRIO do tecnico, para quando ele ganha diferente dos
+    // outros da equipe (ex.: Equipe 2 = 29% ao experiente + 5% ao novato,
+    // em vez de 17% + 17%). Espelha percentualComissaoDe de src/lib/comissao.js
+    // — duplicado de proposito, o Deno nao importa de src/. Le top-level e o
+    // bag `data`, igual ehAssalariado, porque a tela de Usuarios grava nos dois.
+    //
+    // 0, vazio e invalido contam como "nao definido" e caem na Tabela: um 0
+    // acidental deixaria o tecnico sem comissao sem ninguem perceber. Quem
+    // nao ganha % por servico se cadastra como assalariado.
+    const percentualProprio = (p: any, padrao: number) => {
+      const bruto = p?.percentual_comissao ?? p?.data?.percentual_comissao;
+      const n = typeof bruto === 'string' ? parseFloat(bruto.replace(',', '.')) : bruto;
+      if (!Number.isFinite(n) || n <= 0 || n > 100) return padrao;
+      return n;
+    };
+
     // Cadastros financeiros marcados como ocultos (ex-funcionário acertado)
     // também não recebem comissão de serviço novo.
     const tecFinsTodos = await base44.asServiceRole.entities.TecnicoFinanceiro
@@ -202,9 +218,11 @@ Deno.serve(async (req) => {
     }
 
     const valor_comissao_equipe = (valor_total * percentual_equipe) / 100;
-    // Cada tecnico ganha o percentual_tecnico INTEGRAL (nao dividido pelo numero
-    // de tecnicos). Regra de negocio definida pela Tabela de Servicos.
-    const valor_por_tecnico = (valor_total * percentual_tecnico) / 100;
+    // O percentual_tecnico da Tabela e o PADRAO, aplicado INTEGRAL a cada
+    // tecnico (nao dividido pelo numero de tecnicos) — com 17% na tabela e 2
+    // tecnicos, a equipe custa 34%. Mas quem tem percentual proprio no
+    // cadastro usa o dele, entao o valor por tecnico e calculado DENTRO do
+    // laco, por pessoa.
 
     // Dedup: 1 lançamento por técnico por serviço. Compara por tecnico_id E
     // por NOME — o fluxo do front grava tecnico_id do TecnicoFinanceiro e esta
@@ -222,6 +240,9 @@ Deno.serve(async (req) => {
     for (const tecnico of tecnicos) {
       if (jaTemLancamento(tecnico)) continue;
 
+      const percentual_tecnico_pessoa = percentualProprio(tecnico, percentual_tecnico);
+      const valor_por_tecnico = (valor_total * percentual_tecnico_pessoa) / 100;
+
       const lancamento = {
         servico_id: servico.id,
         equipe_id: servico.equipe_id,
@@ -233,7 +254,7 @@ Deno.serve(async (req) => {
         valor_total_servico: valor_total,
         percentual_equipe: percentual_equipe,
         valor_comissao_equipe: valor_comissao_equipe,
-        percentual_tecnico: percentual_tecnico,
+        percentual_tecnico: percentual_tecnico_pessoa,
         valor_comissao_tecnico: valor_por_tecnico,
         status: 'pendente',
         data_geracao: new Date().toISOString(),
@@ -286,7 +307,15 @@ Deno.serve(async (req) => {
       lancamentos: lancamentos,
       valor_total_comissoes: valor_comissao_equipe,
       numero_tecnicos: tecnicos.length,
-      valor_por_tecnico: valor_por_tecnico
+      // Antes era um unico valor_por_tecnico. Com percentual proprio por
+      // pessoa, nao existe mais "o valor do tecnico" — vai o detalhamento.
+      valor_pago_aos_tecnicos: lancamentos.reduce(
+        (soma: number, l: any) => soma + (l?.valor_comissao_tecnico || 0), 0),
+      por_tecnico: lancamentos.map((l: any) => ({
+        tecnico_nome: l?.tecnico_nome,
+        percentual_tecnico: l?.percentual_tecnico,
+        valor_comissao_tecnico: l?.valor_comissao_tecnico,
+      }))
     };
 
     console.log(`Comissões geradas - Serviço: ${servico.id}, Valor: R$ ${valor_comissao_equipe}, Técnicos: ${tecnicos.length}`);

@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Loader2, Users, Shield, Mail, Edit, Trash2, Copy, Check, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 import { ehAssalariado } from '@/lib/utils/tecnicosFinanceiro';
+import { calcularComissaoSync, percentualComissaoDe } from '@/lib/comissao';
 import { usePermissions } from '../components/auth/PermissionGuard';
 import { useEmpresa } from '../components/auth/EmpresaGuard';
 import GerenciarEquipes from '../components/equipes/GerenciarEquipes';
@@ -124,6 +125,20 @@ export default function UsuariosPage() {
     enabled: isSuperAdmin() || isAdminEmpresa()
   });
 
+  // Só para a dica do campo de percentual: mostra qual é o percentual padrão
+  // de hoje. Mesma queryKey usada em src/lib/comissao.js, então reaproveita o
+  // cache em vez de baixar a Tabela de novo.
+  const { data: tiposServico = [] } = useQuery({
+    queryKey: ['tiposServicoValor'],
+    queryFn: () => listAll('TipoServicoValor'),
+  });
+  // Com a Tabela ainda vazia (carregando), calcularComissaoSync devolve o
+  // fallback 15 — que NAO e o percentual real. Mostrar "hoje: 15%" na hora em
+  // que o ADM esta justamente definindo percentuais seria enganoso, entao a
+  // dica so sai do forno depois da Tabela chegar.
+  const tabelaCarregada = tiposServico.length > 0;
+  const percentualPadraoTabela = calcularComissaoSync('', 0, tiposServico).percentual_tecnico;
+
   const updateUserMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.User.update(id, data),
     onSuccess: (_, variables) => {
@@ -221,6 +236,8 @@ export default function UsuariosPage() {
       empresa_id: userData.empresa_id,
       // Lê top-level OU do bag (o app lê top-level; esta tela grava no bag)
       remuneracao: user.remuneracao || userData.remuneracao || 'comissao',
+      // Percentual próprio do técnico. Vazio = usa o da Tabela de Serviços.
+      percentual_comissao: user.percentual_comissao ?? userData.percentual_comissao ?? '',
       permissoes: userData.permissoes || perfisPreDefinidos.atendente.permissoes
     });
     setShowEditModal(true);
@@ -230,6 +247,25 @@ export default function UsuariosPage() {
     if (!editingUser) return;
     const originalData = usuarios.find(u => u.id === editingUser.id)?.data || {};
     const remuneracao = editingUser.remuneracao || 'comissao';
+
+    // Percentual próprio do técnico. Campo vazio grava null (NÃO 0): um 0
+    // guardado aqui deixaria o técnico sem comissão nenhuma, e é fácil
+    // confundir "vazio" com "zero" num campo numérico.
+    const percTexto = String(editingUser.percentual_comissao ?? '').trim();
+    let percentual_comissao = null;
+    if (percTexto !== '') {
+      const n = parseFloat(percTexto.replace(',', '.'));
+      if (!Number.isFinite(n) || n <= 0 || n > 100) {
+        toast.error(
+          n === 0
+            ? 'Para o técnico não receber % por serviço, escolha "Salário fixo semanal" acima.'
+            : 'Percentual inválido. Use um número entre 0,01 e 100 — ou deixe vazio para usar o da Tabela de Serviços.'
+        );
+        return;
+      }
+      percentual_comissao = n;
+    }
+
     updateUserMutation.mutate({
       id: editingUser.id,
       closesModal: true,
@@ -237,13 +273,15 @@ export default function UsuariosPage() {
         // Grava a remuneração TAMBÉM top-level: o resto do app (comissões,
         // financeiro, Meu Financeiro) lê top-level, não o bag `data`.
         remuneracao,
+        percentual_comissao,
         data: {
           ...originalData,
           perfil: editingUser.perfil,
           permissoes: editingUser.permissoes,
           empresa_id: editingUser.empresa_id,
           tipo_usuario: editingUser.tipo_usuario,
-          remuneracao
+          remuneracao,
+          percentual_comissao
         }
       }
     });
@@ -402,6 +440,16 @@ export default function UsuariosPage() {
                       {ehAssalariado(usuario) && (
                         <Badge className="bg-slate-200 text-slate-700 text-xs" title="Pago por salário fixo semanal — não recebe comissão por serviço">
                           💼 Salário
+                        </Badge>
+                      )}
+                      {/* Percentual próprio, para o ADM conferir sem abrir o modal.
+                          Só aparece em quem ganha diferente do padrão da Tabela. */}
+                      {!ehAssalariado(usuario) && percentualComissaoDe(usuario, null) !== null && (
+                        <Badge
+                          className="bg-amber-100 text-amber-700 text-xs"
+                          title={`Ganha ${percentualComissaoDe(usuario, null)}% por serviço, em vez do percentual da Tabela de Serviços${tabelaCarregada ? ` (${percentualPadraoTabela}%)` : ''}`}
+                        >
+                          {percentualComissaoDe(usuario, null)}% próprio
                         </Badge>
                       )}
                     </div>
@@ -677,6 +725,36 @@ export default function UsuariosPage() {
                   o pagamento é registrado normalmente pelo Financeiro, com o valor digitado na hora.
                 </p>
               </div>
+
+              {/* Percentual próprio: só faz sentido para quem ganha por comissão.
+                  Vazio = usa o percentual da Tabela de Serviços, que é o caso da
+                  maioria. Serve para quando um técnico ganha diferente dos colegas
+                  da mesma equipe (ex.: um mais experiente 29% e um novato 5%). */}
+              {(editingUser.remuneracao || 'comissao') !== 'fixo' && (
+                <div className="space-y-2">
+                  <Label>Percentual deste técnico</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      max="100"
+                      placeholder={tabelaCarregada ? String(percentualPadraoTabela) : ''}
+                      value={editingUser.percentual_comissao ?? ''}
+                      onChange={(e) => setEditingUser({ ...editingUser, percentual_comissao: e.target.value })}
+                      className="w-28"
+                    />
+                    <span className="text-sm text-gray-500">%</span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Deixe <strong>vazio</strong> para usar o percentual da Tabela de Serviços
+                    {tabelaCarregada ? ` (hoje: ${percentualPadraoTabela}%)` : ''} — é assim para quase todo mundo.
+                    Preencha só quando este técnico ganhar diferente dos colegas da
+                    mesma equipe. Vale para serviços concluídos de agora em diante;
+                    o que já foi lançado não muda.
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>Perfil Pré-Definido</Label>

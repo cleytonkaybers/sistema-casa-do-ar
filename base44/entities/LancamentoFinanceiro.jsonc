@@ -46,7 +46,7 @@
     "percentual_tecnico": {
       "type": "number",
       "default": 15,
-      "description": "Percentual destinado ao t\u00e9cnico (15% - metade dos 30%)"
+      "description": "Percentual efetivamente usado neste lancamento para ESTE tecnico. Vem do percentual_comissao do proprio tecnico quando ele tem percentual proprio; senao, do percentual_tecnico da Tabela de Servicos. Fica congelado aqui: mudar a Tabela depois NAO altera lancamento ja gerado."
     },
     "valor_comissao_tecnico": {
       "type": "number",

@@ -22,8 +22,8 @@ import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { createPageUrl, formatTipoServicoCompact } from '@/utils';
 import { matchClienteSearch, chaveIdentidadeCliente } from '@/lib/utils/buscaCliente';
-import { calcularComissao } from '@/lib/comissao';
-import { filtrarTecnicosParaComissao, ehEquipeAdm } from '@/lib/utils/tecnicosFinanceiro';
+import { calcularComissao, percentualComissaoDe } from '@/lib/comissao';
+import { filtrarTecnicosParaComissao, ehEquipeAdm, acharUsuarioDoTecnico } from '@/lib/utils/tecnicosFinanceiro';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 
 // Helper de telefone extraído dos padrões
@@ -222,7 +222,9 @@ export default function HistoricoClientes() {
           const valorTotal = servico.valor;
           // Le percentuais da Tabela de Servicos (TipoServicoValor). Fallback 30/15.
           const comissao = await calcularComissao(servico.tipo_servico, valorTotal, queryClient);
-          const valorComissaoTecnico = comissao.valor_comissao_tecnico;
+          // O valor por tecnico fica DENTRO do laco: cada tecnico pode ter
+          // percentual proprio (ex.: Equipe 2 = 29% + 5%).
+
           // Dedup por id OU NOME: o backend (gerarComissoes) grava tecnico_id =
           // e-mail do User; aqui usamos TecnicoFinanceiro.tecnico_id. Quando
           // divergem, dedup só por id deixava o mesmo técnico com 2 lançamentos.
@@ -236,6 +238,13 @@ export default function HistoricoClientes() {
               (l.tecnico_nome && tec.tecnico_nome && normDedup(l.tecnico_nome) === normDedup(tec.tecnico_nome)));
             if (ja) return;
 
+            // Percentual DESTE tecnico (cadastro do usuario manda; o espelho
+            // no TecnicoFinanceiro e so reserva). Sem percentual proprio,
+            // cai no da Tabela de Servicos — o comportamento de sempre.
+            const pessoa = acharUsuarioDoTecnico(tec, usuariosApp) || tec;
+            const percTec = percentualComissaoDe(pessoa, comissao.percentual_tecnico);
+            const valorComissaoTecnico = valorTotal * (percTec / 100);
+
             await base44.entities.LancamentoFinanceiro.create({
               servico_id: servico.id,
               equipe_id: servico.equipe_id,
@@ -247,7 +256,7 @@ export default function HistoricoClientes() {
               valor_total_servico: valorTotal,
               percentual_equipe: comissao.percentual_equipe,
               valor_comissao_equipe: comissao.valor_comissao_equipe,
-              percentual_tecnico: comissao.percentual_tecnico,
+              percentual_tecnico: percTec,
               valor_comissao_tecnico: valorComissaoTecnico,
               status: 'pendente',
               data_geracao: agora,

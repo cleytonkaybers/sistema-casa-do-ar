@@ -19,7 +19,8 @@ import { getStartOfWeek, getEndOfWeek, getLocalDate, toLocalDate, formatDate } f
 import { subWeeks, format, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatTipoServicoCompact } from '@/utils';
-import { calcularComissao, calcularComissaoSync } from '@/lib/comissao';
+import { calcularComissao, calcularComissaoSync, percentualComissaoDe } from '@/lib/comissao';
+import { acharUsuarioDoTecnico } from '@/lib/utils/tecnicosFinanceiro';
 
 const inputDark = 'bg-[#1e2d3d] border-[#2d3f55] text-gray-100 placeholder:text-gray-500 focus:border-blue-500 focus:ring-blue-500/20 h-10 px-3 rounded-md border w-full text-sm';
 const selectDark = 'bg-[#1e2d3d] border border-[#2d3f55] text-gray-100 h-10 px-3 rounded-md w-full text-sm focus:outline-none focus:border-blue-500';
@@ -479,7 +480,14 @@ export default function RelatorioComissoes() {
       // Le percentuais da Tabela de Servicos (TipoServicoValor). Fallback 30/15.
       const tipoServ = novoLanc.tipo_servico.trim() || 'Serviço';
       const comissaoCalc = await calcularComissao(tipoServ, valor, queryClient);
-      const comissao = comissaoCalc.valor_comissao_tecnico;
+
+      // Esta tela nao carrega User nas queries, mas o percentual proprio de
+      // cada tecnico mora no cadastro do usuario. Carrega so aqui, na hora de
+      // lancar; se falhar, cai no espelho do TecnicoFinanceiro.
+      const usuariosApp = await listAll('User').catch(() => []);
+      // Com percentuais diferentes por tecnico, nao existe mais "um valor
+      // para todos" — somamos para informar o total no final.
+      let totalLancado = 0;
 
       // Buscar um servico_id real para usar como referência (campo obrigatório no schema)
       let placeholderServicoId = lancamentos.find(l => l.servico_id && l.servico_id.length > 10)?.servico_id;
@@ -490,6 +498,13 @@ export default function RelatorioComissoes() {
       if (!placeholderServicoId) { toast.error('Nenhum serviço encontrado para referência'); setSalvando(false); return; }
 
       for (const tec of tecLista) {
+        // Percentual DESTE tecnico (cadastro do usuario manda; o espelho no
+        // TecnicoFinanceiro e reserva). Sem percentual proprio, usa a Tabela.
+        const pessoa = acharUsuarioDoTecnico(tec, usuariosApp) || tec;
+        const percTec = percentualComissaoDe(pessoa, comissaoCalc.percentual_tecnico);
+        const valorComissaoTecnico = valor * (percTec / 100);
+        totalLancado += valorComissaoTecnico;
+
         // Criar lançamento — tecnico_id deve ser o email do técnico (usado em MeuFinanceiro)
         await base44.entities.LancamentoFinanceiro.create({
           servico_id: placeholderServicoId,
@@ -500,8 +515,8 @@ export default function RelatorioComissoes() {
           cliente_nome: novoLanc.cliente_nome.trim(),
           tipo_servico: tipoServ,
           valor_total_servico: valor,
-          percentual_tecnico: comissaoCalc.percentual_tecnico,
-          valor_comissao_tecnico: comissao,
+          percentual_tecnico: percTec,
+          valor_comissao_tecnico: valorComissaoTecnico,
           percentual_equipe: comissaoCalc.percentual_equipe,
           valor_comissao_equipe: comissaoCalc.valor_comissao_equipe,
           status: 'pendente',
@@ -515,8 +530,8 @@ export default function RelatorioComissoes() {
           if (tecRegs && tecRegs.length > 0) {
             const tr = tecRegs[0];
             await base44.entities.TecnicoFinanceiro.update(tr.id, {
-              credito_pendente: (tr.credito_pendente || 0) + comissao,
-              total_ganho: (tr.total_ganho || 0) + comissao,
+              credito_pendente: (tr.credito_pendente || 0) + valorComissaoTecnico,
+              total_ganho: (tr.total_ganho || 0) + valorComissaoTecnico,
             });
           }
         } catch (err2) {
@@ -527,7 +542,7 @@ export default function RelatorioComissoes() {
       queryClient.invalidateQueries({ queryKey: ['lancamentos-financeiros'] });
       queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro'] });
       queryClient.invalidateQueries({ queryKey: ['minhasComissoes'] });
-      toast.success(`${tecLista.length} lançamento(s) adicionado(s) — R$ ${comissao.toFixed(2)} cada!`);
+      toast.success(`${tecLista.length} lançamento(s) adicionado(s) — R$ ${totalLancado.toFixed(2)} no total!`);
       setModalOpen(false);
       setNovoLanc({ equipe_id: '', tecnico_id: '', cliente_nome: '', tipo_servico: '', valor_servico: '', data_geracao: new Date().toISOString().slice(0,10) });
     } catch (err) {

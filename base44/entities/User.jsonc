@@ -37,6 +37,10 @@
     "remuneracao": {
       "type": "string",
       "description": "Forma de pagamento do t\u00e9cnico: 'comissao' (padr\u00e3o \u2014 % por servi\u00e7o) ou 'fixo' (sal\u00e1rio semanal, n\u00e3o gera comiss\u00e3o)"
+    },
+    "percentual_comissao": {
+      "type": "number",
+      "description": "Percentual proprio deste tecnico por servico (%). Vazio = usa o percentual_tecnico da Tabela de Servicos, que e o comportamento de sempre. SEM default de proposito: um default 0 faria todo tecnico sem o campo preenchido parar de ganhar comissao."
     }
   },
   "required": [

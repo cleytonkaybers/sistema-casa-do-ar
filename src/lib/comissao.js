@@ -83,6 +83,31 @@ function findPercentuais(tipoServico, tipos) {
   return { match: null, motivo: 'fallback' };
 }
 
+// Percentual efetivo de UMA pessoa, quando ela ganha diferente dos outros.
+//
+// Historico: o percentual nao era por pessoa nem por equipe — vinha do TIPO
+// DE SERVICO (TipoServicoValor.percentual_tecnico) e o MESMO valor era pago a
+// cada tecnico da equipe, sem divisao. Com 17% na tabela e 2 tecnicos, a
+// equipe custava 34%. Dai veio a necessidade: na Equipe 2 o tecnico
+// experiente ganha 29% e o novato 5% (ainda 34% no total, mas repartido
+// diferente). Equipe 1 continua 17% + 17%.
+//
+// `pessoa` aceita o registro de User OU o de TecnicoFinanceiro (que espelha
+// o campo), e le tanto top-level quanto o bag `data` — a tela de Usuarios
+// grava nos dois, igual faz com `remuneracao`.
+//
+// So vale como percentual proprio um numero finito acima de 0 e ate 100.
+// Tratar 0, vazio e invalido como "nao definido" e DELIBERADO: se um 0
+// entrasse por acidente (default de schema, campo limpo virando 0, string
+// vazia), o tecnico ficaria sem comissao e ninguem perceberia. Quem nao
+// ganha % por servico se cadastra como assalariado (remuneracao: fixo).
+export function percentualComissaoDe(pessoa, percentualTabela) {
+  const bruto = pessoa?.percentual_comissao ?? pessoa?.data?.percentual_comissao;
+  const n = typeof bruto === 'string' ? parseFloat(bruto.replace(',', '.')) : bruto;
+  if (!Number.isFinite(n) || n <= 0 || n > 100) return percentualTabela;
+  return n;
+}
+
 // Versao sincrona para previews na UI (recebe a lista de tipos ja carregada).
 // Nao loga warning (preview nao deve poluir console enquanto o usuario digita).
 export function calcularComissaoSync(tipoServico, valorTotal, tipos) {
