@@ -195,7 +195,7 @@ export default function FinanceiroAdmin() {
     try {
       const user = await base44.auth.me().catch(() => null);
       const agora = new Date().toISOString();
-      await base44.entities.TecnicoFinanceiro.update(alvo.id, {
+      const patch = {
         saldo_zerado_em: agora,
         saldo_zerado_por: user?.email || '',
         saldo_zerado_valor: alvo.saldo_total || 0,
@@ -205,7 +205,45 @@ export default function FinanceiroAdmin() {
         credito_pago: 0,
         total_ganho: 0,
         data_ultima_atualizacao: agora,
+      };
+
+      // Zera TODOS os cadastros deste técnico, não só o da linha clicada.
+      // Existem cadastros duplicados do mesmo técnico neste banco; deixar um
+      // de fora faria a limpeza de duplicatas manter o não-zerado e o saldo
+      // antigo voltaria sozinho.
+      const norm = (s) => (s || '').trim().toLowerCase();
+      const todos = await listAll('TecnicoFinanceiro');
+      const meus = (todos || []).filter(t =>
+        (alvo.tecnico_id && norm(t.tecnico_id) === norm(alvo.tecnico_id)) ||
+        (alvo.tecnico_nome && t.tecnico_nome && norm(t.tecnico_nome) === norm(alvo.tecnico_nome)));
+      const alvos = meus.length > 0 ? meus : [alvo];
+
+      for (const t of alvos) {
+        await base44.entities.TecnicoFinanceiro.update(t.id, patch);
+      }
+
+      // CONFERE NO SERVIDOR antes de dizer que deu certo.
+      //
+      // O Base44 aceita o update, responde OK e DESCARTA em silêncio campo
+      // que não exista no schema publicado — já aconteceu neste app com
+      // marca, tipo_servico e nf_gerada (a NF que voltava para "A emitir").
+      // Sem esta conferência, zerar pareceria funcionar e o saldo antigo
+      // reapareceria na próxima vez que a tela abrisse.
+      const depois = await listAll('TecnicoFinanceiro');
+      const naoGravou = alvos.filter(a => {
+        const atual = (depois || []).find(d => d.id === a.id);
+        return !atual || !atual.saldo_zerado_em;
       });
+      if (naoGravou.length > 0) {
+        toast.error(
+          'O saldo NÃO foi zerado. O Base44 não guardou a data — provavelmente o ' +
+          'campo novo ainda não foi publicado. Publique o app no Base44, dê Ctrl+F5 ' +
+          'e tente de novo.',
+          { duration: 16000 }
+        );
+        return;
+      }
+
       toast.success(`Saldo de ${alvo.tecnico_nome} zerado. A contagem recomeça agora.`);
       await refetchTecnicos();
       queryClient.invalidateQueries({ queryKey: ['tecnicosFinanceiro'] });

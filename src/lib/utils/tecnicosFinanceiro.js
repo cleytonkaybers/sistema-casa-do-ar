@@ -54,7 +54,84 @@ export async function espelharPagamentoNoTecnicoFinanceiro({ email, nome, remune
     });
     atualizados++;
   }
+
+  // CONFERE NO SERVIDOR. O Base44 aceita o update, responde OK e descarta
+  // em silencio campo que nao exista no schema publicado — ja aconteceu
+  // neste app com marca, tipo_servico e nf_gerada. Sem conferir, o ADM veria
+  // "salvo" e o tecnico seguiria recebendo pelo percentual antigo.
+  if (atualizados > 0) {
+    const esperado = Number.isFinite(percentual_comissao) ? percentual_comissao : null;
+    const depois = await listAll('TecnicoFinanceiro');
+    const ids = new Set(meus.map(t => t.id));
+    const divergente = (depois || []).some(t => {
+      if (!ids.has(t.id)) return false;
+      const gravado = Number.isFinite(t.percentual_comissao) ? t.percentual_comissao : null;
+      return gravado !== esperado;
+    });
+    if (divergente) {
+      throw new Error(
+        'O Base44 nao guardou o percentual no cadastro financeiro do tecnico. ' +
+        'Publique o app no Base44 e salve de novo.'
+      );
+    }
+  }
+
   return { atualizados };
+}
+
+// Cadastro que carrega a marca de zeramento do saldo.
+//
+// Isto importa porque zerar o saldo deixa o registro com movimento ZERO, e
+// as duas limpezas automaticas deste arquivo decidem o que apagar pelo
+// movimento. Sem esta marca como criterio, a limpeza escolheria justamente a
+// duplicata NAO zerada e apagaria a zerada — ressuscitando o saldo antigo do
+// tecnico sozinha, na proxima vez que alguem abrisse o Financeiro.
+const temZeramento = (t) => !!t?.saldo_zerado_em;
+
+// Movimento financeiro de um cadastro.
+export const pesoCadastro = (t) =>
+  (t?.credito_pago || 0) + (t?.total_ganho || 0) + (t?.credito_pendente || 0);
+
+// Ordena cadastros duplicados do mesmo tecnico: o PRIMEIRO sobrevive.
+//
+// Pura e exportada de proposito: errar aqui apaga o cadastro errado e o
+// saldo antigo de um tecnico volta sozinho.
+export function ordenarCadastrosPorPrioridade(grupo) {
+  return [...(grupo || [])].sort((a, b) => {
+    // 1o criterio: QUEM CARREGA O ZERAMENTO SOBREVIVE.
+    // Zerar deixa o registro com peso 0; pelo peso sozinho o nao-zerado
+    // venceria e o saldo antigo voltaria.
+    const za = temZeramento(a) ? 1 : 0;
+    const zb = temZeramento(b) ? 1 : 0;
+    if (za !== zb) return zb - za;
+    // 2o: entre dois zerados, o zeramento mais recente manda.
+    if (za === 1) {
+      const dz = new Date(b.saldo_zerado_em) - new Date(a.saldo_zerado_em);
+      if (dz !== 0) return dz;
+    }
+    // 3o: maior movimento financeiro. 4o: o mais antigo.
+    const d = pesoCadastro(b) - pesoCadastro(a);
+    if (Math.abs(d) > 0.001) return d;
+    return new Date(a.created_date || 0) - new Date(b.created_date || 0);
+  });
+}
+
+// Um cadastro AVULSO (sem ninguem para herdar a marca) so pode ser apagado
+// se nao tiver movimento financeiro NEM marca de zeramento. Apagar um zerado
+// ressuscitaria o saldo antigo do tecnico. Usado em tratarOrfaos.
+export function podeApagarCadastro(t) {
+  return !temZeramento(t) && pesoCadastro(t) <= 0.001;
+}
+
+// Uma DUPLICATA extra pode ser apagada so pelo movimento financeiro: aqui a
+// marca de zeramento nao precisa ser protegida porque o sobrevivente ja a
+// carrega — ordenarCadastrosPorPrioridade poe os zerados na frente, entao
+// se o extra esta zerado o sobrevivente tambem esta.
+//
+// Sem esta distincao, zerar um tecnico com cadastro duplicado travaria a
+// limpeza para sempre e ele apareceria em duas linhas na Gestao de Creditos.
+export function podeApagarDuplicata(extra) {
+  return pesoCadastro(extra) <= 0.001;
 }
 
 // Chave de identidade de um TecnicoFinanceiro (e-mail normalizado; cai para
@@ -136,20 +213,15 @@ async function removerDuplicatas(tecFins) {
     if (!porChave.has(k)) porChave.set(k, []);
     porChave.get(k).push(t);
   }
-  const peso = (t) => (t.credito_pago || 0) + (t.total_ganho || 0) + (t.credito_pendente || 0);
   let removidos = 0;
   const sobreviventes = [];
   for (const [, grupo] of porChave) {
     if (grupo.length === 1) { sobreviventes.push(grupo[0]); continue; }
-    const ordenado = [...grupo].sort((a, b) => {
-      const d = peso(b) - peso(a);
-      if (Math.abs(d) > 0.001) return d;
-      return new Date(a.created_date || 0) - new Date(b.created_date || 0);
-    });
+    const ordenado = ordenarCadastrosPorPrioridade(grupo);
     sobreviventes.push(ordenado[0]);
     for (const extra of ordenado.slice(1)) {
-      // Segurança: nunca apaga registro com movimento financeiro
-      if (peso(extra) > 0.001) { sobreviventes.push(extra); continue; }
+      // Segurança: nunca apaga registro com movimento financeiro.
+      if (!podeApagarDuplicata(extra)) { sobreviventes.push(extra); continue; }
       try {
         await base44.entities.TecnicoFinanceiro.delete(extra.id);
         removidos++;
@@ -176,7 +248,6 @@ async function tratarOrfaos(tecFins, users) {
   // Sem lista de usuários confiável, não mexe em nada (evita falso positivo)
   if (idsUsuarios.size === 0) return { ativos: tecFins, removidos: 0 };
 
-  const peso = (t) => (t.credito_pago || 0) + (t.total_ganho || 0) + (t.credito_pendente || 0);
   const ativos = [];
   let removidos = 0;
   for (const t of tecFins || []) {
@@ -184,8 +255,10 @@ async function tratarOrfaos(tecFins, users) {
       (t.tecnico_nome && nomesUsuarios.has(norm(t.tecnico_nome)));
     if (temUsuario) { ativos.push(t); continue; }
 
-    if (peso(t) > 0.001) {
-      // Tem histórico financeiro: NÃO apaga — só marca para as telas ocultarem
+    if (!podeApagarCadastro(t)) {
+      // Tem histórico financeiro, ou carrega a marca de zeramento: NÃO apaga
+      // — só marca para as telas ocultarem. Apagar um cadastro zerado faria
+      // o saldo antigo voltar se o técnico fosse recadastrado depois.
       ativos.push({ ...t, _semUsuario: true });
       continue;
     }
