@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { matchClienteSearch, chaveIdentidadeCliente } from '@/lib/utils/buscaCliente';
+import { classificarNotas, valorDaNota, dadosDaMarcacao } from '@/lib/notaFiscal';
 import {
   Search, FileText, MessageCircle, Copy, Check, Archive,
   RotateCcw, Loader2, Receipt, MapPin, Calendar, CreditCard,
@@ -367,13 +368,19 @@ function NotaFiscalContent() {
     return lista.filter(p => matchClienteSearch(p.cliente_nome, p.telefone, buscaDebounced));
   };
 
+  // Separa as duas abas pela regra de @/lib/notaFiscal: cliente com NF
+  // gerada so volta para a fila se pagar MAIS. Registro duplicado do mesmo
+  // dinheiro ja faturado fica fora das duas (era o caso do TANAKA, que
+  // reaparecia sozinho depois de um tempo).
+  const classificados = useMemo(() => classificarNotas(elegiveis), [elegiveis]);
+
   const aEmitir = useMemo(
-    () => filtrarBusca(elegiveis.filter(p => p.nf_gerada !== true)),
-    [elegiveis, buscaDebounced]
+    () => filtrarBusca(classificados.aEmitir),
+    [classificados, buscaDebounced]
   );
   const emitidas = useMemo(
-    () => filtrarBusca(elegiveis.filter(p => p.nf_gerada === true)),
-    [elegiveis, buscaDebounced]
+    () => filtrarBusca(classificados.emitidas),
+    [classificados, buscaDebounced]
   );
 
   const totalAEmitir = aEmitir.reduce((s, p) => s + (p.valor_pago || 0), 0);
@@ -386,7 +393,11 @@ function NotaFiscalContent() {
   const resumoMes = useMemo(() => {
     const inicio = startOfMonth(mesRef);
     const fim = endOfMonth(mesRef);
-    const doMes = elegiveis.filter(p => {
+    // So entra o que esta de fato arquivado como emitido. Usar `elegiveis`
+    // aqui deixaria passar um registro que voltou para a fila por ter
+    // recebido dinheiro novo — ele seria contado como nota do mes sem ter
+    // nota nova emitida ainda.
+    const doMes = classificados.emitidas.filter(p => {
       if (p.nf_gerada !== true || !p.nf_gerada_em) return false;
       try {
         return isWithinInterval(parseISO(p.nf_gerada_em), { start: inicio, end: fim });
@@ -396,10 +407,12 @@ function NotaFiscalContent() {
     });
     return {
       quantidade: doMes.length,
-      totalNotas: doMes.reduce((acc, p) => acc + (p.valor_pago || 0), 0),
+      // valorDaNota = o que ESTA nota acrescentou. Num parcelado, a 2a nota
+      // soma so o que veio depois, nao o total pago de novo.
+      totalNotas: doMes.reduce((acc, p) => acc + valorDaNota(p), 0),
       totalServicos: doMes.reduce((acc, p) => acc + (p.valor_total || 0), 0),
     };
-  }, [elegiveis, mesRef]);
+  }, [classificados, mesRef]);
 
   // Aliquota opcional, so para estimar o imposto. Fica guardada neste navegador.
   const [aliquota, setAliquota] = useState(() => {
@@ -459,7 +472,7 @@ function NotaFiscalContent() {
 
   const handleMarcar = (item) => gravar(
     item,
-    { nf_gerada: true, nf_gerada_em: new Date().toISOString(), nf_gerada_por: user?.full_name || user?.email || '' },
+    dadosDaMarcacao(item, user?.full_name || user?.email || ''),
     `✅ NF de ${item.cliente_nome || 'cliente'} marcada como gerada — movida para o arquivo.`
   );
 

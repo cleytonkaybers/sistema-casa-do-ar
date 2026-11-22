@@ -41,6 +41,14 @@
       "format": "date-time",
       "description": "Quando a nota fiscal foi marcada como emitida"
     },
+    "nf_gerada_valor": {
+      "type": "number",
+      "description": "Total ja coberto por nota fiscal neste registro. E o que distingue dinheiro NOVO (cliente pagou mais, volta para a fila) de mesmo dinheiro (nao volta). Vazio em notas emitidas antes deste campo existir: essas contam como cobrindo tudo e nunca voltam."
+    },
+    "nf_gerada_valor_nota": {
+      "type": "number",
+      "description": "Valor SO desta nota (o que ela acrescenta ao ja faturado). Usado na soma do mes para nao contar duas vezes num pagamento parcelado. Vazio = cai no valor_pago, como a tela somava antes."
+    },
     "nf_gerada_por": {
       "type": "string",
       "description": "Quem marcou a nota fiscal como emitida"
