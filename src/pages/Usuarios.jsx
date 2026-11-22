@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Loader2, Users, Shield, Mail, Edit, Trash2, Copy, Check, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
-import { ehAssalariado } from '@/lib/utils/tecnicosFinanceiro';
+import { ehAssalariado, espelharPagamentoNoTecnicoFinanceiro } from '@/lib/utils/tecnicosFinanceiro';
 import { calcularComissaoSync, percentualComissaoDe } from '@/lib/comissao';
 import { usePermissions } from '../components/auth/PermissionGuard';
 import { useEmpresa } from '../components/auth/EmpresaGuard';
@@ -140,9 +140,33 @@ export default function UsuariosPage() {
   const percentualPadraoTabela = calcularComissaoSync('', 0, tiposServico).percentual_tecnico;
 
   const updateUserMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.User.update(id, data),
+    mutationFn: async ({ id, data, espelho }) => {
+      await base44.entities.User.update(id, data);
+      // Espelha AGORA no TecnicoFinanceiro. Sem isto, o técnico conclui um
+      // serviço e recebe pelo percentual ANTIGO: a sessão dele não consegue
+      // listar User, então o cálculo lê o espelho — que só seria atualizado
+      // bem depois, pelo provisionamento, que também depende dessa lista.
+      if (espelho) {
+        try {
+          await espelharPagamentoNoTecnicoFinanceiro(espelho);
+        } catch (err) {
+          // Não derruba o salvamento: o cadastro do usuário já foi gravado.
+          console.error('[usuarios] falha ao espelhar pagamento:', err);
+          toast.error(
+            'Salvei o cadastro, mas não consegui avisar o financeiro do técnico. ' +
+            'Abra Financeiro uma vez para sincronizar, ou salve de novo.',
+            { duration: 10000 }
+          );
+        }
+      }
+    },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+      // O espelho mudou: as telas de financeiro leem TecnicoFinanceiro e
+      // ficariam mostrando o percentual antigo ate alguem recarregar.
+      queryClient.invalidateQueries({ queryKey: ['tecnicos'] });
+      queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro'] });
+      queryClient.invalidateQueries({ queryKey: ['tecnicosFinanceiro'] });
       if (variables.closesModal) {
         toast.success('Permissões atualizadas!');
         setShowEditModal(false);
@@ -269,6 +293,12 @@ export default function UsuariosPage() {
     updateUserMutation.mutate({
       id: editingUser.id,
       closesModal: true,
+      espelho: {
+        email: editingUser.email,
+        nome: editingUser.full_name,
+        remuneracao,
+        percentual_comissao,
+      },
       data: {
         // Grava a remuneração TAMBÉM top-level: o resto do app (comissões,
         // financeiro, Meu Financeiro) lê top-level, não o bag `data`.

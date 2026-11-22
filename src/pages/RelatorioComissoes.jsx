@@ -19,7 +19,7 @@ import { getStartOfWeek, getEndOfWeek, getLocalDate, toLocalDate, formatDate } f
 import { subWeeks, format, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatTipoServicoCompact } from '@/utils';
-import { calcularComissao, calcularComissaoSync, percentualComissaoDe } from '@/lib/comissao';
+import { calcularComissao, calcularComissaoSync, percentualDoTecnico } from '@/lib/comissao';
 import { acharUsuarioDoTecnico } from '@/lib/utils/tecnicosFinanceiro';
 
 const inputDark = 'bg-[#1e2d3d] border-[#2d3f55] text-gray-100 placeholder:text-gray-500 focus:border-blue-500 focus:ring-blue-500/20 h-10 px-3 rounded-md border w-full text-sm';
@@ -498,10 +498,10 @@ export default function RelatorioComissoes() {
       if (!placeholderServicoId) { toast.error('Nenhum serviço encontrado para referência'); setSalvando(false); return; }
 
       for (const tec of tecLista) {
-        // Percentual DESTE tecnico (cadastro do usuario manda; o espelho no
-        // TecnicoFinanceiro e reserva). Sem percentual proprio, usa a Tabela.
-        const pessoa = acharUsuarioDoTecnico(tec, usuariosApp) || tec;
-        const percTec = percentualComissaoDe(pessoa, comissaoCalc.percentual_tecnico);
+        // Percentual DESTE tecnico: cadastro do usuario > espelho no
+        // TecnicoFinanceiro > Tabela de Servicos.
+        const percTec = percentualDoTecnico(
+          acharUsuarioDoTecnico(tec, usuariosApp), tec, comissaoCalc.percentual_tecnico);
         const valorComissaoTecnico = valor * (percTec / 100);
         totalLancado += valorComissaoTecnico;
 

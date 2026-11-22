@@ -21,7 +21,7 @@ import { ptBR } from 'date-fns/locale';
 import { usePermissions } from '@/components/auth/PermissionGuard';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 import { matchClienteSearch, acharClientePorIdentidade } from '@/lib/utils/buscaCliente';
-import { calcularComissao, percentualComissaoDe } from '@/lib/comissao';
+import { calcularComissao, percentualDoTecnico } from '@/lib/comissao';
 import { provisionarTecnicosFinanceiro, filtrarTecnicosParaComissao, ehEquipeAdm, acharUsuarioDoTecnico } from '@/lib/utils/tecnicosFinanceiro';
 
 export default function ServicosPage() {
@@ -498,12 +498,14 @@ export default function ServicosPage() {
               (l.tecnico_nome && tec.tecnico_nome && normDedup(l.tecnico_nome) === normDedup(tec.tecnico_nome)));
             if (ja) continue;
 
-            // Percentual DESTE tecnico. A fonte da verdade e o cadastro do
-            // usuario (sempre fresco); o espelho no TecnicoFinanceiro so
-            // entra quando o User nao e encontrado. Sem percentual proprio,
-            // cai no percentual_tecnico da Tabela de Servicos — o de sempre.
-            const pessoa = acharUsuarioDoTecnico(tec, usuariosApp) || tec;
-            const percTec = percentualComissaoDe(pessoa, comissao.percentual_tecnico);
+            // Percentual DESTE tecnico: cadastro do usuario > espelho no
+            // TecnicoFinanceiro > Tabela de Servicos.
+            //
+            // O espelho NAO e luxo: quem conclui e o tecnico, e a sessao dele
+            // normalmente nao lista User (usuariosApp vem vazio). Sem o
+            // espelho, o percentual proprio dele seria ignorado aqui.
+            const percTec = percentualDoTecnico(
+              acharUsuarioDoTecnico(tec, usuariosApp), tec, comissao.percentual_tecnico);
             const valorComissaoTecnico = valorTotal * (percTec / 100);
 
             await comRetry(`lancamento-${tec.tecnico_id}`, () =>

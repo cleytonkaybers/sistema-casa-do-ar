@@ -1,4 +1,4 @@
-import { calcularComissaoSync, percentualComissaoDe } from '@/lib/comissao';
+import { calcularComissaoSync, percentualDoTecnico } from '@/lib/comissao';
 import {
   filtrarTecnicosParaComissao,
   acharUsuarioDoTecnico,
@@ -55,9 +55,9 @@ export function detectarComissoesFaltantes({
 
     const comissao = calcularComissaoSync(s.tipo_servico, s.valor, tipos);
     const destinos = tecnicos.map((tec) => {
-      // O cadastro do usuário manda; o espelho do TecnicoFinanceiro é reserva.
-      const pessoa = acharUsuarioDoTecnico(tec, usuarios) || tec;
-      const perc = percentualComissaoDe(pessoa, comissao.percentual_tecnico);
+      // Cadastro do usuário > espelho no TecnicoFinanceiro > Tabela.
+      const perc = percentualDoTecnico(
+        acharUsuarioDoTecnico(tec, usuarios), tec, comissao.percentual_tecnico);
       return { tec, perc, valor: (s.valor || 0) * (perc / 100) };
     });
 

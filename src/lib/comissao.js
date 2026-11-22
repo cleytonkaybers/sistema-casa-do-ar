@@ -108,6 +108,25 @@ export function percentualComissaoDe(pessoa, percentualTabela) {
   return n;
 }
 
+// Percentual de um tecnico resolvido a partir das DUAS fontes possiveis.
+//
+// Quem CONCLUI o servico e o tecnico, no campo — e a sessao dele muitas
+// vezes nao consegue listar User (listAll("User") volta vazio; o proprio
+// filtrarTecnicosParaComissao ja tem guarda para isso). Nesse caso o
+// cadastro do usuario simplesmente NAO esta disponivel na hora do calculo,
+// e a unica fonte que sobra e o espelho gravado no TecnicoFinanceiro.
+//
+// Foi exatamente assim que o Kaue continuou ganhando o percentual da
+// Tabela depois de ser cadastrado com 29%: a tela do ADM lia o User e
+// mostrava 29%, mas a conclusao, sem User, caia no espelho vazio.
+//
+// Ordem: cadastro do usuario (verdade) > espelho > Tabela de Servicos.
+export function percentualDoTecnico(usuario, tecFin, percentualTabela) {
+  return percentualComissaoDe(usuario, null)
+    ?? percentualComissaoDe(tecFin, null)
+    ?? percentualTabela;
+}
+
 // Versao sincrona para previews na UI (recebe a lista de tipos ja carregada).
 // Nao loga warning (preview nao deve poluir console enquanto o usuario digita).
 export function calcularComissaoSync(tipoServico, valorTotal, tipos) {

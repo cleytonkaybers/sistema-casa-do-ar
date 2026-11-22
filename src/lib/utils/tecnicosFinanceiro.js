@@ -23,6 +23,40 @@ export const REMUNERACAO_FIXA = 'fixo';
 export const ehAssalariado = (x) =>
   (x?.remuneracao || x?.data?.remuneracao) === REMUNERACAO_FIXA;
 
+// Grava JA no TecnicoFinanceiro o que o cadastro do usuario decide sobre
+// pagamento: forma (comissao/fixo) e percentual proprio.
+//
+// Por que nao esperar o provisionamento: ele so roda quando alguem abre o
+// Financeiro ou conclui um servico, e precisa da lista completa de User —
+// que a sessao do tecnico normalmente nao tem. Ate la o espelho fica velho,
+// e a conclusao feita pelo tecnico paga pelo percentual ANTIGO.
+//
+// Chamado pela tela de Usuarios logo depois de salvar. Falhar aqui nao pode
+// derrubar o salvamento do usuario: quem chama trata e avisa.
+export async function espelharPagamentoNoTecnicoFinanceiro({ email, nome, remuneracao, percentual_comissao }) {
+  const alvoEmail = norm(email);
+  const alvoNome = norm(nome);
+  if (!alvoEmail && !alvoNome) return { atualizados: 0 };
+
+  const todos = await listAll('TecnicoFinanceiro');
+  // Casa por e-mail OU nome: os dois identificadores divergem neste banco.
+  // Pega tambem cadastros duplicados do mesmo tecnico, que existem.
+  const meus = (todos || []).filter(t =>
+    (alvoEmail && norm(t.tecnico_id) === alvoEmail) ||
+    (alvoNome && t.tecnico_nome && norm(t.tecnico_nome) === alvoNome));
+
+  let atualizados = 0;
+  for (const t of meus) {
+    await base44.entities.TecnicoFinanceiro.update(t.id, {
+      remuneracao,
+      percentual_comissao,
+      data_ultima_atualizacao: new Date().toISOString(),
+    });
+    atualizados++;
+  }
+  return { atualizados };
+}
+
 // Chave de identidade de um TecnicoFinanceiro (e-mail normalizado; cai para
 // o nome quando o id estiver vazio).
 const chaveTecFin = (t) => norm(t?.tecnico_id) || norm(t?.tecnico_nome);

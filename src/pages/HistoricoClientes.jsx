@@ -22,7 +22,7 @@ import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { createPageUrl, formatTipoServicoCompact } from '@/utils';
 import { matchClienteSearch, chaveIdentidadeCliente } from '@/lib/utils/buscaCliente';
-import { calcularComissao, percentualComissaoDe } from '@/lib/comissao';
+import { calcularComissao, percentualDoTecnico } from '@/lib/comissao';
 import { filtrarTecnicosParaComissao, ehEquipeAdm, acharUsuarioDoTecnico } from '@/lib/utils/tecnicosFinanceiro';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 
@@ -238,11 +238,10 @@ export default function HistoricoClientes() {
               (l.tecnico_nome && tec.tecnico_nome && normDedup(l.tecnico_nome) === normDedup(tec.tecnico_nome)));
             if (ja) return;
 
-            // Percentual DESTE tecnico (cadastro do usuario manda; o espelho
-            // no TecnicoFinanceiro e so reserva). Sem percentual proprio,
-            // cai no da Tabela de Servicos — o comportamento de sempre.
-            const pessoa = acharUsuarioDoTecnico(tec, usuariosApp) || tec;
-            const percTec = percentualComissaoDe(pessoa, comissao.percentual_tecnico);
+            // Percentual DESTE tecnico: cadastro do usuario > espelho no
+            // TecnicoFinanceiro > Tabela de Servicos.
+            const percTec = percentualDoTecnico(
+              acharUsuarioDoTecnico(tec, usuariosApp), tec, comissao.percentual_tecnico);
             const valorComissaoTecnico = valorTotal * (percTec / 100);
 
             await base44.entities.LancamentoFinanceiro.create({

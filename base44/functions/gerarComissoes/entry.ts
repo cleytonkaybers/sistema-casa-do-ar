@@ -240,7 +240,16 @@ Deno.serve(async (req) => {
     for (const tecnico of tecnicos) {
       if (jaTemLancamento(tecnico)) continue;
 
-      const percentual_tecnico_pessoa = percentualProprio(tecnico, percentual_tecnico);
+      // Cadastro do usuario > espelho no TecnicoFinanceiro > Tabela. O
+      // espelho entra porque os dois podem divergir por um instante (o ADM
+      // acabou de salvar) e porque o cadastro financeiro e a fonte que o
+      // fluxo do front usa — manter os dois caminhos de acordo evita o
+      // mesmo servico valer percentuais diferentes conforme quem gerou.
+      const espelhoDele = (tecFinsTodos || []).find((t: any) =>
+        norm(t.tecnico_id) === norm(tecnico.email) ||
+        (t.tecnico_nome && tecnico.full_name && norm(t.tecnico_nome) === norm(tecnico.full_name)));
+      const percentual_tecnico_pessoa = percentualProprio(
+        tecnico, percentualProprio(espelhoDele, percentual_tecnico));
       const valor_por_tecnico = (valor_total * percentual_tecnico_pessoa) / 100;
 
       const lancamento = {
