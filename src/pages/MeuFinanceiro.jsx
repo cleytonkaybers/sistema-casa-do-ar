@@ -12,6 +12,7 @@ import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, sub
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/lib/AuthContext';
 import { ehAssalariado } from '@/lib/utils/tecnicosFinanceiro';
+import { inicioContagemDoTecnico } from '@/lib/saldoTecnico';
 
 function formatMoney(v) {
   return `R$ ${(v || 0).toFixed(2).replace('.', ',')}`;
@@ -59,6 +60,18 @@ export default function MeuFinanceiro() {
     enabled: !!user?.email,
   });
 
+  // Cadastro financeiro do próprio técnico: é dele que vem a data em que o
+  // ADM zerou o saldo. Sem isto, esta tela mostraria um saldo diferente do
+  // que o ADM vê no Financeiro.
+  const { data: meuCadastro = null } = useQuery({
+    queryKey: ['meuTecnicoFinanceiro', user?.email],
+    queryFn: async () => {
+      const regs = await base44.entities.TecnicoFinanceiro.filter({ tecnico_id: user.email });
+      return (regs && regs[0]) || null;
+    },
+    enabled: !!user?.email,
+  });
+
   const { data: meusPagamentos = [], isLoading: loadingPagamentos } = useQuery({
     queryKey: ['meusPagamentos', user?.email],
     queryFn: () => base44.entities.PagamentoTecnico.filter({ tecnico_id: user.email, status: 'Confirmado' }),
@@ -67,8 +80,21 @@ export default function MeuFinanceiro() {
 
   if (!user) return <div className="text-center py-8 text-gray-400">Carregando...</div>;
 
+  // Se o ADM zerou o saldo deste técnico, a conta dele recomeça naquela
+  // data. Filtra UMA vez aqui na origem: todas as somas abaixo passam a
+  // respeitar o corte sem precisar lembrar dele uma a uma.
+  const inicioContagem = inicioContagemDoTecnico(meuCadastro);
+  const comissoesValidas = minhasComissoes.filter(c => {
+    const d = parseDateSafe(c.data_geracao);
+    return d && d >= inicioContagem;
+  });
+  const pagamentosValidos = meusPagamentos.filter(p => {
+    const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date);
+    return d && d >= inicioContagem;
+  });
+
   // Filtrar por período
-  const comissoesPeriodo = minhasComissoes.filter(c => {
+  const comissoesPeriodo = comissoesValidas.filter(c => {
     if (!inicio || !fim) return true;
     const d = parseDateSafe(c.data_geracao);
     if (!d) return false;
@@ -76,7 +102,7 @@ export default function MeuFinanceiro() {
     return ds >= inicio && ds <= fim;
   });
 
-  const pagamentosPeriodo = meusPagamentos.filter(p => {
+  const pagamentosPeriodo = pagamentosValidos.filter(p => {
     if (!inicio || !fim) return true;
     const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date);
     if (!d) return false;
@@ -94,7 +120,7 @@ export default function MeuFinanceiro() {
   const fimMesStr = format(endOfMonth(hoje), 'yyyy-MM-dd');
   const inicioSemanaStr = format(startOfWeek(hoje, { weekStartsOn: 1 }), 'yyyy-MM-dd');
   const fimSemanaStr = format(endOfWeek(hoje, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-  const somaPagamentosEntre = (ini, f) => meusPagamentos
+  const somaPagamentosEntre = (ini, f) => pagamentosValidos
     .filter(p => {
       const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date);
       if (!d) return false;
@@ -107,16 +133,15 @@ export default function MeuFinanceiro() {
 
   // Saldo acumulado de todas as semanas anteriores ao período selecionado
   // Positivo = empresa deve ao técnico | Negativo = técnico recebeu a mais
-  const SALDO_INICIO = new Date('2026-04-13T00:00:00');
   const inicioSemana = inicio ? new Date(inicio + 'T00:00:00') : startOfWeek(hoje, { weekStartsOn: 1 });
 
   let saldo_anterior = 0;
-  if (inicioSemana > SALDO_INICIO) {
-    const comissoesAnteriores = minhasComissoes
-      .filter(c => { const d = parseDateSafe(c.data_geracao); return d && d >= SALDO_INICIO && d < inicioSemana; })
+  if (inicioSemana > inicioContagem) {
+    const comissoesAnteriores = comissoesValidas
+      .filter(c => { const d = parseDateSafe(c.data_geracao); return d && d >= inicioContagem && d < inicioSemana; })
       .reduce((s, c) => s + (c.valor_comissao_tecnico || 0), 0);
-    const pagamentosAnteriores = meusPagamentos
-      .filter(p => { const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date); return d && d >= SALDO_INICIO && d < inicioSemana; })
+    const pagamentosAnteriores = pagamentosValidos
+      .filter(p => { const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date); return d && d >= inicioContagem && d < inicioSemana; })
       .reduce((s, p) => s + (p.valor_pago || 0), 0);
     saldo_anterior = comissoesAnteriores - pagamentosAnteriores;
     // +: tenho crédito de semanas anteriores
@@ -408,7 +433,7 @@ export default function MeuFinanceiro() {
                 <Skeleton key={i} className="h-10 w-full bg-white/10 rounded" />
               ))}
             </div>
-          ) : meusPagamentos.length === 0 ? (
+          ) : pagamentosValidos.length === 0 ? (
             <p className="text-center text-gray-500 text-sm py-8">Nenhum pagamento registrado ainda</p>
           ) : pagamentosPeriodo.length === 0 ? (
             <p className="text-center text-gray-500 text-sm py-8">Nenhum pagamento neste período</p>

@@ -3,6 +3,7 @@ import { startOfWeek, endOfWeek, parseISO } from 'date-fns';
 import { base44 } from '@/api/base44Client';
 import { listAll } from '@/lib/utils/listAll';
 import { provisionarTecnicosFinanceiro, ehAssalariado, filtrarTecnicosAtivos } from '@/lib/utils/tecnicosFinanceiro';
+import { inicioContagemDoTecnico } from '@/lib/saldoTecnico';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -81,18 +82,23 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
   const fimSemana = endOfWeek(agora, { weekStartsOn: 1 });
 
   // Recalcular credito_pendente com a MESMA lógica da tela Financeiro (Gestão de
-  // Créditos): saldo acumulado de TODAS as semanas anteriores (desde SALDO_INICIO)
+  // Créditos): saldo acumulado de TODAS as semanas anteriores (desde o início
   // somado à semana atual. Antes o modal só olhava a semana corrente, então na
   // virada de semana um técnico que ainda tinha crédito a receber aparecia com
   // R$ 0,00 pendente — o campo auto-preenchia 0,00 e parecia que "não aceitava"
   // o pagamento.
-  const SALDO_INICIO = new Date('2026-04-13T00:00:00');
   const tecnicos = tecnicosRaw.map(t => {
+    // Se o ADM zerou o saldo deste técnico, a conta dele começa na data do
+    // zeramento. Tem que valer AQUI também: este modal é onde o pagamento é
+    // registrado, e discordar da Gestão de Créditos faria pagar valor errado.
+    const inicioContagem = inicioContagemDoTecnico(t);
+
     const totalComissoesSemana = todosLancamentos
       .filter(l => {
         if (l.tecnico_id !== t.tecnico_id) return false;
         if (!l.data_geracao) return false;
         const d = new Date(l.data_geracao);
+        if (d < inicioContagem) return false;
         return d >= inicioSemana && d <= fimSemana;
       })
       .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
@@ -102,6 +108,7 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
         if (p.tecnico_id !== t.tecnico_id || p.status !== 'Confirmado') return false;
         const d = dataRefPagamento(p);
         if (!d) return false;
+        if (d < inicioContagem) return false;
         return d >= inicioSemana && d <= fimSemana;
       })
       .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
@@ -110,10 +117,10 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
     // Positivo = empresa deve ao técnico (crédito carregado) |
     // Negativo = técnico recebeu a mais (adiantamento).
     let saldo_anterior = 0;
-    if (inicioSemana > SALDO_INICIO) {
+    if (inicioSemana > inicioContagem) {
       const comissoesAnteriores = todosLancamentos
         .filter(l => l.tecnico_id === t.tecnico_id && l.data_geracao &&
-                     new Date(l.data_geracao) >= SALDO_INICIO &&
+                     new Date(l.data_geracao) >= inicioContagem &&
                      new Date(l.data_geracao) < inicioSemana)
         .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
@@ -121,7 +128,7 @@ export default function RegistrarPagamentoModal({ open, onClose, onSuccess }) {
         .filter(p => {
           if (p.tecnico_id !== t.tecnico_id || p.status !== 'Confirmado') return false;
           const d = dataRefPagamento(p);
-          return d && d >= SALDO_INICIO && d < inicioSemana;
+          return d && d >= inicioContagem && d < inicioSemana;
         })
         .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 

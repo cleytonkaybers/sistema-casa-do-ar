@@ -1,5 +1,6 @@
 import React from 'react';
 import { listAll } from '@/lib/utils/listAll';
+import { inicioContagemDoTecnico } from '@/lib/saldoTecnico';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +29,12 @@ export default function GanhosSemanaDashboard() {
       try {
         const lancamentos = await listAll('LancamentoFinanceiro');
         const pagamentos = await listAll('PagamentoTecnico');
+        // Cadastro financeiro do próprio técnico: traz a data em que o ADM
+        // zerou o saldo dele. Sem isto, este painel mostraria um saldo
+        // diferente do que o ADM vê no Financeiro.
+        const meusCadastros = await listAll('TecnicoFinanceiro').catch(() => []);
+        const meuCadastro = (meusCadastros || []).find(t => t.tecnico_id === user.email) || null;
+        const inicioContagem = inicioContagemDoTecnico(meuCadastro);
         const inicioSemana = getStartOfWeek();
         const fimSemana = getEndOfWeek();
 
@@ -35,7 +42,8 @@ export default function GanhosSemanaDashboard() {
         const comissoesSemana = lancamentos.filter(c => {
           if (c.tecnico_id !== user.email || !c.data_geracao) return false;
           const d = parseDateSafe(c.data_geracao);
-          return d && d >= inicioSemana && d <= fimSemana;
+          if (!d || d < inicioContagem) return false;
+          return d >= inicioSemana && d <= fimSemana;
         });
         const totalGanho = comissoesSemana.reduce((sum, c) => sum + (c.valor_comissao_tecnico || 0), 0);
 
@@ -44,19 +52,19 @@ export default function GanhosSemanaDashboard() {
         const pagamentosSemana = pagamentos.filter(p => {
           if (p.tecnico_id !== user.email || p.status !== 'Confirmado') return false;
           const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date);
-          return d && d >= inicioSemana && d <= fimSemana;
+          if (!d || d < inicioContagem) return false;
+          return d >= inicioSemana && d <= fimSemana;
         });
         const valorPago = pagamentosSemana.reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-        // Saldo acumulado de todas as semanas anteriores (desde SALDO_INICIO)
-        const SALDO_INICIO = new Date('2026-04-13T00:00:00');
+        // Saldo acumulado de todas as semanas anteriores (desde inicioContagem)
         let saldo_anterior = 0;
-        if (inicioSemana > SALDO_INICIO) {
+        if (inicioSemana > inicioContagem) {
           const comissoesAnt = lancamentos
             .filter(l => {
               if (l.tecnico_id !== user.email || !l.data_geracao) return false;
               const d = parseDateSafe(l.data_geracao);
-              return d && d >= SALDO_INICIO && d < inicioSemana;
+              return d && d >= inicioContagem && d < inicioSemana;
             })
             .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
@@ -64,7 +72,7 @@ export default function GanhosSemanaDashboard() {
             .filter(p => {
               if (p.tecnico_id !== user.email || p.status !== 'Confirmado') return false;
               const d = parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date);
-              return d && d >= SALDO_INICIO && d < inicioSemana;
+              return d && d >= inicioContagem && d < inicioSemana;
             })
             .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
@@ -81,8 +89,8 @@ export default function GanhosSemanaDashboard() {
            
           console.log('[SaldoTecnico]', user.email, {
             saldo_anterior, totalGanho, valorPago, saldo_total,
-            comissoes_total: lancamentos.filter(l => l.tecnico_id === user.email && parseDateSafe(l.data_geracao) >= SALDO_INICIO).length,
-            pagamentos_total: pagamentos.filter(p => p.tecnico_id === user.email && p.status === 'Confirmado' && (parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date)) >= SALDO_INICIO).length,
+            comissoes_total: lancamentos.filter(l => l.tecnico_id === user.email && parseDateSafe(l.data_geracao) >= inicioContagem).length,
+            pagamentos_total: pagamentos.filter(p => p.tecnico_id === user.email && p.status === 'Confirmado' && (parseDateSafe(p.data_pagamento) || parseDateSafe(p.created_date)) >= inicioContagem).length,
           });
         }
 

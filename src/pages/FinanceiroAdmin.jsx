@@ -23,6 +23,7 @@ import GerarPDFModal from '@/components/financeiro/GerarPDFModal';
 import ComissoesFaltantesModal from '@/components/financeiro/ComissoesFaltantesModal';
 import ExcluirTecnicoModal from '@/components/financeiro/ExcluirTecnicoModal';
 import { formatTipoServicoCompact } from '@/utils';
+import { inicioContagemDoTecnico } from '@/lib/saldoTecnico';
 
 // Data de referência de um pagamento para bucketing por semana. Prefere
 // data_pagamento (data escolhida) ao created_date (carimbo do servidor), para
@@ -61,6 +62,8 @@ export default function FinanceiroAdmin() {
   const [ocultando, setOcultando] = useState(false);
   const [showFaltantes, setShowFaltantes] = useState(false);
   const [tecnicoParaExcluir, setTecnicoParaExcluir] = useState(null);
+  const [confirmZerarSaldo, setConfirmZerarSaldo] = useState(null);
+  const [zerando, setZerando] = useState(false);
   
   const { data: lancamentos = [], refetch: refetchLancamentos } = useQuery({
     queryKey: ['lancamentos'],
@@ -178,6 +181,46 @@ export default function FinanceiroAdmin() {
     }
   };
 
+  // Zera o saldo de um técnico SEM apagar nada.
+  //
+  // O saldo não é um campo: é a soma das comissões menos os pagamentos.
+  // Então "zerar" grava a DATA do zeramento, e todas as telas passam a
+  // contar só o que vier depois dela. Comissões e pagamentos antigos
+  // continuam no banco — o Relatório de Comissões e os números passados da
+  // empresa não mudam. É a diferença entre zerar e excluir.
+  const handleZerarSaldo = async () => {
+    const alvo = confirmZerarSaldo;
+    if (!alvo) return;
+    setZerando(true);
+    try {
+      const user = await base44.auth.me().catch(() => null);
+      const agora = new Date().toISOString();
+      await base44.entities.TecnicoFinanceiro.update(alvo.id, {
+        saldo_zerado_em: agora,
+        saldo_zerado_por: user?.email || '',
+        saldo_zerado_valor: alvo.saldo_total || 0,
+        // Zera também os acumuladores gravados, senão eles continuariam
+        // contradizendo o saldo calculado que as telas mostram.
+        credito_pendente: 0,
+        credito_pago: 0,
+        total_ganho: 0,
+        data_ultima_atualizacao: agora,
+      });
+      toast.success(`Saldo de ${alvo.tecnico_nome} zerado. A contagem recomeça agora.`);
+      await refetchTecnicos();
+      queryClient.invalidateQueries({ queryKey: ['tecnicosFinanceiro'] });
+      queryClient.invalidateQueries({ queryKey: ['tecnicos-financeiro'] });
+      queryClient.invalidateQueries({ queryKey: ['meuTecnicoFinanceiro'] });
+      queryClient.invalidateQueries({ queryKey: ['minhasComissoesWeek'] });
+    } catch (err) {
+      console.error('[financeiro] falha ao zerar saldo:', err);
+      toast.error('Não consegui zerar o saldo. Tente de novo.');
+    } finally {
+      setZerando(false);
+      setConfirmZerarSaldo(null);
+    }
+  };
+
   const deleteLancamento = async (id) => {
     try {
       // 1. Buscar lançamento antes de excluir
@@ -292,11 +335,17 @@ export default function FinanceiroAdmin() {
         fimSemana = new Date();
       }
 
+      // Início da contagem DESTE técnico: o corte global ou, se o ADM zerou
+      // o saldo dele, a data do zeramento. Vale também DENTRO da semana
+      // corrente — zerar na quarta não pode trazer de volta a segunda.
+      const inicioContagem = inicioContagemDoTecnico(t);
+
       // Calcular comissões ganhas na semana
       const lancamentosSemana = lancamentos.filter(l => {
         if (l.tecnico_id !== t.tecnico_id) return false;
         if (!l.data_geracao) return false;
         const dataGeracao = new Date(l.data_geracao);
+        if (dataGeracao < inicioContagem) return false;
         return dataGeracao >= inicioSemana && dataGeracao <= fimSemana;
       });
 
@@ -309,6 +358,7 @@ export default function FinanceiroAdmin() {
         if (p.status !== 'Confirmado') return false;
         const dataPagamento = dataRefPagamento(p);
         if (!dataPagamento) return false;
+        if (dataPagamento < inicioContagem) return false;
         return dataPagamento >= inicioSemana && dataPagamento <= fimSemana;
       });
 
@@ -317,12 +367,11 @@ export default function FinanceiroAdmin() {
 
       // Saldo acumulado de todas as semanas anteriores ao período selecionado
       // Positivo = empresa deve ao técnico | Negativo = técnico recebeu a mais (deve devolver)
-      const SALDO_INICIO = new Date('2026-04-13T00:00:00');
       let saldo_anterior = 0;
-      if (inicioSemana > SALDO_INICIO) {
+      if (inicioSemana > inicioContagem) {
         const comissoesAnteriores = lancamentos
           .filter(l => l.tecnico_id === t.tecnico_id && l.data_geracao &&
-                       new Date(l.data_geracao) >= SALDO_INICIO &&
+                       new Date(l.data_geracao) >= inicioContagem &&
                        new Date(l.data_geracao) < inicioSemana)
           .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
@@ -330,7 +379,7 @@ export default function FinanceiroAdmin() {
           .filter(p => {
             if (p.tecnico_id !== t.tecnico_id || p.status !== 'Confirmado') return false;
             const d = dataRefPagamento(p);
-            return d && d >= SALDO_INICIO && d < inicioSemana;
+            return d && d >= inicioContagem && d < inicioSemana;
           })
           .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
@@ -633,6 +682,18 @@ export default function FinanceiroAdmin() {
                         </Button>
                         {/* Desligamento definitivo: apaga comissões, pagamentos,
                             cadastro e acesso. Diferente do Ocultar, NÃO volta. */}
+                        {/* Zerar: recomeça a contagem a partir de hoje sem
+                            apagar histórico. Para técnico que mudou de equipe
+                            ou cujo acerto foi fechado por fora. */}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setConfirmZerarSaldo(tecnico)}
+                          className="h-7 text-xs text-gray-400 hover:text-blue-500"
+                          title="Zerar o saldo deste técnico e recomeçar a contagem de hoje em diante. NÃO apaga comissões nem pagamentos — o histórico fica."
+                        >
+                          🔄 Zerar saldo
+                        </Button>
                         <Button
                           size="sm"
                           variant="ghost"
@@ -1024,6 +1085,27 @@ export default function FinanceiroAdmin() {
           )}
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!confirmZerarSaldo}
+        onClose={() => setConfirmZerarSaldo(null)}
+        onConfirm={handleZerarSaldo}
+        title="Zerar saldo do técnico"
+        description={confirmZerarSaldo ? (
+          `Zerar o saldo de ${confirmZerarSaldo.tecnico_nome}?
+
+` +
+          `Saldo de hoje: R$ ${(confirmZerarSaldo.saldo_total || 0).toFixed(2)}` +
+          `${(confirmZerarSaldo.saldo_total || 0) < 0 ? " (ele recebeu a mais)" : (confirmZerarSaldo.saldo_total || 0) > 0 ? " (a empresa deve a ele)" : ""}
+
+` +
+          `A contagem recomeça AGORA: só comissões e pagamentos daqui para frente entram na conta dele.
+
+` +
+          `NADA é apagado. O Relatório de Comissões continua mostrando tudo, e os números passados da empresa não mudam.`
+        ) : ''}
+        confirmText={zerando ? 'Zerando...' : 'Zerar saldo'}
+      />
 
       <ExcluirTecnicoModal
         tecnico={tecnicoParaExcluir}

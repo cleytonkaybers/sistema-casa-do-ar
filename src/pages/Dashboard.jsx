@@ -29,6 +29,7 @@ import { format, differenceInDays, startOfMonth, endOfMonth, isWithinInterval, i
 import { ptBR } from 'date-fns/locale';
 import { getLocalDate, getStartOfWeek, getEndOfWeek, toLocalDate, toLocalDateSafe, parseHistoricoData } from '@/lib/dateUtils';
 import { ehAssalariado, filtrarTecnicosAtivos } from '@/lib/utils/tecnicosFinanceiro';
+import { inicioContagemDoTecnico } from '@/lib/saldoTecnico';
 import { formatPhone } from '@/lib/utils/formatters';
 import { isApenasTiposIgnorados } from '@/lib/utils/tipoServico';
 import { isValorPlaceholder } from '@/lib/placeholderPreco';
@@ -245,17 +246,19 @@ export default function Dashboard() {
     if (!isAdmin) return [];
     const inicioSemanaAtual = getStartOfWeek();
     const fimSemanaAtual = getEndOfWeek();
-    const SALDO_INICIO = new Date('2026-04-13T00:00:00');
 
     // Painel de créditos do Dashboard mostra APENAS técnicos comissionados
     // ativos: fora os assalariados (não têm saldo de comissão — apareceriam
     // em vermelho como "recebeu a mais"), os ocultos e os ex-usuários.
     return filtrarTecnicosAtivos(tecnicosFinanceiro, usuarios, { excluirAssalariados: true })
       .map(t => {
+        // Saldo zerado pelo ADM: a conta dele recomeça naquela data.
+        const inicioContagem = inicioContagemDoTecnico(t);
         const lancamentosSemana = lancamentosFinanceiros.filter(l => {
           if (l.tecnico_id !== t.tecnico_id || !l.data_geracao) return false;
           const d = toLocalDate(new Date(l.data_geracao));
-          return d && isWithinInterval(d, { start: inicioSemanaAtual, end: fimSemanaAtual });
+          if (!d || d < inicioContagem) return false;
+          return isWithinInterval(d, { start: inicioSemanaAtual, end: fimSemanaAtual });
         });
         const totalGanho = lancamentosSemana.reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
 
@@ -265,25 +268,26 @@ export default function Dashboard() {
           // servidor), igual ao Financeiro/MeuFinanceiro — senão o relógio do
           // servidor pode jogar o pagamento para fora da semana.
           const d = toLocalDate(p.data_pagamento || p.created_date);
-          return d && isWithinInterval(d, { start: inicioSemanaAtual, end: fimSemanaAtual });
+          if (!d || d < inicioContagem) return false;
+          return isWithinInterval(d, { start: inicioSemanaAtual, end: fimSemanaAtual });
         });
         const creditoPago = pagamentosSemana.reduce((sum, p) => sum + (p.valor_pago || 0), 0);
 
-        // Saldo acumulado desde SALDO_INICIO até início desta semana
+        // Saldo acumulado desde o início da contagem dele até esta semana
         let saldo_anterior = 0;
-        if (inicioSemanaAtual > SALDO_INICIO) {
+        if (inicioSemanaAtual > inicioContagem) {
           const comissoesAnt = lancamentosFinanceiros
             .filter(l => {
               if (l.tecnico_id !== t.tecnico_id || !l.data_geracao) return false;
               const d = toLocalDate(new Date(l.data_geracao));
-              return d && d >= SALDO_INICIO && d < inicioSemanaAtual;
+              return d && d >= inicioContagem && d < inicioSemanaAtual;
             })
             .reduce((sum, l) => sum + (l.valor_comissao_tecnico || 0), 0);
           const pagamentosAnt = pagamentosTecnicos
             .filter(p => {
               if (p.tecnico_id !== t.tecnico_id || p.status !== 'Confirmado') return false;
               const d = toLocalDate(p.data_pagamento || p.created_date);
-              return d && d >= SALDO_INICIO && d < inicioSemanaAtual;
+              return d && d >= inicioContagem && d < inicioSemanaAtual;
             })
             .reduce((sum, p) => sum + (p.valor_pago || 0), 0);
           saldo_anterior = comissoesAnt - pagamentosAnt;

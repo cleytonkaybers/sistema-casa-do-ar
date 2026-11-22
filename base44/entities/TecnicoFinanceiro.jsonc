@@ -51,6 +51,19 @@
       "type": "number",
       "description": "Espelho de User.percentual_comissao. Percentual proprio deste tecnico por servico (%). Vazio = usa o percentual_tecnico da Tabela de Servicos. SEM default de proposito (um default 0 zeraria a comissao de todos)."
     },
+    "saldo_zerado_em": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Quando o ADM zerou o saldo deste tecnico. Comissoes e pagamentos ANTERIORES a esta data param de entrar na conta dele, mas continuam no banco (o historico da empresa nao muda). Vazio = conta desde o inicio."
+    },
+    "saldo_zerado_por": {
+      "type": "string",
+      "description": "E-mail de quem zerou o saldo."
+    },
+    "saldo_zerado_valor": {
+      "type": "number",
+      "description": "Saldo que o tecnico tinha no instante em que foi zerado. Guardado so para consulta depois (negativo = ele devia; positivo = a empresa devia a ele)."
+    },
     "data_ultima_atualizacao": {
       "type": "string",
       "format": "date-time",
