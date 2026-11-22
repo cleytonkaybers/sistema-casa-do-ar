@@ -48,7 +48,6 @@ export default function ClientesTable({
   };
 
   const getStatusColor = (cliente) => {
-    const dataUltima = cliente.ultima_manutencao ? new Date(cliente.ultima_manutencao) : null;
     const dataProxima = cliente.proxima_manutencao ? new Date(cliente.proxima_manutencao) : null;
     const hoje = new Date();
 

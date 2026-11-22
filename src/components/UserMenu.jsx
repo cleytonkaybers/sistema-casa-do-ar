@@ -20,7 +20,6 @@ export default function UserMenu({ user }) {
   }, []);
 
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isAndroid = /android/i.test(navigator.userAgent);
   const [showGuide, setShowGuide] = useState(false);
   const [guideType, setGuideType] = useState('android');
 

@@ -36,9 +36,6 @@ export default function GerarPDFModal({ open, onClose, equipes, tecnicos, lancam
     return null;
   };
 
-  const tecnicosDaEquipe = equipeId
-    ? tecnicos.filter(t => t.equipe_id === equipeId)
-    : tecnicos;
 
   const gerarPDF = async () => {
     const intervalo = getIntervalo();
@@ -165,7 +162,6 @@ export default function GerarPDFModal({ open, onClose, equipes, tecnicos, lancam
         y += 4;
 
         doc.setTextColor(0);
-        let totalServicos = 0;
         let totalComissoes = 0;
         for (const l of lancsFiltrados) {
           if (y > 270) { doc.addPage(); y = 20; }
@@ -178,7 +174,6 @@ export default function GerarPDFModal({ open, onClose, equipes, tecnicos, lancam
           doc.setTextColor(0, 140, 0);
           doc.text(`R$ ${(l.valor_comissao_tecnico || 0).toFixed(2)}`, 172, y);
           doc.setTextColor(0);
-          totalServicos += l.valor_total_servico || 0;
           totalComissoes += l.valor_comissao_tecnico || 0;
           y += 5.5;
         }
@@ -278,9 +273,6 @@ export default function GerarPDFModal({ open, onClose, equipes, tecnicos, lancam
     }
   };
 
-  const tecnicosParaSelecionar = filtroTipo === 'equipe' && equipeId
-    ? tecnicos.filter(t => t.equipe_id === equipeId)
-    : tecnicos;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>

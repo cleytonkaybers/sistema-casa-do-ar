@@ -31,7 +31,6 @@ export default function CompartilharModal({ open, onClose, servico, isConclusao 
   const statusEmoji = getStatusEmoji(servico.status);
   const statusTexto = getStatusTexto(servico.status);
 
-  const titulo = isConclusao ? '✅ Serviço Concluído!' : `${statusEmoji} Serviço - ${statusTexto}`;
 
   const formatPhone = (phone) => {
     if (!phone) return '';

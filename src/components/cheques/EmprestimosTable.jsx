@@ -451,7 +451,6 @@ export default function EmprestimosTable() {
     );
   };
 
-  const Plus2 = ({ className }) => <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>;
 
   // Renderiza grupo de emprestimos do mesmo cliente. Se ha 1 so, renderiza o
   // card individual direto. Se ha 2+, envelopa num card-pai com header + totais.
@@ -659,7 +658,6 @@ export default function EmprestimosTable() {
           </DialogHeader>
           {detalhesModal && (() => {
             const t = detalhesModal.totals;
-            const totalPago = t.jurosPago + t.principal - t.principal + (t.abatido); // mantem o abatido bruto
             const totalAbatido = t.abatido;
             const capitalPago = Math.max(0, totalAbatido - t.jurosPago);
             return (

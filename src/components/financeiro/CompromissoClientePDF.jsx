@@ -20,7 +20,6 @@ export default function CompromissoClientePDF({ isOpen, onClose, pagamento = nul
   const saldoRestante = Math.max(0, totalValor - totalPago);
   
   // Debug: detectar se há inconsistência nos valores
-  const temErroValores = records.some(r => r.valor_total && r.valor_pago && r.valor_pago > r.valor_total);
 
   // Agrupar parcelas futuras
   const parcelasFuturas = records.flatMap(r => (r.historico_pagamentos || []).filter(h => h.agendada === true));

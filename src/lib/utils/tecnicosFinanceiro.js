@@ -292,7 +292,12 @@ export function provisionarTecnicosFinanceiro(opts = {}) {
   return execucaoEmAndamento;
 }
 
-async function _provisionar({ apenasEquipeId = null, usuarios = null } = {}) {
+// `usuarios`: lista ja baixada por quem chama, para nao baixar de novo.
+// `listaCompleta`: declara que essa lista e TODOS os usuarios do app. Sem
+// essa garantia a varredura de orfaos e pulada — com uma lista parcial ela
+// acharia que tecnicos legitimos nao existem mais e apagaria o cadastro
+// financeiro deles.
+async function _provisionar({ apenasEquipeId = null, usuarios = null, listaCompleta = false } = {}) {
   const [users, tecFinsBrutos] = await Promise.all([
     usuarios ? Promise.resolve(usuarios) : listAll('User'),
     listAll('TecnicoFinanceiro'),
@@ -300,9 +305,10 @@ async function _provisionar({ apenasEquipeId = null, usuarios = null } = {}) {
   const { sobreviventes, removidos: removidosDup } = await removerDuplicatas(tecFinsBrutos);
   // Só varre órfãos quando temos a lista COMPLETA de usuários (chamadas com
   // `usuarios` pré-filtrados não servem de referência para "quem não existe").
-  const { ativos: tecFins, removidos: removidosOrfaos } = usuarios
-    ? { ativos: sobreviventes, removidos: 0 }
-    : await tratarOrfaos(sobreviventes, users);
+  const podeVarrerOrfaos = !usuarios || listaCompleta;
+  const { ativos: tecFins, removidos: removidosOrfaos } = podeVarrerOrfaos
+    ? await tratarOrfaos(sobreviventes, users)
+    : { ativos: sobreviventes, removidos: 0 };
   const removidos = removidosDup + removidosOrfaos;
   const tecnicosUsers = (users || []).filter(u =>
     ehTecnicoUser(u) && (!apenasEquipeId || u.equipe_id === apenasEquipeId));

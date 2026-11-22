@@ -347,7 +347,9 @@ export default function ServicosPage() {
           ...(comissaoHabilitada ? { comissao_gerada: true } : {}),
         }
       }));
-      queryClient.invalidateQueries({ queryKey: ['servicos'] });
+      // A lista de serviços é recarregada UMA vez só, no fim (ou no catch, se
+      // algo falhar no meio). Antes havia uma invalidação aqui também, e o
+      // técnico esperava dois recarregamentos completos por conclusão.
 
       // ===== FLUXO VER-DEFEITO: cria Atendimento + deleta Servico (BLOQUEANTE) =====
       if (isVerDefeito) {
@@ -389,6 +391,27 @@ export default function ServicosPage() {
         setServicoParaConcluir(null);
         return;
       }
+
+      // ===== Adianta os downloads grandes (so velocidade) =====
+      //
+      // Estas duas listas sao as chamadas mais pesadas da conclusao e so sao
+      // usadas nos passos 3 e 5. Disparando aqui, o download corre EM
+      // PARALELO com os passos 2-4 em vez de somar ao tempo que o tecnico
+      // fica olhando a tela. Sao exatamente as mesmas chamadas de antes, so
+      // que comecadas mais cedo — o conteudo nao muda.
+      //
+      // Ficam DEPOIS do ver-defeito de proposito: aquele fluxo retorna antes
+      // e nao usa nenhuma das duas.
+      const usuariosPromise = comissaoHabilitada
+        ? listAll('User').catch(() => [])
+        : null;
+      const clientesPromise = servicoSnapshot.sem_registro_cliente
+        ? null
+        : listAll('Cliente');
+      // Sem este catch solto, uma falha no download viraria "unhandled
+      // rejection" antes de o Passo 5 chegar a tratar. O erro real continua
+      // sendo tratado la dentro, igual a antes.
+      if (clientesPromise) clientesPromise.catch(() => {});
 
       // ===== PASSO 2: Criar Atendimento (BLOQUEANTE com retry) =====
       toast.info('⏳ Criando atendimento...', { id: 'conclusao-progresso', duration: 30000 });
@@ -459,8 +482,19 @@ export default function ServicosPage() {
         // Técnico recém-cadastrado só existe em User — sem registro em
         // TecnicoFinanceiro ele ficaria de FORA da comissão deste serviço.
         // Provisiona os faltantes da equipe (saldo zero) antes de buscar.
+        // Lista de usuarios ja adiantada la em cima — aqui so espera chegar.
+        // Antes esta mesma lista era baixada DUAS vezes por conclusao: uma
+        // dentro do provisionamento e outra logo abaixo.
+        const usuariosApp = usuariosPromise ? await usuariosPromise : [];
         try {
-          await provisionarTecnicosFinanceiro({ apenasEquipeId: servicoSnapshot.equipe_id });
+          await provisionarTecnicosFinanceiro({
+            apenasEquipeId: servicoSnapshot.equipe_id,
+            // Reaproveita o download. Se ele falhou (lista vazia), deixa o
+            // provisionamento buscar sozinho, exatamente como antes.
+            ...(usuariosApp.length > 0
+              ? { usuarios: usuariosApp, listaCompleta: true }
+              : {}),
+          });
         } catch (e) {
           console.error('[conclusao] provisionar técnicos falhou:', e);
         }
@@ -468,7 +502,6 @@ export default function ServicosPage() {
         // Só recebe comissão quem é usuário ATIVO do app, não está oculto e
         // não é assalariado. Sem isto, ex-funcionário cujo cadastro financeiro
         // continuava na equipe seguia ganhando % de serviços novos.
-        const usuariosApp = await listAll('User').catch(() => []);
         const tecnicos = filtrarTecnicosParaComissao(tecnicosEquipe, usuariosApp);
         if (!tecnicos || tecnicos.length === 0) {
           // Equipe só com assalariado(s)/ex-funcionário é situação NORMAL.
@@ -640,7 +673,8 @@ export default function ServicosPage() {
       if (!servicoSnapshot.sem_registro_cliente) {
         toast.info('⏳ Atualizando preventiva...', { id: 'conclusao-progresso', duration: 30000 });
         try {
-          const todosClientes = await listAll('Cliente');
+          // Download ja adiantado la em cima; aqui so colhe o resultado.
+          const todosClientes = await (clientesPromise || listAll('Cliente'));
           // Matching robusto: telefone normalizado (ignora 55/DDD/9 extra) com
           // fallback para nome fuzzy (sem acento, case-insensitive). Antes o
           // match exato de telefone/nome falhava silenciosamente e o cliente
@@ -653,10 +687,20 @@ export default function ServicosPage() {
             const dataConc = servicoSnapshot.data_programada || new Date().toISOString().split('T')[0];
             const proxima = new Date(dataConc);
             proxima.setMonth(proxima.getMonth() + 6);
-            await base44.entities.Cliente.update(clienteMatch.id, {
+            const novasDatas = {
               ultima_manutencao: dataConc,
               proxima_manutencao: proxima.toISOString().split('T')[0],
-            });
+            };
+            await base44.entities.Cliente.update(clienteMatch.id, novasDatas);
+            // Corrige o cliente direto no cache em vez de invalidar a lista
+            // toda: invalidar obrigava a rebaixar a tabela inteira de
+            // clientes depois de CADA conclusão, so porque um registro
+            // mudou. Aqui o cache fica com exatamente o mesmo conteudo que
+            // viria do servidor, sem custo de rede.
+            queryClient.setQueryData(['clientes'], (antigos) =>
+              Array.isArray(antigos)
+                ? antigos.map(c => (c.id === clienteMatch.id ? { ...c, ...novasDatas } : c))
+                : antigos);
           }
         } catch (err) {
           console.warn('[conclusao] preventiva nao atualizada (nao bloqueia):', err?.message);
@@ -674,7 +718,8 @@ export default function ServicosPage() {
       queryClient.invalidateQueries({ queryKey: ['pagamentos-clientes'] });
       queryClient.invalidateQueries({ queryKey: ['lancamentosFinanceiros'] });
       queryClient.invalidateQueries({ queryKey: ['tecnicosFinanceiros'] });
-      queryClient.invalidateQueries({ queryKey: ['clientes'] });
+      // `clientes` não entra aqui: o único cliente que a conclusão altera já
+      // foi corrigido no cache no Passo 5.
       const detalhesSucesso = [`✅ Serviço concluído`];
       if (tecnicosComissionados > 0) detalhesSucesso.push(`💰 ${tecnicosComissionados} comissão(ões)`);
       if (pagamentoClienteOk) {
@@ -726,6 +771,10 @@ export default function ServicosPage() {
     } catch (error) {
       toast.dismiss('conclusao-progresso');
       console.error('Erro ao concluir serviço:', error);
+      // O serviço já foi concluído no Passo 1 mesmo que algo depois falhe —
+      // a lista precisa mostrar isso. Era o papel da invalidação que ficava
+      // no meio do caminho.
+      queryClient.invalidateQueries({ queryKey: ['servicos'] });
       toast.error(`⚠️ Falha ao concluir: ${error?.message || 'tente novamente'}. Use o botão "Verificar faltantes" em Pagamentos.`, { duration: 12000 });
     } finally {
       // Libera lock sempre — sucesso, falha ou exception inesperada.
