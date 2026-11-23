@@ -27,16 +27,18 @@ export default function ComissoesFaltantesModal({ open, onOpenChange, onGerou })
     setVarrendo(true);
     setItens(null);
     try {
-      const [servicos, lancs, tecFins, usuarios, tipos] = await Promise.all([
+      const [servicos, lancs, pags, tecFins, usuarios, tipos] = await Promise.all([
         listAll('Servico'),
         listAll('LancamentoFinanceiro'),
+        // Serviço concluído sem preço tem o valor só na cobrança do cliente.
+        listAll('PagamentoCliente').catch(() => []),
         listAll('TecnicoFinanceiro'),
         listAll('User').catch(() => []),
         listAll('TipoServicoValor').catch(() => []),
       ]);
 
       const achados = detectarComissoesFaltantes({
-        servicos, lancamentos: lancs, tecFins, usuarios, tipos,
+        servicos, lancamentos: lancs, pagamentos: pags, tecFins, usuarios, tipos,
         diasJanela: DIAS_JANELA,
       });
       setItens(achados);
@@ -60,7 +62,7 @@ export default function ComissoesFaltantesModal({ open, onOpenChange, onGerou })
       const user = await base44.auth.me().catch(() => null);
 
       for (let i = 0; i < itens.length; i++) {
-        const { servico, comissao, destinos } = itens[i];
+        const { servico, comissao, destinos, valorBase } = itens[i];
         setProgresso(`${i + 1} de ${itens.length} — ${servico.cliente_nome || 'sem cliente'}`);
         try {
           // Relê AGORA: entre a varredura e o clique, a comissão pode ter sido
@@ -82,7 +84,9 @@ export default function ComissoesFaltantesModal({ open, onOpenChange, onGerou })
               tecnico_nome: d.tec.tecnico_nome,
               cliente_nome: servico.cliente_nome,
               tipo_servico: servico.tipo_servico,
-              valor_total_servico: servico.valor,
+              // A MESMA base que apareceu na tela. Usar servico.valor aqui
+              // gravaria zero quando o preço veio da cobrança do cliente.
+              valor_total_servico: valorBase,
               percentual_equipe: comissao.percentual_equipe,
               valor_comissao_equipe: comissao.valor_comissao_equipe,
               percentual_tecnico: d.perc,
@@ -182,7 +186,7 @@ export default function ComissoesFaltantesModal({ open, onOpenChange, onGerou })
             </div>
 
             <div className="space-y-2">
-              {itens.map(({ servico, destinos, quando }) => (
+              {itens.map(({ servico, destinos, quando, valorBase }) => (
                 <div key={servico.id} className="rounded-lg border p-3 text-sm">
                   <div className="flex justify-between gap-2 flex-wrap">
                     <div>
@@ -195,7 +199,13 @@ export default function ComissoesFaltantesModal({ open, onOpenChange, onGerou })
                     </div>
                   </div>
                   <div className="mt-1 text-gray-600">
-                    Valor do serviço: <strong>{formatBRL(servico.valor)}</strong>
+                    Valor do serviço: <strong>{formatBRL(valorBase)}</strong>
+                    {!(servico.valor > 0) && (
+                      <span className="text-amber-600 text-xs">
+                        {' '}· preço veio de Pagamentos de Clientes (o serviço foi
+                        concluído sem valor)
+                      </span>
+                    )}
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {destinos.map((d) => (

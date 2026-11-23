@@ -320,6 +320,17 @@ export default function ServicosPage() {
         && !!servicoSnapshot.valor
         && !servicoSnapshot.comissao_gerada;
 
+      // Serviço de equipe concluído SEM preço: a comissão não sai agora,
+      // porque não há valor para calcular percentual. E definir o preço
+      // depois também não gera — o preço fica na cobrança do cliente, o
+      // serviço continua valendo zero. Antes isso passava em silêncio e o
+      // técnico simplesmente perdia a comissão (foi o caso do Antenor).
+      const semPrecoComEquipe = servicoSnapshot.gerar_comissao !== false
+        && !ehEquipeAdm(servicoSnapshot.equipe_id)
+        && !!servicoSnapshot.equipe_id
+        && !servicoSnapshot.valor
+        && !servicoSnapshot.comissao_gerada;
+
       // ===== PASSO 1: Atualizar Servico para concluido (BLOQUEANTE com retry) =====
       //
       // comissao_gerada vai JUNTO com a conclusão, de propósito: existe um
@@ -720,6 +731,15 @@ export default function ServicosPage() {
       queryClient.invalidateQueries({ queryKey: ['tecnicosFinanceiros'] });
       // `clientes` não entra aqui: o único cliente que a conclusão altera já
       // foi corrigido no cache no Passo 5.
+      if (semPrecoComEquipe) {
+        toast.warning(
+          '⚠️ Serviço concluído SEM preço — a comissão do técnico não foi lançada. ' +
+          'Defina o preço em Pagamentos de Clientes e depois use ' +
+          'Financeiro › "🔍 Comissões faltantes" para lançar.',
+          { duration: 16000 }
+        );
+      }
+
       const detalhesSucesso = [`✅ Serviço concluído`];
       if (tecnicosComissionados > 0) detalhesSucesso.push(`💰 ${tecnicosComissionados} comissão(ões)`);
       if (pagamentoClienteOk) {
