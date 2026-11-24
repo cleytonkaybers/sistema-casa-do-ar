@@ -20,6 +20,19 @@
 
 const TOLERANCIA = 0.01;
 
+// Le um campo numerico que pode simplesmente NAO ter valor.
+//
+// Nao use Number() direto aqui: Number(null) e 0, e 0 passa no
+// Number.isFinite. Para um campo que o servidor devolve como null quando
+// nunca foi preenchido, isso significa ler "faturado R$ 0,00" em vez de
+// "nunca faturado" — e foi exatamente o que jogou 27 notas ja emitidas de
+// volta para a fila. null, undefined e string vazia sao AUSENCIA, nao zero.
+function numeroOuNulo(x) {
+  if (x === null || x === undefined || x === '') return null;
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
+}
+
 // Agrupa pelo serviço. Dois registros do mesmo serviço são o MESMO dinheiro,
 // mesmo tendo ids diferentes.
 export function chaveServicoNF(p) {
@@ -37,8 +50,8 @@ export function chaveServicoNF(p) {
 // de verdade, e elas não podem voltar para a fila por causa da mudança.
 export function valorJaFaturado(p) {
   if (p?.nf_gerada !== true) return 0;
-  const v = Number(p?.nf_gerada_valor);
-  return Number.isFinite(v) ? v : Infinity;
+  const v = numeroOuNulo(p?.nf_gerada_valor);
+  return v === null ? Infinity : v;
 }
 
 // Separa os pagamentos elegíveis nas duas abas.
@@ -92,16 +105,16 @@ export function classificarNotas(elegiveis) {
 // Isto evita contar duas vezes: num parcelado, a 1a nota cobre R$ 500 e a 2a
 // cobre só os R$ 300 que vieram depois — não os R$ 800 inteiros.
 export function valorDaNota(p) {
-  const v = Number(p?.nf_gerada_valor_nota);
-  if (Number.isFinite(v)) return v;
+  const v = numeroOuNulo(p?.nf_gerada_valor_nota);
+  if (v !== null) return v;
   return p?.valor_pago || 0;
 }
 
 // O que gravar ao marcar a NF como gerada.
 export function dadosDaMarcacao(item, quem) {
   const pagoAgora = item?.valor_pago || 0;
-  const faturadoAntes = Number(item?.nf_gerada_valor);
-  const base = Number.isFinite(faturadoAntes) ? faturadoAntes : 0;
+  const faturadoAntes = numeroOuNulo(item?.nf_gerada_valor);
+  const base = faturadoAntes === null ? 0 : faturadoAntes;
   return {
     nf_gerada: true,
     nf_gerada_em: new Date().toISOString(),
